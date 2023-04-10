@@ -15,6 +15,8 @@ namespace EzNutrition.Server.Data
 
         public DbSet<MultiDerivedPersonRelationship>? MultiDerivedPersonRelationships { get; set; }
 
+        public DbSet<PersonalDietaryReferenceIntakeValue>? PersonalDietaryReferenceIntakes { get; set; }
+
         public EzNutritionDbContext(DbContextOptions<EzNutritionDbContext> options) : base(options) { }
     }
 }

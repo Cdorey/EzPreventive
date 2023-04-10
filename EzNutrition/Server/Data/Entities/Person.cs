@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EzNutrition.Server.Data.Entities
 {
@@ -58,7 +57,7 @@ namespace EzNutrition.Server.Data.Entities
         public Guid? DerivedFromPersonId { get; set; }
         public Person? DerivedFromPerson { get; set; }
 
-
+        #region ProductionModel
         /// <summary>
         /// 菱形派生导航属性，标志多继承关系
         /// </summary>
@@ -67,5 +66,8 @@ namespace EzNutrition.Server.Data.Entities
 
         [InverseProperty(nameof(MultiDerivedPersonRelationship.ParentModel))]
         public List<MultiDerivedPersonRelationship>? MultiDerivedTo { get; set; }
+
+        public List<PersonalDietaryReferenceIntakeValue>? DietaryReferenceIntakes { get; set; }
+        #endregion
     }
 }

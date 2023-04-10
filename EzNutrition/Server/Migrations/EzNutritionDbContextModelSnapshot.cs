@@ -46,7 +46,7 @@ namespace EzNutrition.Server.Migrations
 
                     b.HasKey("FoodId");
 
-                    b.ToTable("Foods", (string)null);
+                    b.ToTable("Foods");
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.FoodNutrientValue", b =>
@@ -79,7 +79,7 @@ namespace EzNutrition.Server.Migrations
 
                     b.HasIndex("NutrientId");
 
-                    b.ToTable("FoodNutrientValues", (string)null);
+                    b.ToTable("FoodNutrientValues");
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.MultiDerivedPersonRelationship", b =>
@@ -100,7 +100,7 @@ namespace EzNutrition.Server.Migrations
 
                     b.HasIndex("ParentModelId");
 
-                    b.ToTable("MultiDerivedPersonRelationships", (string)null);
+                    b.ToTable("MultiDerivedPersonRelationships");
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.Nutrient", b =>
@@ -126,7 +126,7 @@ namespace EzNutrition.Server.Migrations
 
                     b.HasKey("NutrientId");
 
-                    b.ToTable("Nutrients", (string)null);
+                    b.ToTable("Nutrients");
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.Person", b =>
@@ -174,7 +174,37 @@ namespace EzNutrition.Server.Migrations
 
                     b.HasIndex("DerivedFromPersonId");
 
-                    b.ToTable("People", (string)null);
+                    b.ToTable("People");
+                });
+
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.PersonalDietaryReferenceIntakeValue", b =>
+                {
+                    b.Property<int>("PersonalDietaryReferenceIntakeValueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PersonalDietaryReferenceIntakeValueId"), 1L, 1);
+
+                    b.Property<string>("MeasureUnit")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("NutrientId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("PersonalDietaryReferenceIntakeValueId");
+
+                    b.HasIndex("NutrientId");
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("PersonalDietaryReferenceIntakes");
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.FoodNutrientValue", b =>
@@ -220,6 +250,25 @@ namespace EzNutrition.Server.Migrations
                     b.Navigation("DerivedFromPerson");
                 });
 
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.PersonalDietaryReferenceIntakeValue", b =>
+                {
+                    b.HasOne("EzNutrition.Server.Data.Entities.Nutrient", "Nutrient")
+                        .WithMany()
+                        .HasForeignKey("NutrientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EzNutrition.Server.Data.Entities.Person", "Person")
+                        .WithMany("DietaryReferenceIntakes")
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Nutrient");
+
+                    b.Navigation("Person");
+                });
+
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.Food", b =>
                 {
                     b.Navigation("FoodNutrientValues");
@@ -232,6 +281,8 @@ namespace EzNutrition.Server.Migrations
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.Person", b =>
                 {
+                    b.Navigation("DietaryReferenceIntakes");
+
                     b.Navigation("MultiDerivedFrom");
 
                     b.Navigation("MultiDerivedTo");
