@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EzNutrition.Server.Data.Entities
 {
-    public class RecordBase
+    public abstract class RecordBase
     {
 
         public string? Details { get; set; }
