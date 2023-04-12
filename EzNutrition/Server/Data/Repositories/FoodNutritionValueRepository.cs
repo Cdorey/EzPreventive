@@ -137,17 +137,4 @@ namespace EzNutrition.Server.Data.Repositories
             this.dbContext = dbContext;
         }
     }
-
-    /// <summary>
-    /// 膳食参考摄入量表
-    /// </summary>
-    public class PersonalModelRespository
-    {
-        private readonly EzNutritionDbContext dbContext;
-
-        public PersonalModelRespository(EzNutritionDbContext dbContext)
-        {
-            this.dbContext = dbContext;
-        }
-    }
 }

@@ -20,5 +20,13 @@ namespace EzNutrition.Server.Data.Entities
         [Column(TypeName = "varchar(64)")]
         public string? MeasureUnit { get; set; }
 
+        [Required]
+        public bool IsOffsetValue { get; set; }
+
+        [StringLength(64)]
+        [Required]
+        public string? ReferenceType { get; set; }
+
+        public string? Details { get; set; }
     }
 }
