@@ -22,6 +22,87 @@ namespace EzNutrition.Server.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
 
+            modelBuilder.Entity("AdviceDisease", b =>
+                {
+                    b.Property<int>("AdvicesAdviceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DiseasesDiseaseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AdvicesAdviceId", "DiseasesDiseaseId");
+
+                    b.HasIndex("DiseasesDiseaseId");
+
+                    b.ToTable("AdviceDisease");
+                });
+
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Advice", b =>
+                {
+                    b.Property<int>("AdviceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdviceId"), 1L, 1);
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.HasKey("AdviceId");
+
+                    b.ToTable("Advices");
+                });
+
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Disease", b =>
+                {
+                    b.Property<int>("DiseaseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DiseaseId"), 1L, 1);
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ICD10")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("DiseaseId");
+
+                    b.ToTable("Diseases");
+                });
+
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.EER", b =>
+                {
+                    b.Property<int>("EERId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EERId"), 1L, 1);
+
+                    b.Property<decimal?>("AgeStart")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("AvgBwEER")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BEE")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("PAL")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("EERId");
+
+                    b.ToTable("EERs");
+                });
+
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.Food", b =>
                 {
                     b.Property<Guid>("FoodId")
@@ -185,6 +266,12 @@ namespace EzNutrition.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PersonalDietaryReferenceIntakeValueId"), 1L, 1);
 
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsOffsetValue")
+                        .HasColumnType("bit");
+
                     b.Property<string>("MeasureUnit")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)");
@@ -194,6 +281,11 @@ namespace EzNutrition.Server.Migrations
 
                     b.Property<Guid>("PersonId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("Value")
                         .HasColumnType("decimal(18,2)");
@@ -205,6 +297,21 @@ namespace EzNutrition.Server.Migrations
                     b.HasIndex("PersonId");
 
                     b.ToTable("PersonalDietaryReferenceIntakes");
+                });
+
+            modelBuilder.Entity("AdviceDisease", b =>
+                {
+                    b.HasOne("EzNutrition.Server.Data.Entities.Advice", null)
+                        .WithMany()
+                        .HasForeignKey("AdvicesAdviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EzNutrition.Server.Data.Entities.Disease", null)
+                        .WithMany()
+                        .HasForeignKey("DiseasesDiseaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.FoodNutrientValue", b =>
