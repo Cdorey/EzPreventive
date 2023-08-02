@@ -12,7 +12,7 @@ namespace EzNutrition.Server.Data.Repositories
                        where eer.Gender == gender
                        && eer.AgeStart <= age
                        group eer by eer.AgeStart;
-            return eers.Any() ? eers.OrderBy(x => x.Key).First().ToList() : new List<EER>();
+            return eers.OrderBy(x => x.Key).FirstOrDefault()?.ToList() ?? new List<EER>();
         }
 
 
