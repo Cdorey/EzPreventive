@@ -16,7 +16,6 @@ namespace EzNutrition
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
-
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

@@ -1,19 +1,51 @@
 ﻿@page "/counter"
+@using EzNutrition.Shared;
+@inject HttpClient Http
 
 <PageTitle>Counter</PageTitle>
 
 <h1>Counter</h1>
 
-<p role="status">Current count: @currentCount</p>
+@if (eers == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var eer in eers)
+            {
+                <tr>
+                    <td>@eer.AgeStart</td>
+                    <td>@eer.Gender</td>
+                    <td>@eer.PAL</td>
+                    <td>@eer.AvgBwEER</td>
+                    <td>@eer.BEE</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
 @code {
     private int currentCount = 0;
 
-    private void IncrementCount()
+    private List<EER>? eers;
+
+    private async Task IncrementCount()
     {
-        
-        currentCount++;
+
+        eers = await Http.GetFromJsonAsync<List<EER>>("Energy/EERs/男/18");
     }
 }
