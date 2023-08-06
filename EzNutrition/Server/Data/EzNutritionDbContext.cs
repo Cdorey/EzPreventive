@@ -1,4 +1,4 @@
-﻿using EzNutrition.Server.Data.Entities;
+﻿using EzNutrition.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace EzNutrition.Server.Data

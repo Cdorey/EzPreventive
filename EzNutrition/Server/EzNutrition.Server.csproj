@@ -21,5 +21,9 @@
     <ProjectReference Include="..\Shared\EzNutrition.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Data\Entities\" />
+  </ItemGroup>
+
 
 </Project>
