@@ -37,7 +37,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("AdviceDisease");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Advice", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Advice", b =>
                 {
                     b.Property<int>("AdviceId")
                         .ValueGeneratedOnAdd()
@@ -56,7 +56,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("Advices");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Disease", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Disease", b =>
                 {
                     b.Property<int>("DiseaseId")
                         .ValueGeneratedOnAdd()
@@ -75,7 +75,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("Diseases");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.EER", b =>
+            modelBuilder.Entity("EzNutrition.Shared.EER", b =>
                 {
                     b.Property<int>("EERId")
                         .ValueGeneratedOnAdd()
@@ -86,7 +86,7 @@ namespace EzNutrition.Server.Migrations
                     b.Property<decimal?>("AgeStart")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("AvgBwEER")
+                    b.Property<int?>("AvgBwEER")
                         .HasColumnType("int");
 
                     b.Property<decimal?>("BEE")
@@ -103,7 +103,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("EERs");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Food", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Food", b =>
                 {
                     b.Property<Guid>("FoodId")
                         .ValueGeneratedOnAdd()
@@ -130,7 +130,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("Foods");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.FoodNutrientValue", b =>
+            modelBuilder.Entity("EzNutrition.Shared.FoodNutrientValue", b =>
                 {
                     b.Property<int>("FoodNutrientValueId")
                         .ValueGeneratedOnAdd()
@@ -163,7 +163,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("FoodNutrientValues");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.MultiDerivedPersonRelationship", b =>
+            modelBuilder.Entity("EzNutrition.Shared.MultiDerivedPersonRelationship", b =>
                 {
                     b.Property<Guid>("MultiDerivedPersonRelationshipId")
                         .ValueGeneratedOnAdd()
@@ -184,7 +184,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("MultiDerivedPersonRelationships");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Nutrient", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Nutrient", b =>
                 {
                     b.Property<int>("NutrientId")
                         .ValueGeneratedOnAdd()
@@ -210,7 +210,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("Nutrients");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Person", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Person", b =>
                 {
                     b.Property<Guid>("PersonId")
                         .ValueGeneratedOnAdd()
@@ -258,7 +258,7 @@ namespace EzNutrition.Server.Migrations
                     b.ToTable("People");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.PersonalDietaryReferenceIntakeValue", b =>
+            modelBuilder.Entity("EzNutrition.Shared.PersonalDietaryReferenceIntakeValue", b =>
                 {
                     b.Property<int>("PersonalDietaryReferenceIntakeValueId")
                         .ValueGeneratedOnAdd()
@@ -301,28 +301,28 @@ namespace EzNutrition.Server.Migrations
 
             modelBuilder.Entity("AdviceDisease", b =>
                 {
-                    b.HasOne("EzNutrition.Server.Data.Entities.Advice", null)
+                    b.HasOne("EzNutrition.Shared.Advice", null)
                         .WithMany()
                         .HasForeignKey("AdvicesAdviceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("EzNutrition.Server.Data.Entities.Disease", null)
+                    b.HasOne("EzNutrition.Shared.Disease", null)
                         .WithMany()
                         .HasForeignKey("DiseasesDiseaseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.FoodNutrientValue", b =>
+            modelBuilder.Entity("EzNutrition.Shared.FoodNutrientValue", b =>
                 {
-                    b.HasOne("EzNutrition.Server.Data.Entities.Food", "Food")
+                    b.HasOne("EzNutrition.Shared.Food", "Food")
                         .WithMany("FoodNutrientValues")
                         .HasForeignKey("FoodId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("EzNutrition.Server.Data.Entities.Nutrient", "Nutrient")
+                    b.HasOne("EzNutrition.Shared.Nutrient", "Nutrient")
                         .WithMany("FoodNutrientValues")
                         .HasForeignKey("NutrientId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -333,13 +333,13 @@ namespace EzNutrition.Server.Migrations
                     b.Navigation("Nutrient");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.MultiDerivedPersonRelationship", b =>
+            modelBuilder.Entity("EzNutrition.Shared.MultiDerivedPersonRelationship", b =>
                 {
-                    b.HasOne("EzNutrition.Server.Data.Entities.Person", "ChildModel")
+                    b.HasOne("EzNutrition.Shared.Person", "ChildModel")
                         .WithMany("MultiDerivedFrom")
                         .HasForeignKey("ChildModelId");
 
-                    b.HasOne("EzNutrition.Server.Data.Entities.Person", "ParentModel")
+                    b.HasOne("EzNutrition.Shared.Person", "ParentModel")
                         .WithMany("MultiDerivedTo")
                         .HasForeignKey("ParentModelId");
 
@@ -348,24 +348,24 @@ namespace EzNutrition.Server.Migrations
                     b.Navigation("ParentModel");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Person", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Person", b =>
                 {
-                    b.HasOne("EzNutrition.Server.Data.Entities.Person", "DerivedFromPerson")
+                    b.HasOne("EzNutrition.Shared.Person", "DerivedFromPerson")
                         .WithMany()
                         .HasForeignKey("DerivedFromPersonId");
 
                     b.Navigation("DerivedFromPerson");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.PersonalDietaryReferenceIntakeValue", b =>
+            modelBuilder.Entity("EzNutrition.Shared.PersonalDietaryReferenceIntakeValue", b =>
                 {
-                    b.HasOne("EzNutrition.Server.Data.Entities.Nutrient", "Nutrient")
+                    b.HasOne("EzNutrition.Shared.Nutrient", "Nutrient")
                         .WithMany()
                         .HasForeignKey("NutrientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("EzNutrition.Server.Data.Entities.Person", "Person")
+                    b.HasOne("EzNutrition.Shared.Person", "Person")
                         .WithMany("DietaryReferenceIntakes")
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -376,17 +376,17 @@ namespace EzNutrition.Server.Migrations
                     b.Navigation("Person");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Food", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Food", b =>
                 {
                     b.Navigation("FoodNutrientValues");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Nutrient", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Nutrient", b =>
                 {
                     b.Navigation("FoodNutrientValues");
                 });
 
-            modelBuilder.Entity("EzNutrition.Server.Data.Entities.Person", b =>
+            modelBuilder.Entity("EzNutrition.Shared.Person", b =>
                 {
                     b.Navigation("DietaryReferenceIntakes");
 

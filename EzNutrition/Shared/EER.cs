@@ -10,7 +10,7 @@
 
         public decimal? PAL { get; set; }
 
-        public int AvgBwEER { get; set; }
+        public int? AvgBwEER { get; set; }
 
         public decimal? BEE { get; set; }
     }
