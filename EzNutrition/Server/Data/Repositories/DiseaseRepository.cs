@@ -1,5 +1,4 @@
-﻿
-using EzNutrition.Shared;
+﻿using EzNutrition.Shared.Data.Entities;
 
 namespace EzNutrition.Server.Data.Repositories
 {
