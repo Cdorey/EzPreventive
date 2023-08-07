@@ -1,5 +1,6 @@
 ﻿
 using EzNutrition.Shared;
+using System.Linq;
 
 namespace EzNutrition.Server.Data.Repositories
 {
@@ -12,8 +13,8 @@ namespace EzNutrition.Server.Data.Repositories
             var eers = from eer in dbContext.EERs
                        where eer.Gender == gender
                        && eer.AgeStart <= age
-                       group eer by eer.AgeStart;
-            return eers.OrderBy(x => x.Key).FirstOrDefault()?.ToList() ?? new List<EER>();
+                       select eer;
+            return eers.Where(x => x.AgeStart == eers.Max(x => x.AgeStart)).ToList() ?? new List<EER>();
         }
 
 
