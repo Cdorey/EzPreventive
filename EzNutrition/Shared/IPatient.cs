@@ -16,6 +16,6 @@ namespace EzNutrition.Shared
 
         public decimal Weight { get; set; }
 
-        public int Age { get;}
+        public int Age { get; }
     }
 }
