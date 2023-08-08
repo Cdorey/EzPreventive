@@ -1,0 +1,204 @@
+﻿@page "/maintreatment"
+@using EzNutrition.Shared.Utilities;
+@using EzNutrition.Shared.Data.Entities;
+@inject HttpClient Http
+
+<h3>MainTreatment</h3>
+
+<div class="container">
+    <form>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="name">姓名</label>
+                    <input id="name" class="form-control" @bind="UserInfo.Name" />
+                </div>
+
+                <div class="form-group">
+                    <label for="gender">性别</label>
+                    <select id="gender" class="form-control" value="UserInfo.Gender" @onchange="OnGenderChanged">
+                        <option value="">请选择</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="age">年龄</label>
+                    <input id="age" class="form-control" value="UserInfo.Age" @onchange="OnAgeChanged" type="number" min="0" />
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="pal">PAL</label>
+                    <select id="pal" class="form-control" @bind="UserInfo.PAL">
+                        <option value="">请选择</option>
+                        @foreach (var eer in UserInfo.AvailableEERs)
+                        {
+                            @if (eer.PAL != null)
+                            {
+                                <option value="@eer.PAL">@eer.PAL</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="height">身高（cm）</label>
+                    <input id="height" class="form-control" @bind="UserInfo.Height" type="number" min="0" />
+                </div>
+
+                <div class="form-group">
+                    <label for="weight">体重（kg）</label>
+                    <input id="weight" class="form-control" @bind="UserInfo.Weight" type="number" min="0" />
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" @onclick="SubmitForm">计算</button>
+    </form>
+</div>
+
+@code {
+    private readonly UserInfoModel UserInfo = new UserInfoModel();
+
+    private async Task OnGenderChanged(ChangeEventArgs e)
+    {
+        UserInfo.Gender = e.Value as string;
+        await FetchEERs();
+    }
+    private async Task OnAgeChanged(ChangeEventArgs e)
+    {
+        if (e.Value is string ageString)
+        {
+            if (int.TryParse(ageString, out int ageInt))
+            {
+                UserInfo.Age = ageInt;
+                await FetchEERs();
+            }
+        }
+    }
+
+    private async Task FetchEERs()
+    {
+        if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
+        {
+            try
+            {
+                UserInfo.AvailableEERs = await Http.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+            }
+            catch (HttpRequestException e)
+            {
+
+            }
+        }
+    }
+
+    private void SubmitForm()
+    {
+        // 在此处执行提交操作
+
+    }
+}
+
+@code {
+    public class UserInfoModel
+    {
+        public List<EER> AvailableEERs { get; set; } = new();
+        public string? Name { get; set; }
+
+        public string? Gender { get; set; }
+        public int Age { get; set; }
+
+        public decimal? PAL { get; set; }
+        public decimal? Height { get; set; }
+        public decimal? Weight { get; set; }
+    }
+}
+
+
+<div class="container">
+    <form>
+        <div class="row">
+            <div class="col-lg-6">
+                <h3>三餐能量分配</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>餐次</th>
+                            <th>蛋白质(g)</th>
+                            <th>碳水化合物(g)</th>
+                            <th>脂肪(g)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatContent" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatContent" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatContent" readonly /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-lg-6">
+                <h3>食物交换份</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>餐次</th>
+                            <th>蛋白质</th>
+                            <th>碳水化合物</th>
+                            <th>脂肪</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions " readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatPortions" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydratePortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatPortionst" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydratePortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatPortions" readonly /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">提交</button>
+    </form>
+</div>
+
+@code {
+    private MacronutrientAllocation? allocation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        allocation = new MacronutrientAllocation(2200);
+    }
+}

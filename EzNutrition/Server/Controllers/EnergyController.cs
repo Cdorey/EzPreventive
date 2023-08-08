@@ -14,7 +14,7 @@ namespace EzNutrition.Server.Controllers
         [HttpGet("EERs/{gender}/{age}")]
         public IActionResult GetEERs(string gender, decimal age)
         {
-            if (string.IsNullOrEmpty(gender) || age <= 0)
+            if (string.IsNullOrEmpty(gender) || age < 0)
             {
                 return BadRequest("Invalid gender or age.");
             }
