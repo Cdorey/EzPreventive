@@ -3,8 +3,8 @@
 @using EzNutrition.Shared.Data.Entities;
 @inject HttpClient Http
 
-<h3 class="mb-3">MainTreatment</h3>
-
+<h3 class="mb-3">核心档案管理</h3>
+<h4 class="mb-3">基本信息</h4>
 <div class="container">
     <form class="mb-4">
         <div class="row">
@@ -60,7 +60,55 @@
         <button type="reset" class="btn btn-secondary" @onclick="OnResetBtnClick">重置</button>
     </form>
 </div>
+<h4 class="mb-3">能量模型</h4>
+<div class="container">
+    @if (@foodExchangeAllocation != null)
+    {
+        <div class="row">
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="grain">谷薯类：</label>
+                    <input id="grain" class="form-control" type="number" min="0" value="@foodExchangeAllocation.GrainsAndStarchyFoods" readonly />
+                </div>
+            </div>
 
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="soy">豆乳类：</label>
+                    <input id="soy" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.LegumesAndDairyAlternatives" />
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="meat">肉蛋类：</label>
+                    <input id="meat" class="form-control" type="number" min="0" value="@foodExchangeAllocation?.MeatsAndEggs" readonly />
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="vegetable">蔬菜类：</label>
+                    <input id="vegetable" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.Vegetables" />
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="energy">能量类：</label>
+                    <input id="energy" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.EnergyFoodsOrFats" />
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="form-group">
+                    <label for="fruit">水果类：</label>
+                    <input id="fruit" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.Fruits" />
+                </div>
+            </div>
+        </div>
+    }
+</div>
 <div class="container">
     <form class="mb-4">
         <div class="row">
@@ -140,7 +188,7 @@
     private UserInfoModel UserInfo = new UserInfoModel();
 
     private MacronutrientAllocation? allocation;
-
+    private FoodExchangeAllocation? foodExchangeAllocation;
     public class UserInfoModel
     {
         public List<EER> AvailableEERs { get; set; } = new();
@@ -218,6 +266,7 @@
         if (energy > 0)
         {
             allocation = new MacronutrientAllocation(energy);
+            foodExchangeAllocation = new FoodExchangeAllocation(allocation);
         }
     }
 
@@ -227,5 +276,6 @@
     {
         UserInfo = new();
         allocation = null;
+        foodExchangeAllocation = null;
     }
 }
