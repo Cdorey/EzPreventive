@@ -3,10 +3,10 @@
 @using EzNutrition.Shared.Data.Entities;
 @inject HttpClient Http
 
-<h3>MainTreatment</h3>
+<h3 class="mb-3">MainTreatment</h3>
 
 <div class="container">
-    <form>
+    <form class="mb-4">
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">
@@ -56,70 +56,13 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" @onclick="SubmitForm">计算</button>
+        <button type="button" class="btn btn-primary mr-2 mb-lg-0" @onclick="OnCalculateBtnClick">计算</button>
+        <button type="reset" class="btn btn-secondary" @onclick="OnResetBtnClick">重置</button>
     </form>
 </div>
 
-@code {
-    private readonly UserInfoModel UserInfo = new UserInfoModel();
-
-    private async Task OnGenderChanged(ChangeEventArgs e)
-    {
-        UserInfo.Gender = e.Value as string;
-        await FetchEERs();
-    }
-    private async Task OnAgeChanged(ChangeEventArgs e)
-    {
-        if (e.Value is string ageString)
-        {
-            if (int.TryParse(ageString, out int ageInt))
-            {
-                UserInfo.Age = ageInt;
-                await FetchEERs();
-            }
-        }
-    }
-
-    private async Task FetchEERs()
-    {
-        if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
-        {
-            try
-            {
-                UserInfo.AvailableEERs = await Http.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
-            }
-            catch (HttpRequestException e)
-            {
-
-            }
-        }
-    }
-
-    private void SubmitForm()
-    {
-        // 在此处执行提交操作
-
-    }
-}
-
-@code {
-    public class UserInfoModel
-    {
-        public List<EER> AvailableEERs { get; set; } = new();
-        public string? Name { get; set; }
-
-        public string? Gender { get; set; }
-        public int Age { get; set; }
-
-        public decimal? PAL { get; set; }
-        public decimal? Height { get; set; }
-        public decimal? Weight { get; set; }
-    }
-}
-
-
 <div class="container">
-    <form>
+    <form class="mb-4">
         <div class="row">
             <div class="col-lg-6">
                 <h3>三餐能量分配</h3>
@@ -170,7 +113,7 @@
                         <tr>
                             <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
                             <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinPortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions " readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions" readonly /></td>
                             <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatPortions" readonly /></td>
                         </tr>
                         <tr>
@@ -190,15 +133,99 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary">提交</button>
+        <button type="submit" class="btn btn-primary mr-2">提交</button>
     </form>
 </div>
-
 @code {
+    private UserInfoModel UserInfo = new UserInfoModel();
+
     private MacronutrientAllocation? allocation;
 
-    protected override async Task OnInitializedAsync()
+    public class UserInfoModel
     {
-        allocation = new MacronutrientAllocation(2200);
+        public List<EER> AvailableEERs { get; set; } = new();
+        public string? Name { get; set; }
+
+        public string? Gender { get; set; }
+        public int Age { get; set; }
+
+        public decimal? PAL { get; set; }
+        public decimal? Height { get; set; }
+        public decimal? Weight { get; set; }
+    }
+
+    private async Task OnGenderChanged(ChangeEventArgs e)
+    {
+        UserInfo.Gender = e.Value as string;
+        await FetchEERs();
+    }
+
+    private async Task OnAgeChanged(ChangeEventArgs e)
+    {
+        if (e.Value is string ageString)
+        {
+            if (int.TryParse(ageString, out int ageInt))
+            {
+                UserInfo.Age = ageInt;
+                await FetchEERs();
+            }
+        }
+    }
+
+    private async Task FetchEERs()
+    {
+        if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
+        {
+            try
+            {
+                UserInfo.AvailableEERs = await Http.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+            }
+            catch (HttpRequestException)
+            {
+
+            }
+        }
+    }
+
+
+    private void OnCalculateBtnClick()
+    {
+        int CalculateEnergyFromBEE()
+        {
+            if (UserInfo.PAL is not null && UserInfo.Height is not null)
+            {
+                var eerWithBEE = UserInfo.AvailableEERs.FirstOrDefault(x => x.BEE != null);
+                if (eerWithBEE?.BEE is not null)
+                {
+                    return EnergyCalculator.GetEnergy(UserInfo.Height.Value, eerWithBEE.BEE.Value, UserInfo.PAL.Value);
+                }
+            }
+            return 0;
+        }
+
+        int CalculateEnergyFromPAL()
+        {
+            if (UserInfo.PAL is not null)
+            {
+                var eerWithPAL = UserInfo.AvailableEERs.FirstOrDefault(x => x.PAL == UserInfo.PAL);
+                return eerWithPAL?.AvgBwEER ?? 0;
+            }
+            return 0;
+        }
+
+        var beeResult = CalculateEnergyFromBEE();
+        var energy = beeResult == 0 ? CalculateEnergyFromPAL() : beeResult;
+        if (energy > 0)
+        {
+            allocation = new MacronutrientAllocation(energy);
+        }
+    }
+
+
+
+    private void OnResetBtnClick()
+    {
+        UserInfo = new();
+        allocation = null;
     }
 }
