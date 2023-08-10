@@ -1,6 +1,7 @@
 ﻿@page "/maintreatment"
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
+@using System.Text;
 @inject HttpClient Http
 
 <h3 class="mb-3">核心档案管理</h3>
@@ -8,7 +9,7 @@
 <div class="container">
     <form class="mb-4">
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-6 mb-2">
                 <div class="form-group">
                     <label for="name">姓名</label>
                     <input id="name" class="form-control" @bind="UserInfo.Name" />
@@ -29,7 +30,7 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-6 mb-2">
                 <div class="form-group">
                     <label for="pal">PAL</label>
                     <select id="pal" class="form-control" @bind="UserInfo.PAL">
@@ -56,11 +57,108 @@
             </div>
         </div>
 
-        <button type="button" class="btn btn-primary mr-2 mb-lg-0" @onclick="OnCalculateBtnClick">计算</button>
-        <button type="reset" class="btn btn-secondary" @onclick="OnResetBtnClick">重置</button>
+        <button type="button" class="btn btn-primary mr-2 mb-2" @onclick="OnCalculateBtnClick">计算</button>
+        <button type="reset" class="btn btn-secondary mb-2" @onclick="OnResetBtnClick">重置</button>
     </form>
 </div>
 <h4 class="mb-3">能量模型</h4>
+<div class="container mb-3">
+    @if (summary != null)
+    {
+        <div class="row">
+            <div class="row mb-2">
+                <p>@summary</p>
+            </div>
+            <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                <div class="form-group">
+                    <input id="corEnergy" class="form-control" @onchange="OnCorrectEnergyChanged" placeholder="如无需修正请留空" type="number" min="1000" />
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-12">
+                <h5 class="mb-3">键入咨询者的基本信息后点击计算……</h5>
+            </div>
+        </div>
+    }
+</div>
+<div class="container">
+    @if (allocation != null)
+    {
+        <div class="row">
+            <div class="col-lg-6">
+                <h5>三餐能量分配</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>餐次</th>
+                            <th>蛋白质(g)</th>
+                            <th>碳水化合物(g)</th>
+                            <th>脂肪(g)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatContent" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatContent" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydrateContent" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatContent" readonly /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-lg-6">
+                <h5>食物交换份</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>餐次</th>
+                            <th>蛋白质</th>
+                            <th>碳水化合物</th>
+                            <th>脂肪</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatPortions" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydratePortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatPortionst" readonly /></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinPortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydratePortions" readonly /></td>
+                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatPortions" readonly /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
 <div class="container">
     @if (@foodExchangeAllocation != null)
     {
@@ -109,84 +207,10 @@
         </div>
     }
 </div>
-<div class="container">
-    <form class="mb-4">
-        <div class="row">
-            <div class="col-lg-6">
-                <h3>三餐能量分配</h3>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>餐次</th>
-                            <th>蛋白质(g)</th>
-                            <th>碳水化合物(g)</th>
-                            <th>脂肪(g)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydrateContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatContent" readonly /></td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydrateContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatContent" readonly /></td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydrateContent" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatContent" readonly /></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="col-lg-6">
-                <h3>食物交换份</h3>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>餐次</th>
-                            <th>蛋白质</th>
-                            <th>碳水化合物</th>
-                            <th>脂肪</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinPortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatPortions" readonly /></td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinPortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydratePortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatPortionst" readonly /></td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinPortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydratePortions" readonly /></td>
-                            <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatPortions" readonly /></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <button type="submit" class="btn btn-primary mr-2">提交</button>
-    </form>
-</div>
 @code {
     private UserInfoModel UserInfo = new UserInfoModel();
 
+    private string? summary;
     private MacronutrientAllocation? allocation;
     private FoodExchangeAllocation? foodExchangeAllocation;
     public class UserInfoModel
@@ -263,8 +287,18 @@
 
         var beeResult = CalculateEnergyFromBEE();
         var energy = beeResult == 0 ? CalculateEnergyFromPAL() : beeResult;
+        //输出能量模型
         if (energy > 0)
         {
+            var height = (UserInfo.Height ?? 0) / 100;
+            var strBuild = new StringBuilder();
+            if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
+            {
+                strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
+            }
+            strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
+            strBuild.AppendLine("如有需要，请根据咨询者实际情况修正总能量：");
+            summary = strBuild.ToString();
             allocation = new MacronutrientAllocation(energy);
             foodExchangeAllocation = new FoodExchangeAllocation(allocation);
         }
@@ -274,8 +308,36 @@
 
     private void OnResetBtnClick()
     {
+        //重置全部信息
         UserInfo = new();
+        summary = null;
         allocation = null;
         foodExchangeAllocation = null;
+    }
+
+    private void OnCorrectEnergyChanged(ChangeEventArgs e)
+    {
+        if (e?.Value is string newValue && !string.IsNullOrEmpty(newValue))
+        {
+            var newEnergy = int.Parse(newValue);
+            if (newEnergy > 0)
+            {
+                var height = (UserInfo.Height ?? 0) / 100;
+                var strBuild = new StringBuilder();
+                if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
+                {
+                    strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
+                }
+                strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
+                strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
+                summary = strBuild.ToString();
+                allocation = new MacronutrientAllocation(newEnergy);
+                foodExchangeAllocation = new FoodExchangeAllocation(allocation);
+            }
+        }
+        else
+        {
+
+        }
     }
 }
