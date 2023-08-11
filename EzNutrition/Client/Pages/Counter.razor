@@ -6,7 +6,7 @@
 
 <h1>Counter</h1>
 
-@if (eers == null)
+@if (advices == null)
 {
     <p><em>Loading...</em></p>
 }
@@ -15,22 +15,18 @@ else
     <table class="table">
         <thead>
             <tr>
-                <th>AgeMin</th>
-                <th>Gender</th>
-                <th>PAL</th>
-                <th>AvgBwEER</th>
-                <th>BEE</th>
+                <th>AdviceId</th>
+                <th>Content</th>
+                <th>Priority</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var eer in eers)
+            @foreach (var advice in advices)
             {
                 <tr>
-                    <td>@eer.AgeStart</td>
-                    <td>@eer.Gender</td>
-                    <td>@eer.PAL</td>
-                    <td>@eer.AvgBwEER</td>
-                    <td>@eer.BEE</td>
+                    <td>@advice.AdviceId</td>
+                    <td>@advice.Content</td>
+                    <td>@advice.Priority</td>
                 </tr>
             }
         </tbody>
@@ -42,11 +38,12 @@ else
 @code {
     private int currentCount = 0;
 
-    private List<EER>? eers;
+    private List<Advice>? advices;
 
     private async Task IncrementCount()
     {
 
-        eers = await Http.GetFromJsonAsync<List<EER>>("Energy/EERs/男/18");
+        var result = await Http.PostAsJsonAsync("Prescription/advices", new List<int> { 1, 2, 3, 5 });
+        advices = await result.Content.ReadFromJsonAsync<List<Advice>>();
     }
 }
