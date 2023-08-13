@@ -61,7 +61,7 @@
         <button type="reset" class="btn btn-secondary mb-2" @onclick="OnResetBtnClick">重置</button>
     </form>
 </div>
-<h4 class="mb-3">能量模型</h4>
+<h4 class="mb-3">概要</h4>
 <div class="container mb-3">
     @if (summary != null)
     {
@@ -85,6 +85,11 @@
         </div>
     }
 </div>
+@if (allocation != null)
+{
+    <MedicalHistory />
+    <h4 class="mb-3">能量模型</h4>
+}
 <div class="container">
     @if (allocation != null)
     {

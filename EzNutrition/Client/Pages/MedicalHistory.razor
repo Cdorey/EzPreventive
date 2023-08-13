@@ -1,0 +1,91 @@
+﻿@page "/medicalhistory"
+@using EzNutrition.Shared.Data.Entities;
+@inject HttpClient Http
+
+<h3>病史记录</h3>
+<div class="container">
+    <div class="row mb-2">
+        <div class="col-md-2 mb-2">
+            <input class="form-control" @bind="@NewRecord" list="diseasesListInDB" placeholder="Internal Code" />
+            @if (diseasesInDB != null)
+            {
+                <datalist id="diseasesListInDB">
+                    @foreach (var item in diseasesInDB)
+                    {
+                        <option value="@item.DiseaseId">@item.FriendlyName</option>
+                    }
+                </datalist>
+            }
+        </div>
+        <div class="col-md-4 mb-2">
+            <input class="form-control" readonly placeholder="ICD10(尚未实现)" />
+        </div>
+        <div class="col-md-4 mb-2">
+            <input class="form-control" readonly placeholder="Diagnosis Name" />
+        </div>
+        <div class="col-md-2 mb-2">
+            <button class="btn btn-primary" disabled>添加记录</button>
+        </div>
+    </div>
+    @foreach (var record in Diseases)
+    {
+        <div class="row mb-2">
+            <div class="col-md-2 mb-2">
+                <input class="form-control" value="@record.DiseaseId" readonly list="diseasesListInDB" placeholder="Internal Code" />
+            </div>
+            <div class="col-md-4 mb-2">
+                <input class="form-control" value="@record.ICD10" readonly placeholder="ICD10" />
+            </div>
+            <div class="col-md-4 mb-2">
+                <input class="form-control" value="@record.FriendlyName" readonly placeholder="Diagnosis Name" />
+            </div>
+            <div class="col-md-2 mb-2">
+                <button class="btn btn-danger" @onclick="() => RemoveRecord(record)">删除记录</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Disease>? diseasesInDB;
+    private int? NewRecord
+    {
+        get => null;
+        set
+        {
+            AddRecord(value);
+        }
+    }
+    public List<Disease> Diseases { get; set; } = new List<Disease>();
+
+    private bool IsRemoveDisabled => Diseases.Count == 0;
+
+    private void AddRecord(int? e)
+    {
+        if (diseasesInDB != null && e != null)
+        {
+            var added = diseasesInDB.FirstOrDefault(x => x.DiseaseId == e);
+            if (added != default && !Diseases.Contains(added))
+                Diseases.Add(added);
+        }
+    }
+
+    private void RemoveRecord(Disease record)
+    {
+        Diseases.Remove(record);
+    }
+
+    //private void RemoveLastRecord()
+    //{
+    //    if (!IsRemoveDisabled)
+    //    {
+    //        Diseases.Remove(Diseases.Count - 1);
+    //    }
+    //}
+
+    protected override async Task OnInitializedAsync()
+    {
+        diseasesInDB = await Http.GetFromJsonAsync<List<Disease>>($"Prescription/diseases");
+        await base.OnInitializedAsync();
+    }
+}
