@@ -33,16 +33,17 @@
             <div class="col-md-6 mb-2">
                 <div class="form-group">
                     <label for="pal">PAL</label>
-                    <select id="pal" class="form-control" @bind="UserInfo.PAL">
+                    <input id="pal" class="form-control" @bind="UserInfo.PAL" list="palList" placeholder="PAL" />
+                    <datalist id="palList">
                         <option value="">请选择</option>
                         @foreach (var eer in UserInfo.AvailableEERs)
                         {
                             @if (eer.PAL != null)
                             {
-                                <option value="@eer.PAL">@eer.PAL</option>
+                                <option>@eer.PAL</option>
                             }
                         }
-                    </select>
+                    </datalist>
                 </div>
 
                 <div class="form-group">
