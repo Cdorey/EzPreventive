@@ -88,7 +88,7 @@
 </div>
 @if (allocation != null)
 {
-    <MedicalHistory />
+    <MedicalHistory AdviceDataChanged="AdviceDataChangedEventHandler" />
     <h4 class="mb-3">能量模型</h4>
 }
 <div class="container">
@@ -214,12 +214,35 @@
         </div>
     }
 </div>
+<div class="container">
+    @if (advices != null && advices.Count > 0)
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>膳食建议</th>
+                    <th>优先级</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var advice in advices)
+                {
+                    <tr>
+                        <td>@advice.Content</td>
+                        <td>@advice.Priority</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
 @code {
     private UserInfoModel UserInfo = new UserInfoModel();
 
     private string? summary;
     private MacronutrientAllocation? allocation;
     private FoodExchangeAllocation? foodExchangeAllocation;
+    private List<Advice>? advices;
     public class UserInfoModel
     {
         public List<EER> AvailableEERs { get; set; } = new();
@@ -321,6 +344,7 @@
         summary = null;
         allocation = null;
         foodExchangeAllocation = null;
+        advices = null;
     }
 
     private void OnCorrectEnergyChanged(ChangeEventArgs e)
@@ -347,5 +371,10 @@
         {
 
         }
+    }
+
+    private void AdviceDataChangedEventHandler(List<Advice> newAdvices)
+    {
+        advices = newAdvices;
     }
 }
