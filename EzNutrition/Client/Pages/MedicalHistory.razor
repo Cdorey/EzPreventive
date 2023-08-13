@@ -18,13 +18,13 @@
             }
         </div>
         <div class="col-md-4 mb-2">
-            <input class="form-control" readonly placeholder="ICD10(尚未实现)" />
+            <input class="form-control" @bind="@newRecord.ICD10" readonly placeholder="ICD10(尚未实现)" />
         </div>
         <div class="col-md-4 mb-2">
-            <input class="form-control" readonly placeholder="Diagnosis Name" />
+            <input class="form-control" @bind="@newRecord.FriendlyName" readonly placeholder="Diagnosis Name" />
         </div>
         <div class="col-md-2 mb-2">
-            <button class="btn btn-primary" disabled>添加记录</button>
+            <button class="btn btn-primary" @onclick="AddRecord">添加记录</button>
         </div>
     </div>
     @foreach (var record in Diseases)
@@ -40,7 +40,7 @@
                 <input class="form-control" value="@record.FriendlyName" readonly placeholder="Diagnosis Name" />
             </div>
             <div class="col-md-2 mb-2">
-                <button class="btn btn-danger" @onclick="() => RemoveRecord(record)">删除记录</button>
+                <button class="btn btn-danger" @onclick="async () =>await RemoveRecord(record)">删除记录</button>
             </div>
         </div>
     }
@@ -53,26 +53,65 @@
         get => null;
         set
         {
-            AddRecord(value);
+            SetNewRecord(value);
         }
     }
+    private Disease newRecord = new();
+
     public List<Disease> Diseases { get; set; } = new List<Disease>();
+
+    [Parameter]
+    public List<Advice> Advices { get; set; } = new List<Advice>();
+
+    [Parameter]
+    public EventCallback<List<Advice>> AdviceDataChanged { get; set; }
+
+
 
     private bool IsRemoveDisabled => Diseases.Count == 0;
 
-    private void AddRecord(int? e)
+    private void SetNewRecord(int? e)
     {
         if (diseasesInDB != null && e != null)
         {
-            var added = diseasesInDB.FirstOrDefault(x => x.DiseaseId == e);
-            if (added != default && !Diseases.Contains(added))
-                Diseases.Add(added);
+            newRecord = diseasesInDB.FirstOrDefault(x => x.DiseaseId == e) ?? newRecord;
         }
     }
 
-    private void RemoveRecord(Disease record)
+    private async Task AddRecord()
+    {
+        if (diseasesInDB != null)
+        {
+            if (newRecord.DiseaseId != 0 && !Diseases.Contains(newRecord))
+            {
+                Diseases.Add(newRecord);
+            }
+            newRecord = new();
+            Advices = await GetAdvicesAsync();
+            await AdviceDataChanged.InvokeAsync(Advices);
+        }
+    }
+
+    private async Task<List<Advice>> GetAdvicesAsync()
+    {
+        var list = from disease in Diseases select disease.DiseaseId;
+        if (list.Any())
+        {
+            var result = await Http.PostAsJsonAsync("Prescription/advices", list.ToList());
+            return await result.Content.ReadFromJsonAsync<List<Advice>>() ?? Advices;
+        }
+        else
+        {
+            return new List<Advice>();
+        }
+    }
+
+
+    private async Task RemoveRecord(Disease record)
     {
         Diseases.Remove(record);
+        Advices = await GetAdvicesAsync();
+        await AdviceDataChanged.InvokeAsync(Advices);
     }
 
     //private void RemoveLastRecord()

@@ -258,6 +258,7 @@
             try
             {
                 UserInfo.AvailableEERs = await Http.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+                //StateHasChanged();
             }
             catch (HttpRequestException)
             {
