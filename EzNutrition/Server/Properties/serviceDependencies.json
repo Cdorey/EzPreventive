@@ -7,6 +7,10 @@
       "type": "mssql",
       "connectionId": "ConnectionStrings:EzNutritionDB",
       "dynamicId": null
+    },
+    "mssql2": {
+      "type": "mssql",
+      "connectionId": "ConnectionStrings:ApplicationDb"
     }
   }
 }
