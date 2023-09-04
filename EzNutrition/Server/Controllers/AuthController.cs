@@ -11,7 +11,7 @@ namespace EzNutrition.Server.Controllers
     {
         private readonly JwtService _jwtService;
 
-        [HttpGet("Token")]
+        [HttpGet]
         public IActionResult GetToken()
         {
             return Ok(_jwtService.GenerateJwtToken("test"));

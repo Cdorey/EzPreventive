@@ -1,5 +1,6 @@
 ﻿@page "/counter"
 @using EzNutrition.Shared.Data.Entities;
+@using EzNutrition.Shared.Utilities;
 @inject HttpClient Http
 
 <PageTitle>Counter</PageTitle>
@@ -27,16 +28,17 @@ else
         {
             if (token == null)
             {
-                var res = await Http.GetStringAsync("Auth/Token");
+                var res = await Http.GetStringAsync("Auth");
                 token = res;
             }
             else
             {
-                // 创建一个 HTTP 请求
-                var request = new HttpRequestMessage(HttpMethod.Get, "Auth/Test");
-                request.Headers.Add("Authorization", $"Bearer {token}");
-                var response = await Http.SendAsync(request);
-                token = await response.Content.ReadAsStringAsync();
+                // // 创建一个 HTTP 请求
+                // var request = new HttpRequestMessage(HttpMethod.Get, "Auth/Test");
+                // request.Headers.Add("Authorization", $"Bearer {token}");
+                // var response = await Http.SendAsync(request);
+                // token = await response.Content.ReadAsStringAsync();
+                token = await Http.GetAuthorizedStringAsync(token, "Auth/Test");
             }
         }
         catch (Exception ex)
