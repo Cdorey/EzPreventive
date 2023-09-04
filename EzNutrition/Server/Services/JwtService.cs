@@ -20,7 +20,7 @@ namespace EzNutrition.Server.Services
         {
             var privateKeyBytes = Convert.FromBase64String(_privateKey);
             var rsa = RSA.Create();
-            rsa.ImportRSAPrivateKey(privateKeyBytes, out _);
+            rsa.ImportPkcs8PrivateKey(privateKeyBytes, out _);
             var privateKey = new RsaSecurityKey(rsa);
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -34,7 +34,7 @@ namespace EzNutrition.Server.Services
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(privateKey, SecurityAlgorithms.RsaSha256Signature),
                 Audience = "EzNutrition",
-
+                Issuer = "EzPreventive"
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);

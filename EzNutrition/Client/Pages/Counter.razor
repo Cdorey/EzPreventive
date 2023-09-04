@@ -6,43 +6,43 @@
 
 <h1>Counter</h1>
 
-@if (advices == null)
+@if (token == null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>AdviceId</th>
-                <th>Content</th>
-                <th>Priority</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var advice in advices)
-            {
-                <tr>
-                    <td>@advice.AdviceId</td>
-                    <td>@advice.Content</td>
-                    <td>@advice.Priority</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <p><em>@token</em></p>
 }
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
 @code {
 
-    private List<Advice>? advices;
+    private string? token;
 
     private async Task IncrementCount()
     {
+        try
+        {
+            if (token == null)
+            {
+                var res = await Http.GetStringAsync("Auth/Token");
+                token = res;
+            }
+            else
+            {
+                // 创建一个 HTTP 请求
+                var request = new HttpRequestMessage(HttpMethod.Get, "Auth/Test");
+                request.Headers.Add("Authorization", $"Bearer {token}");
+                var response = await Http.SendAsync(request);
+                token = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
 
-        var result = await Http.PostAsJsonAsync("Prescription/advices", new List<int> { 1, 2, 3, 5 });
-        advices = await result.Content.ReadFromJsonAsync<List<Advice>>();
+        }
+
     }
 }

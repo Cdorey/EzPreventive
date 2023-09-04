@@ -25,16 +25,21 @@ namespace EzNutrition
             // It seems should be worked
             var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
             var rsa = RSA.Create();
-            rsa.ImportRSAPublicKey(publicKeyBytes, out _);
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+            rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    //ValidateIssuer = true,
+                    ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    //ValidIssuer = "EzPreventive",
+                    ValidIssuer = "EzPreventive",
                     ValidAudience = "EzNutrition",
                     IssuerSigningKey = new RsaSecurityKey(rsa)
                 };
@@ -54,13 +59,12 @@ namespace EzNutrition
                 app.UseExceptionHandler("/Error");
             }
             app.UseAuthentication();
-            app.UseAuthorization();
 
             app.UseBlazorFrameworkFiles();
             app.UseStaticFiles();
 
             app.UseRouting();
-
+            app.UseAuthorization();
 
             app.MapRazorPages();
             app.MapControllers();
