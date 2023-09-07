@@ -47,6 +47,15 @@ namespace EzNutrition
                     IssuerSigningKey = new RsaSecurityKey(rsa)
                 };
             });
+            builder.Services.Configure<IdentityOptions>(options =>
+            {
+                options.Password.RequireDigit = false;
+                options.Password.RequiredLength = 6;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+            });
+
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             //builder.Services.AddSingleton(new JwtService(builder.Configuration.GetSection("PrivateKey").Value));

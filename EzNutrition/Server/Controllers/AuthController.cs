@@ -19,13 +19,13 @@ namespace EzNutrition.Server.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
 
         [HttpPost]
-        public IActionResult Login(string username, string passwordHash)
+        public async Task<IActionResult> Login(string username, string password)
         {
 
             try
             {
-                var user = _context.Users.FirstOrDefault(x => x.UserName == username && x.PasswordHash == passwordHash);
-                if (user != default)
+                var user = _context.Users.FirstOrDefault(x => x.UserName == username);
+                if (user != default && (await _signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
                 {
                     return Ok(_jwtService.GenerateJwtToken(user));
                 }
@@ -43,15 +43,14 @@ namespace EzNutrition.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetToken()
         {
-            throw new NotImplementedException();
-            //await _roleManager.RemoveClaimAsync(_roleManager.Roles.First(x => x.Name == "Admin"), new Claim(PolicyType.Permission.ToString(), nameof(PolicyList.Prescription)));
-            //await _userManager.AddToRoleAsync(_userManager.Users.First(x => x.UserName == "Test_User"), _roleManager.Roles.First(x => x.Name == "Admin").Name);
-            //var x = await _jwtService.GenerateJwtToken(_userManager.Users.First(x => x.UserName == "Test_User"));
-            //var x = await _userManager.DeleteAsync(_userManager.Users.First());
+            //await _userManager.CreateAsync(new IdentityUser { UserName = "EpiMan" }, "I_am_epiman");
+            //await _userManager.AddToRoleAsync(await _userManager.FindByNameAsync("EpiMan"), "EpiMan");
+            var x = await _jwtService.GenerateJwtToken("Test_User");
             //await _roleManager.CreateAsync(new IdentityRole { Name = "Admin" });
             //await _roleManager.CreateAsync(new IdentityRole { Name = "Physician" });
             //await _roleManager.CreateAsync(new IdentityRole { Name = "EpiMan" });
-            //var x = await _roleManager.CreateAsync(new IdentityRole { Name = "Student" });
+            //await _roleManager.CreateAsync(new IdentityRole { Name = "Student" });
+            return Ok(x);
         }
 
         [Authorize(Policy = PolicyList.Prescription)]

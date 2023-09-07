@@ -26,6 +26,11 @@ namespace EzNutrition.Server.Services
             _privateKey = configuration.GetSection("PrivateKey").Value;
         }
 
+        public async Task<string> GenerateJwtToken(string userName)
+        {
+            return await GenerateJwtToken(await _userManager.FindByNameAsync(userName));
+        }
+
         public async Task<string> GenerateJwtToken(IdentityUser user)
         {
             var privateKeyBytes = Convert.FromBase64String(_privateKey);
@@ -39,7 +44,7 @@ namespace EzNutrition.Server.Services
 
             var roles = from roleName in await _userManager.GetRolesAsync(user) select new Claim(ClaimTypes.Role, roleName);
 
-            var claims = userClaims.Union(roles);
+            var claims = userClaims.Union(roles).Append(new Claim(ClaimTypes.Upn, user.Id)).Append(new Claim(ClaimTypes.Name, user.UserName));
 
             if (roles.Any())
             {
