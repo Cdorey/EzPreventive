@@ -19,7 +19,7 @@ namespace EzNutrition.Server.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
 
         [HttpPost]
-        public async Task<IActionResult> Login(string username, string password)
+        public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
 
             try
@@ -27,16 +27,16 @@ namespace EzNutrition.Server.Controllers
                 var user = _context.Users.FirstOrDefault(x => x.UserName == username);
                 if (user != default && (await _signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
                 {
-                    return Ok(_jwtService.GenerateJwtToken(user));
+                    return Ok(await _jwtService.GenerateJwtToken(user));
                 }
                 else
                 {
-                    return BadRequest();
+                    return BadRequest("用户名/密码不正确");
                 }
             }
-            catch
+            catch (Exception e)
             {
-                return BadRequest();
+                return BadRequest(e.Message);
             }
         }
 
@@ -53,7 +53,7 @@ namespace EzNutrition.Server.Controllers
             return Ok(x);
         }
 
-        [Authorize(Policy = PolicyList.Prescription)]
+        //[Authorize(Policy = PolicyList.Prescription)]
         [HttpGet("Test")]
         public IActionResult TestToken()
         {

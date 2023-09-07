@@ -28,16 +28,19 @@ else
         {
             if (token == null)
             {
-                var res = await Http.GetStringAsync("Auth");
-                token = res;
+                var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("username", "EpiMan"), new KeyValuePair<string, string>("password", "I_am_epiman") });
+                var res = await Http.PostAsync("Auth", formContent);
+                if (res.IsSuccessStatusCode)
+                {
+                    token = await res.Content.ReadAsStringAsync();
+                }
+                else
+                {
+
+                }
             }
             else
             {
-                // // 创建一个 HTTP 请求
-                // var request = new HttpRequestMessage(HttpMethod.Get, "Auth/Test");
-                // request.Headers.Add("Authorization", $"Bearer {token}");
-                // var response = await Http.SendAsync(request);
-                // token = await response.Content.ReadAsStringAsync();
                 token = await Http.GetAuthorizedStringAsync(token, "Auth/Test");
             }
         }
