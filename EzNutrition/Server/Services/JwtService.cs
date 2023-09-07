@@ -1,4 +1,7 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using EzNutrition.Server.Data;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -9,14 +12,21 @@ namespace EzNutrition.Server.Services
     public class JwtService
     {
         private readonly string _privateKey;
+        private readonly ApplicationDbContext _context;
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IConfiguration _configuration;
 
-        public JwtService(string privateKey)
+        public JwtService(ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration)
         {
-            _privateKey = privateKey;
+            _context = dbContext;
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _configuration = configuration;
+            _privateKey = configuration.GetSection("PrivateKey").Value;
         }
 
-#warning 方法尚未完成
-        public string GenerateJwtToken(string username)
+        public async Task<string> GenerateJwtToken(IdentityUser user)
         {
             var privateKeyBytes = Convert.FromBase64String(_privateKey);
             var rsa = RSA.Create();
@@ -24,13 +34,24 @@ namespace EzNutrition.Server.Services
             var privateKey = new RsaSecurityKey(rsa);
 
             var tokenHandler = new JwtSecurityTokenHandler();
+
+            var userClaims = await _userManager.GetClaimsAsync(user);
+
+            var roles = from roleName in await _userManager.GetRolesAsync(user) select new Claim(ClaimTypes.Role, roleName);
+
+            var claims = userClaims.Union(roles);
+
+            if (roles.Any())
+            {
+                foreach (var role in roles)
+                {
+                    claims = claims.Union(await _roleManager.GetClaimsAsync(await _roleManager.FindByNameAsync(role.Value)));
+                }
+            }
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.Name, username),
-                    // Add more claims as needed
-                }),
+                Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(privateKey, SecurityAlgorithms.RsaSha256Signature),
                 Audience = "EzNutrition",

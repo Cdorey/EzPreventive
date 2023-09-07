@@ -1,4 +1,5 @@
 using EzNutrition.Server.Data;
+using EzNutrition.Server.Policies;
 using EzNutrition.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +15,7 @@ namespace EzNutrition
 {
     public class Program
     {
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,7 @@ namespace EzNutrition
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDb")));
             builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
+            builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
             // It seems should be worked
             var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
             var rsa = RSA.Create();
@@ -46,7 +49,8 @@ namespace EzNutrition
             });
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
-            builder.Services.AddSingleton(new JwtService(builder.Configuration.GetSection("PrivateKey").Value));
+            //builder.Services.AddSingleton(new JwtService(builder.Configuration.GetSection("PrivateKey").Value));
+            builder.Services.AddTransient<JwtService>();
 
             var app = builder.Build();
             // Configure the HTTP request pipeline.
@@ -58,12 +62,12 @@ namespace EzNutrition
             {
                 app.UseExceptionHandler("/Error");
             }
-            app.UseAuthentication();
 
             app.UseBlazorFrameworkFiles();
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapRazorPages();
