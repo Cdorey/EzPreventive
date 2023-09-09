@@ -1,9 +1,79 @@
 ﻿@page "/"
+@using EzNutrition.Client.Models;
+@using EzNutrition.Client.Services;
+@inject HttpClient Http
+@inject UserSessionService UserSession
 
-<PageTitle>Index</PageTitle>
+<PageTitle>首页</PageTitle>
 
-<h1>Hello, world!</h1>
+<article class="container mt-5">
+    <h3>公共卫生医师营养台账</h3>
 
-Welcome to your new app.
+    <p>您好，同行：</p>
+    <p>在工作之余，我开发了这个工具，旨在协助我们更便捷地进行食谱计算。这个工具具备自定义计算功能和营养分析，可以有效节省时间，提升我们的服务质量。</p>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+    <p>我诚挚邀请您尝试使用这一工具，无论是日常工作中应用，还是分享给其他预防医学专业的同仁。目前，这一工具仍有一些不完善之处，尤其是自动生成的膳食建议可能还需进一步改进。在给患者或居民医学建议之前，请务必仔细核查相关信息的合理性。</p>
+
+    <p>此外，尽管营养专业长期以来一直属于预防医学范畴，但某些公卫专业不友好的地区我们从事营养咨询和营养治疗工作可能存在违规风险。请务必确保您的行为不违反所在地区卫生行政部门的要求。</p>
+
+    <p>期待我们的合作能够为公共卫生事业带来更大的推动力。如有任何疑问或需要进一步信息和支持，请随时<a href="mailto://bsense@live.com">与我联系</a>。</p>
+
+    <p>祝愿您在工作中取得更卓越的成就！</p>
+
+    <p class="font-italic">诚挚问候，<br />CdoreyPoisson</p>
+</article>
+
+<div class="container" id="login-form">
+    <h3>登录以开始</h3>
+
+    <div class="row">
+        <div class="col-md-4">
+            <form>
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" class="form-control mb-2" id="username" placeholder="BBS测试账户EpiMan" @bind="username" />
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" class="form-control mb-2" id="password" placeholder="BBS测试密码I_am_epiman" @bind="password" />
+                </div>
+                <button type="button" class="btn btn-primary mb-2" @onclick="Login">登录</button>
+            </form>
+        </div>
+    </div>
+</div>
+<footer class="container mt-5">
+    <p>备案信息或其他相关信息</p>
+</footer>
+@* <SurveyPrompt Title="How is Blazor working for you?" /> *@
+
+@code {
+    private string? username;
+    private string? password;
+
+    private async Task Login()
+    {
+        try
+        {
+            if (!(string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password)))
+            {
+                var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>(nameof(username), username), new KeyValuePair<string, string>(nameof(password), password) });
+                var res = await Http.PostAsync("Auth", formContent);
+                if (res.IsSuccessStatusCode)
+                {
+                    var token = await res.Content.ReadAsStringAsync();
+                    UserSession.UserInfo = new UserInfo(token);
+                }
+                else
+                {
+
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+
+        }
+    }
+}
+

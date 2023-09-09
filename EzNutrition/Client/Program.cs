@@ -1,4 +1,6 @@
 using EzNutrition.Client;
+using EzNutrition.Client.Models;
+using EzNutrition.Client.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -13,6 +15,7 @@ namespace EzNutrition.Client
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.AddSingleton<UserSessionService>();
 
             await builder.Build().RunAsync();
         }

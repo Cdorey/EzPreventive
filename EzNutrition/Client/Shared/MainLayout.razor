@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+﻿@using EzNutrition.Client.Services;
+@inherits LayoutComponentBase
+@inject UserSessionService UserSession
 
 <div class="page">
     <div class="sidebar">
@@ -7,7 +9,13 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+            @* <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
+            @if (UserSession.UserInfo != default)
+            {
+                <a href="https://docs.microsoft.com/aspnet/" target="_blank">@UserSession.UserInfo.UserName</a>
+                <a href="https://docs.microsoft.com/aspnet/" target="_blank">用户组：（@UserSession.UserInfo.Roles.FirstOrDefault()）</a>
+                <a href="https://docs.microsoft.com/aspnet/" target="_blank">@UserSession.UserInfo.Email</a>
+            }
         </div>
 
         <article class="content px-4">
@@ -15,3 +23,14 @@
         </article>
     </main>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UserSession.UserInfoChanged += (sender, e) =>
+        {
+            StateHasChanged();
+        };
+        base.OnInitialized();
+    }
+}
