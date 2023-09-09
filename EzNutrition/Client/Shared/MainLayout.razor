@@ -14,7 +14,7 @@
             {
                 <a href="https://docs.microsoft.com/aspnet/" target="_blank">@UserSession.UserInfo.UserName</a>
                 <a href="https://docs.microsoft.com/aspnet/" target="_blank">用户组：（@UserSession.UserInfo.Roles.FirstOrDefault()）</a>
-                <a href="https://docs.microsoft.com/aspnet/" target="_blank">@UserSession.UserInfo.Email</a>
+                <a @onclick="SignOut">登出</a>
             }
         </div>
 
@@ -32,5 +32,10 @@
             StateHasChanged();
         };
         base.OnInitialized();
+    }
+
+    private void SignOut()
+    {
+        UserSession.UserInfo = null;
     }
 }
