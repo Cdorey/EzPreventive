@@ -6,6 +6,7 @@ namespace EzNutrition.Client.Services
     {
         private UserInfo? userInfo;
 
+
         public UserInfo? UserInfo
         {
             get => userInfo;
@@ -16,8 +17,18 @@ namespace EzNutrition.Client.Services
             }
         }
 
+        public string CaseNumber { get; private set; }
+
+        public async Task GetSystemInfoAsync(HttpClient httpClient)
+        {
+            CaseNumber = await httpClient.GetStringAsync("SystemInfo/CaseNumber/");
+        }
+
         public event EventHandler? UserInfoChanged;
 
-        public UserSessionService() { }
+        public UserSessionService()
+        {
+            CaseNumber = string.Empty;
+        }
     }
 }

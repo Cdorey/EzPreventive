@@ -1,6 +1,7 @@
 ﻿@using EzNutrition.Client.Services;
 @inherits LayoutComponentBase
 @inject UserSessionService UserSession
+@inject NavigationManager Navigation
 
 <div class="page">
     <div class="sidebar">
@@ -37,5 +38,7 @@
     private void SignOut()
     {
         UserSession.UserInfo = null;
+
+        Navigation.NavigateTo("/");
     }
 }

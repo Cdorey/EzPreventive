@@ -58,7 +58,6 @@ namespace EzNutrition
 
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
-            //builder.Services.AddSingleton(new JwtService(builder.Configuration.GetSection("PrivateKey").Value));
             builder.Services.AddTransient<JwtService>();
 
             var app = builder.Build();
