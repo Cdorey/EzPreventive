@@ -12,4 +12,17 @@ namespace EzNutrition.Shared.Identities
         string[] Roles { get; }
         string Email { get; }
     }
+
+    public class RegistrationMessage : IUserInfo
+    {
+        public string Email { get; set; } = string.Empty;
+
+        public string UserName { get; set; } = string.Empty;
+
+        public string[] Roles { get; set; } = Array.Empty<string>();
+
+        public string? MainPracticeInstitution { get; set; }
+
+        public string? MainPracticeAreas { get; set; }
+    }
 }

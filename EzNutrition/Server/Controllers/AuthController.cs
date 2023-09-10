@@ -40,6 +40,12 @@ namespace EzNutrition.Server.Controllers
             }
         }
 
+        [HttpPost("{role:string}")]
+        public async Task<IActionResult> Register([FromForm] string username, [FromForm] string password, [FromForm] string role)
+        {
+            throw new NotImplementedException();
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetToken()
         {
