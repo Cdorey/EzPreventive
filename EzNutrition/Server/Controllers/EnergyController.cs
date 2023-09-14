@@ -1,10 +1,12 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EzNutrition.Server.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("[controller]")]
     public class EnergyController : ControllerBase
     {

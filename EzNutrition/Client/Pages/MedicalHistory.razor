@@ -1,6 +1,10 @@
 ﻿@page "/medicalhistory"
+@using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Data.Entities;
+@using EzNutrition.Shared.Utilities;
 @inject HttpClient Http
+@inject UserSessionService UserSession
+@inject NavigationManager Navigation
 
 <h3>病史记录</h3>
 <div class="container">
@@ -94,10 +98,16 @@
 
     private async Task<List<Advice>> GetAdvicesAsync()
     {
+        if (UserSession.UserInfo == null)
+        {
+            Navigation.NavigateTo("/");
+            return new List<Advice>();
+        }
+
         var list = from disease in Diseases select disease.DiseaseId;
         if (list.Any())
         {
-            var result = await Http.PostAsJsonAsync("Prescription/advices", list.ToList());
+            var result = await Http.PostAuthorizedJsonAsync(UserSession.UserInfo.Token, "Prescription/advices", list.ToList());
             return await result.Content.ReadFromJsonAsync<List<Advice>>() ?? Advices;
         }
         else
@@ -114,17 +124,14 @@
         await AdviceDataChanged.InvokeAsync(Advices);
     }
 
-    //private void RemoveLastRecord()
-    //{
-    //    if (!IsRemoveDisabled)
-    //    {
-    //        Diseases.Remove(Diseases.Count - 1);
-    //    }
-    //}
-
     protected override async Task OnInitializedAsync()
     {
-        diseasesInDB = await Http.GetFromJsonAsync<List<Disease>>($"Prescription/diseases");
+        if (UserSession.UserInfo == null)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        diseasesInDB = await Http.GetAuthorizedJsonAsync<List<Disease>>(UserSession.UserInfo.Token, $"Prescription/diseases");
         await base.OnInitializedAsync();
     }
 }

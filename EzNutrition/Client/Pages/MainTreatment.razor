@@ -1,8 +1,12 @@
 ﻿@page "/maintreatment"
+@using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
 @using System.Text;
 @inject HttpClient Http
+@inject UserSessionService UserSession
+@inject NavigationManager Navigation
+
 
 <h3 class="mb-3">核心档案管理</h3>
 <h4 class="mb-3">基本信息</h4>
@@ -187,7 +191,7 @@
             <div class="col-lg-4 col-md-6 col-sm-12">
                 <div class="form-group">
                     <label for="meat">肉蛋类（自动计算）</label>
-                    <input id="meat" class="form-control" type="number" min="0" value="@foodExchangeAllocation?.MeatsAndEggs" readonly />
+                    <input id="meat" class="form-control" type="number" min="0" value="@foodExchangeAllocation.MeatsAndEggs" readonly />
                 </div>
             </div>
 
@@ -276,11 +280,17 @@
 
     private async Task FetchEERs()
     {
+        if (UserSession.UserInfo == null)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
         if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
         {
             try
             {
-                UserInfo.AvailableEERs = await Http.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+                UserInfo.AvailableEERs = await Http.GetAuthorizedJsonAsync<List<EER>>(UserSession.UserInfo.Token, $"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
                 //StateHasChanged();
             }
             catch (HttpRequestException)

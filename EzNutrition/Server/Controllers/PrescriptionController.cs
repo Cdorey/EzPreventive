@@ -1,11 +1,13 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EzNutrition.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorize]
     public class PrescriptionController : ControllerBase
     {
         private readonly DiseaseRepository _diseaseRepository;
