@@ -74,11 +74,14 @@
             <div class="row mb-2">
                 <p>@summary</p>
             </div>
-            <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
-                <div class="form-group">
-                    <input id="corEnergy" class="form-control" @onchange="OnCorrectEnergyChanged" placeholder="如无需修正请留空" type="number" min="1000" />
+            @if (allocation != null)
+            {
+                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                    <div class="form-group">
+                        <input id="corEnergy" class="form-control" @onchange="OnCorrectEnergyChanged" placeholder="如无需修正请留空" type="number" min="1000" />
+                    </div>
                 </div>
-            </div>
+            }
         </div>
     }
     else
@@ -169,7 +172,7 @@
         </div>
     }
 </div>
-<div class="container">
+<div class="container mb-5">
     @if (@foodExchangeAllocation != null)
     {
         <div class="row">
@@ -218,7 +221,7 @@
         </div>
     }
 </div>
-<div class="container">
+<div class="container mb-5">
     @if (advices != null && advices.Count > 0)
     {
         <table class="table">
@@ -291,7 +294,6 @@
             try
             {
                 UserInfo.AvailableEERs = await Http.GetAuthorizedJsonAsync<List<EER>>(UserSession.UserInfo.Token, $"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
-                //StateHasChanged();
             }
             catch (HttpRequestException)
             {
@@ -326,23 +328,31 @@
             return 0;
         }
 
-        var beeResult = CalculateEnergyFromBEE();
-        var energy = beeResult == 0 ? CalculateEnergyFromPAL() : beeResult;
-        //输出能量模型
-        if (energy > 0)
+        if (UserInfo.PAL is not null)
         {
-            var height = (UserInfo.Height ?? 0) / 100;
-            var strBuild = new StringBuilder();
-            if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
+            var beeResult = CalculateEnergyFromBEE();
+            var energy = beeResult == 0 ? CalculateEnergyFromPAL() : beeResult;
+            //输出能量模型
+            if (energy > 0)
             {
-                strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
+                var height = (UserInfo.Height ?? 0) / 100;
+                var strBuild = new StringBuilder();
+                if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
+                {
+                    strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
+                }
+                strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
+                strBuild.AppendLine("如有需要，请根据咨询者实际情况修正总能量：");
+                summary = strBuild.ToString();
+                allocation = new MacronutrientAllocation(energy);
+                foodExchangeAllocation = new FoodExchangeAllocation(allocation);
             }
-            strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
-            strBuild.AppendLine("如有需要，请根据咨询者实际情况修正总能量：");
-            summary = strBuild.ToString();
-            allocation = new MacronutrientAllocation(energy);
-            foodExchangeAllocation = new FoodExchangeAllocation(allocation);
         }
+        else
+        {
+            summary = "PAL（活动强度）不应为0，请从PAL下拉菜单中选择，或者输入一个PAL";
+        }
+
     }
 
 

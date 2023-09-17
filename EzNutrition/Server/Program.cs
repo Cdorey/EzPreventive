@@ -23,9 +23,11 @@ namespace EzNutrition
             // Add services to the container.
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDb")));
+            #region Identity and Auth
+            //Identity and Auth
             builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
             builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
-            // It seems should be worked
+
             var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
             var rsa = RSA.Create();
             rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
@@ -55,7 +57,7 @@ namespace EzNutrition
                 options.Password.RequireUppercase = false;
                 options.Password.RequireLowercase = false;
             });
-
+            #endregion
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             builder.Services.AddTransient<JwtService>();
