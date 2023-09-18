@@ -9,41 +9,21 @@
 <h3>病史记录</h3>
 <div class="container">
     <div class="row mb-2">
-        <div class="col-md-2 mb-2">
-            <input class="form-control" @bind="@NewRecord" list="diseasesListInDB" placeholder="Internal Code" />
-            @if (diseasesInDB != null)
-            {
-                <datalist id="diseasesListInDB">
-                    @foreach (var item in diseasesInDB)
-                    {
-                        <option value="@item.DiseaseId">@item.FriendlyName</option>
-                    }
-                </datalist>
-            }
-        </div>
-        <div class="col-md-4 mb-2">
-            <input class="form-control" @bind="@newRecord.ICD10" readonly placeholder="ICD10(尚未实现)" />
-        </div>
-        <div class="col-md-4 mb-2">
-            <input class="form-control" @bind="@newRecord.FriendlyName" readonly placeholder="Diagnosis Name" />
-        </div>
-        <div class="col-md-2 mb-2">
-            <button class="btn btn-primary" @onclick="AddRecord">添加记录</button>
-        </div>
-    </div>
-    @foreach (var record in Diseases)
+        <Select TItem="Disease" TItemValue="int" DataSource="@diseasesInDB" LabelName="@nameof(Disease.FriendlyName)" ValueName="@nameof(Disease.DiseaseId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" />
+     </div>
+
+
+
+     @foreach (var record in Diseases)
     {
         <div class="row mb-2">
-            <div class="col-md-2 mb-2">
-                <input class="form-control" value="@record.DiseaseId" readonly list="diseasesListInDB" placeholder="Internal Code" />
-            </div>
             <div class="col-md-4 mb-2">
                 <input class="form-control" value="@record.ICD10" readonly placeholder="ICD10(尚未实现)" />
             </div>
             <div class="col-md-4 mb-2">
                 <input class="form-control" value="@record.FriendlyName" readonly placeholder="Diagnosis Name" />
             </div>
-            <div class="col-md-2 mb-2">
+            <div class="col-md-4 mb-2">
                 <button class="btn btn-danger" @onclick="async () =>await RemoveRecord(record)">删除记录</button>
             </div>
         </div>
@@ -52,15 +32,6 @@
 
 @code {
     private List<Disease>? diseasesInDB;
-    private int? NewRecord
-    {
-        get => null;
-        set
-        {
-            SetNewRecord(value);
-        }
-    }
-    private Disease newRecord = new();
 
     public List<Disease> Diseases { get; set; } = new List<Disease>();
 
@@ -70,27 +41,16 @@
     [Parameter]
     public EventCallback<List<Advice>> AdviceDataChanged { get; set; }
 
-
-
     private bool IsRemoveDisabled => Diseases.Count == 0;
 
-    private void SetNewRecord(int? e)
-    {
-        if (diseasesInDB != null && e != null)
-        {
-            newRecord = diseasesInDB.FirstOrDefault(x => x.DiseaseId == e) ?? newRecord;
-        }
-    }
-
-    private async Task AddRecord()
+    private async Task OnSelectedItemChangedHandler(Disease value)
     {
         if (diseasesInDB != null)
         {
-            if (newRecord.DiseaseId != 0 && !Diseases.Contains(newRecord))
+            if (value.DiseaseId != 0 && !Diseases.Contains(value))
             {
-                Diseases.Add(newRecord);
+                Diseases.Add(value);
             }
-            newRecord = new();
             Advices = await GetAdvicesAsync();
             await AdviceDataChanged.InvokeAsync(Advices);
         }
