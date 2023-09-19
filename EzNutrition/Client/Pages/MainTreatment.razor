@@ -11,60 +11,39 @@
 <h3 class="mb-3">核心档案管理</h3>
 <h4 class="mb-3">基本信息</h4>
 <div class="container">
-    <form class="mb-4">
-        <div class="row">
-            <div class="col-md-6 mb-2">
-                <div class="form-group">
-                    <label for="name">姓名</label>
-                    <input id="name" class="form-control" @bind="UserInfo.Name" />
-                </div>
-
-                <div class="form-group">
-                    <label for="gender">性别</label>
-                    <select id="gender" class="form-control" value="UserInfo.Gender" @onchange="OnGenderChanged">
-                        <option value="">请选择</option>
-                        <option value="男">男</option>
-                        <option value="女">女</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="age">年龄</label>
-                    <input id="age" class="form-control" value="UserInfo.Age" @onchange="OnAgeChanged" type="number" min="0" />
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-2">
-                <div class="form-group">
-                    <label for="pal">PAL</label>
-                    <input id="pal" class="form-control" @bind="UserInfo.PAL" list="palList" placeholder="PAL" />
-                    <datalist id="palList">
-                        <option value="">请选择</option>
-                        @foreach (var eer in UserInfo.AvailableEERs)
-                        {
-                            @if (eer.PAL != null)
-                            {
-                                <option>@eer.PAL</option>
-                            }
-                        }
-                    </datalist>
-                </div>
-
-                <div class="form-group">
-                    <label for="height">身高（cm）</label>
-                    <input id="height" class="form-control" @bind="UserInfo.Height" type="number" min="0" />
-                </div>
-
-                <div class="form-group">
-                    <label for="weight">体重（kg）</label>
-                    <input id="weight" class="form-control" @bind="UserInfo.Weight" type="number" min="0" />
-                </div>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-primary mr-2 mb-2" @onclick="OnCalculateBtnClick">计算</button>
-        <button type="reset" class="btn btn-secondary mb-2" @onclick="OnResetBtnClick">重置</button>
-    </form>
+    <Form Model="@UserInfo" LabelAlign="AntLabelAlignType.Left">
+        <FormItem Label="姓名">
+            <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="UserInfo.Name" />
+        </FormItem>
+        <FormItem Label="性别">
+            <RadioGroup TValue="string" id="gender" OnChange="OnGenderChanged">
+                <Radio RadioButton Value="@("男")">男</Radio>
+                 <Radio RadioButton Value="@("女")">女</Radio>
+             </RadioGroup>
+         </FormItem>
+         <FormItem Label="年龄">
+             <AntDesign.InputNumber TValue="int" id="age" class="form-control" Step="1" OnChange="OnAgeChanged" Min="0" />
+         </FormItem>
+         <FormItem Label="PAL">
+             <RadioGroup id="pal" @bind-Value="UserInfo.PAL">
+                 @foreach (var eer in UserInfo.AvailableEERs)
+                {
+                    @if (eer.PAL != null)
+                    {
+                        <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                    }
+                }
+            </RadioGroup>
+        </FormItem>
+        <FormItem Label="身高">
+            <Input id="height" class="form-control" @bind-Value="UserInfo.Height" type="number" min="0" />
+        </FormItem>
+        <FormItem Label="体重">
+            <Input id="weight" class="form-control" @bind-Value="UserInfo.Weight" type="number" min="0" />
+        </FormItem>
+        <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
+        <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
+    </Form>
 </div>
 <h4 class="mb-3">概要</h4>
 <div class="container mb-3">
@@ -263,22 +242,17 @@
         public decimal? Weight { get; set; }
     }
 
-    private async Task OnGenderChanged(ChangeEventArgs e)
+    private async Task OnGenderChanged(string e)
     {
-        UserInfo.Gender = e.Value as string;
+        UserInfo.Gender = e;
         await FetchEERs();
     }
 
-    private async Task OnAgeChanged(ChangeEventArgs e)
+    private async Task OnAgeChanged(int e)
     {
-        if (e.Value is string ageString)
-        {
-            if (int.TryParse(ageString, out int ageInt))
-            {
-                UserInfo.Age = ageInt;
-                await FetchEERs();
-            }
-        }
+        UserInfo.Age = e;
+        await FetchEERs();
+
     }
 
     private async Task FetchEERs()
