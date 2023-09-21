@@ -8,26 +8,25 @@
 
 <h3>病史记录</h3>
 <div class="container">
-    <div class="row mb-2">
-        <Select TItem="Disease" TItemValue="int" DataSource="@diseasesInDB" LabelName="@nameof(Disease.FriendlyName)" ValueName="@nameof(Disease.DiseaseId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" />
-     </div>
+    <Space Direction="DirectionVHType.Vertical" style="width: 100%;">
+        <SpaceItem>
+            <Select TItem="Disease" TItemValue="int" DataSource="@diseasesInDB" LabelName="@nameof(Disease.FriendlyName)" ValueName="@nameof(Disease.DiseaseId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" />
+         </SpaceItem>
+         <SpaceItem>
+             <Table TItem="Disease" DataSource="@Diseases" HidePagination=true>
+                 <PropertyColumn Property="r=>r.ICD10">
+                     @(context.ICD10 ?? "尚未实现")
+                </PropertyColumn>
+                <PropertyColumn Property="r=>r.FriendlyName">
+                    @context.FriendlyName
+                </PropertyColumn>
+                <ActionColumn Title="操作">
+                    <Button OnClick="async () =>await RemoveRecord(context)">删除记录</Button>
+                </ActionColumn>
+            </Table>
+        </SpaceItem>
+    </Space>
 
-
-
-     @foreach (var record in Diseases)
-    {
-        <div class="row mb-2">
-            <div class="col-md-4 mb-2">
-                <input class="form-control" value="@record.ICD10" readonly placeholder="ICD10(尚未实现)" />
-            </div>
-            <div class="col-md-4 mb-2">
-                <input class="form-control" value="@record.FriendlyName" readonly placeholder="Diagnosis Name" />
-            </div>
-            <div class="col-md-4 mb-2">
-                <button class="btn btn-danger" @onclick="async () =>await RemoveRecord(record)">删除记录</button>
-            </div>
-        </div>
-    }
 </div>
 
 @code {

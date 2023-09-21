@@ -16,13 +16,13 @@
             <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="UserInfo.Name" />
         </FormItem>
         <FormItem Label="性别">
-            <RadioGroup TValue="string" id="gender" OnChange="OnGenderChanged">
+            <RadioGroup TValue="string" id="gender" @bind-Value="UserInfo.Gender" OnChange="OnEERsChanged">
                 <Radio RadioButton Value="@("男")">男</Radio>
                  <Radio RadioButton Value="@("女")">女</Radio>
              </RadioGroup>
          </FormItem>
          <FormItem Label="年龄">
-             <AntDesign.InputNumber TValue="int" id="age" class="form-control" Step="1" OnChange="OnAgeChanged" Min="0" />
+             <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="UserInfo.Age" OnChange="OnEERsChanged" Min="0" />
          </FormItem>
          <FormItem Label="PAL">
              <RadioGroup id="pal" @bind-Value="UserInfo.PAL">
@@ -36,10 +36,10 @@
             </RadioGroup>
         </FormItem>
         <FormItem Label="身高">
-            <Input id="height" class="form-control" @bind-Value="UserInfo.Height" type="number" min="0" />
+            <Input id="height" @bind-Value="UserInfo.Height" type="number" min="0" />
         </FormItem>
         <FormItem Label="体重">
-            <Input id="weight" class="form-control" @bind-Value="UserInfo.Weight" type="number" min="0" />
+            <Input id="weight" @bind-Value="UserInfo.Weight" type="number" min="0" />
         </FormItem>
         <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
         <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
@@ -55,11 +55,7 @@
             </div>
             @if (allocation != null)
             {
-                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
-                    <div class="form-group">
-                        <input id="corEnergy" class="form-control" @onchange="OnCorrectEnergyChanged" placeholder="如无需修正请留空" type="number" min="1000" />
-                    </div>
-                </div>
+                <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" PlaceHolder="如无需修正请留空" Step="50" Min="1000" />
             }
         </div>
     }
@@ -235,25 +231,18 @@
         public string? Name { get; set; }
 
         public string? Gender { get; set; }
-        public int Age { get; set; }
+        public int Age { get; set; } = 25;
 
         public decimal? PAL { get; set; }
         public decimal? Height { get; set; }
         public decimal? Weight { get; set; }
     }
 
-    private async Task OnGenderChanged(string e)
+    private async Task OnEERsChanged()
     {
-        UserInfo.Gender = e;
         await FetchEERs();
     }
 
-    private async Task OnAgeChanged(int e)
-    {
-        UserInfo.Age = e;
-        await FetchEERs();
-
-    }
 
     private async Task FetchEERs()
     {
@@ -316,7 +305,7 @@
                     strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
                 }
                 strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
-                strBuild.AppendLine("如有需要，请根据咨询者实际情况修正总能量：");
+                strBuild.AppendLine("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
                 summary = strBuild.ToString();
                 allocation = new MacronutrientAllocation(energy);
                 foodExchangeAllocation = new FoodExchangeAllocation(allocation);
@@ -324,7 +313,7 @@
         }
         else
         {
-            summary = "PAL（活动强度）不应为0，请从PAL下拉菜单中选择，或者输入一个PAL";
+            summary = "PAL（活动强度）不应为0，请正确输入咨询对象性别、年龄等信息，并选择一个PAL";
         }
 
     }
@@ -341,29 +330,21 @@
         advices = null;
     }
 
-    private void OnCorrectEnergyChanged(ChangeEventArgs e)
+    private void OnCorrectEnergyChanged(int newEnergy)
     {
-        if (e?.Value is string newValue && !string.IsNullOrEmpty(newValue))
+        if (newEnergy > 0)
         {
-            var newEnergy = int.Parse(newValue);
-            if (newEnergy > 0)
+            var height = (UserInfo.Height ?? 0) / 100;
+            var strBuild = new StringBuilder();
+            if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
             {
-                var height = (UserInfo.Height ?? 0) / 100;
-                var strBuild = new StringBuilder();
-                if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
-                {
-                    strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
-                }
-                strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
-                strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
-                summary = strBuild.ToString();
-                allocation = new MacronutrientAllocation(newEnergy);
-                foodExchangeAllocation = new FoodExchangeAllocation(allocation);
+                strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
             }
-        }
-        else
-        {
-
+            strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
+            strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
+            summary = strBuild.ToString();
+            allocation = new MacronutrientAllocation(newEnergy);
+            foodExchangeAllocation = new FoodExchangeAllocation(allocation);
         }
     }
 
