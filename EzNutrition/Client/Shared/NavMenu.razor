@@ -1,56 +1,21 @@
 ﻿@using EzNutrition.Client.Services;
 @inject UserSessionService UserSession
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">EzNutrition</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
-
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> 首页
-            </NavLink>
-        </div>
-        @if (UserSession.UserInfo != default)
-        {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="maintreatment">
-                    <span class="oi oi-box" aria-hidden="true"></span> 基本处理
-                </NavLink>
-            </div>
-        }
-        else
-        {
-            @* <div class="nav-item px-3">
-        <NavLink class="nav-link" href="counter">
-        <span class="oi oi-plus" aria-hidden="true"></span> Counter
-        </NavLink>
-        </div>
-        <div class="nav-item px-3">
-        <NavLink class="nav-link" href="fetchdata">
-        <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
-        </NavLink>
-        </div> *@
-        }
-
-    </nav>
-</div>
-
-@code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
+<Menu Mode="MenuMode.Inline" Theme="MenuTheme.Dark">
+    <MenuItem RouterLink="">
+        <Icon Type="home" Theme="outline" />
+        <span>首页</span>
+    </MenuItem>
+    @if (UserSession.UserInfo != default)
     {
-        collapseNavMenu = !collapseNavMenu;
+        <MenuItem RouterLink="maintreatment">
+            <Icon Type="medicine-box" Theme="outline" />
+            <span>基本处理</span>
+        </MenuItem>
     }
 
+</Menu>
+
+@code {
     protected override void OnInitialized()
     {
         UserSession.UserInfoChanged += (sender, e) =>

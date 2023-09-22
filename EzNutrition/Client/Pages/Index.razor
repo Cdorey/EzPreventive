@@ -71,12 +71,6 @@ else
         <p class="font-italic">诚挚问候，<br />CdoreyPoisson</p>
     </article>
 }
-<footer class="container mt-5">
-    @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
-    {
-        <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
-    }
-</footer>
 @* <SurveyPrompt Title="How is Blazor working for you?" /> *@
 
 @code {
@@ -91,7 +85,6 @@ else
         {
             StateHasChanged();
         };
-        await UserSession.GetSystemInfoAsync(Http);
         await base.OnInitializedAsync();
     }
 

@@ -2,38 +2,46 @@
 @inherits LayoutComponentBase
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
+@inject HttpClient Http
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            @* <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
-            @if (UserSession.UserInfo != default)
+<Layout Style="min-height: 100vh; ">
+    <Sider Breakpoint="@BreakpointType.Sm" CollapsedWidth="0" @bind-Collapsed=@collapsed>
+        <Layout>
+            <Header Class="header">
+                <
+                EzNutrition
+            </Header>
+            <Content>
+                <NavMenu />
+            </Content>
+        </Layout>
+    </Sider>
+    <Layout>
+        <Content>
+            <div class="site-layout-content">
+                @Body
+            </div>
+        </Content>
+        <Footer Style="text-align: center;">
+            @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
             {
-                <a href="https://docs.microsoft.com/aspnet/" target="_blank">@UserSession.UserInfo.UserName</a>
-                <a href="https://docs.microsoft.com/aspnet/" target="_blank">用户组：（@UserSession.UserInfo.Roles.FirstOrDefault()）</a>
-                <a @onclick="SignOut">登出</a>
+                <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
             }
-        </div>
+        </Footer>
+    </Layout>
+</Layout>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+<style>
+    .site-layout-content {
+        background: #fff;
+        padding: 24px;
+        min-height: 100%;
+        margin: 16px;
+    }
+</style>
 
 @code {
-    protected override void OnInitialized()
-    {
-        UserSession.UserInfoChanged += (sender, e) =>
-        {
-            StateHasChanged();
-        };
-        base.OnInitialized();
-    }
+    private bool collapsed;
 
     private void SignOut()
     {
@@ -41,4 +49,16 @@
 
         Navigation.NavigateTo("/");
     }
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserSession.UserInfoChanged += (sender, e) =>
+        {
+            StateHasChanged();
+        };
+        await UserSession.GetSystemInfoAsync(Http);
+        await base.OnInitializedAsync();
+    }
+
+
 }
