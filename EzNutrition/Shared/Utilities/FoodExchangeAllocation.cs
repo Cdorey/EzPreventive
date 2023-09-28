@@ -30,7 +30,7 @@
             Vegetables = 1;
             Fruits = 1;
             LegumesAndDairyAlternatives = 2;
-            EnergyFoodsOrFats = 1;
+            EnergyFoodsOrFats = 2;
         }
     }
 }

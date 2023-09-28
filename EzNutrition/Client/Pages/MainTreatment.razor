@@ -8,10 +8,10 @@
 @inject NavigationManager Navigation
 
 
-<h3 class="mb-3">核心档案管理</h3>
+<Title>核心档案管理</Title>
 <GridRow Gutter="(16,16)">
-    <GridCol Xl="12" Md="24" Sm="24">
-        <h4 class="mb-3">基本信息</h4>
+    <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+        <Title Level="2">基本信息</Title>
         <Form Model="@UserInfo" LabelAlign="AntLabelAlignType.Left">
             <FormItem Label="姓名">
                 <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="UserInfo.Name" />
@@ -37,36 +37,28 @@
                 </RadioGroup>
             </FormItem>
             <FormItem Label="身高">
-                <Input id="height" @bind-Value="UserInfo.Height" type="number" min="0" />
+                <Input @bind-Value="UserInfo.Height" type="number" min="0" />
             </FormItem>
             <FormItem Label="体重">
-                <Input id="weight" @bind-Value="UserInfo.Weight" type="number" min="0" />
+                <Input @bind-Value="UserInfo.Weight" type="number" min="0" />
             </FormItem>
             <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
             <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
         </Form>
     </GridCol>
-    <GridCol Xl="12" Md="24" Sm="24">
-        <h4 class="mb-3">概要</h4>
+    <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+        <Title Level="2">概要</Title>
         @if (summary != null)
         {
-            <div class="row">
-                <div class="row mb-2">
-                    <p>@summary</p>
-                </div>
-                @if (allocation != null)
-                {
-                    <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" PlaceHolder="如无需修正请留空" Step="50" Min="1000" />
-                }
-            </div>
+            <Paragraph>@summary</Paragraph>
+            @if (allocation != null)
+            {
+                <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
+            }
         }
         else
         {
-            <div class="row">
-                <div class="col-12">
-                    <h5 class="mb-3">键入咨询者的基本信息后点击计算……</h5>
-                </div>
-            </div>
+            <Paragraph>键入咨询者的基本信息后点击计算……</Paragraph>
         }
     </GridCol>
     @if (allocation != null)
@@ -76,141 +68,163 @@
         </GridCol>
 
         <GridCol Span="24">
-            <h4 class="mb-3">能量模型</h4>
+            <Title Level="2">能量模型</Title>
         </GridCol>
-        <GridCol Xl="12" Md="24" Sm="24">
-            <h5>三餐能量分配</h5>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>餐次</th>
-                        <th>蛋白质(g)</th>
-                        <th>碳水化合物(g)</th>
-                        <th>脂肪(g)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydrateContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatContent" readonly /></td>
-                    </tr>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydrateContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatContent" readonly /></td>
-                    </tr>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydrateContent" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatContent" readonly /></td>
-                    </tr>
-                </tbody>
-            </table>
+        <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+            <Title Level="3">三餐能量分配</Title>
+            <GridRow>
+                <GridCol Span="6">
+                    <Paragraph>餐次</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>蛋白质</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>碳水化合物</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>脂肪</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>早餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastFatContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>午餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchFatContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>晚餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerFatContent</Paragraph>
+                </GridCol>
+            </GridRow>
         </GridCol>
-        <GridCol Xl="12" Md="24" Sm="24">
-            <h5>食物交换份</h5>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>餐次</th>
-                        <th>蛋白质</th>
-                        <th>碳水化合物</th>
-                        <th>脂肪</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="早餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.BreakfastProteinPortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.BreakfastCarbohydratePortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.BreakfastFatPortions" readonly /></td>
-                    </tr>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="午餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.LunchProteinPortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.LunchCarbohydratePortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.LunchFatPortionst" readonly /></td>
-                    </tr>
-                    <tr>
-                        <td><input type="text" class="form-control" placeholder="餐次" value="晚餐" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="蛋白质" value="@allocation?.DinnerProteinPortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="碳水化合物" value="@allocation?.DinnerCarbohydratePortions" readonly /></td>
-                        <td><input type="text" class="form-control" placeholder="脂肪" value="@allocation?.DinnerFatPortions" readonly /></td>
-                    </tr>
-                </tbody>
-            </table>
+        <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+            <Title Level="3">食物交换份</Title>
+            <GridRow>
+                <GridCol Span="6">
+                    <Paragraph>餐次</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>蛋白质</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>碳水化合物</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>脂肪</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>早餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.BreakfastFatPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>午餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.LunchFatPortionst</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>晚餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@allocation?.DinnerFatPortions</Paragraph>
+                </GridCol>
+            </GridRow>
         </GridCol>
     }
     @if (@foodExchangeAllocation != null)
     {
         <GridCol Span="24">
-            <h5>食物交换份品类及修正</h5>
-        </GridCol>
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="grain">谷薯类（自动计算）：</label>
-                <input id="grain" class="form-control" type="number" min="0" value="@foodExchangeAllocation.GrainsAndStarchyFoods" readonly />
-            </div>
-        </GridCol>
-
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="soy">豆乳类：</label>
-                <input id="soy" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.LegumesAndDairyAlternatives" />
-            </div>
-        </GridCol>
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="meat">肉蛋类（自动计算）</label>
-                <input id="meat" class="form-control" type="number" min="0" value="@foodExchangeAllocation.MeatsAndEggs" readonly />
-            </div>
-        </GridCol>
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="vegetable">蔬菜类：</label>
-                <input id="vegetable" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.Vegetables" />
-            </div>
-        </GridCol>
-
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="energy">能量类：</label>
-                <input id="energy" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.EnergyFoodsOrFats" />
-            </div>
-        </GridCol>
-
-        <GridCol Lg="8" Md="12" Sm="24">
-            <div class="form-group">
-                <label for="fruit">水果类：</label>
-                <input id="fruit" class="form-control" type="number" min="0" @bind="@foodExchangeAllocation.Fruits" />
-            </div>
-        </GridCol>
+            <Title Level="2">食物交换份品类及修正</Title>
+            <Form Model="@foodExchangeAllocation" LabelColSpan="24">
+                <GridRow Gutter="(16,16)">
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="谷薯类（自动计算）">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.GrainsAndStarchyFoods" />
+                         </FormItem>
+                     </GridCol>
+                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                         <FormItem Label="豆乳类">
+                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.LegumesAndDairyAlternatives" />
+                         </FormItem>
+                     </GridCol>
+                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                         <FormItem Label="肉蛋类（自动计算）">
+                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.MeatsAndEggs" />
+                         </FormItem>
+                     </GridCol>
+                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                         <FormItem Label="蔬菜类">
+                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Vegetables" />
+                         </FormItem>
+                     </GridCol>
+                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                         <FormItem Label="能量类">
+                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.EnergyFoodsOrFats" />
+                         </FormItem>
+                     </GridCol>
+                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                         <FormItem Label="水果类">
+                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Fruits" />
+                         </FormItem>
+                     </GridCol>
+                 </GridRow>
+             </Form>
+         </GridCol>
     }
 
     @if (advices != null && advices.Count > 0)
     {
         <GridCol Span="24">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>膳食建议</th>
-                        <th>优先级</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var advice in advices)
-                    {
-                        <tr>
-                            <td>@advice.Content</td>
-                            <td>@advice.Priority</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <Table DataSource="@advices" HidePagination=true>
+                <PropertyColumn Property="r=>r.Content" Title="膳食建议" />
+                <PropertyColumn Property="r=>r.Priority" Title="输出顺序" />
+            </Table>
         </GridCol>
     }
 </GridRow>
