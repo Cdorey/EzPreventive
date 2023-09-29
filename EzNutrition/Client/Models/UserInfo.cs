@@ -1,7 +1,6 @@
 ﻿using EzNutrition.Shared.Identities;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using static System.Net.WebRequestMethods;
 
 namespace EzNutrition.Client.Models
 {
