@@ -38,10 +38,10 @@
                     }
                 </RadioGroup>
             </FormItem>
-            <FormItem Label="身高">
+            <FormItem Label="身高（cm）">
                 <Input @bind-Value="context.Height" type="number" min="0" />
             </FormItem>
-            <FormItem Label="体重">
+            <FormItem Label="体重（kg）">
                 <Input @bind-Value="context.Weight" type="number" min="0" />
             </FormItem>
             <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
