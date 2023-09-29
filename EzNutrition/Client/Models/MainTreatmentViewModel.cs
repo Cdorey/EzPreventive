@@ -1,4 +1,5 @@
-﻿using EzNutrition.Client.Services;
+﻿using AntDesign;
+using EzNutrition.Client.Services;
 using EzNutrition.Shared.Data.Entities;
 using EzNutrition.Shared.Utilities;
 using Microsoft.AspNetCore.Components;
@@ -6,12 +7,8 @@ using System.Text;
 
 namespace EzNutrition.Client.Models
 {
-    public class MainTreatmentViewModel
+    public class MainTreatmentViewModel : ViewModelBase
     {
-        private readonly HttpClient _httpClient;
-        private readonly UserSessionService _userSession;
-        private readonly NavigationManager _navigationManager;
-
         public ClientInfo UserInfo { get; private set; }
 
         public string? Summary { get; private set; }
@@ -27,6 +24,7 @@ namespace EzNutrition.Client.Models
             if (_userSession.UserInfo == null)
             {
                 _navigationManager.NavigateTo("/");
+                await _message.Error("需要登录");
                 return;
             }
 
@@ -36,9 +34,9 @@ namespace EzNutrition.Client.Models
                 {
                     UserInfo.AvailableEERs = await _httpClient.GetAuthorizedJsonAsync<List<EER>>(_userSession.UserInfo.Token, $"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
                 }
-                catch (HttpRequestException)
+                catch (HttpRequestException ex)
                 {
-
+                    await _message.Error(ex.Message);
                 }
             }
         }
@@ -90,7 +88,7 @@ namespace EzNutrition.Client.Models
             }
             else
             {
-                Summary = "PAL（活动强度）不应为0，请正确输入咨询对象性别、年龄等信息，并选择一个PAL";
+                _message.Error("PAL（活动强度）不应为0，请正确输入咨询对象性别、年龄等信息，并选择一个PAL");
             }
 
         }
@@ -103,6 +101,7 @@ namespace EzNutrition.Client.Models
             Allocation = null;
             FoodExchangeAllocation = null;
             Advices = null;
+            _message.Info("清空当前信息，开始下一个咨询对象");
         }
 
         public void CorrectEnergy(int newEnergy)
@@ -120,16 +119,13 @@ namespace EzNutrition.Client.Models
                 Summary = strBuild.ToString();
                 Allocation = new MacronutrientAllocation(newEnergy);
                 FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
+                _message.Info($"核定总能量{newEnergy}kCal，依据营养师修正。");
             }
         }
 
-        public MainTreatmentViewModel(HttpClient httpClient, UserSessionService userSession, NavigationManager navigationManager)
+        public MainTreatmentViewModel(IMessageService message, HttpClient httpClient, UserSessionService userSession, NavigationManager navigationManager) : base(message, httpClient, userSession, navigationManager)
         {
-            _httpClient = httpClient;
-            _navigationManager = navigationManager;
-            _userSession = userSession;
-
-            UserInfo = new ClientInfo();
+            UserInfo = new ();
         }
     }
 }
