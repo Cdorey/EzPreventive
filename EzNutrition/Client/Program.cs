@@ -18,7 +18,8 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<MainTreatmentViewModel>();
             builder.Services.AddSingleton<UserSessionService>();
             builder.Services.AddAntDesign();
-
+            builder.Services.AddOptions();
+            builder.Services.AddAuthorizationCore();
             await builder.Build().RunAsync();
         }
     }

@@ -125,7 +125,7 @@ namespace EzNutrition.Client.Models
 
         public MainTreatmentViewModel(IMessageService message, HttpClient httpClient, UserSessionService userSession, NavigationManager navigationManager) : base(message, httpClient, userSession, navigationManager)
         {
-            UserInfo = new ();
+            UserInfo = new();
         }
     }
 }
