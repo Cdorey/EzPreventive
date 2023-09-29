@@ -1,4 +1,5 @@
 ﻿@page "/maintreatment"
+@using EzNutrition.Client.Models;
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
@@ -6,28 +7,29 @@
 @inject HttpClient Http
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
+@inject MainTreatmentViewModel MaintreatmentVM
 
 
 <Title>核心档案管理</Title>
 <GridRow Gutter="(16,16)">
     <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
         <Title Level="2">基本信息</Title>
-        <Form Model="@UserInfo" LabelAlign="AntLabelAlignType.Left">
+        <Form Model="@MaintreatmentVM.UserInfo" LabelAlign="AntLabelAlignType.Left">
             <FormItem Label="姓名">
-                <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="UserInfo.Name" />
+                <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
             </FormItem>
             <FormItem Label="性别">
-                <RadioGroup TValue="string" id="gender" @bind-Value="UserInfo.Gender" OnChange="OnEERsChanged">
+                <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
                     <Radio RadioButton Value="@("男")">男</Radio>
                      <Radio RadioButton Value="@("女")">女</Radio>
                  </RadioGroup>
              </FormItem>
              <FormItem Label="年龄">
-                 <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="UserInfo.Age" OnChange="OnEERsChanged" Min="0" />
+                 <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
              </FormItem>
              <FormItem Label="PAL">
-                 <RadioGroup id="pal" @bind-Value="UserInfo.PAL">
-                     @foreach (var eer in UserInfo.AvailableEERs)
+                 <RadioGroup id="pal" @bind-Value="context.PAL">
+                     @foreach (var eer in context.AvailableEERs)
                     {
                         @if (eer.PAL != null)
                         {
@@ -37,10 +39,10 @@
                 </RadioGroup>
             </FormItem>
             <FormItem Label="身高">
-                <Input @bind-Value="UserInfo.Height" type="number" min="0" />
+                <Input @bind-Value="context.Height" type="number" min="0" />
             </FormItem>
             <FormItem Label="体重">
-                <Input @bind-Value="UserInfo.Weight" type="number" min="0" />
+                <Input @bind-Value="context.Weight" type="number" min="0" />
             </FormItem>
             <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
             <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
@@ -48,10 +50,10 @@
     </GridCol>
     <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
         <Title Level="2">概要</Title>
-        @if (summary != null)
+        @if (MaintreatmentVM.Summary != null)
         {
-            <Paragraph>@summary</Paragraph>
-            @if (allocation != null)
+            <Paragraph>@MaintreatmentVM.Summary</Paragraph>
+            @if (MaintreatmentVM.Allocation != null)
             {
                 <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
             }
@@ -61,7 +63,7 @@
             <Paragraph>键入咨询者的基本信息后点击计算……</Paragraph>
         }
     </GridCol>
-    @if (allocation != null)
+    @if (MaintreatmentVM.Allocation != null)
     {
         <GridCol Span="24">
             <MedicalHistory AdviceDataChanged="AdviceDataChangedEventHandler" />
@@ -89,37 +91,37 @@
                     <Paragraph>早餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastProteinContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastProteinContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastCarbohydrateContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastCarbohydrateContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastFatContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastFatContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
                     <Paragraph>午餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchProteinContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchProteinContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchCarbohydrateContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchCarbohydrateContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchFatContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchFatContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
                     <Paragraph>晚餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerProteinContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerProteinContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerCarbohydrateContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerCarbohydrateContent</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerFatContent</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerFatContent</Paragraph>
                 </GridCol>
             </GridRow>
         </GridCol>
@@ -142,46 +144,46 @@
                     <Paragraph>早餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastProteinPortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastProteinPortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastCarbohydratePortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastCarbohydratePortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.BreakfastFatPortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastFatPortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
                     <Paragraph>午餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchProteinPortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchProteinPortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchCarbohydratePortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchCarbohydratePortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.LunchFatPortionst</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.LunchFatPortionst</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
                     <Paragraph>晚餐</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerProteinPortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerProteinPortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerCarbohydratePortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerCarbohydratePortions</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>@allocation?.DinnerFatPortions</Paragraph>
+                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerFatPortions</Paragraph>
                 </GridCol>
             </GridRow>
         </GridCol>
     }
-    @if (@foodExchangeAllocation != null)
+    @if (@MaintreatmentVM.FoodExchangeAllocation != null)
     {
         <GridCol Span="24">
             <Title Level="2">食物交换份品类及修正</Title>
-            <Form Model="@foodExchangeAllocation" LabelColSpan="24">
+            <Form Model="@MaintreatmentVM.FoodExchangeAllocation" LabelColSpan="24">
                 <GridRow Gutter="(16,16)">
                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
                         <FormItem Label="谷薯类（自动计算）">
@@ -218,10 +220,10 @@
          </GridCol>
     }
 
-    @if (advices != null && advices.Count > 0)
+    @if (MaintreatmentVM.Advices != null && MaintreatmentVM.Advices.Count > 0)
     {
         <GridCol Span="24">
-            <Table DataSource="@advices" HidePagination=true>
+            <Table DataSource="@MaintreatmentVM.Advices" HidePagination=true>
                 <PropertyColumn Property="r=>r.Content" Title="膳食建议" />
                 <PropertyColumn Property="r=>r.Priority" Title="输出顺序" />
             </Table>
@@ -230,137 +232,29 @@
 </GridRow>
 
 @code {
-    private UserInfoModel UserInfo = new UserInfoModel();
-
-    private string? summary;
-    private MacronutrientAllocation? allocation;
-    private FoodExchangeAllocation? foodExchangeAllocation;
-    private List<Advice>? advices;
-    public class UserInfoModel
-    {
-        public List<EER> AvailableEERs { get; set; } = new();
-        public string? Name { get; set; }
-
-        public string? Gender { get; set; }
-        public int Age { get; set; } = 25;
-
-        public decimal? PAL { get; set; }
-        public decimal? Height { get; set; }
-        public decimal? Weight { get; set; }
-    }
-
     private async Task OnEERsChanged()
     {
-        await FetchEERs();
+        await MaintreatmentVM.FetchEERs();
     }
-
-
-    private async Task FetchEERs()
-    {
-        if (UserSession.UserInfo == null)
-        {
-            Navigation.NavigateTo("/");
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
-        {
-            try
-            {
-                UserInfo.AvailableEERs = await Http.GetAuthorizedJsonAsync<List<EER>>(UserSession.UserInfo.Token, $"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
-            }
-            catch (HttpRequestException)
-            {
-
-            }
-        }
-    }
-
 
     private void OnCalculateBtnClick()
     {
-        int CalculateEnergyFromBEE()
-        {
-            if (UserInfo.PAL is not null && UserInfo.Height is not null)
-            {
-                var eerWithBEE = UserInfo.AvailableEERs.FirstOrDefault(x => x.BEE != null);
-                if (eerWithBEE?.BEE is not null)
-                {
-                    return EnergyCalculator.GetEnergy(UserInfo.Height.Value, eerWithBEE.BEE.Value, UserInfo.PAL.Value);
-                }
-            }
-            return 0;
-        }
-
-        int CalculateEnergyFromPAL()
-        {
-            if (UserInfo.PAL is not null)
-            {
-                var eerWithPAL = UserInfo.AvailableEERs.FirstOrDefault(x => x.PAL == UserInfo.PAL);
-                return eerWithPAL?.AvgBwEER ?? 0;
-            }
-            return 0;
-        }
-
-        if (UserInfo.PAL is not null)
-        {
-            var beeResult = CalculateEnergyFromBEE();
-            var energy = beeResult == 0 ? CalculateEnergyFromPAL() : beeResult;
-            //输出能量模型
-            if (energy > 0)
-            {
-                var height = (UserInfo.Height ?? 0) / 100;
-                var strBuild = new StringBuilder();
-                if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
-                {
-                    strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
-                }
-                strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
-                strBuild.AppendLine("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
-                summary = strBuild.ToString();
-                allocation = new MacronutrientAllocation(energy);
-                foodExchangeAllocation = new FoodExchangeAllocation(allocation);
-            }
-        }
-        else
-        {
-            summary = "PAL（活动强度）不应为0，请正确输入咨询对象性别、年龄等信息，并选择一个PAL";
-        }
+        MaintreatmentVM.Calculate();
 
     }
 
-
-
     private void OnResetBtnClick()
     {
-        //重置全部信息
-        UserInfo = new();
-        summary = null;
-        allocation = null;
-        foodExchangeAllocation = null;
-        advices = null;
+        MaintreatmentVM.Reset();
     }
 
     private void OnCorrectEnergyChanged(int newEnergy)
     {
-        if (newEnergy > 0)
-        {
-            var height = (UserInfo.Height ?? 0) / 100;
-            var strBuild = new StringBuilder();
-            if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
-            {
-                strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
-            }
-            strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
-            strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
-            summary = strBuild.ToString();
-            allocation = new MacronutrientAllocation(newEnergy);
-            foodExchangeAllocation = new FoodExchangeAllocation(allocation);
-        }
+        MaintreatmentVM.CorrectEnergy(newEnergy);
     }
 
     private void AdviceDataChangedEventHandler(List<Advice> newAdvices)
     {
-        advices = newAdvices;
+        MaintreatmentVM.Advices = newAdvices;
     }
 }
