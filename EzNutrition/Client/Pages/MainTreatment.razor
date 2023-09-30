@@ -71,6 +71,21 @@
 
         <GridCol Span="24">
             <Title Level="2">能量模型</Title>
+            <GridRow Justify="space-around">
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'P'.ToString()" Percent=@ProteinPercentage />
+                </GridCol>
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'C'.ToString()" Percent=@CarbohydratePercentage />
+                </GridCol>
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'F'.ToString()" Percent=@FatPercentage />
+                </GridCol>
+            </GridRow>
+        </GridCol>
+        <GridCol Span="24">
+            <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
+            <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
         </GridCol>
         <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
             <Title Level="3">三餐能量分配</Title>
@@ -232,6 +247,37 @@
 </GridRow>
 
 @code {
+    private (double, double) macroPercentage = (15, 100 - 25);
+
+    private double ProteinPercentage
+    {
+        get => Math.Round((MaintreatmentVM.Allocation?.ProteinPercentage * 100 ?? 0));
+        set
+        {
+            if (MaintreatmentVM.Allocation != null)
+            {
+                MaintreatmentVM.Allocation.ProteinPercentage = value / 100;
+            }
+        }
+    }
+
+    private double CarbohydratePercentage
+    {
+        get => Math.Round((MaintreatmentVM.Allocation?.CarbohydratePercentage * 100 ?? 0));
+    }
+
+    private double FatPercentage
+    {
+        get => Math.Round((MaintreatmentVM.Allocation?.FatPercentage * 100 ?? 0));
+        set
+        {
+            if (MaintreatmentVM.Allocation != null)
+            {
+                MaintreatmentVM.Allocation.FatPercentage = value / 100;
+            }
+        }
+    }
+
     private async Task OnEERsChanged()
     {
         await MaintreatmentVM.FetchEERs();
@@ -256,5 +302,17 @@
     private void AdviceDataChangedEventHandler(List<Advice> newAdvices)
     {
         MaintreatmentVM.Advices = newAdvices;
+    }
+
+    private string TipFormatter(double currentValue)
+    {
+
+        return (currentValue == macroPercentage.Item1 ? currentValue : 100 - currentValue).ToString();
+    }
+
+    private void OnMacroPercentageChanged((double, double) args)
+    {
+        ProteinPercentage = args.Item1;
+        FatPercentage = 100 - args.Item2;
     }
 }

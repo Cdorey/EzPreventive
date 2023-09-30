@@ -2,17 +2,25 @@
 {
     public class MacronutrientAllocation
     {
-        public double BreakfastProteinCalorie { get; set; }
-        public double BreakfastCarbohydrateCalorie { get; set; }
-        public double BreakfastFatCalorie { get; set; }
+        public int TotalEnergy { get; private set; }
 
-        public double LunchProteinCalorie { get; set; }
-        public double LunchCarbohydrateCalorie { get; set; }
-        public double LunchFatCalorie { get; set; }
+        public double ProteinPercentage { get; set; }
 
-        public double DinnerProteinCalorie { get; set; }
-        public double DinnerCarbohydrateCalorie { get; set; }
-        public double DinnerFatCalorie { get; set; }
+        public double CarbohydratePercentage => 1 - ProteinPercentage - FatPercentage;
+
+        public double FatPercentage { get; set; }
+
+        public double BreakfastProteinCalorie => Math.Round(TotalEnergy * 0.3 * ProteinPercentage);
+        public double BreakfastCarbohydrateCalorie => Math.Round(TotalEnergy * 0.3 * CarbohydratePercentage);
+        public double BreakfastFatCalorie => Math.Round(TotalEnergy * 0.3 * FatPercentage);
+
+        public double LunchProteinCalorie => Math.Round(TotalEnergy * 0.4 * ProteinPercentage);
+        public double LunchCarbohydrateCalorie => Math.Round(TotalEnergy * 0.4 * CarbohydratePercentage);
+        public double LunchFatCalorie => Math.Round(TotalEnergy * 0.4 * FatPercentage);
+
+        public double DinnerProteinCalorie => Math.Round(TotalEnergy * 0.3 * ProteinPercentage);
+        public double DinnerCarbohydrateCalorie => Math.Round(TotalEnergy * 0.3 * CarbohydratePercentage);
+        public double DinnerFatCalorie => Math.Round(TotalEnergy * 0.3 * FatPercentage);
 
 
 
@@ -46,19 +54,11 @@
 
         public MacronutrientAllocation() { }
 
-        public MacronutrientAllocation(int energy)
+        public MacronutrientAllocation(int energy, double proteinPercentage = 0.15d, double fatPercentage = 0.25d)
         {
-            BreakfastProteinCalorie = Math.Round(energy * 0.3 * 0.15);
-            BreakfastCarbohydrateCalorie = Math.Round(energy * 0.3 * 0.6);
-            BreakfastFatCalorie = Math.Round(energy * 0.3 * 0.25);
-
-            LunchProteinCalorie = Math.Round(energy * 0.4 * 0.15);
-            LunchCarbohydrateCalorie = Math.Round(energy * 0.4 * 0.6);
-            LunchFatCalorie = Math.Round(energy * 0.4 * 0.25);
-
-            DinnerProteinCalorie = Math.Round(energy * 0.3 * 0.15);
-            DinnerCarbohydrateCalorie = Math.Round(energy * 0.3 * 0.6);
-            DinnerFatCalorie = Math.Round(energy * 0.3 * 0.25);
+            TotalEnergy = energy;
+            ProteinPercentage = proteinPercentage;
+            FatPercentage = fatPercentage;
         }
     }
 }
