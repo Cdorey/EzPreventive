@@ -33,40 +33,58 @@ namespace EzNutrition.Server.Controllers
                 }
                 else
                 {
-                    _logger.LogWarning("用户登陆失败：{username}", username);
+                    _logger.LogInformation("用户登陆失败：{username}", username);
                     return BadRequest("用户名/密码不正确");
                 }
             }
             catch (Exception e)
             {
-                _logger.LogWarning(e, "用户登陆失败：{username}", username);
+                _logger.LogInformation(e, "用户登陆失败：{username}", username);
                 return BadRequest(e.Message);
             }
         }
 
-        [HttpPost("{role}")]
-        public async Task<IActionResult> Register([FromForm] string username, [FromForm] string password, [FromForm] string role)
+        [HttpPost("{role}/regist")]
+        public async Task<IActionResult> Register([FromForm] string username, [FromForm] string password, string role)
         {
-            throw new NotImplementedException();
+            _logger.LogInformation("用户注册申请：{username}", username);
+            var user = _context.Users.FirstOrDefault(x => x.UserName == username);
+            if (user != default)
+            {
+                _logger.LogInformation("用户注册失败：{username}已占用", username);
+                return BadRequest($"{username} was registered");
+            }
+            else
+            {
+                var x = await _userManager.CreateAsync(new IdentityUser { UserName = username }, password);
+                if (!x.Succeeded)
+                {
+                    _logger.LogInformation("用户注册失败：CreateAsync调用异常，{errors}", x.Errors.ToString());
+                    return BadRequest("failed");
+
+                }
+
+                //无论请求什么角色，暂时只放EpiMan权限
+                var addRole = await _userManager.AddToRoleAsync(await _userManager.FindByNameAsync(username), "EpiMan");
+                if (!addRole.Succeeded)
+                {
+                    _logger.LogInformation("角色添加失败：AddToRoleAsync调用异常，{errors}", addRole.Errors.ToString());
+                }
+                return Ok();
+            }
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetToken()
+        [HttpPost("{role}/add")]
+        [Authorize(Policy = PolicyList.Admin)]
+        public async Task<IActionResult> AddRole(string role)
         {
-            throw new NotImplementedException();
-            //await _userManager.CreateAsync(new IdentityUser { UserName = "EpiMan" }, "I_am_epiman");
-            //await _userManager.AddToRoleAsync(await _userManager.FindByNameAsync("EpiMan"), "EpiMan");
-            //var x = await _jwtService.GenerateJwtToken("Test_User");
-            //await _roleManager.CreateAsync(new IdentityRole { Name = "Admin" });
-            //await _roleManager.CreateAsync(new IdentityRole { Name = "Physician" });
-            //await _roleManager.CreateAsync(new IdentityRole { Name = "EpiMan" });
-            //await _roleManager.CreateAsync(new IdentityRole { Name = "Student" });
-            //return Ok(x);
+            var x = await _roleManager.CreateAsync(new IdentityRole { Name = role });
+            return Ok(x);
         }
 
         //[Authorize(Policy = PolicyList.Prescription)]
-        [HttpGet("Test")]
-        public IActionResult TestToken()
+        [HttpGet("profile")]
+        public IActionResult GetProfile()
         {
             return Ok(User.FindFirstValue(ClaimTypes.Name));
         }
