@@ -1,4 +1,5 @@
 using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Policies;
 using EzNutrition.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -61,6 +62,9 @@ namespace EzNutrition
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             builder.Services.AddTransient<JwtService>();
+            builder.Services.AddTransient<DiseaseRepository>();
+            builder.Services.AddTransient<AdviceRepository>();
+            builder.Services.AddTransient<EnergyRepository>();
 
             var app = builder.Build();
             // Configure the HTTP request pipeline.

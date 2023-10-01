@@ -31,10 +31,10 @@ namespace EzNutrition.Server.Controllers
             var advices = _adviceRepository.GetAdviceByDiseaseID(diseaseIDs);
             return Ok(advices);
         }
-        public PrescriptionController(EzNutritionDbContext ezNutritionDbContext)
+        public PrescriptionController(DiseaseRepository diseaseRepository, AdviceRepository adviceRepository)
         {
-            _diseaseRepository = new(ezNutritionDbContext);
-            _adviceRepository = new(ezNutritionDbContext);
+            _adviceRepository = adviceRepository;
+            _diseaseRepository = diseaseRepository;
         }
     }
 
