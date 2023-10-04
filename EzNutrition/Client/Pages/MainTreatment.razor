@@ -86,6 +86,7 @@
         <GridCol Span="24">
             <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
             <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
+            <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
         </GridCol>
         <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
             <Title Level="3">三餐能量分配</Title>
@@ -94,13 +95,13 @@
                     <Paragraph>餐次</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>蛋白质</Paragraph>
+                    <Paragraph>蛋白质(g)</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>碳水化合物</Paragraph>
+                    <Paragraph>碳水化合物(g)</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
-                    <Paragraph>脂肪</Paragraph>
+                    <Paragraph>脂肪(g)</Paragraph>
                 </GridCol>
                 <GridCol Span="6">
                     <Paragraph>早餐</Paragraph>
