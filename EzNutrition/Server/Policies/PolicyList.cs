@@ -9,6 +9,9 @@ namespace EzNutrition.Server.Policies
         public const string Prescription = "PrescriptionPermission";
 
         [PolicyDefined(PolicyType.Permission)]
+        public const string AdjustModel = "AdjustModelPermission";
+
+        [PolicyDefined(PolicyType.Permission)]
         public const string Admin = "AdminPermission";
 
         public static void RegisterPolicies(AuthorizationOptions options)
