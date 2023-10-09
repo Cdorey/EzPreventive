@@ -1,4 +1,5 @@
 ﻿using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Policies;
 using EzNutrition.Server.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -19,27 +20,17 @@ namespace EzNutrition.Server.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly ILogger<AuthController> _logger;
 
+        private readonly AuthManagerRepository _repository;
+
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
-
             try
             {
-                var user = _context.Users.FirstOrDefault(x => x.UserName == username);
-                if (user != default && (await _signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
-                {
-                    _logger.LogInformation("用户登陆成功：{user.Id}/{user.NormalizedUserName}", user.Id, user.NormalizedUserName);
-                    return Ok(await _jwtService.GenerateJwtToken(user));
-                }
-                else
-                {
-                    _logger.LogInformation("用户登陆失败：{username}", username);
-                    return BadRequest("用户名/密码不正确");
-                }
+                return Ok(await _repository.Login(username, password));
             }
             catch (Exception e)
             {
-                _logger.LogInformation(e, "用户登陆失败：{username}", username);
                 return BadRequest(e.Message);
             }
         }
@@ -47,30 +38,14 @@ namespace EzNutrition.Server.Controllers
         [HttpPost("{role}/regist")]
         public async Task<IActionResult> Register([FromForm] string username, [FromForm] string password, string role)
         {
-            _logger.LogInformation("用户注册申请：{username}", username);
-            var user = _context.Users.FirstOrDefault(x => x.UserName == username);
-            if (user != default)
+            try
             {
-                _logger.LogInformation("用户注册失败：{username}已占用", username);
-                return BadRequest($"{username} was registered");
-            }
-            else
-            {
-                var x = await _userManager.CreateAsync(new IdentityUser { UserName = username }, password);
-                if (!x.Succeeded)
-                {
-                    _logger.LogInformation("用户注册失败：CreateAsync调用异常，{errors}", x.Errors.ToString());
-                    return BadRequest("failed");
-
-                }
-
-                //无论请求什么角色，暂时只放EpiMan权限
-                var addRole = await _userManager.AddToRoleAsync(await _userManager.FindByNameAsync(username), "EpiMan");
-                if (!addRole.Succeeded)
-                {
-                    _logger.LogInformation("角色添加失败：AddToRoleAsync调用异常，{errors}", addRole.Errors.ToString());
-                }
+                await _repository.Register(username, password);
                 return Ok();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
             }
         }
 
@@ -82,6 +57,22 @@ namespace EzNutrition.Server.Controllers
             return Ok(x);
         }
 
+        [HttpPost("{role}/add")]
+        [Authorize(Policy = PolicyList.Admin)]
+        public async Task<IActionResult> AddToRole([FromForm] string username, string role)
+        {
+            try
+            {
+                await _repository.AddToRoleAsync(username, role);
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+
+        }
+
         //[Authorize(Policy = PolicyList.Prescription)]
         [HttpGet("profile")]
         public IActionResult GetProfile()
@@ -89,7 +80,7 @@ namespace EzNutrition.Server.Controllers
             return Ok(User.FindFirstValue(ClaimTypes.Name));
         }
 
-        public AuthController(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger)
+        public AuthController(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger, AuthManagerRepository authManagerRepository)
         {
             _jwtService = jwtService;
             _context = dbContext;
@@ -97,6 +88,7 @@ namespace EzNutrition.Server.Controllers
             _roleManager = roleManager;
             _signInManager = signInManager;
             _logger = logger;
+            _repository = authManagerRepository;
         }
     }
 }

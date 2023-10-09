@@ -65,6 +65,7 @@ namespace EzNutrition
             builder.Services.AddTransient<DiseaseRepository>();
             builder.Services.AddTransient<AdviceRepository>();
             builder.Services.AddTransient<EnergyRepository>();
+            builder.Services.AddTransient<AuthManagerRepository>();
 
             var app = builder.Build();
             // Configure the HTTP request pipeline.
