@@ -35,7 +35,7 @@ namespace EzNutrition.Server.Controllers
             }
         }
 
-        [HttpPost("{role}/regist")]
+        [HttpPost("Regist/{role}")]
         public async Task<IActionResult> Register([FromForm] string username, [FromForm] string password, string role)
         {
             try
@@ -49,17 +49,17 @@ namespace EzNutrition.Server.Controllers
             }
         }
 
-        [HttpPost("{role}/add")]
+        [HttpPost("Role/add")]
         [Authorize(Policy = PolicyList.Admin)]
-        public async Task<IActionResult> AddRole(string role)
+        public async Task<IActionResult> AddRole([FromForm] string role)
         {
             var x = await _roleManager.CreateAsync(new IdentityRole { Name = role });
             return Ok(x);
         }
 
-        [HttpPost("{role}/add")]
+        [HttpPost("Role/add")]
         [Authorize(Policy = PolicyList.Admin)]
-        public async Task<IActionResult> AddToRole([FromForm] string username, string role)
+        public async Task<IActionResult> AddToRole([FromForm] string username, [FromForm] string role)
         {
             try
             {
@@ -73,8 +73,7 @@ namespace EzNutrition.Server.Controllers
 
         }
 
-        //[Authorize(Policy = PolicyList.Prescription)]
-        [HttpGet("profile")]
+        [HttpGet("Profile")]
         public IActionResult GetProfile()
         {
             return Ok(User.FindFirstValue(ClaimTypes.Name));

@@ -42,6 +42,7 @@
                 </FormItem>
                 <FormItem>
                     <Button Type="@ButtonType.Primary" OnClick="Login">登录</Button>
+                    <Button OnClick="Regist">注册</Button>
                 </FormItem>
             </Form>
             @if (!string.IsNullOrEmpty(errorInfo))
@@ -118,6 +119,30 @@ else
                 else
                 {
                     errorInfo = await res.Content.ReadAsStringAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorInfo = ex.Message;
+        }
+    }
+
+    private async Task Regist()
+    {
+        try
+        {
+            if (!(string.IsNullOrEmpty(innerModel.Username) || string.IsNullOrEmpty(innerModel.Password)))
+            {
+                var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>(nameof(innerModel.Username), innerModel.Username), new KeyValuePair<string, string>(nameof(innerModel.Password), innerModel.Password) });
+                var res = await Http.PostAsync("Auth/Regist/Epiman", formContent);
+                if (res.IsSuccessStatusCode)
+                {
+                    await Login();
+                }
+                else
+                {
+                    throw new Exception(await res.Content.ReadAsStringAsync());
                 }
             }
         }
