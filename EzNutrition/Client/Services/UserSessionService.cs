@@ -5,7 +5,7 @@ namespace EzNutrition.Client.Services
     public class UserSessionService
     {
         private UserInfo? userInfo;
-
+        private HttpClient _client;
 
         public UserInfo? UserInfo
         {
@@ -19,15 +19,16 @@ namespace EzNutrition.Client.Services
 
         public string CaseNumber { get; private set; }
 
-        public async Task GetSystemInfoAsync(HttpClient httpClient)
+        public async Task GetSystemInfoAsync()
         {
-            CaseNumber = await httpClient.GetStringAsync("SystemInfo/CaseNumber/");
+            CaseNumber = await _client.GetStringAsync("SystemInfo/CaseNumber/");
         }
 
         public event EventHandler? UserInfoChanged;
 
-        public UserSessionService()
+        public UserSessionService(IHttpClientFactory httpClientFactory)
         {
+            _client = httpClientFactory.CreateClient("Anonymous");
             CaseNumber = string.Empty;
         }
     }

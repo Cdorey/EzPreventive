@@ -2,7 +2,7 @@
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Data.Entities;
 @using EzNutrition.Shared.Utilities;
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 
@@ -63,7 +63,7 @@
         var list = from disease in Diseases select disease.DiseaseId;
         if (list.Any())
         {
-            var result = await Http.PostAuthorizedJsonAsync(UserSession.UserInfo.Token, "Prescription/advices", list.ToList());
+            var result = await HttpClientFactory.CreateClient("Authorize").PostAsJsonAsync("Prescription/advices", list.ToList());
             return await result.Content.ReadFromJsonAsync<List<Advice>>() ?? Advices;
         }
         else
@@ -87,7 +87,7 @@
             Navigation.NavigateTo("/");
             return;
         }
-        diseasesInDB = await Http.GetAuthorizedJsonAsync<List<Disease>>(UserSession.UserInfo.Token, $"Prescription/diseases");
+        diseasesInDB = await HttpClientFactory.CreateClient("Authorize").GetFromJsonAsync<List<Disease>>($"Prescription/diseases");
         await base.OnInitializedAsync();
     }
 }

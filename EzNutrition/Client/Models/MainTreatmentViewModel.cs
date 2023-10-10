@@ -3,12 +3,18 @@ using EzNutrition.Client.Services;
 using EzNutrition.Shared.Data.Entities;
 using EzNutrition.Shared.Utilities;
 using Microsoft.AspNetCore.Components;
+using System.Net.Http;
+using System;
 using System.Text;
+using System.Net.Http.Json;
 
 namespace EzNutrition.Client.Models
 {
     public class MainTreatmentViewModel : ViewModelBase
     {
+        //Authorized client
+        private readonly HttpClient _httpClient;
+
         public ClientInfo UserInfo { get; private set; }
 
         public string? Summary { get; private set; }
@@ -32,7 +38,8 @@ namespace EzNutrition.Client.Models
             {
                 try
                 {
-                    UserInfo.AvailableEERs = await _httpClient.GetAuthorizedJsonAsync<List<EER>>(_userSession.UserInfo.Token, $"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+
+                    UserInfo.AvailableEERs = await _httpClient.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
                 }
                 catch (HttpRequestException ex)
                 {
@@ -123,9 +130,10 @@ namespace EzNutrition.Client.Models
             }
         }
 
-        public MainTreatmentViewModel(IMessageService message, HttpClient httpClient, UserSessionService userSession, NavigationManager navigationManager) : base(message, httpClient, userSession, navigationManager)
+        public MainTreatmentViewModel(IMessageService message, IHttpClientFactory httpClientFactory, UserSessionService userSession, NavigationManager navigationManager) : base(message, httpClientFactory, userSession, navigationManager)
         {
             UserInfo = new();
+            _httpClient = httpClientFactory.CreateClient("Authorize");
         }
     }
 }

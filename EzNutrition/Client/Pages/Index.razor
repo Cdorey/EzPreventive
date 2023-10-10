@@ -3,7 +3,7 @@
 @using EzNutrition.Client.Services;
 @using System.ComponentModel.DataAnnotations;
 @using System.ComponentModel
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject UserSessionService UserSession
 
 <PageTitle>首页</PageTitle>
@@ -110,7 +110,7 @@ else
             if (!(string.IsNullOrEmpty(innerModel.Username) || string.IsNullOrEmpty(innerModel.Password)))
             {
                 var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>(nameof(innerModel.Username), innerModel.Username), new KeyValuePair<string, string>(nameof(innerModel.Password), innerModel.Password) });
-                var res = await Http.PostAsync("Auth", formContent);
+                var res = await HttpClientFactory.CreateClient("Anonymous").PostAsync("Auth", formContent);
                 if (res.IsSuccessStatusCode)
                 {
                     var token = await res.Content.ReadAsStringAsync();
@@ -135,7 +135,7 @@ else
             if (!(string.IsNullOrEmpty(innerModel.Username) || string.IsNullOrEmpty(innerModel.Password)))
             {
                 var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>(nameof(innerModel.Username), innerModel.Username), new KeyValuePair<string, string>(nameof(innerModel.Password), innerModel.Password) });
-                var res = await Http.PostAsync("Auth/Regist/Epiman", formContent);
+                var res = await HttpClientFactory.CreateClient("Anonymous").PostAsync("Auth/Regist/Epiman", formContent);
                 if (res.IsSuccessStatusCode)
                 {
                     await Login();

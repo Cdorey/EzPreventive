@@ -12,21 +12,21 @@ namespace EzNutrition.Shared.Utilities
             var response = await http.SendAsync(request);
             return await response.Content.ReadAsStringAsync();
         }
-        public static async Task<T> GetAuthorizedJsonAsync<T>(this HttpClient http, string token, string requestUri)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-            request.Headers.Add("Authorization", $"Bearer {token}");
-            var response = await http.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<T>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new ArgumentNullException(nameof(content), content);
-                return result;
-            }
+        //public static async Task<T> GetAuthorizedJsonAsync<T>(this HttpClient http, string token, string requestUri)
+        //{
+        //    var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        //    request.Headers.Add("Authorization", $"Bearer {token}");
+        //    var response = await http.SendAsync(request);
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        var content = await response.Content.ReadAsStringAsync();
+        //        var result = JsonSerializer.Deserialize<T>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new ArgumentNullException(nameof(content), content);
+        //        return result;
+        //    }
 
-            throw new HttpRequestException($"requestUri:{requestUri},statusCode:{response.StatusCode}");
+        //    throw new HttpRequestException($"requestUri:{requestUri},statusCode:{response.StatusCode}");
 
-        }
+        //}
 
         public static async Task<HttpResponseMessage> PostAuthorizedJsonAsync<T>(this HttpClient http, string token, string requestUri, T value)
         {

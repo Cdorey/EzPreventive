@@ -2,7 +2,6 @@
 @inherits LayoutComponentBase
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
-@inject HttpClient Http
 
 <Layout Style="min-height: 100vh; ">
     <Sider Breakpoint="@BreakpointType.Sm" CollapsedWidth="0" @bind-Collapsed=@collapsed>
@@ -56,7 +55,7 @@
         {
             StateHasChanged();
         };
-        await UserSession.GetSystemInfoAsync(Http);
+        await UserSession.GetSystemInfoAsync();
         await base.OnInitializedAsync();
     }
 
