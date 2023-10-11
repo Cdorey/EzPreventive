@@ -16,15 +16,16 @@ namespace EzNutrition.Client
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
+            builder.Services.AddAuthorizationCore();
             builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
             builder.Services.AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)).AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
             builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
 
             builder.Services.AddScoped<MainTreatmentViewModel>();
             builder.Services.AddSingleton<UserSessionService>();
+
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
-            builder.Services.AddAuthorizationCore();
             await builder.Build().RunAsync();
         }
     }
