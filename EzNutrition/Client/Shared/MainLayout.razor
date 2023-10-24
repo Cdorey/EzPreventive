@@ -42,16 +42,16 @@
 @code {
     private bool collapsed;
 
-    private void SignOut()
+    private async void SignOut()
     {
-        UserSession.UserInfo = null;
+        await UserSession.SignOutAsync();
 
         Navigation.NavigateTo("/");
     }
 
     protected override async Task OnInitializedAsync()
     {
-        UserSession.UserInfoChanged += (sender, e) =>
+        UserSession.AuthenticationStateChanged += (e) =>
         {
             StateHasChanged();
         };

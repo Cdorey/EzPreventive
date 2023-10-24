@@ -1,10 +1,11 @@
 ﻿using EzNutrition.Shared.Identities;
+using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace EzNutrition.Client.Models
 {
-    public class UserInfo : IUserInfo
+    public class UserInfo : RemoteUserAccount, IUserInfo
     {
         public string Token { get; }
 
@@ -14,7 +15,7 @@ namespace EzNutrition.Client.Models
 
         public string Email { get; }
 
-        protected IEnumerable<Claim> ParseToken()
+        internal IEnumerable<Claim> ParseToken()
         {
             if (!string.IsNullOrEmpty(Token))
             {
@@ -28,6 +29,7 @@ namespace EzNutrition.Client.Models
                 throw new InvalidOperationException("Token is null or empty.");
             }
         }
+
 
         public UserInfo(string token)
         {

@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System.Net.Http;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EzNutrition.Client
 {
@@ -20,8 +22,10 @@ namespace EzNutrition.Client
             builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
             builder.Services.AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)).AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
             builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
+            //builder.Services.AddSingleton<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
 
             builder.Services.AddScoped<MainTreatmentViewModel>();
+            builder.Services.AddSingleton<AuthenticationStateProvider, UserSessionService>();
             builder.Services.AddSingleton<UserSessionService>();
 
             builder.Services.AddAntDesign();
