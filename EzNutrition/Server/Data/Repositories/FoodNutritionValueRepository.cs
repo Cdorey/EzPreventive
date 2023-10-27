@@ -70,41 +70,41 @@ namespace EzNutrition.Server.Data.Repositories
 
         #region 营养素参数表
 
-        public Nutrient CreateNutrientRecord(string friendlyName, string? details, string defaultMeasureUnit)
-        {
-            var nutrient = dbContext.Nutrients?.Add(new Nutrient { FriendlyName = friendlyName, Details = details, DefaultMeasureUnit = defaultMeasureUnit }) ?? throw new Exception("Invalid DbSet.");
-            dbContext.SaveChanges();
-            return nutrient.Entity;
-        }
+        //public Nutrient CreateNutrientRecord(string friendlyName, string? details, string defaultMeasureUnit)
+        //{
+        //    var nutrient = dbContext.Nutrients?.Add(new Nutrient { FriendlyName = friendlyName, Details = details, DefaultMeasureUnit = defaultMeasureUnit }) ?? throw new Exception("Invalid DbSet.");
+        //    dbContext.SaveChanges();
+        //    return nutrient.Entity;
+        //}
 
-        public Nutrient GetNutrientRecordById(int id)
-        {
-            var record = from nutrient in dbContext.Nutrients
-                         where nutrient.NutrientId == id
-                         select nutrient;
-            return record.First();
-        }
+        //public Nutrient GetNutrientRecordById(int id)
+        //{
+        //    var record = from nutrient in dbContext.Nutrients
+        //                 where nutrient.NutrientId == id
+        //                 select nutrient;
+        //    return record.First();
+        //}
 
-        public List<Nutrient> GetNutrientRecords()
-        {
-            return dbContext.Nutrients?.ToList() ?? throw new Exception("Invalid DbSet.");
-        }
+        //public List<Nutrient> GetNutrientRecords()
+        //{
+        //    return dbContext.Nutrients?.ToList() ?? throw new Exception("Invalid DbSet.");
+        //}
 
-        public Nutrient UpdateNutrientRecordById(int id, Nutrient nutrient)
-        {
-            if (dbContext.Nutrients?.First(x => x.NutrientId == id) is Nutrient target)
-            {
-                target.FriendlyName = nutrient.FriendlyName ?? target.FriendlyName;
-                target.Details = nutrient.Details ?? target.Details;
-                target.DefaultMeasureUnit = nutrient.DefaultMeasureUnit ?? target.DefaultMeasureUnit;
-                dbContext.SaveChanges();
-                return target;
-            }
-            else
-            {
-                throw new Exception("Invalid Nutrient Id.");
-            }
-        }
+        //public Nutrient UpdateNutrientRecordById(int id, Nutrient nutrient)
+        //{
+        //    if (dbContext.Nutrients?.First(x => x.NutrientId == id) is Nutrient target)
+        //    {
+        //        target.FriendlyName = nutrient.FriendlyName ?? target.FriendlyName;
+        //        target.Details = nutrient.Details ?? target.Details;
+        //        target.DefaultMeasureUnit = nutrient.DefaultMeasureUnit ?? target.DefaultMeasureUnit;
+        //        dbContext.SaveChanges();
+        //        return target;
+        //    }
+        //    else
+        //    {
+        //        throw new Exception("Invalid Nutrient Id.");
+        //    }
+        //}
         #endregion
 
         #region 食物成分表

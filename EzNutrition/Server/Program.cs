@@ -64,7 +64,7 @@ namespace EzNutrition
             builder.Services.AddTransient<JwtService>();
             builder.Services.AddTransient<DiseaseRepository>();
             builder.Services.AddTransient<AdviceRepository>();
-            builder.Services.AddTransient<EnergyRepository>();
+            builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
             builder.Services.AddTransient<AuthManagerRepository>();
 
             var app = builder.Build();

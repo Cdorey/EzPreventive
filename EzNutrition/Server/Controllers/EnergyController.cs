@@ -11,7 +11,7 @@ namespace EzNutrition.Server.Controllers
     public class EnergyController : ControllerBase
     {
 
-        private readonly EnergyRepository _energyRepository;
+        private readonly DietaryReferenceIntakeRepository _energyRepository;
         private readonly ILogger<EnergyController> _logger;
 
         [HttpGet("EERs/{gender}/{age}")]
@@ -34,7 +34,7 @@ namespace EzNutrition.Server.Controllers
             return Ok(eerResults);
         }
 
-        public EnergyController(EnergyRepository energyRepository, ILogger<EnergyController> logger)
+        public EnergyController(DietaryReferenceIntakeRepository energyRepository, ILogger<EnergyController> logger)
         {
             _energyRepository = energyRepository;
             _logger = logger;
