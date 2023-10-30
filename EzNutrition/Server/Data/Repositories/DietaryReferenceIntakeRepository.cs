@@ -38,7 +38,7 @@ namespace EzNutrition.Server.Data.Repositories
                 {
                     decimal? maxAge = null;
 
-                    if (dris.Count(x => x.AgeStart != null) > 0)
+                    if (dris.Any(x => x.AgeStart != null))
                     {
                         maxAge = dris.Max(x => x.AgeStart);
                     }
@@ -55,7 +55,6 @@ namespace EzNutrition.Server.Data.Repositories
                 }
             }
         }
-
 
         public DietaryReferenceIntakeRepository(EzNutritionDbContext dbContext)
         {

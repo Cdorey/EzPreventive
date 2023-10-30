@@ -1,5 +1,4 @@
-﻿using EzNutrition.Server.Data;
-using EzNutrition.Server.Data.Repositories;
+﻿using EzNutrition.Server.Data.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +18,7 @@ namespace EzNutrition.Server.Controllers
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
-                _logger.LogWarning("不正确的EER参数：{gender}/{age}", gender, age); 
+                _logger.LogWarning("不正确的EER参数：{gender}/{age}", gender, age);
                 return BadRequest("Invalid gender or age.");
             }
 
@@ -33,6 +32,28 @@ namespace EzNutrition.Server.Controllers
 
             return Ok(eerResults);
         }
+
+        [HttpGet("DRIs/{gender}/{age}")]
+        public IActionResult GetDRIs(string gender, decimal age)
+        {
+            if (string.IsNullOrEmpty(gender) || age < 0)
+            {
+                _logger.LogWarning("不正确的EER参数：{gender}/{age}", gender, age);
+                return BadRequest("Invalid gender or age.");
+            }
+#warning 没有正确处理特殊生理时期信息
+            var driResults = _energyRepository.GetDRIsByPersonalInfo(age, gender, new List<string>());
+
+            if (driResults == null || !driResults.Any())
+            {
+                _logger.LogWarning("无记录的EER参数：{gender}/{age}", gender, age);
+                return NotFound("No EER results found.");
+            }
+
+            return Ok(driResults);
+        }
+
+
 
         public EnergyController(DietaryReferenceIntakeRepository energyRepository, ILogger<EnergyController> logger)
         {
