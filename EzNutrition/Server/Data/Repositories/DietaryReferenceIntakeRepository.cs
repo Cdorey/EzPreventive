@@ -18,7 +18,7 @@ namespace EzNutrition.Server.Data.Repositories
 
         public IEnumerable<DietaryReferenceIntakeValue> GetDRIsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
         {
-            var query = from dri in dbContext.DRIs
+            var query = from dri in dbContext.DRIs?.AsEnumerable()
                         where dri.Gender == gender || dri.Gender == null
                         where dri.AgeStart <= age || dri.AgeStart == null
                         where specialPhysiologicalPeriod.Contains(dri.SpecialPhysiologicalPeriod) || dri.SpecialPhysiologicalPeriod == null

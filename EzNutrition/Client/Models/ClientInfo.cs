@@ -5,6 +5,8 @@ namespace EzNutrition.Client.Models
     public class ClientInfo
     {
         public List<EER> AvailableEERs { get; set; } = new();
+        public List<DietaryReferenceIntakeValue> AvailableDRIs { get; set; } = new();
+
         public string? Name { get; set; }
 
         public string? Gender { get; set; }

@@ -48,6 +48,29 @@ namespace EzNutrition.Client.Models
             }
         }
 
+        public async Task FetchDRIs()
+        {
+            if (_userSession.UserInfo == null)
+            {
+                _navigationManager.NavigateTo("/");
+                await _message.Error("需要登录");
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(UserInfo.Gender) && UserInfo.Age >= 0)
+            {
+                try
+                {
+
+                    UserInfo.AvailableDRIs = await _httpClient.GetFromJsonAsync<List<DietaryReferenceIntakeValue>>($"Energy/DRIs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableDRIs;
+                }
+                catch (HttpRequestException ex)
+                {
+                    await _message.Error(ex.Message);
+                }
+            }
+        }
+
         public void Calculate()
         {
             int CalculateEnergyFromBEE()
