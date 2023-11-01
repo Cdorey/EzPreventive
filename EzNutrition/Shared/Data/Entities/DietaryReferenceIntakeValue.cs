@@ -30,5 +30,10 @@ namespace EzNutrition.Shared.Data.Entities
         public string? MeasureUnit { get; set; }
 
         public string? Detail { get; set; }
+
+        public override string? ToString()
+        {
+            return $"{((Value % 1 == 0) ? (int)Value : Value)} {MeasureUnit} " + (RecordType == DietaryReferenceIntakeType.AI ? "(AI)" : "");
+        }
     }
 }

@@ -72,18 +72,18 @@
         {
             <GridCol Span="24">
                 <Title Level="2">DRIs模型</Title>
-                <Table TItem="IGrouping<string,DietaryReferenceIntakeValue>" DataSource="@MaintreatmentVM.UserInfo.AvailableDRIs.GroupBy(x => x.Nutrient)" HidePagination="true">
+                <Table TItem="IGrouping<string,DietaryReferenceIntakeValue>" DataSource="@MaintreatmentVM.UserInfo.AvailableDRIs.GroupBy(x => x.Nutrient).Where(x=>x.Any(a=>a.RecordType == DietaryReferenceIntakeType.AI || a.RecordType == DietaryReferenceIntakeType.RNI||a.RecordType == DietaryReferenceIntakeType.UL))" HidePagination="true">
                     <PropertyColumn Property="c=>c.Key">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> 营养素类型 </span>
                         </TitleTemplate>
                     </PropertyColumn>
-                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.AI || x.RecordType == DietaryReferenceIntakeType.RNI).Select(x=>x.Value+x.MeasureUnit).FirstOrDefault()">
+                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.AI || x.RecordType == DietaryReferenceIntakeType.RNI).Select(x=>x.ToString()).FirstOrDefault()">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> RNI/AI </span>
                         </TitleTemplate>
                     </PropertyColumn>
-                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.UL).Select(x=>x.Value+x.MeasureUnit).FirstOrDefault()">
+                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.UL).Select(x=>x.ToString()).FirstOrDefault()">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> UL </span>
                         </TitleTemplate>
