@@ -1,4 +1,5 @@
 ﻿using EzNutrition.Shared.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace EzNutrition.Server.Data.Repositories
@@ -18,10 +19,9 @@ namespace EzNutrition.Server.Data.Repositories
 
         public IEnumerable<DietaryReferenceIntakeValue> GetDRIsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
         {
-            var query = from dri in dbContext.DRIs?.AsEnumerable()
-                        where dri.Gender == gender || dri.Gender == null
-                        where dri.AgeStart <= age || dri.AgeStart == null
-                        where specialPhysiologicalPeriod.Contains(dri.SpecialPhysiologicalPeriod) || dri.SpecialPhysiologicalPeriod == null
+            var query = from dri in (from dri in dbContext.DRIs
+                                     where (dri.Gender == gender || dri.Gender == null) && (dri.AgeStart <= age || dri.AgeStart == null) && (specialPhysiologicalPeriod.Contains(dri.SpecialPhysiologicalPeriod) || dri.SpecialPhysiologicalPeriod == null)
+                                     select dri).AsEnumerable()
                         group dri by dri.Nutrient into records
                         select new
                         {
