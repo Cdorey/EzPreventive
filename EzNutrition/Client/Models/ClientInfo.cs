@@ -4,10 +4,27 @@ namespace EzNutrition.Client.Models
 {
     public class ClientInfo
     {
-        public List<EER> AvailableEERs { get; set; } = new();
-        public List<DietaryReferenceIntakeValue> AvailableDRIs { get; set; } = new();
+        private List<DietaryReferenceIntakeValue> availableDRIs = new();
 
-        public dynamic RangeCastForDRIs()
+        public List<EER> AvailableEERs { get; set; } = new();
+
+        public List<DietaryReferenceIntakeValue> AvailableDRIs
+        {
+            get
+            {
+                return availableDRIs;
+            }
+
+            set
+            {
+                availableDRIs = value;
+                NutrientRanges = RangeCastForDRIs().ToList();
+            }
+        }
+
+        public List<NutrientRange> NutrientRanges { get; private set; } = new();
+
+        private IEnumerable<NutrientRange> RangeCastForDRIs()
         {
             var rangeInfos = from dris in AvailableDRIs
                              where dris.RecordType == DietaryReferenceIntakeType.AI || dris.RecordType == DietaryReferenceIntakeType.RNI || dris.RecordType == DietaryReferenceIntakeType.UL || dris.RecordType == DietaryReferenceIntakeType.EAR
@@ -15,9 +32,18 @@ namespace EzNutrition.Client.Models
 
             foreach (var rangeInfo in rangeInfos)
             {
-                var ears = rangeInfo.Where(dris => dris.RecordType == DietaryReferenceIntakeType.EAR);
-                var rnis = rangeInfo.Where(dris => dris.RecordType == DietaryReferenceIntakeType.AI || dris.RecordType == DietaryReferenceIntakeType.RNI);
-                var uls = rangeInfo.Where(dris => dris.RecordType == DietaryReferenceIntakeType.UL);
+                NutrientRange result;
+                try
+                {
+                    result = new NutrientRange(rangeInfo);
+                }
+                catch (ArgumentException ex)
+                {
+#warning 这里缺少正确的处理逻辑
+                    continue;
+                }
+
+                yield return result;
             }
         }
 

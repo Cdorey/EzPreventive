@@ -72,21 +72,35 @@
         {
             <GridCol Span="24">
                 <Title Level="2">DRIs模型</Title>
-                <Table TItem="IGrouping<string,DietaryReferenceIntakeValue>" DataSource="@MaintreatmentVM.UserInfo.AvailableDRIs.GroupBy(x => x.Nutrient).Where(x=>x.Any(a=>a.RecordType == DietaryReferenceIntakeType.AI || a.RecordType == DietaryReferenceIntakeType.RNI||a.RecordType == DietaryReferenceIntakeType.UL))" HidePagination="true">
-                    <PropertyColumn Property="c=>c.Key">
+                <Table TItem="NutrientRange" DataSource="@MaintreatmentVM.UserInfo.NutrientRanges" HidePagination="true">
+                    <PropertyColumn Property="c=>c.Nutrient">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> 营养素类型 </span>
                         </TitleTemplate>
                     </PropertyColumn>
-                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.AI || x.RecordType == DietaryReferenceIntakeType.RNI).Select(x=>x.ToString()).FirstOrDefault()">
+                    <PropertyColumn Property="c=>c.EAR">
+                        <TitleTemplate>
+                            <span> <Icon Type="environment" /> EAR </span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            @(context.EAR?.ToString() ?? string.Empty)
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="c=>c.RNI">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> RNI/AI </span>
                         </TitleTemplate>
+                        <ChildContent>
+                            @(context.RNI?.ToString() ?? string.Empty)
+                        </ChildContent>
                     </PropertyColumn>
-                    <PropertyColumn Property="c=>c.Where(x => x.RecordType == DietaryReferenceIntakeType.UL).Select(x=>x.ToString()).FirstOrDefault()">
+                    <PropertyColumn Property="c=>c.UL">
                         <TitleTemplate>
                             <span> <Icon Type="environment" /> UL </span>
                         </TitleTemplate>
+                        <ChildContent>
+                            @(context.UL?.ToString() ?? string.Empty)
+                        </ChildContent>
                     </PropertyColumn>
                 </Table>
             </GridCol>
