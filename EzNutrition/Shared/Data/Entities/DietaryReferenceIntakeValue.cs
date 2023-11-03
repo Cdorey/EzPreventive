@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EzNutrition.Shared.Data.Entities
 {
-    public class DietaryReferenceIntakeValue
+    public class DietaryReferenceIntakeValue : IDietaryReferenceIntakeValue
     {
         public int DietaryReferenceIntakeValueId { get; set; }
 
