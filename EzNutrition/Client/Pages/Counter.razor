@@ -29,16 +29,16 @@ else
 
     protected void ParseToken()
     {
-        if (!string.IsNullOrEmpty(token))
-        {
-            // 使用令牌解析用户信息
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtToken = tokenHandler.ReadJwtToken(token);
-            userClaims = jwtToken.Claims.ToArray();
-        }
+        // if (!string.IsNullOrEmpty(token))
+        // {
+        //     // 使用令牌解析用户信息
+        //     var tokenHandler = new JwtSecurityTokenHandler();
+        //     var jwtToken = tokenHandler.ReadJwtToken(token);
+        //     userClaims = jwtToken.Claims.ToArray();
+        // }
     }
 
-    private async Task IncrementCount()
+    private void IncrementCount()
     {
         // var http = HttpClientFactory.CreateClient();
 

@@ -27,7 +27,7 @@
 
         private class RangeValue : IRangeValue
         {
-            private IEnumerable<DietaryReferenceIntakeValue> ConflictAutoHandler(IEnumerable<DietaryReferenceIntakeValue> values)
+            private static IEnumerable<DietaryReferenceIntakeValue> ConflictAutoHandler(IEnumerable<DietaryReferenceIntakeValue> values)
             {
                 //尝试处理多绝对值问题
                 var absoluteQuery = values.Where(x => !x.IsOffset);

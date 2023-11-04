@@ -37,9 +37,9 @@ namespace EzNutrition.Client.Models
                 {
                     result = new NutrientRange(rangeInfo);
                 }
-                catch (ArgumentException ex)
+                catch (ArgumentException)
                 {
-#warning 这里缺少正确的处理逻辑
+#warning 这里直接丢弃不能解析的值，缺少正确的处理逻辑
                     continue;
                 }
 

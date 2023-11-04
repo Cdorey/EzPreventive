@@ -41,7 +41,6 @@ namespace EzNutrition.Server.Controllers
                 _logger.LogWarning("不正确的EER参数：{gender}/{age}", gender, age);
                 return BadRequest("Invalid gender or age.");
             }
-#warning 没有正确处理特殊生理时期信息
             var driResults = _energyRepository.GetDRIsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
 
             if (driResults == null || !driResults.Any())
