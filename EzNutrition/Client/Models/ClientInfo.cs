@@ -55,6 +55,9 @@ namespace EzNutrition.Client.Models
         public decimal? PAL { get; set; }
         public decimal? Height { get; set; }
         public decimal? Weight { get; set; }
+
+        public string SpecialPhysiologicalPeriod { get; set; } = string.Empty;
+
     }
 
 }

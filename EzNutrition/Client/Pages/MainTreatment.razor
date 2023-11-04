@@ -43,13 +43,24 @@
             <FormItem Label="体重（kg）">
                 <Input @bind-Value="context.Weight" type="number" min="0" />
             </FormItem>
-            <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
-            <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
-        </Form>
-    </GridCol>
-    <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
-        <Title Level="2">概要</Title>
-        @if (MaintreatmentVM.Summary != null)
+            <FormItem Label="特殊生理状况">
+                <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
+                    <Radio RadioButton Value="@string.Empty">无</Radio>
+                     <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+                     <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+                     <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+                     <Radio RadioButton Value="@("乳母")">乳母</Radio>
+                     <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                 </RadioGroup>
+             </FormItem>
+
+             <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
+             <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
+         </Form>
+     </GridCol>
+     <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+         <Title Level="2">概要</Title>
+         @if (MaintreatmentVM.Summary != null)
         {
             <Paragraph>@MaintreatmentVM.Summary</Paragraph>
             @if (MaintreatmentVM.Allocation != null)

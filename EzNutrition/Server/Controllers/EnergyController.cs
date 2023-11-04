@@ -33,8 +33,8 @@ namespace EzNutrition.Server.Controllers
             return Ok(eerResults);
         }
 
-        [HttpGet("DRIs/{gender}/{age}")]
-        public IActionResult GetDRIs(string gender, decimal age)
+        [HttpPost("DRIs/{gender}/{age}")]
+        public IActionResult GetDRIs(string gender, decimal age, [FromBody] IEnumerable<string> specialPhysiologicalPeriod)
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
@@ -42,7 +42,7 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("Invalid gender or age.");
             }
 #warning 没有正确处理特殊生理时期信息
-            var driResults = _energyRepository.GetDRIsByPersonalInfo(age, gender, new List<string>());
+            var driResults = _energyRepository.GetDRIsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
 
             if (driResults == null || !driResults.Any())
             {

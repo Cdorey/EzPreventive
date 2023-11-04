@@ -25,6 +25,7 @@ namespace EzNutrition.Client.Models
 
         public List<Advice>? Advices { get; set; }
 
+
         public async Task FetchEERs()
         {
             if (_userSession.UserInfo == null)
@@ -61,8 +62,12 @@ namespace EzNutrition.Client.Models
             {
                 try
                 {
+                    var postRes = await _httpClient.PostAsJsonAsync($"Energy/DRIs/{UserInfo.Gender}/{UserInfo.Age}", new List<string> { UserInfo.SpecialPhysiologicalPeriod });
 
-                    UserInfo.AvailableDRIs = await _httpClient.GetFromJsonAsync<List<DietaryReferenceIntakeValue>>($"Energy/DRIs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableDRIs;
+                    if (postRes.IsSuccessStatusCode)
+                    {
+                        UserInfo.AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? UserInfo.AvailableDRIs;
+                    }
                 }
                 catch (HttpRequestException ex)
                 {
