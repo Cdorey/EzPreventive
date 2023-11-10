@@ -4,32 +4,62 @@
 @inject NavigationManager Navigation
 
 <Layout Style="min-height: 100vh; ">
-    <Sider Breakpoint="@BreakpointType.Sm" CollapsedWidth="0" @bind-Collapsed=@collapsed>
-        <Layout>
-            <Header Style="color:white;">
-                EzNutrition
-            </Header>
-            <Content>
-                <NavMenu />
-            </Content>
-        </Layout>
-    </Sider>
-    <Layout>
-        <Content>
-            <div class="site-layout-content">
-                @Body
-            </div>
-        </Content>
-        <Footer Style="text-align: center;">
-            @* <a href="https://wiki.cdorey.net"><img style="width:45px;margin:8px;" src="/logo.png" /></a> *@
-            @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
+    <Header Style="height:auto">
+        <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
+            <GridCol>
+                <span style="color:white;">EzNutrition</span>
+            </GridCol>
+            @if (currentBreakpoint >= BreakpointType.Md)
             {
-                <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
+                <GridCol>
+                    <NavMenu />
+                </GridCol>
             }
-        </Footer>
-    </Layout>
-</Layout>
 
+            <GridCol>
+                @if (UserSession.UserInfo != default)
+                {
+                    <div @onclick="_=>drawerVisible=true">
+                        <Avatar Icon="user" />
+                        <span style="color:white;">@UserSession.UserInfo.UserName</span>
+                    </div>
+                }
+            </GridCol>
+        </GridRow>
+    </Header>
+    <Content>
+        <div class="site-layout-content">
+            @Body
+        </div>
+    </Content>
+    <Footer Style="text-align: center;">
+        @* <a href="https://wiki.cdorey.net"><img style="width:45px;margin:8px;" src="/logo.png" /></a> *@
+        @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
+        {
+            <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
+        }
+    </Footer>
+</Layout>
+<Drawer Closable="true" Visible="drawerVisible" OnClose="_=>drawerVisible=false" Placement="right" Title="@("EzNutrition")">
+    @if (currentBreakpoint < BreakpointType.Md)
+    {
+        <p>
+            <a href="/">
+                <Icon Type="home" Theme="outline" />
+                <span>首页</span>
+            </a>
+        </p>
+        @if (UserSession.UserInfo != default)
+        {
+            <p>
+                <a href="/maintreatment">
+                    <Icon Type="medicine-box" Theme="outline" />
+                    <span>基本处理</span>
+                </a>
+            </p>
+        }
+    }
+</Drawer>
 <style>
     .site-layout-content {
         background: #fff;
@@ -40,7 +70,14 @@
 </style>
 
 @code {
-    private bool collapsed;
+    private bool drawerVisible;
+
+    private BreakpointType currentBreakpoint;
+
+    private void HandleBreakpoint(BreakpointType breakpoint)
+    {
+        currentBreakpoint = breakpoint;
+    }
 
     private async void SignOut()
     {

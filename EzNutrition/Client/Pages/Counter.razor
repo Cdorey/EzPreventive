@@ -4,6 +4,7 @@
 @using System.Security.Claims;
 @using System.IdentityModel.Tokens.Jwt;
 @inject IHttpClientFactory HttpClientFactory
+@inject DrawerService DrawerService
 
 <PageTitle>Counter</PageTitle>
 
@@ -18,7 +19,7 @@ else
     <p><em>@token</em></p>
 }
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<button class="btn btn-primary" @onclick="OpenComponent">Click me</button>
 
 
 @code
@@ -38,35 +39,22 @@ else
         // }
     }
 
-    private void IncrementCount()
+    private async Task OpenComponent()
     {
-        // var http = HttpClientFactory.CreateClient();
+        var options = new DrawerOptions()
+            {
+                Title = "Component",
+                Width = 350,
+            };
 
-        // try
+        // var drawerRef = await DrawerService.CreateAsync<DrawerMenuComponent, string, string>(options, "blazor");
+
+        // drawerRef.OnClosed = async result =>
         // {
-        //     if (token == null)
-        //     {
-        //         var formContent = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("username", "Test_User"), new KeyValuePair<string, string>("password", "") });
-        //         var res = await http.PostAsync("Auth", formContent);
-        //         if (res.IsSuccessStatusCode)
-        //         {
-        //             token = await res.Content.ReadAsStringAsync();
-        //             ParseToken();
-        //         }
-        //         else
-        //         {
+        //     Console.WriteLine("OnAfterClosed:" + result);
 
-        //         }
-        //     }
-        //     else
-        //     {
-        //         token = await http.GetAuthorizedStringAsync(token, "Auth/Test");
-        //     }
-        // }
-        // catch (Exception)
-        // {
-
-        // }
+        //     await InvokeAsync(StateHasChanged);
+        // };
 
     }
 }
