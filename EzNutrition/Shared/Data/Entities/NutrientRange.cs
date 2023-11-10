@@ -14,6 +14,9 @@
 
             var rniQuery = innerRecords.Where(x => x.RecordType == DietaryReferenceIntakeType.AI || x.RecordType == DietaryReferenceIntakeType.RNI);
             RNI = rniQuery.Any() ? new RangeValue(rniQuery) : default;
+
+            var others = innerRecords.Where(x => !(x.RecordType == DietaryReferenceIntakeType.EAR || x.RecordType == DietaryReferenceIntakeType.UL || x.RecordType == DietaryReferenceIntakeType.AI || x.RecordType == DietaryReferenceIntakeType.RNI));
+            OtherRecords = others;
         }
 
         public string Nutrient { get; }
@@ -23,6 +26,8 @@
         public IRangeValue? RNI { get; }
 
         public IRangeValue? UL { get; }
+
+        public IEnumerable<DietaryReferenceIntakeValue> OtherRecords { get; }
 
 
         private class RangeValue : IRangeValue

@@ -94,7 +94,17 @@
                             <span> <Icon Type="environment" /> EAR </span>
                         </TitleTemplate>
                         <ChildContent>
-                            @(context.EAR?.ToString() ?? string.Empty)
+                            @if (context.EAR != default)
+                            {
+                                <Popover Title="平均需要量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                                    <ContentTemplate>
+                                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.EAR.InnerRecords" />
+                                    </ContentTemplate>
+                                    <ChildContent>
+                                        @(context.EAR.ToString())
+                                    </ChildContent>
+                                </Popover>
+                            }
                         </ChildContent>
                     </PropertyColumn>
                     <PropertyColumn Property="c=>c.RNI">
@@ -102,7 +112,17 @@
                             <span> <Icon Type="environment" /> RNI/AI </span>
                         </TitleTemplate>
                         <ChildContent>
-                            @(context.RNI?.ToString() ?? string.Empty)
+                            @if (context.RNI != default)
+                            {
+                                <Popover Title="推荐摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                                    <ContentTemplate>
+                                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.RNI.InnerRecords" />
+                                    </ContentTemplate>
+                                    <ChildContent>
+                                        @(context.RNI.ToString())
+                                    </ChildContent>
+                                </Popover>
+                            }
                         </ChildContent>
                     </PropertyColumn>
                     <PropertyColumn Property="c=>c.UL">
@@ -110,9 +130,38 @@
                             <span> <Icon Type="environment" /> UL </span>
                         </TitleTemplate>
                         <ChildContent>
-                            @(context.UL?.ToString() ?? string.Empty)
+                            @if (context.UL != default)
+                            {
+                                <Popover Title="可耐受最高摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                                    <ContentTemplate>
+                                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.UL.InnerRecords" />
+                                    </ContentTemplate>
+                                    <ChildContent>
+                                        @(context.UL.ToString())
+                                    </ChildContent>
+                                </Popover>
+                            }
                         </ChildContent>
                     </PropertyColumn>
+                    <PropertyColumn Property="c=>c.OtherRecords">
+                        <TitleTemplate>
+                            <span> <Icon Type="environment" /> 其他相关记录 </span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            @if (context.OtherRecords.Any())
+                            {
+                                <Popover Title="其他备择DRIs见解" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                                    <ContentTemplate>
+                                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.OtherRecords" />
+                                    </ContentTemplate>
+                                    <ChildContent>
+                                        ……
+                                    </ChildContent>
+                                </Popover>
+                            }
+                        </ChildContent>
+                    </PropertyColumn>
+
                 </Table>
             </GridCol>
         }
@@ -136,7 +185,7 @@
             <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
             <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
         </GridCol>
-        <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+        <GridCol Md="12" Xs="24">
             <Title Level="3">三餐能量分配</Title>
             <GridRow>
                 <GridCol Span="6">
@@ -189,7 +238,7 @@
                 </GridCol>
             </GridRow>
         </GridCol>
-        <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+        <GridCol Md="12" Xs="24">
             <Title Level="3">食物交换份</Title>
             <GridRow>
                 <GridCol Span="6">

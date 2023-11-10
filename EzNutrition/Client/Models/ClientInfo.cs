@@ -26,11 +26,11 @@ namespace EzNutrition.Client.Models
 
         private IEnumerable<NutrientRange> RangeCastForDRIs()
         {
-            var rangeInfos = from dris in AvailableDRIs
-                             where dris.RecordType == DietaryReferenceIntakeType.AI || dris.RecordType == DietaryReferenceIntakeType.RNI || dris.RecordType == DietaryReferenceIntakeType.UL || dris.RecordType == DietaryReferenceIntakeType.EAR
-                             group dris by dris.Nutrient;
+            //var rangeInfos = from dris in AvailableDRIs
+            //                 where dris.RecordType == DietaryReferenceIntakeType.AI || dris.RecordType == DietaryReferenceIntakeType.RNI || dris.RecordType == DietaryReferenceIntakeType.UL || dris.RecordType == DietaryReferenceIntakeType.EAR
+            //                 group dris by dris.Nutrient;
 
-            foreach (var rangeInfo in rangeInfos)
+            foreach (var rangeInfo in AvailableDRIs.GroupBy(x => x.Nutrient ?? string.Empty))
             {
                 NutrientRange result;
                 try
