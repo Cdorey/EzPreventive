@@ -1,0 +1,65 @@
+﻿@page "/drisinsights"
+@using EzNutrition.Client.Models;
+@using EzNutrition.Client.Services;
+@using EzNutrition.Shared.Utilities;
+@using EzNutrition.Shared.Data.Entities;
+@using System.Text;
+@inject UserSessionService UserSession
+@inject NavigationManager Navigation
+@inject IMessageService Message
+@inject IHttpClientFactory HttpClientFactory
+<Title>DRIs见解浏览器</Title>
+<p>这里允许你快速检索DRIs见解，自变量为性别、年龄、是否具有特殊生理状态</p>
+<Form Model="@Info" LabelAlign="AntLabelAlignType.Left">
+    <FormItem Label="性别">
+        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
+            <Radio RadioButton Value="@("男")">男</Radio>
+             <Radio RadioButton Value="@("女")">女</Radio>
+         </RadioGroup>
+     </FormItem>
+     <FormItem Label="年龄">
+         <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
+     </FormItem>
+     <FormItem Label="特殊生理状况">
+         <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
+             <Radio RadioButton Value="@string.Empty">无</Radio>
+             <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+             <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+             <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+             <Radio RadioButton Value="@("乳母")">乳母</Radio>
+             <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+         </RadioGroup>
+     </FormItem>
+ </Form>
+
+ <DRIsInSightTable NutrientRanges="@Info.NutrientRanges" />
+ @code {
+    private ClientInfo Info { get; set; } = new();
+
+    private async Task OnEERsChanged()
+    {
+        if (UserSession.UserInfo == null)
+        {
+            Navigation.NavigateTo("/");
+            await Message.Error("需要登录");
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(Info.Gender) && Info.Age >= 0)
+        {
+            try
+            {
+                var postRes = await HttpClientFactory.CreateClient("Authorize").PostAsJsonAsync($"Energy/DRIs/{Info.Gender}/{Info.Age}", new List<string> { Info.SpecialPhysiologicalPeriod });
+
+                if (postRes.IsSuccessStatusCode)
+                {
+                    Info.AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? Info.AvailableDRIs;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                await Message.Error(ex.Message);
+            }
+        }
+    }
+}

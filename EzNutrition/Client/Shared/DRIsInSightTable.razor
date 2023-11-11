@@ -1,0 +1,89 @@
+﻿@using EzNutrition.Shared.Utilities;
+@using EzNutrition.Shared.Data.Entities;
+@using System.Text;
+
+<Table TItem="NutrientRange" DataSource="NutrientRanges" HidePagination="true">
+    <PropertyColumn Property="c=>c.Nutrient">
+        <TitleTemplate>
+            <span> <Icon Type="environment" /> 营养素类型 </span>
+        </TitleTemplate>
+    </PropertyColumn>
+    <PropertyColumn Property="c=>c.EAR">
+        <TitleTemplate>
+            <span> <Icon Type="environment" /> EAR </span>
+        </TitleTemplate>
+        <ChildContent>
+            @if (context.EAR != default)
+            {
+                <Popover Title="平均需要量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                    <ContentTemplate>
+                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.EAR.InnerRecords" />
+                    </ContentTemplate>
+                    <ChildContent>
+                        @(context.EAR.ToString())
+                    </ChildContent>
+                </Popover>
+            }
+        </ChildContent>
+    </PropertyColumn>
+    <PropertyColumn Property="c=>c.RNI">
+        <TitleTemplate>
+            <span> <Icon Type="environment" /> RNI/AI </span>
+        </TitleTemplate>
+        <ChildContent>
+            @if (context.RNI != default)
+            {
+                <Popover Title="推荐摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                    <ContentTemplate>
+                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.RNI.InnerRecords" />
+                    </ContentTemplate>
+                    <ChildContent>
+                        @(context.RNI.ToString())
+                    </ChildContent>
+                </Popover>
+            }
+        </ChildContent>
+    </PropertyColumn>
+    <PropertyColumn Property="c=>c.UL">
+        <TitleTemplate>
+            <span> <Icon Type="environment" /> UL </span>
+        </TitleTemplate>
+        <ChildContent>
+            @if (context.UL != default)
+            {
+                <Popover Title="可耐受最高摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                    <ContentTemplate>
+                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.UL.InnerRecords" />
+                    </ContentTemplate>
+                    <ChildContent>
+                        @(context.UL.ToString())
+                    </ChildContent>
+                </Popover>
+            }
+        </ChildContent>
+    </PropertyColumn>
+    <PropertyColumn Property="c=>c.OtherRecords">
+        <TitleTemplate>
+            <span> <Icon Type="environment" /> 其他相关记录 </span>
+        </TitleTemplate>
+        <ChildContent>
+            @if (context.OtherRecords.Any())
+            {
+                <Popover Title="其他备择DRIs见解" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover})">
+                    <ContentTemplate>
+                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.OtherRecords" />
+                    </ContentTemplate>
+                    <ChildContent>
+                        ……
+                    </ChildContent>
+                </Popover>
+            }
+        </ChildContent>
+    </PropertyColumn>
+</Table>
+
+@code {
+    [Parameter]
+    public IEnumerable<NutrientRange>? NutrientRanges { get; set; }
+
+}
