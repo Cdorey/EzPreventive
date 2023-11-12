@@ -31,35 +31,51 @@
          </RadioGroup>
      </FormItem>
  </Form>
-
- <DRIsInSightTable NutrientRanges="@Info.NutrientRanges" />
+ <Spin Spinning="@IsLoading">
+     <Indicator>
+         <Icon Type="loading" Style="font-size: 5rem" Theme="outline" Spin />
+     </Indicator>
+     <ChildContent>
+         <DRIsInSightTable NutrientRanges="@Info.NutrientRanges" />
+     </ChildContent>
+ </Spin>
  @code {
     private ClientInfo Info { get; set; } = new();
 
+    private bool IsLoading { get; set; } = false;
+
     private async Task OnEERsChanged()
     {
-        if (UserSession.UserInfo == null)
+        try
         {
-            Navigation.NavigateTo("/");
-            await Message.Error("需要登录");
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(Info.Gender) && Info.Age >= 0)
-        {
-            try
+            IsLoading = true;
+            if (UserSession.UserInfo == null)
             {
-                var postRes = await HttpClientFactory.CreateClient("Authorize").PostAsJsonAsync($"Energy/DRIs/{Info.Gender}/{Info.Age}", new List<string> { Info.SpecialPhysiologicalPeriod });
+                Navigation.NavigateTo("/");
+                await Message.Error("需要登录");
+                return;
+            }
 
-                if (postRes.IsSuccessStatusCode)
+            if (!string.IsNullOrEmpty(Info.Gender) && Info.Age >= 0)
+            {
+                try
                 {
-                    Info.AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? Info.AvailableDRIs;
+                    var postRes = await HttpClientFactory.CreateClient("Authorize").PostAsJsonAsync($"Energy/DRIs/{Info.Gender}/{Info.Age}", new List<string> { Info.SpecialPhysiologicalPeriod });
+
+                    if (postRes.IsSuccessStatusCode)
+                    {
+                        Info.AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? Info.AvailableDRIs;
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    await Message.Error(ex.Message);
                 }
             }
-            catch (HttpRequestException ex)
-            {
-                await Message.Error(ex.Message);
-            }
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 }
