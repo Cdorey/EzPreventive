@@ -39,8 +39,12 @@ namespace EzNutrition.Client.Models
             {
                 try
                 {
+                    var postRes = await _httpClient.PostAsJsonAsync($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}", new List<string> { UserInfo.SpecialPhysiologicalPeriod });
 
-                    UserInfo.AvailableEERs = await _httpClient.GetFromJsonAsync<List<EER>>($"Energy/EERs/{UserInfo.Gender}/{UserInfo.Age}") ?? UserInfo.AvailableEERs;
+                    if (postRes.IsSuccessStatusCode)
+                    {
+                        UserInfo.AvailableEERs = await postRes.Content.ReadFromJsonAsync<List<EER>>() ?? UserInfo.AvailableEERs;
+                    }
                 }
                 catch (HttpRequestException ex)
                 {
@@ -110,12 +114,22 @@ namespace EzNutrition.Client.Models
                 {
                     var height = (UserInfo.Height ?? 0) / 100;
                     var strBuild = new StringBuilder();
+
                     if (height != 0 && UserInfo.Weight != null && UserInfo.Weight != 0)
                     {
-                        strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}，");
+                        strBuild.Append($"BMI:{Math.Round((UserInfo.Weight.Value / height / height), 2)}；");
                     }
-                    strBuild.AppendLine($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
-                    strBuild.AppendLine("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
+
+                    var offsetEnergy = UserInfo.AvailableEERs.Where(x => x.OffsetEnergy != default).Select(x => x.OffsetEnergy).Sum();
+
+                    if (offsetEnergy > 0)
+                    {
+                        energy += (int)offsetEnergy;
+                        strBuild.Append($"基于咨询对象的特殊生理时期，总能量需求偏移{(int)offsetEnergy}kCal，已计入总能量；因此");
+
+                    }
+                    strBuild.Append($"自动推断总能量{energy}kCal，依据：{(beeResult == 0 ? "基于人群平均体重和PAL的建议值" : "BW*BEE*PAL")}。");
+                    strBuild.Append("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
                     Summary = strBuild.ToString();
                     Allocation = new MacronutrientAllocation(energy);
                     FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
