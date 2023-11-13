@@ -86,6 +86,12 @@ namespace EzNutrition.Server.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// 登录
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
         public async Task<string> Login(string username, string password)
         {
 
@@ -110,6 +116,13 @@ namespace EzNutrition.Server.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// 注册
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public async Task Register(string username, string password)
         {
             _logger.LogInformation("用户注册申请：{username}", username);
@@ -138,6 +151,13 @@ namespace EzNutrition.Server.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// 将一个用户加入用户组
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public async Task AddToRoleAsync(string username, string role)
         {
             var user = await _userManager.FindByNameAsync(username);
@@ -151,6 +171,45 @@ namespace EzNutrition.Server.Data.Repositories
             {
                 throw new Exception($"there is not a user named {username}.");
             }
+        }
+
+        /// <summary>
+        /// 获取用户列表
+        /// </summary>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        public async Task<IEnumerable<IdentityUser>> GetAllUsers(string? role = default)
+        {
+            if (role != default)
+            {
+                return await _userManager.GetUsersInRoleAsync(role);
+            }
+            else
+            {
+                return _userManager.Users;
+            }
+        }
+
+        /// <summary>
+        /// 锁定用户
+        /// </summary>
+        /// <param name="userName"></param>
+        /// <param name="days"></param>
+        /// <returns></returns>
+        public async Task LockUser(string userName, int days)
+        {
+            var user = await _userManager.FindByNameAsync(userName);
+            await _userManager.SetLockoutEndDateAsync(user, DateTime.UtcNow.AddDays(days));
+            await _userManager.UpdateSecurityStampAsync(user);
+        }
+
+        /// <summary>
+        /// 获取用户组列表
+        /// </summary>
+        /// <returns></returns>
+        public IQueryable<IdentityRole> GetAllRoles()
+        {
+            return _roleManager.Roles;
         }
 
         public AuthManagerRepository(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger)
