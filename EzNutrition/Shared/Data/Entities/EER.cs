@@ -13,6 +13,11 @@
         public int? AvgBwEER { get; set; }
 
         public decimal? BEE { get; set; }
+
+        public string? SpecialPhysiologicalPeriod { get; set; }
+
+        public decimal? OffsetEnergy { get; set; }
+
     }
 
 }

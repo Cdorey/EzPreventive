@@ -13,8 +13,8 @@ namespace EzNutrition.Server.Controllers
         private readonly DietaryReferenceIntakeRepository _energyRepository;
         private readonly ILogger<EnergyController> _logger;
 
-        [HttpGet("EERs/{gender}/{age}")]
-        public IActionResult GetEERs(string gender, decimal age)
+        [HttpPost("EERs/{gender}/{age}")]
+        public IActionResult GetEERs(string gender, decimal age, [FromBody] IEnumerable<string> specialPhysiologicalPeriod)
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
@@ -22,7 +22,7 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("Invalid gender or age.");
             }
 
-            var eerResults = _energyRepository.GetEERsByPersonalInfo(age, gender);
+            var eerResults = _energyRepository.GetEERsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
 
             if (eerResults == null || !eerResults.Any())
             {
@@ -38,15 +38,15 @@ namespace EzNutrition.Server.Controllers
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
-                _logger.LogWarning("不正确的EER参数：{gender}/{age}", gender, age);
+                _logger.LogWarning("不正确的DRIs参数：{gender}/{age}", gender, age);
                 return BadRequest("Invalid gender or age.");
             }
             var driResults = _energyRepository.GetDRIsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
 
             if (driResults == null || !driResults.Any())
             {
-                _logger.LogWarning("无记录的EER参数：{gender}/{age}", gender, age);
-                return NotFound("No EER results found.");
+                _logger.LogWarning("无记录的DRIs参数：{gender}/{age}", gender, age);
+                return NotFound("No DRIs results found.");
             }
 
             return Ok(driResults);

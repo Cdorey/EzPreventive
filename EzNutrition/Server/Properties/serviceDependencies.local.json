@@ -14,12 +14,6 @@
       "secretStore": "LocalSecretsFile",
       "type": "mssql.onprem",
       "connectionId": "ConnectionStrings:ApplicationDb"
-    },
-    "mssql3": {
-      "serviceConnectorResourceId": "",
-      "secretStore": "LocalSecretsFile",
-      "type": "mssql.onprem",
-      "connectionId": "ConnectionStrings:EzNutritionDBProd"
     }
   }
 }

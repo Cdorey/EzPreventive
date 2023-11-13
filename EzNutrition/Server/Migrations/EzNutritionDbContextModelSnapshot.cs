@@ -139,8 +139,14 @@ namespace EzNutrition.Server.Migrations
                     b.Property<string>("Gender")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal?>("OffsetEnergy")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal?>("PAL")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SpecialPhysiologicalPeriod")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("EERId");
 
