@@ -43,6 +43,22 @@ namespace EzNutrition.Server.Controllers
             }
 
         }
+
+        [HttpGet("User")]
+        [HttpGet("User/{role?}")]
+        public async Task<IActionResult> GetUsers(string? role = default)
+        {
+            try
+            {
+                var x = await _repository.GetAllUsers(role);
+                return Ok(x);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
         public AdminController(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger, AuthManagerRepository authManagerRepository)
         {
             _jwtService = jwtService;

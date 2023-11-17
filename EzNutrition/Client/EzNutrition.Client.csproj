@@ -20,4 +20,12 @@
     <ProjectReference Include="..\Shared\EzNutrition.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Pages\UserCenter.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Pages\UserCenter.razor" />
+  </ItemGroup>
+
 </Project>
