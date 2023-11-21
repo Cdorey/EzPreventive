@@ -9,7 +9,9 @@
                              xmlns:viewmodels="clr-namespace:EzASD.ViewModels"
                              d:DataContext="{d:DesignInstance Type=viewmodels:ChildViewModel}"
                              mc:Ignorable="d"
-                             Title="MainWindow" Height="450" Width="800">
+                             Title="MainWindow" Height="600" Width="800" WindowStartupLocation="CenterScreen"
+                             xmlns:adonisConverters="clr-namespace:AdonisUI.Converters;assembly=AdonisUI"
+                             xmlns:adonisExtensions="clr-namespace:AdonisUI.Extensions;assembly=AdonisUI">
     <adonisControls:AdonisWindow.TitleBarContent>
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Right">
@@ -21,6 +23,47 @@
     </adonisControls:AdonisWindow.TitleBarContent>
     <adonisControls:AdonisWindow.Resources>
         <viewmodels:IsCheckedToGenderConverter x:Key="IsCheckedToGenderConverter"/>
+        <Style TargetType="{x:Type CheckBox }">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type CheckBox}">
+                        <BulletDecorator Background="Transparent" SnapsToDevicePixels="False" VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                            <BulletDecorator.Bullet>
+                                <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Height="14" Width="14">
+                                    <Viewbox Margin="2" Stretch="Uniform">
+                                        <Grid>
+                                            <Path x:Name="CheckMark" Data="M 0.5,5 L 3,7.5 L 8.5,2"  Stroke="{TemplateBinding Foreground}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" StrokeThickness="2"/>
+                                            <Border x:Name="CheckMarkNullState" Background="{TemplateBinding Foreground}" Height="7" Visibility="Collapsed" Width="7">
+                                                <Border.CornerRadius>
+                                                    <MultiBinding Converter="{x:Static adonisConverters:ValuesToCornerRadiusConverter.Instance}">
+                                                        <Binding ConverterParameter="x/2" Converter="{adonisConverters:MathConverter}" Path="(adonisExtensions:CornerRadiusExtension.CornerRadius).TopLeft" RelativeSource="{RelativeSource Mode=TemplatedParent}"/>
+                                                        <Binding ConverterParameter="x/2" Converter="{adonisConverters:MathConverter}" Path="(adonisExtensions:CornerRadiusExtension.CornerRadius).TopRight" RelativeSource="{RelativeSource Mode=TemplatedParent}"/>
+                                                        <Binding ConverterParameter="x/2" Converter="{adonisConverters:MathConverter}" Path="(adonisExtensions:CornerRadiusExtension.CornerRadius).BottomRight" RelativeSource="{RelativeSource Mode=TemplatedParent}"/>
+                                                        <Binding ConverterParameter="x/2" Converter="{adonisConverters:MathConverter}" Path="(adonisExtensions:CornerRadiusExtension.CornerRadius).BottomLeft" RelativeSource="{RelativeSource Mode=TemplatedParent}"/>
+                                                    </MultiBinding>
+                                                </Border.CornerRadius>
+                                            </Border>
+                                        </Grid>
+                                    </Viewbox>
+                                </Border>
+                            </BulletDecorator.Bullet>
+                            <DockPanel>
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </DockPanel>
+                        </BulletDecorator>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter Property="Visibility" TargetName="CheckMark" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="{x:Null}">
+                                <Setter Property="Visibility" TargetName="CheckMark" Value="Collapsed"/>
+                                <Setter Property="Visibility" TargetName="CheckMarkNullState" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </adonisControls:AdonisWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -32,12 +75,19 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="2*"/>
             </Grid.ColumnDefinitions>
 
             <Label Margin="5" Content="孩子的姓名：" Grid.Column="0" Grid.Row="0"/>
@@ -59,6 +109,133 @@
 
             <Label Margin="5" Content="联系方式" Grid.Column="0" Grid.Row="2"/>
             <TextBox Margin="5" Text="{Binding ContactNumber, Mode=TwoWay}" Grid.Column="1" Grid.Row="2"/>
+
+            <Label Margin="5" Content="家庭成员" Grid.Column="2" Grid.Row="2"/>
+            <StackPanel Margin="5" Grid.Column="3" Grid.Row="2" Orientation="Horizontal">
+                <CheckBox Margin="2,0" IsChecked="{Binding IsFatherInFamily}" Content="父亲"/>
+                <CheckBox Margin="2,0" IsChecked="{Binding IsMotherInFamily}" Content="母亲"/>
+                <CheckBox Margin="2,0" IsChecked="{Binding IsGrandpaInFamily}" Content="（外）祖父"/>
+                <CheckBox Margin="2,0" IsChecked="{Binding IsGrandmaInFamily}" Content="（外）祖母"/>
+                <CheckBox Margin="2,0,0,0" IsChecked="{Binding IsNurseInFamily}" Content="保姆  其他："/>
+                <TextBox Margin="0,0,2,0" Text="{Binding OthersInFamily}" Width="60"/>
+            </StackPanel>
+
+            <Label Margin="5" Content="父亲文化程度" Grid.Column="0" Grid.Row="3"/>
+            <ComboBox SelectedIndex="{Binding FatherEduLevel}" Margin="5" Grid.Column="1" Grid.Row="3">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="大学"/>
+                <ComboBoxItem Content="高中"/>
+                <ComboBoxItem Content="初中"/>
+                <ComboBoxItem Content="小学及以下"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="父亲的职业" Grid.Column="2" Grid.Row="3"/>
+            <ComboBox SelectedIndex="{Binding FatherProfession}" Margin="5" Grid.Column="3" Grid.Row="3">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="行政管理人员"/>
+                <ComboBoxItem Content="专业技术人员"/>
+                <ComboBoxItem Content="技术工人"/>
+                <ComboBoxItem Content="销售人员"/>
+                <ComboBoxItem Content="军人"/>
+                <ComboBoxItem Content="其他"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="母亲文化程度" Grid.Column="0" Grid.Row="4"/>
+            <ComboBox SelectedIndex="{Binding MotherEduLevel}" Margin="5" Grid.Column="1" Grid.Row="4">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="大学"/>
+                <ComboBoxItem Content="高中"/>
+                <ComboBoxItem Content="初中"/>
+                <ComboBoxItem Content="小学及以下"/>
+            </ComboBox>
+
+
+            <Label Margin="5" Content="母亲的职业" Grid.Column="2" Grid.Row="4"/>
+            <ComboBox SelectedIndex="{Binding MotherProfession}" Margin="5" Grid.Column="3" Grid.Row="4">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="行政管理人员"/>
+                <ComboBoxItem Content="专业技术人员"/>
+                <ComboBoxItem Content="技术工人"/>
+                <ComboBoxItem Content="销售人员"/>
+                <ComboBoxItem Content="军人"/>
+                <ComboBoxItem Content="其他"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="父母关系" Grid.Column="0" Grid.Row="5"/>
+            <ComboBox SelectedIndex="{Binding ParentsRelationship}" Margin="5" Grid.Column="1" Grid.Row="5">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="好"/>
+                <ComboBoxItem Content="一般"/>
+                <ComboBoxItem Content="差"/>
+                <ComboBoxItem Content="离异（分居）"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="父亲性格" Grid.Column="0" Grid.Row="6"/>
+            <ComboBox SelectedIndex="{Binding FatherCharacter}" Margin="5" Grid.Column="1" Grid.Row="6">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="内向"/>
+                <ComboBoxItem Content="外向"/>
+                <ComboBoxItem Content="中间"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="母亲性格" Grid.Column="0" Grid.Row="7"/>
+            <ComboBox SelectedIndex="{Binding MotherCharacter}" Margin="5" Grid.Column="1" Grid.Row="7">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="内向"/>
+                <ComboBoxItem Content="外向"/>
+                <ComboBoxItem Content="中间"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="主要教育者" Grid.Column="2" Grid.Row="5"/>
+            <ComboBox SelectedIndex="{Binding PrimaryEducator}" Margin="5" Grid.Column="3" Grid.Row="5">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="父亲"/>
+                <ComboBoxItem Content="母亲"/>
+                <ComboBoxItem Content="祖辈"/>
+                <ComboBoxItem Content="保姆"/>
+                <ComboBoxItem Content="其他"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="主要教育方式" Grid.Column="2" Grid.Row="6"/>
+            <ComboBox SelectedIndex="{Binding MainEducationMethods}" Margin="5" Grid.Column="3" Grid.Row="6">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="溺爱"/>
+                <ComboBoxItem Content="放任不管"/>
+                <ComboBoxItem Content="严格"/>
+                <ComboBoxItem Content="打骂"/>
+                <ComboBoxItem Content="讲理"/>
+                <ComboBoxItem Content="奖励加温和的惩罚"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="问卷填写人" Grid.Column="2" Grid.Row="7"/>
+            <ComboBox SelectedIndex="{Binding Respondent}" Margin="5" Grid.Column="3" Grid.Row="7">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="父亲"/>
+                <ComboBoxItem Content="母亲"/>
+                <ComboBoxItem Content="祖辈"/>
+                <ComboBoxItem Content="保姆"/>
+                <ComboBoxItem Content="其他"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="填写人您每日与孩子的相处时间（除外睡眠时间）" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="8"/>
+            <ComboBox SelectedIndex="{Binding TimeTogether}" Margin="5" Grid.Column="2" Grid.ColumnSpan="2" Grid.Row="8">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="1-2小时"/>
+                <ComboBoxItem Content="2-4小时"/>
+                <ComboBoxItem Content="4-6小时"/>
+                <ComboBoxItem Content="大于6小时"/>
+            </ComboBox>
+
+            <Label Margin="5" Content="孩子每天看电视/玩电子游戏（如iPad/手机）时间" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="9"/>
+            <ComboBox SelectedIndex="{Binding Respondent}" Margin="5" Grid.Column="2" Grid.ColumnSpan="2" Grid.Row="9">
+                <ComboBoxItem Content="==请选择=="/>
+                <ComboBoxItem Content="15分钟以下"/>
+                <ComboBoxItem Content="15-30分钟"/>
+                <ComboBoxItem Content="30-60分钟"/>
+                <ComboBoxItem Content="1-2小时"/>
+                <ComboBoxItem Content="2小时以上"/>
+            </ComboBox>
+
         </Grid>
         <TabControl Grid.Row="1">
             <TabItem Header="预警征象筛查" DataContext="{Binding EarlyWarningQes}">
@@ -83,7 +260,7 @@
                 </DockPanel>
             </TabItem>
             <TabItem Header="CHAT23 A量表">
-                
+
             </TabItem>
         </TabControl>
     </Grid>
