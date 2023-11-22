@@ -32,7 +32,7 @@ namespace EzASD
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            AdonisUI.Controls.MessageBox.Show(this, "这只是一个辅助小工具，主要还是靠你自己", "EzASD", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information, AdonisUI.Controls.MessageBoxResult.OK);
+            AdonisUI.Controls.MessageBox.Show(this, "这只是一个辅助小工具，其实主要还是靠你自己", "EzASD", AdonisUI.Controls.MessageBoxButton.OK, AdonisUI.Controls.MessageBoxImage.Information, AdonisUI.Controls.MessageBoxResult.OK);
         }
     }
 }

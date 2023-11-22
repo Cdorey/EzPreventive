@@ -8,8 +8,15 @@ namespace EzASD.Models
 {
     internal class EarlyWarningSign
     {
+        private bool isPositive = false;
+
         public string Age { get; }
 
+        public bool IsPositive
+        {
+            get => isPositive;
+            set => isPositive = value;
+        }
         public string Question { get; }
 
         public EarlyWarningSign(string age, string question)

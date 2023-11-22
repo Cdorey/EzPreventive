@@ -11,6 +11,8 @@ namespace EzASD.ViewModels
         private bool _isOnlyChild = true;
         private string? _contactNumber;
 
+        public Guid Id { get; } = Guid.NewGuid();
+
         public string? ChildName
         {
             get { return _childName; }
@@ -100,6 +102,8 @@ namespace EzASD.ViewModels
         }
 
         public EarlyWarningViewModel EarlyWarningQes { get; } = new();
+
+        public Chat23ViewModel Chat23 { get; } = new();
 
         #region FamilyMembers
 
