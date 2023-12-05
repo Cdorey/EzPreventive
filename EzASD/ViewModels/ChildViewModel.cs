@@ -1,26 +1,28 @@
 ﻿using AdonisUI.ViewModels;
+using EzASD.Data.Entities;
 using System;
 
 namespace EzASD.ViewModels
 {
-    internal class ChildViewModel : PropertyChangedBase
+    public class ChildViewModel : PropertyChangedBase
     {
-        private string? _childName;
-        private string _gender = "男";
-        private DateTime _birthDate = DateTime.Today;
-        private bool _isOnlyChild = true;
-        private string? _contactNumber;
+        private readonly Child _innerModel;
 
-        public Guid Id { get; } = Guid.NewGuid();
+        public ChildViewModel(Child model)
+        {
+            _innerModel = model;
+        }
+
+        public Guid Id => _innerModel.ChildId;
 
         public string? ChildName
         {
-            get { return _childName; }
+            get { return _innerModel.ChildName; }
             set
             {
-                if (_childName != value)
+                if (_innerModel.ChildName != value)
                 {
-                    _childName = value;
+                    _innerModel.ChildName = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -28,12 +30,12 @@ namespace EzASD.ViewModels
 
         public string Gender
         {
-            get { return _gender; }
+            get { return _innerModel.Gender; }
             set
             {
-                if (_gender != value)
+                if (_innerModel.Gender != value)
                 {
-                    _gender = value;
+                    _innerModel.Gender = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -41,12 +43,12 @@ namespace EzASD.ViewModels
 
         public DateTime BirthDate
         {
-            get { return _birthDate; }
+            get { return _innerModel.BirthDate; }
             set
             {
-                if (_birthDate != value)
+                if (_innerModel.BirthDate != value)
                 {
-                    _birthDate = value;
+                    _innerModel.BirthDate = value;
                     var year = DateTime.Today.Year - BirthDate.Year;
                     var month = DateTime.Today.Month - BirthDate.Month;
                     var day = DateTime.Today.Day - BirthDate.Day;
@@ -77,12 +79,12 @@ namespace EzASD.ViewModels
 
         public bool IsOnlyChild
         {
-            get { return _isOnlyChild; }
+            get { return _innerModel.IsOnlyChild; }
             set
             {
-                if (_isOnlyChild != value)
+                if (_innerModel.IsOnlyChild != value)
                 {
-                    _isOnlyChild = value;
+                    _innerModel.IsOnlyChild = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -90,12 +92,12 @@ namespace EzASD.ViewModels
 
         public string? ContactNumber
         {
-            get { return _contactNumber; }
+            get { return _innerModel.ContactNumber; }
             set
             {
-                if (_contactNumber != value)
+                if (_innerModel.ContactNumber != value)
                 {
-                    _contactNumber = value;
+                    _innerModel.ContactNumber = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -107,73 +109,233 @@ namespace EzASD.ViewModels
 
         #region FamilyMembers
 
-        private bool isFatherInFamily = true;
 
-        public bool IsFatherInFamily { get => isFatherInFamily; set => SetProperty(ref isFatherInFamily, value); }
+        public bool IsFatherInFamily
+        {
+            get => _innerModel.IsFatherInFamily;
+            set
+            {
+                if (_innerModel.IsFatherInFamily != value)
+                {
+                    _innerModel.IsFatherInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private bool isMotherInFamily = true;
 
-        public bool IsMotherInFamily { get => isMotherInFamily; set => SetProperty(ref isMotherInFamily, value); }
+        public bool IsMotherInFamily
+        {
+            get => _innerModel.IsMotherInFamily;
+            set
+            {
+                if (_innerModel.IsMotherInFamily != value)
+                {
+                    _innerModel.IsMotherInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private bool isGrandpaInFamily = false;
 
-        public bool IsGrandpaInFamily { get => isGrandpaInFamily; set => SetProperty(ref isGrandpaInFamily, value); }
+        public bool IsGrandpaInFamily
+        {
+            get => _innerModel.IsGrandpaInFamily;
+            set
+            {
+                if (_innerModel.IsGrandpaInFamily != value)
+                {
+                    _innerModel.IsGrandpaInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private bool isGrandmaInFamily = false;
 
-        public bool IsGrandmaInFamily { get => isGrandmaInFamily; set => SetProperty(ref isGrandmaInFamily, value); }
+        public bool IsGrandmaInFamily
+        {
+            get => _innerModel.IsGrandmaInFamily;
+            set
+            {
+                if (_innerModel.IsGrandmaInFamily != value)
+                {
+                    _innerModel.IsGrandmaInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private bool isNurseInFamily = false;
 
-        public bool IsNurseInFamily { get => isNurseInFamily; set => SetProperty(ref isNurseInFamily, value); }
+        public bool IsNurseInFamily
+        {
+            get => _innerModel.IsNurseInFamily;
+            set
+            {
+                if (_innerModel.IsNurseInFamily != value)
+                {
+                    _innerModel.IsNurseInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private string othersInFamily = string.Empty;
 
-        public string OthersInFamily { get => othersInFamily; set => SetProperty(ref othersInFamily, value); }
+        public string OthersInFamily
+        {
+            get => _innerModel.OthersInFamily;
+            set
+            {
+                if (_innerModel.OthersInFamily != value)
+                {
+                    _innerModel.OthersInFamily = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int fatherEduLevel;
         #endregion
 
-        public int FatherEduLevel { get => fatherEduLevel; set => SetProperty(ref fatherEduLevel, value); }
+        public int FatherEduLevel
+        {
+            get => _innerModel.FatherEduLevel;
+            set
+            {
+                if (_innerModel.FatherEduLevel != value)
+                {
+                    _innerModel.FatherEduLevel = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int motherEduLevel;
+        public int MotherEduLevel
+        {
+            get => _innerModel.MotherEduLevel;
+            set
+            {
+                if (_innerModel.MotherEduLevel != value)
+                {
+                    _innerModel.MotherEduLevel = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        public int MotherEduLevel { get => motherEduLevel; set => SetProperty(ref motherEduLevel, value); }
+        public int FatherProfession
+        {
+            get => _innerModel.FatherProfession;
+            set
+            {
+                if (_innerModel.FatherProfession != value)
+                {
+                    _innerModel.FatherProfession = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int fatherProfession;
+        public int MotherProfession
+        {
+            get => _innerModel.MotherProfession;
+            set
+            {
+                if (_innerModel.MotherProfession != value)
+                {
+                    _innerModel.MotherProfession = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        public int FatherProfession { get => fatherProfession; set => SetProperty(ref fatherProfession, value); }
+        public int ParentsRelationship
+        {
+            get => _innerModel.ParentsRelationship;
+            set
+            {
+                if (_innerModel.ParentsRelationship != value)
+                {
+                    _innerModel.ParentsRelationship = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int motherProfession;
+        public int FatherCharacter
+        {
+            get => _innerModel.FatherCharacter;
+            set
+            {
+                if (_innerModel.FatherCharacter != value)
+                {
+                    _innerModel.FatherCharacter = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        public int MotherProfession { get => motherProfession; set => SetProperty(ref motherProfession, value); }
+        public int MotherCharacter
+        {
+            get => _innerModel.MotherCharacter;
+            set
+            {
+                if (_innerModel.MotherCharacter != value)
+                {
+                    _innerModel.MotherCharacter = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int parentsRelationship;
+        public int PrimaryEducator
+        {
+            get => _innerModel.PrimaryEducator;
+            set
+            {
+                if (_innerModel.PrimaryEducator != value)
+                {
+                    _innerModel.PrimaryEducator = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        public int ParentsRelationship { get => parentsRelationship; set => SetProperty(ref parentsRelationship, value); }
+        public int MainEducationMethods
+        {
+            get => _innerModel.MainEducationMethods;
+            set
+            {
+                if (_innerModel.MainEducationMethods != value)
+                {
+                    _innerModel.MainEducationMethods = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        private int fatherCharacter;
+        public int Respondent
+        {
+            get => _innerModel.Respondent;
+            set
+            {
+                if (_innerModel.Respondent != value)
+                {
+                    _innerModel.Respondent = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
 
-        public int FatherCharacter { get => fatherCharacter; set => SetProperty(ref fatherCharacter, value); }
-
-        private int motherCharacter;
-
-        public int MotherCharacter { get => motherCharacter; set => SetProperty(ref motherCharacter, value); }
-
-        private int primaryEducator;
-
-        public int PrimaryEducator { get => primaryEducator; set => SetProperty(ref primaryEducator, value); }
-
-        private int mainEducationMethods;
-
-        public int MainEducationMethods { get => mainEducationMethods; set => SetProperty(ref mainEducationMethods, value); }
-
-        private int respondent;
-
-        public int Respondent { get => respondent; set => SetProperty(ref respondent, value); }
-
-        private int timeTogether;
-
-        public int TimeTogether { get => timeTogether; set => SetProperty(ref timeTogether, value); }
+        public int TimeTogether
+        {
+            get => _innerModel.TimeTogether;
+            set
+            {
+                if (_innerModel.TimeTogether != value)
+                {
+                    _innerModel.TimeTogether = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
     }
 }

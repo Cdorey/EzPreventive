@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace EzASD.ViewModels
 {
-    internal class EarlyWarningViewModel : PropertyChangedBase
+    public class EarlyWarningViewModel : PropertyChangedBase
     {
         private readonly EarlyWarningSign[] earlyWarningSigns;
         private string currentAge = "";
@@ -81,7 +81,7 @@ namespace EzASD.ViewModels
         }
     }
 
-    internal class Chat23ViewModel : PropertyChangedBase
+    public class Chat23ViewModel : PropertyChangedBase
     {
         private readonly Chat23Question[] chat23Questions;
         public ObservableCollection<Chat23Question> Chat23Questions { get; }
@@ -116,11 +116,9 @@ namespace EzASD.ViewModels
 
             Chat23Questions = new ObservableCollection<Chat23Question>(chat23Questions);
         }
-
-
     }
 
-    internal class Chat23Question
+    public class Chat23Question
     {
         public string Question { get; set; }
 

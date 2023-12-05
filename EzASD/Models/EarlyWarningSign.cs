@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EzASD.Models
 {
-    internal class EarlyWarningSign
+    public class EarlyWarningSign
     {
         private bool isPositive = false;
 
