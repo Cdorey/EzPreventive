@@ -9,13 +9,36 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EzASD.Migrations
 {
-    [DbContext(typeof(DataContext))]
+    [DbContext(typeof(RecordsContext))]
     partial class DataContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "6.0.25");
+
+            modelBuilder.Entity("EzASD.Data.Entities.Chat23aRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChildId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildId");
+
+                    b.ToTable("Chat23aRecords");
+                });
 
             modelBuilder.Entity("EzASD.Data.Entities.Child", b =>
                 {
@@ -42,6 +65,7 @@ namespace EzASD.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Gender")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsFatherInFamily")
@@ -75,6 +99,7 @@ namespace EzASD.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("OthersInFamily")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ParentsRelationship")
@@ -92,6 +117,56 @@ namespace EzASD.Migrations
                     b.HasKey("ChildId");
 
                     b.ToTable("Children");
+                });
+
+            modelBuilder.Entity("EzASD.Data.Entities.PositiveSignRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChildId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PositiveQuestion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildId");
+
+                    b.ToTable("PositiveSignRecords");
+                });
+
+            modelBuilder.Entity("EzASD.Data.Entities.Chat23aRecord", b =>
+                {
+                    b.HasOne("EzASD.Data.Entities.Child", "Child")
+                        .WithMany()
+                        .HasForeignKey("ChildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Child");
+                });
+
+            modelBuilder.Entity("EzASD.Data.Entities.PositiveSignRecord", b =>
+                {
+                    b.HasOne("EzASD.Data.Entities.Child", "Child")
+                        .WithMany("PositiveSignRecords")
+                        .HasForeignKey("ChildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Child");
+                });
+
+            modelBuilder.Entity("EzASD.Data.Entities.Child", b =>
+                {
+                    b.Navigation("PositiveSignRecords");
                 });
 #pragma warning restore 612, 618
         }

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EzASD.Migrations
 {
-    [DbContext(typeof(DataContext))]
+    [DbContext(typeof(RecordsContext))]
     [Migration("20231205105109_InitialCreate")]
     partial class InitialCreate
     {

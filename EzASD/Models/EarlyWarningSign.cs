@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AdonisUI.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EzASD.Models
 {
-    public class EarlyWarningSign
+    public class EarlyWarningSign : PropertyChangedBase
     {
         private bool isPositive = false;
 
@@ -15,8 +16,13 @@ namespace EzASD.Models
         public bool IsPositive
         {
             get => isPositive;
-            set => isPositive = value;
+            set
+            {
+                isPositive = value;
+                NotifyPropertyChanged();
+            }
         }
+
         public string Question { get; }
 
         public EarlyWarningSign(string age, string question)

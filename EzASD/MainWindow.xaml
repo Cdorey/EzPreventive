@@ -7,7 +7,7 @@
                              xmlns:adonisControls="clr-namespace:AdonisUI.Controls;assembly=AdonisUI"
                              xmlns:local="clr-namespace:EzASD"
                              xmlns:viewmodels="clr-namespace:EzASD.ViewModels"
-                             d:DataContext="{d:DesignInstance Type=viewmodels:ChildViewModel}"
+                             d:DataContext="{d:DesignInstance Type=viewmodels:MainViewModel}"
                              mc:Ignorable="d"
                              x:Name="OwnerWindow"
                              Title="EzASD儿保门诊快筛辅助工具" Height="900" Width="800" WindowStartupLocation="CenterScreen"
@@ -75,7 +75,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
-        <Grid>
+        <Grid DataContext="{Binding ChildViewModel}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -247,7 +247,7 @@
 
         </Grid>
         <TabControl Grid.Row="1">
-            <TabItem Header="预警征象筛查" DataContext="{Binding EarlyWarningQes}">
+            <TabItem Header="预警征象筛查" DataContext="{Binding EarlyWarningViewModel}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                         <TextBlock Text="筛查年龄：" Margin="5,0"/>
@@ -279,7 +279,7 @@
                     </EventTrigger>
                 </TabItem.Triggers>
             </TabItem>
-            <TabItem Header="CHAT23 A量表" DataContext="{Binding Chat23}">
+            <TabItem Header="CHAT23 A量表" DataContext="{Binding Chat23ViewModel}">
                 <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding Chat23Questions}" d:ItemsSource="{d:SampleData ItemCount=5}">
                         <ItemsControl.ItemTemplate>
@@ -306,13 +306,13 @@
                     </EventTrigger>
                 </TabItem.Triggers>
             </TabItem>
-            <TabItem Header="历史记录" DataContext="{Binding Chat23}">
+            <TabItem Header="历史记录">
                 <ScrollViewer>
-                    <ItemsControl ItemsSource="{Binding Chat23Questions}" d:ItemsSource="{d:SampleData ItemCount=5}">
+                    <ItemsControl ItemsSource="{Binding History}" d:ItemsSource="{d:SampleData ItemCount=5}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Label Margin="5" Content="{Binding Question}"/>
+                                    <Label Margin="5" Content="{Binding ChildId}"/>
                                     <ComboBox SelectedIndex="{Binding CheckedIndex}" Margin="5" ItemsSource="{Binding Answers}" />
                                 </StackPanel>
                             </DataTemplate>

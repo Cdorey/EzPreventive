@@ -1,4 +1,5 @@
-﻿using EzASD.ViewModels;
+﻿using EzASD.Models;
+using EzASD.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace EzASD.Data.Entities
 {
+
     public class Child
     {
         public Guid ChildId { get; set; }
@@ -15,7 +17,7 @@ namespace EzASD.Data.Entities
 
         public string Gender { get; set; } = "男";
 
-        public DateTime BirthDate { get; set; }
+        public DateTime BirthDate { get; set; } = DateTime.Now;
 
         public bool IsOnlyChild { get; set; }
 
@@ -67,5 +69,7 @@ namespace EzASD.Data.Entities
 
 
         public int TimeTogether { get; set; }
+
+        public List<PositiveSignRecord>? PositiveSignRecords { get; set; }
     }
 }

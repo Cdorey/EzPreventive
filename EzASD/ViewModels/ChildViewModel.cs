@@ -8,9 +8,9 @@ namespace EzASD.ViewModels
     {
         private readonly Child _innerModel;
 
-        public ChildViewModel(Child model)
+        public ChildViewModel(Child innerModel)
         {
-            _innerModel = model;
+            _innerModel = innerModel;
         }
 
         public Guid Id => _innerModel.ChildId;
@@ -49,29 +49,6 @@ namespace EzASD.ViewModels
                 if (_innerModel.BirthDate != value)
                 {
                     _innerModel.BirthDate = value;
-                    var year = DateTime.Today.Year - BirthDate.Year;
-                    var month = DateTime.Today.Month - BirthDate.Month;
-                    var day = DateTime.Today.Day - BirthDate.Day;
-                    var calculator = year * 12 + month;
-                    if (day < 0)
-                    {
-                        calculator -= 1;
-                    }
-                    EarlyWarningQes.CurrentAge = calculator switch
-                    {
-                        (>= 72) => "6y",
-                        (>= 60) => "5y",
-                        (>= 48) => "4y",
-                        (>= 36) => "36m",
-                        (>= 30) => "30m",
-                        (>= 24) => "24m",
-                        (>= 18) => "18m",
-                        (>= 12) => "12m",
-                        (>= 8) => "8m",
-                        (>= 6) => "6m",
-                        (>= 3) => "3m",
-                        _ => EarlyWarningQes.CurrentAge
-                    };
                     NotifyPropertyChanged();
                 }
             }
@@ -102,10 +79,6 @@ namespace EzASD.ViewModels
                 }
             }
         }
-
-        public EarlyWarningViewModel EarlyWarningQes { get; } = new();
-
-        public Chat23ViewModel Chat23 { get; } = new();
 
         #region FamilyMembers
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EzASD.Data;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -13,6 +14,18 @@ namespace EzASD
     /// </summary>
     public partial class App : Application
     {
+        internal RecordsContext DbContext { get; }
+
+        public App()
+        {
+            DbContext = new RecordsContext();
+            InitializeComponent();
+            Exit += (sender, e) =>
+            {
+                DbContext.SaveChanges();
+                DbContext.Dispose();
+            };
+        }
 
     }
 }
