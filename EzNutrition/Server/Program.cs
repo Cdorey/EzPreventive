@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using System;
 using System.Security.Cryptography;
 
 namespace EzNutrition
@@ -67,7 +68,22 @@ namespace EzNutrition
             builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
             builder.Services.AddTransient<AuthManagerRepository>();
 
+
             var app = builder.Build();
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var nutrDb = scope.ServiceProvider.GetRequiredService<EzNutritionDbContext>();
+                nutrDb.Database.Migrate();
+                var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                appDb.Database.Migrate();
+                if (args.Any(x => x == "AuthInitialize"))
+                {
+                    var auth = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
+                    auth.Initialize().Wait();
+                }
+            }
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
