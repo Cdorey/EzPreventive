@@ -5,8 +5,7 @@
     },
     "mssql1": {
       "type": "mssql",
-      "connectionId": "ConnectionStrings:EzNutritionDB",
-      "dynamicId": null
+      "connectionId": "ConnectionStrings:EzNutritionDB"
     },
     "mssql2": {
       "type": "mssql",
