@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Client", "EzNut
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Shared", "EzNutrition\Shared\EzNutrition.Shared.csproj", "{1312F350-6925-4B07-9C4B-8166AE318799}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzAttached", "EzAttached\EzAttached.csproj", "{0377A082-298D-49E2-BF31-C62A9B3B054B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{1312F350-6925-4B07-9C4B-8166AE318799}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1312F350-6925-4B07-9C4B-8166AE318799}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1312F350-6925-4B07-9C4B-8166AE318799}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0377A082-298D-49E2-BF31-C62A9B3B054B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0377A082-298D-49E2-BF31-C62A9B3B054B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0377A082-298D-49E2-BF31-C62A9B3B054B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0377A082-298D-49E2-BF31-C62A9B3B054B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
