@@ -72,13 +72,31 @@ namespace EzAttached
             {
                 index++;
                 Console.WriteLine($"正在载入第{index}行数据");
+                string? pk;
+                if (pkIndex >= 0)
+                {
+                    pk = row[pkIndex];
+                }
+                else
+                {
+                    do
+                    {
+                        pk = Guid.NewGuid().ToString();
+                    } while (ContainsKey(pk));
+                    pk = Guid.NewGuid().ToString();
+                }
+
+                var oldData = ContainsKey(pk) ? this[pk] : null;
                 var data = new List<string>();
+                var indexOfColumns = 0;
                 foreach (var column in Columns)
                 {
+                    var oldValue = indexOfColumns >= data.Count ? string.Empty : data[indexOfColumns];
                     var i = headers.IndexOf(column);
-                    data.Add((i == -1 || i >= row.Count) ? string.Empty : row[i]);
+                    data.Add((i == -1 || i >= row.Count) ? oldValue : row[i]);
+                    indexOfColumns++;
                 }
-                this[pkIndex >= 0 ? row[pkIndex] : Guid.NewGuid().ToString()] = data;
+                this[pk] = data;
             }
         }
     }
