@@ -22,7 +22,7 @@ namespace EzAttached
         public void ToExcel(string filePath)
         {
             // 创建工作簿和工作表
-            IWorkbook workbook = new XSSFWorkbook();
+            var workbook = new XSSFWorkbook();
             ISheet sheet = workbook.CreateSheet("Sheet1");
 
             // 创建表头行
@@ -53,6 +53,7 @@ namespace EzAttached
 
         public void Attach(List<string> headers, IEnumerable<List<string>> rows)
         {
+            Console.Clear();
             foreach (string header in headers)
             {
                 if (!Columns.Contains(header))
@@ -71,7 +72,7 @@ namespace EzAttached
             foreach (var row in rows)
             {
                 index++;
-                Console.WriteLine($"正在载入第{index}行数据");
+                Console.Write($"\r正在载入第{index}行数据");
                 string? pk;
                 if (pkIndex >= 0)
                 {
@@ -98,6 +99,7 @@ namespace EzAttached
                 }
                 this[pk] = data;
             }
+            Console.WriteLine();
         }
     }
 }
