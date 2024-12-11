@@ -22,6 +22,7 @@ namespace EzAttached
 
             return path;
         }
+
         static void DisplayHeaders(List<string> headers)
         {
             Console.WriteLine($"索引号\t列表头");
@@ -103,10 +104,10 @@ namespace EzAttached
                 int? indexColumn = GetIndexColumn(wb.Headers.Count);
 
                 table = indexColumn.HasValue
-                    ? new AttachableTable(wb.Headers[indexColumn.Value])
-                    : [];
+                    ? new(wb.Headers[indexColumn.Value])
+                    : new();
 
-                table.Attach(wb.Headers, wb.Rows);
+                table.Attach(wb.Headers, wb.Rows, true);
             }
 
             // 汇总后续文件
