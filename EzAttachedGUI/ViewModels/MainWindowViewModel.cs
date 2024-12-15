@@ -249,25 +249,33 @@ namespace EzAttachedGUI.ViewModels
         public MainWindowViewModel()
         {
             var builder = new StringBuilder();
-            builder.AppendLine("请将第一个EXCEL文件拖入本窗口（暂时不支持一次拖好几个文件）\n");
-            builder.AppendLine("本程序源代码发布于：https://github.com/Cdorey/EzPreventive/tree/Version2/EzAttached\n");
-            builder.AppendLine("版权所有 (c) 2024 Cdorey。");
-            builder.AppendLine("本程序基于 GNU Affero General Public License v3 (AGPL-3.0) 授权发布。");
-            builder.AppendLine("您可以自由复制、修改和分发本程序，但需遵循以下条件：");
-            builder.AppendLine("- 必须保留原始作者的版权声明；");
-            builder.AppendLine("- 必须将任何修改后的程序也基于 AGPL v3 授权开源；");
-            builder.AppendLine("- 如果通过网络使用本程序，必须公开其源代码。\n");
-            builder.AppendLine("有关 AGPL v3 的详细信息，请访问：https://www.gnu.org/licenses/agpl-3.0.html\n");
-            builder.AppendLine("**免责声明**：");
-            builder.AppendLine("本程序按“原样”提供，不附带任何明示或暗示的保证，包括但不限于适销性或适用于特定用途的保证。");
-            builder.AppendLine("使用本程序所产生的任何后果，作者不承担责任。\n");
-            builder.AppendLine("使用说明：");
-            builder.AppendLine("可以使用xls或者xlsx文件");
-            builder.AppendLine("脚本将尝试解析第一个sheet");
-            builder.AppendLine("要求第一行必须是列表头");
-            builder.AppendLine("从第二行开始有且只有数据，且不应该有任何合并单元格");
-            builder.AppendLine("请将第一期数据的 Excel 文件拖入窗口");
+            builder.AppendLine("**使用说明**：");
+            builder.AppendLine("1. 本程序支持 .xls 或 .xlsx 格式的文件。");
+            builder.AppendLine("2. 脚本将默认解析第一个工作表 (Sheet)。");
+            builder.AppendLine("3. 文件要求：");
+            builder.AppendLine("   - 第一行必须是表头，每列的列名不可为空。");
+            builder.AppendLine("   - 列名不可重复，否则会导致数据合并冲突。");
+            builder.AppendLine("   - 从第二行开始为数据区域，且不应包含任何合并单元格。");
+            builder.AppendLine();
+            builder.AppendLine("请将您的 Excel 文件拖入窗口以进行处理。\n");
 
+            builder.AppendLine("**开源声明**：");
+            builder.AppendLine("本程序源代码托管于 GitHub：");
+            builder.AppendLine("https://github.com/Cdorey/EzPreventive/tree/Version2/EzAttachedGUI");
+            builder.AppendLine();
+            builder.AppendLine("版权所有 (c) 2024 Cdorey。");
+            builder.AppendLine("本程序根据 GNU Affero General Public License v3 (AGPL-3.0) 授权发布。");
+            builder.AppendLine("使用本程序时，您需遵守以下规则：");
+            builder.AppendLine("1. 必须保留原始作者的版权声明；");
+            builder.AppendLine("2. 修改后的程序也必须基于 AGPL v3 开源发布；");
+            builder.AppendLine("3. 如果通过网络部署本程序，必须公开其修改后的源代码。");
+            builder.AppendLine();
+            builder.AppendLine("关于 AGPL v3 的详细信息，请访问：");
+            builder.AppendLine("https://www.gnu.org/licenses/agpl-3.0.html\n");
+
+            builder.AppendLine("**免责声明**：");
+            builder.AppendLine("本程序按“原样”提供，不附带任何明示或暗示的保证，包括但不限于适销性或特定用途适用性的保证。");
+            builder.AppendLine("作者对使用本程序所产生的任何后果概不负责。\n");
             coverLetter = builder.ToString();
         }
     }

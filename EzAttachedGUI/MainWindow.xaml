@@ -10,7 +10,7 @@
         AllowDrop="True"
         DragEnter="Window_DragEnter"
         Drop="Window_Drop"
-        Title="EzAttached" Height="800" Width="800">
+        Title="公卫医师简易工具：多期研究数据集快速合并 （Ver. 4）" MinHeight="650" Height="800" Width="800">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
@@ -22,7 +22,7 @@
             <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2">
-            <TextBlock Margin="5" Text="{Binding CoverLetter}"/>
+            <TextBlock Margin="5" Text="{Binding CoverLetter}" IsHyphenationEnabled="True"/>
         </ScrollViewer>
 
         <ScrollViewer Grid.Row="1" Grid.Column="0"  Grid.ColumnSpan="2">
