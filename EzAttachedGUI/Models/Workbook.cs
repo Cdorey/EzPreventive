@@ -8,35 +8,33 @@ namespace EzAttachedGUI.Models
     public class Workbook : IDisposable
     {
         private bool disposedValue;
-        private IWorkbook workbook;
-        private readonly FileStream _fileStream;
-
-        public List<string> Headers => ReadExcelHeader(workbook.GetSheetAt(0));
-        public IEnumerable<List<string>> Rows => ReadRows();
+        private readonly IWorkbook workbook;
 
         public Workbook(string filePath)
         {
-            _fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            workbook = ReadExcelFile(_fileStream, filePath);
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"文件未找到: {filePath}");
+            }
+
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            workbook = ReadExcelFile(fileStream, filePath);
         }
 
-        static IWorkbook ReadExcelFile(FileStream fs, string filePath)
+        public int SheetCount => workbook.NumberOfSheets;
+
+        public List<string> Headers => ReadExcelHeader(workbook.GetSheetAt(0));
+
+        public IEnumerable<List<string>> Rows => ReadRows();
+
+        private static IWorkbook ReadExcelFile(FileStream fs, string filePath)
         {
-            if (Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
-            {
-                return new XSSFWorkbook(fs);
-            }
-            else if (Path.GetExtension(filePath).Equals(".xls", StringComparison.OrdinalIgnoreCase))
-            {
-                return new HSSFWorkbook(fs);
-            }
-            else
-            {
-                throw new NotSupportedException("不支持的文件格式");
-            }
+            return Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? new XSSFWorkbook(fs)
+                : new HSSFWorkbook(fs);
         }
 
-        static List<string> ReadExcelHeader(ISheet sheet)
+        private static List<string> ReadExcelHeader(ISheet sheet)
         {
             var headers = new List<string>();
             IRow headerRow = sheet.GetRow(0);
@@ -51,9 +49,23 @@ namespace EzAttachedGUI.Models
             return headers;
         }
 
-        public IEnumerable<List<string>> ReadRows(int startRow = 1)
+        private static string GetCellValue(ICell cell)
         {
-            ISheet sheet = workbook.GetSheetAt(0);
+            if (cell == null) return string.Empty;
+
+            return cell.CellType switch
+            {
+                CellType.String => cell.StringCellValue,
+                CellType.Numeric => DateUtil.IsCellDateFormatted(cell) ? cell.DateCellValue?.ToString("yyyy-MM-dd") : cell.NumericCellValue.ToString(),
+                CellType.Boolean => cell.BooleanCellValue.ToString(),
+                CellType.Formula => cell.CellFormula,
+                _ => string.Empty,
+            } ?? string.Empty;
+        }
+
+        public IEnumerable<List<string>> ReadRows(int sheetIndex = 0, int startRow = 1)
+        {
+            ISheet sheet = workbook.GetSheetAt(sheetIndex);
             for (var rowIndex = startRow; rowIndex <= sheet.LastRowNum; rowIndex++)
             {
                 IRow row = sheet.GetRow(rowIndex);
@@ -63,7 +75,7 @@ namespace EzAttachedGUI.Models
                 for (var colIndex = 0; colIndex < row.LastCellNum; colIndex++)
                 {
                     ICell cell = row.GetCell(colIndex);
-                    rowData.Add(cell?.ToString() ?? string.Empty);
+                    rowData.Add(GetCellValue(cell));
                 }
                 yield return rowData;
             }
@@ -76,7 +88,6 @@ namespace EzAttachedGUI.Models
                 if (disposing)
                 {
                     (workbook as IDisposable)?.Dispose();
-                    _fileStream.Dispose();
                 }
                 disposedValue = true;
             }
@@ -88,6 +99,4 @@ namespace EzAttachedGUI.Models
             GC.SuppressFinalize(this);
         }
     }
-
 }
-
