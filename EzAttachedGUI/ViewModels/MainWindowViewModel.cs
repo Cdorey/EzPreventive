@@ -163,6 +163,20 @@ namespace EzAttachedGUI.ViewModels
         public async Task SaveDataFileAsync(string filePath)
         {
             await Task.Run(() => attachableTable?.ToExcel(filePath));
+            var builder = new StringBuilder();
+            builder
+                .AppendLine("文件已成功导出！")
+                .AppendLine()
+                .AppendLine("**重要提示**")
+                .AppendLine()
+                .AppendLine("为避免 Excel 自动数据转换可能导致的数据错误，导出的数据均以“文本”格式保存。")
+                .AppendLine("在进行统计分析之前，请按照以下步骤操作：")
+                .AppendLine()
+                .AppendLine("1. 根据实际研究设计和业务逻辑，使用 Excel 的【分列功能】将数据转换为符合研究需要的类型。")
+                .AppendLine("2. 若不熟悉分列功能，请参考相关教程（建议搜索“Excel 分列功能使用方法”）。")
+                .AppendLine()
+                .AppendLine("提示：掌握此功能是提升 Excel 数据处理能力的必备技能，有助于准确分析数据。");
+            CoverLetter = builder.ToString();
         }
 
         /// <summary>
@@ -179,13 +193,16 @@ namespace EzAttachedGUI.ViewModels
             });
 
             var builder = new StringBuilder();
-            builder.AppendLine("请指定索引列，用于在后续数据合并时判断相同记录。如索引相同，新记录将与旧记录合并。");
-            builder.AppendLine("例如，指定“姓名”作为索引：");
-            builder.AppendLine("第一条记录：{姓名:张三, 身高:166, 体重:61, 胸围:94}");
-            builder.AppendLine("第二条记录：{姓名:张三, 身高:166.7, 体重:64, 腰围:87, 臀围:105.6}");
-            builder.AppendLine("合并后：{姓名:张三, 身高:166.7, 体重:64, 胸围:94, 腰围:87, 臀围:105.6}");
-            builder.AppendLine("如果不指定索引列，数据将按顺序垂直追加。");
-            builder.AppendLine("确认无误后，请点击“引用数据”按钮。");
+            builder
+                .AppendLine("第一个数据集加载成功！")
+                .AppendLine("请指定索引列，用于在后续数据合并时判断相同记录。如索引相同，新记录将与旧记录合并。")
+                .AppendLine("例如，指定“姓名”作为索引：")
+                .AppendLine("第一条记录：{姓名:张三, 身高:166, 体重:61, 胸围:94}")
+                .AppendLine("第二条记录：{姓名:张三, 身高:166.7, 体重:64, 腰围:87, 臀围:105.6}")
+                .AppendLine("合并后：{姓名:张三, 身高:166.7, 体重:64, 胸围:94, 腰围:87, 臀围:105.6}")
+                .AppendLine("如果不指定索引列，数据将按顺序垂直追加。\n")
+                .AppendLine("确认无误后，请点击“引用数据”按钮。");
+
             CoverLetter = builder.ToString();
 
             foreach (var header in currentWorkBook!.Headers)
@@ -253,9 +270,10 @@ namespace EzAttachedGUI.ViewModels
             builder.AppendLine("1. 本程序支持 .xls 或 .xlsx 格式的文件。");
             builder.AppendLine("2. 脚本将默认解析第一个工作表 (Sheet)。");
             builder.AppendLine("3. 文件要求：");
-            builder.AppendLine("   - 第一行必须是表头，每列的列名不可为空。");
+            builder.AppendLine("   - 表格应为原始数据，不应包含公式，不应包含任何合并单元格。");
+            builder.AppendLine("   - 第一行必须是表头，且每列的列名不可为空。");
             builder.AppendLine("   - 列名不可重复，否则会导致数据合并冲突。");
-            builder.AppendLine("   - 从第二行开始为数据区域，且不应包含任何合并单元格。");
+            builder.AppendLine("   - 从第二行开始必须为数据区域。");
             builder.AppendLine();
             builder.AppendLine("请将您的 Excel 文件拖入窗口以进行处理。\n");
 
