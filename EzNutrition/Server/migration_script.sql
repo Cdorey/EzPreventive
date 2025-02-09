@@ -11,7 +11,10 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     CREATE TABLE [Foods] (
         [FoodId] uniqueidentifier NOT NULL,
@@ -24,7 +27,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     CREATE TABLE [Nutrients] (
         [NutrientId] int NOT NULL IDENTITY,
@@ -36,7 +42,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     CREATE TABLE [FoodNutrientValues] (
         [FoodNutrientValueId] int NOT NULL IDENTITY,
@@ -52,22 +61,31 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     CREATE INDEX [IX_FoodNutrientValues_FoodId] ON [FoodNutrientValues] ([FoodId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     CREATE INDEX [IX_FoodNutrientValues_NutrientId] ON [FoodNutrientValues] ([NutrientId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230330025437_mssql.onprem_migration_921'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230330025437_mssql.onprem_migration_921', N'6.0.21');
+    VALUES (N'20230330025437_mssql.onprem_migration_921', N'8.0.8');
 END;
 GO
 
@@ -77,10 +95,13 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331062257_mssql.onprem_migration_578')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331062257_mssql.onprem_migration_578'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230331062257_mssql.onprem_migration_578', N'6.0.21');
+    VALUES (N'20230331062257_mssql.onprem_migration_578', N'8.0.8');
 END;
 GO
 
@@ -90,7 +111,10 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348'
+)
 BEGIN
     CREATE TABLE [People] (
         [PersonId] uniqueidentifier NOT NULL,
@@ -111,16 +135,22 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348'
+)
 BEGIN
     CREATE INDEX [IX_People_DerivedFromPersonId] ON [People] ([DerivedFromPersonId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331062441_mssql.onprem_migration_348'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230331062441_mssql.onprem_migration_348', N'6.0.21');
+    VALUES (N'20230331062441_mssql.onprem_migration_348', N'8.0.8');
 END;
 GO
 
@@ -130,10 +160,13 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331144722_mssql.onprem_migration_569')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331144722_mssql.onprem_migration_569'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230331144722_mssql.onprem_migration_569', N'6.0.21');
+    VALUES (N'20230331144722_mssql.onprem_migration_569', N'8.0.8');
 END;
 GO
 
@@ -143,7 +176,10 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460'
+)
 BEGIN
     CREATE TABLE [MultiDerivedPersonRelationships] (
         [MultiDerivedPersonRelationshipId] uniqueidentifier NOT NULL,
@@ -156,22 +192,31 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460'
+)
 BEGIN
     CREATE INDEX [IX_MultiDerivedPersonRelationships_ChildModelId] ON [MultiDerivedPersonRelationships] ([ChildModelId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460'
+)
 BEGIN
     CREATE INDEX [IX_MultiDerivedPersonRelationships_ParentModelId] ON [MultiDerivedPersonRelationships] ([ParentModelId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230331152300_mssql.onprem_migration_460'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230331152300_mssql.onprem_migration_460', N'6.0.21');
+    VALUES (N'20230331152300_mssql.onprem_migration_460', N'8.0.8');
 END;
 GO
 
@@ -181,7 +226,10 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124'
+)
 BEGIN
     CREATE TABLE [PersonalDietaryReferenceIntakes] (
         [PersonalDietaryReferenceIntakeValueId] int NOT NULL IDENTITY,
@@ -196,22 +244,31 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124'
+)
 BEGIN
     CREATE INDEX [IX_PersonalDietaryReferenceIntakes_NutrientId] ON [PersonalDietaryReferenceIntakes] ([NutrientId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124'
+)
 BEGIN
     CREATE INDEX [IX_PersonalDietaryReferenceIntakes_PersonId] ON [PersonalDietaryReferenceIntakes] ([PersonId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230410143020_mssql.onprem_migration_124'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230410143020_mssql.onprem_migration_124', N'6.0.21');
+    VALUES (N'20230410143020_mssql.onprem_migration_124', N'8.0.8');
 END;
 GO
 
@@ -221,25 +278,37 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     ALTER TABLE [PersonalDietaryReferenceIntakes] ADD [Details] nvarchar(max) NULL;
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     ALTER TABLE [PersonalDietaryReferenceIntakes] ADD [IsOffsetValue] bit NOT NULL DEFAULT CAST(0 AS bit);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     ALTER TABLE [PersonalDietaryReferenceIntakes] ADD [ReferenceType] nvarchar(64) NOT NULL DEFAULT N'';
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     CREATE TABLE [Advices] (
         [AdviceId] int NOT NULL IDENTITY,
@@ -250,7 +319,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     CREATE TABLE [Diseases] (
         [DiseaseId] int NOT NULL IDENTITY,
@@ -261,7 +333,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     CREATE TABLE [EERs] (
         [EERId] int NOT NULL IDENTITY,
@@ -275,7 +350,10 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     CREATE TABLE [AdviceDisease] (
         [AdvicesAdviceId] int NOT NULL,
@@ -287,16 +365,22 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     CREATE INDEX [IX_AdviceDisease_DiseasesDiseaseId] ON [AdviceDisease] ([DiseasesDiseaseId]);
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124248_mssql.onprem_migration_695'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230731124248_mssql.onprem_migration_695', N'6.0.21');
+    VALUES (N'20230731124248_mssql.onprem_migration_695', N'8.0.8');
 END;
 GO
 
@@ -306,10 +390,13 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230731124327_mssql.onprem_migration_968')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230731124327_mssql.onprem_migration_968'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230731124327_mssql.onprem_migration_968', N'6.0.21');
+    VALUES (N'20230731124327_mssql.onprem_migration_968', N'8.0.8');
 END;
 GO
 
@@ -319,7 +406,10 @@ GO
 BEGIN TRANSACTION;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230806141846_mssql.onprem_migration_313')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230806141846_mssql.onprem_migration_313'
+)
 BEGIN
     DECLARE @var0 sysname;
     SELECT @var0 = [d].[name]
@@ -331,10 +421,310 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'20230806141846_mssql.onprem_migration_313')
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20230806141846_mssql.onprem_migration_313'
+)
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20230806141846_mssql.onprem_migration_313', N'6.0.21');
+    VALUES (N'20230806141846_mssql.onprem_migration_313', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    ALTER TABLE [FoodNutrientValues] DROP CONSTRAINT [FK_FoodNutrientValues_Nutrients_NutrientId];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    DROP TABLE [MultiDerivedPersonRelationships];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    DROP TABLE [PersonalDietaryReferenceIntakes];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    DROP TABLE [Nutrients];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    DROP TABLE [People];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    CREATE TABLE [DRIs] (
+        [DietaryReferenceIntakeValueId] int NOT NULL IDENTITY,
+        [AgeStart] decimal(18,2) NULL,
+        [Gender] nvarchar(max) NULL,
+        [SpecialPhysiologicalPeriod] nvarchar(max) NULL,
+        [Nutrient] varchar(64) NOT NULL,
+        [RecordType] int NOT NULL,
+        [IsOffset] bit NOT NULL,
+        [Value] decimal(18,2) NOT NULL,
+        [MeasureUnit] varchar(64) NOT NULL,
+        [Detail] nvarchar(max) NULL,
+        CONSTRAINT [PK_DRIs] PRIMARY KEY ([DietaryReferenceIntakeValueId])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    CREATE TABLE [Nutrient] (
+        [NutrientId] int NOT NULL IDENTITY,
+        [DefaultMeasureUnit] varchar(64) NOT NULL,
+        [Details] nvarchar(max) NULL,
+        [FriendlyName] varchar(64) NOT NULL,
+        CONSTRAINT [PK_Nutrient] PRIMARY KEY ([NutrientId])
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    ALTER TABLE [FoodNutrientValues] ADD CONSTRAINT [FK_FoodNutrientValues_Nutrient_NutrientId] FOREIGN KEY ([NutrientId]) REFERENCES [Nutrient] ([NutrientId]) ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231031125309_mssql.onprem_migration_788'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20231031125309_mssql.onprem_migration_788', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231113111131_mssql.onprem_migration_362'
+)
+BEGIN
+    ALTER TABLE [EERs] ADD [OffsetEnergy] decimal(18,2) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231113111131_mssql.onprem_migration_362'
+)
+BEGIN
+    ALTER TABLE [EERs] ADD [SpecialPhysiologicalPeriod] nvarchar(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20231113111131_mssql.onprem_migration_362'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20231113111131_mssql.onprem_migration_362', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208015529_mssql.onprem_migration_128'
+)
+BEGIN
+    ALTER TABLE [Foods] ADD [EdiblePortion] int NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208015529_mssql.onprem_migration_128'
+)
+BEGIN
+    ALTER TABLE [Foods] ADD [FoodGroups] nvarchar(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208015529_mssql.onprem_migration_128'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20250208015529_mssql.onprem_migration_128', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208032244_mssql.onprem_migration_122'
+)
+BEGIN
+    DECLARE @var1 sysname;
+    SELECT @var1 = [d].[name]
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Nutrient]') AND [c].[name] = N'FriendlyName');
+    IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [Nutrient] DROP CONSTRAINT [' + @var1 + '];');
+    ALTER TABLE [Nutrient] ALTER COLUMN [FriendlyName] nvarchar(64) NOT NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208032244_mssql.onprem_migration_122'
+)
+BEGIN
+    DECLARE @var2 sysname;
+    SELECT @var2 = [d].[name]
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Foods]') AND [c].[name] = N'FriendlyName');
+    IF @var2 IS NOT NULL EXEC(N'ALTER TABLE [Foods] DROP CONSTRAINT [' + @var2 + '];');
+    ALTER TABLE [Foods] ALTER COLUMN [FriendlyName] nvarchar(64) NOT NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208032244_mssql.onprem_migration_122'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20250208032244_mssql.onprem_migration_122', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250208055927_mssql.onprem_migration_144'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20250208055927_mssql.onprem_migration_144', N'8.0.8');
+END;
+GO
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    ALTER TABLE [FoodNutrientValues] DROP CONSTRAINT [FK_FoodNutrientValues_Nutrient_NutrientId];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    ALTER TABLE [Nutrient] DROP CONSTRAINT [PK_Nutrient];
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    EXEC sp_rename N'[Nutrient]', N'Nutrients';
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    ALTER TABLE [Nutrients] ADD CONSTRAINT [PK_Nutrients] PRIMARY KEY ([NutrientId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    ALTER TABLE [FoodNutrientValues] ADD CONSTRAINT [FK_FoodNutrientValues_Nutrients_NutrientId] FOREIGN KEY ([NutrientId]) REFERENCES [Nutrients] ([NutrientId]) ON DELETE CASCADE;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20250209030037_mssql.onprem_migration_277'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20250209030037_mssql.onprem_migration_277', N'8.0.8');
 END;
 GO
 

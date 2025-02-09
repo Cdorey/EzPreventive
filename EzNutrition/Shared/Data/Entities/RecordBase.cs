@@ -10,7 +10,7 @@ namespace EzNutrition.Shared.Data.Entities
 
         [Required(ErrorMessage = $"{nameof(FriendlyName)}is required")]
         [StringLength(64)]
-        [Column(TypeName = "varchar(64)")]
+        [Column(TypeName = "nvarchar(64)")]
         public string? FriendlyName { get; set; }
     }
 
