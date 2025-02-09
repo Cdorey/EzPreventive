@@ -1,6 +1,8 @@
 ﻿using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic.FileIO;
 
 namespace EzNutrition.DataInserter
@@ -15,8 +17,10 @@ namespace EzNutrition.DataInserter
             Console.WriteLine("ConnectionString:");
             var connectionString = Console.ReadLine();
             var optBuilder = new DbContextOptionsBuilder<EzNutritionDbContext>();
-            optBuilder.UseSqlServer(connectionString);
+            optBuilder.UseSqlServer(connectionString).EnableSensitiveDataLogging().LogTo(Console.WriteLine, LogLevel.Information);
             var db = new EzNutritionDbContext(optBuilder.Options);
+            var repo = new FoodNutritionValueRepository(db);
+            var x = repo.GetFoods();
             Console.WriteLine("FilePath:");
             var filePath = Console.ReadLine();
             Values(db, filePath!);

@@ -37,5 +37,4 @@ namespace EzNutrition.Server.Controllers
             _diseaseRepository = diseaseRepository;
         }
     }
-
 }
