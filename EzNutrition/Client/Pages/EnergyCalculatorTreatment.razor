@@ -1,0 +1,288 @@
+﻿@using EzNutrition.Client.Models
+@using EzNutrition.Client.Services
+@inject UserSessionService UserSession
+@inject NavigationManager Navigation
+@inject MainTreatmentViewModel MaintreatmentVM
+@inject IMessageService Message
+@inject IHttpClientFactory HttpClientFactory
+
+<Title Level="2">能量评估及食物交换份法粗配食谱</Title>
+@if (EnergyCalculator != null)
+{
+    <Title Level="3">概要</Title>
+    @if (string.IsNullOrEmpty(EnergyCalculator.Summary))
+    {
+        <Paragraph>确认身体活动强度</Paragraph>
+        @if (IsEerLoading)
+        {
+            <Spin Size="large">
+                <Indicator>
+                    <Icon Type="loading" Spin />
+                </Indicator>
+            </Spin>
+        }
+        else
+        {
+            <RadioGroup id="pal" @bind-Value="EnergyCalculator.PAL">
+                @foreach (var eer in EnergyCalculator.AvailableEERs)
+                {
+                    @if (eer.PAL != null)
+                    {
+                        <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                    }
+                }
+            </RadioGroup>
+        }
+        <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
+    }
+    else
+    {
+        <Paragraph>@EnergyCalculator.Summary</Paragraph>
+        @if (EnergyCalculator.Allocation != null)
+        {
+            <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
+        }
+    }
+
+    @if (EnergyCalculator.Allocation != null)
+    {
+        <GridCol Span="24">
+            <Title Level="3">能量模型</Title>
+            <GridRow Justify="space-around">
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'P'.ToString()" Percent=@ProteinPercentage />
+                </GridCol>
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'C'.ToString()" Percent=@CarbohydratePercentage />
+                </GridCol>
+                <GridCol Flex=@("none")>
+                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'F'.ToString()" Percent=@FatPercentage />
+                </GridCol>
+            </GridRow>
+        </GridCol>
+        <GridCol Span="24">
+            <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
+            <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
+            <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
+        </GridCol>
+        <GridCol Md="12" Xs="24">
+            <Title Level="3">三餐能量分配</Title>
+            <GridRow>
+                <GridCol Span="6">
+                    <Paragraph>餐次</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>蛋白质(g)</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>碳水化合物(g)</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>脂肪(g)</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>早餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastFatContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>午餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchFatContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>晚餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerProteinContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerCarbohydrateContent</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerFatContent</Paragraph>
+                </GridCol>
+            </GridRow>
+        </GridCol>
+        <GridCol Md="12" Xs="24">
+            <Title Level="3">食物交换份</Title>
+            <GridRow>
+                <GridCol Span="6">
+                    <Paragraph>餐次</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>蛋白质</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>碳水化合物</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>脂肪</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>早餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.BreakfastFatPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>午餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.LunchFatPortionst</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>晚餐</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerProteinPortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerCarbohydratePortions</Paragraph>
+                </GridCol>
+                <GridCol Span="6">
+                    <Paragraph>@EnergyCalculator.Allocation.DinnerFatPortions</Paragraph>
+                </GridCol>
+            </GridRow>
+        </GridCol>
+    }
+    @if (@EnergyCalculator.FoodExchangeAllocation != null)
+    {
+        <GridCol Span="24">
+            <Title Level="3">食物交换份品类及修正</Title>
+            <Form Model="@EnergyCalculator.FoodExchangeAllocation" LabelColSpan="24">
+                <GridRow Gutter="(16,16)">
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="谷薯类（自动计算）">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.GrainsAndStarchyFoods" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="豆乳类">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.LegumesAndDairyAlternatives" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="肉蛋类（自动计算）">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.MeatsAndEggs" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="蔬菜类">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Vegetables" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="能量类">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.EnergyFoodsOrFats" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
+                        <FormItem Label="水果类">
+                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Fruits" />
+                        </FormItem>
+                    </GridCol>
+                </GridRow>
+            </Form>
+        </GridCol>
+    }
+}
+
+@code {
+    private (double, double) macroPercentage = (15, 100 - 25);
+
+    private bool IsEerLoading { get; set; } = true;
+
+    private double ProteinPercentage
+    {
+        get => Math.Round((EnergyCalculator?.Allocation?.ProteinPercentage * 100 ?? 0));
+        set
+        {
+            if (EnergyCalculator?.Allocation != null)
+            {
+                EnergyCalculator.Allocation.ProteinPercentage = value / 100;
+            }
+        }
+    }
+
+    private double CarbohydratePercentage
+    {
+        get => Math.Round((EnergyCalculator?.Allocation?.CarbohydratePercentage * 100 ?? 0));
+    }
+
+    private double FatPercentage
+    {
+        get => Math.Round((EnergyCalculator?.Allocation?.FatPercentage * 100 ?? 0));
+        set
+        {
+            if (EnergyCalculator?.Allocation != null)
+            {
+                EnergyCalculator.Allocation.FatPercentage = value / 100;
+            }
+        }
+    }
+
+    private void OnCalculateBtnClick()
+    {
+        EnergyCalculator?.Calculate(Message);
+
+    }
+
+    private void OnCorrectEnergyChanged(int newEnergy)
+    {
+        EnergyCalculator?.CorrectEnergy(newEnergy, Message);
+    }
+
+    private string TipFormatter(double currentValue)
+    {
+        return (currentValue == macroPercentage.Item1 ? currentValue : 100 - currentValue).ToString();
+    }
+
+    private void OnMacroPercentageChanged((double, double) args)
+    {
+        ProteinPercentage = args.Item1;
+        FatPercentage = 100 - args.Item2;
+    }
+
+    [Parameter]
+    public EnergyCalculator? EnergyCalculator { get; set; }
+
+    [Parameter]
+    public EventCallback<EnergyCalculator?> EnergyCalculatorChanged { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EnergyCalculator != null)
+        {
+            await EnergyCalculator.FetchEersAsync(Message, HttpClientFactory.CreateClient("Authorize"), UserSession, Navigation);
+            IsEerLoading = false;
+        }
+        await base.OnParametersSetAsync();
+    }
+}

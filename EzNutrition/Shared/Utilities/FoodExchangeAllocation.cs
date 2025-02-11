@@ -1,36 +1,23 @@
 ﻿namespace EzNutrition.Shared.Utilities
 {
-    public class FoodExchangeAllocation
+    public class FoodExchangeAllocation(MacronutrientAllocation macroAlloc)
     {
-        private readonly double totalProteinPortions;
+        private double TotalProteinPortions => macroAlloc.BreakfastProteinPortions + macroAlloc.LunchProteinPortions + macroAlloc.DinnerProteinPortions;
 
-        private readonly double totalCarbohydratePortions;
+        private double TotalCarbohydratePortions => macroAlloc.BreakfastCarbohydratePortions + macroAlloc.LunchCarbohydratePortions + macroAlloc.DinnerCarbohydratePortions;
 
-        private readonly double totalFatPortions;
+        private double TotalFatPortions => macroAlloc.BreakfastFatPortions + macroAlloc.LunchFatPortionst + macroAlloc.DinnerFatPortions;
 
-        public double GrainsAndStarchyFoods => totalCarbohydratePortions - Vegetables - Fruits;
+        public double GrainsAndStarchyFoods => TotalCarbohydratePortions - Vegetables - Fruits;
 
-        public double Fruits { get; set; }
+        public double Fruits { get; set; } = 1;
 
-        public double Vegetables { get; set; }
+        public double Vegetables { get; set; } = 1;
 
-        public double MeatsAndEggs => totalProteinPortions + totalFatPortions - LegumesAndDairyAlternatives - EnergyFoodsOrFats;
+        public double MeatsAndEggs => TotalProteinPortions + TotalFatPortions - LegumesAndDairyAlternatives - EnergyFoodsOrFats;
 
-        public double LegumesAndDairyAlternatives { get; set; }
+        public double LegumesAndDairyAlternatives { get; set; } = 2;
 
-        public double EnergyFoodsOrFats { get; set; }
-
-        public FoodExchangeAllocation() { }
-
-        public FoodExchangeAllocation(MacronutrientAllocation macroAlloc)
-        {
-            totalProteinPortions = macroAlloc.BreakfastProteinPortions + macroAlloc.LunchProteinPortions + macroAlloc.DinnerProteinPortions;
-            totalCarbohydratePortions = macroAlloc.BreakfastCarbohydratePortions + macroAlloc.LunchCarbohydratePortions + macroAlloc.DinnerCarbohydratePortions;
-            totalFatPortions = macroAlloc.BreakfastFatPortions + macroAlloc.LunchFatPortionst + macroAlloc.DinnerFatPortions;
-            Vegetables = 1;
-            Fruits = 1;
-            LegumesAndDairyAlternatives = 2;
-            EnergyFoodsOrFats = 2;
-        }
+        public double EnergyFoodsOrFats { get; set; } = 2;
     }
 }

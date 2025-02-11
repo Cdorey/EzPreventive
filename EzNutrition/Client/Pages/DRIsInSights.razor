@@ -14,33 +14,35 @@
     <FormItem Label="性别">
         <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
             <Radio RadioButton Value="@("男")">男</Radio>
-             <Radio RadioButton Value="@("女")">女</Radio>
-         </RadioGroup>
-     </FormItem>
-     <FormItem Label="年龄">
-         <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
-     </FormItem>
-     <FormItem Label="特殊生理状况">
-         <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
-             <Radio RadioButton Value="@string.Empty">无</Radio>
-             <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-             <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-             <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-             <Radio RadioButton Value="@("乳母")">乳母</Radio>
-             <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
-         </RadioGroup>
-     </FormItem>
- </Form>
- <Spin Spinning="@IsLoading">
-     <Indicator>
-         <Icon Type="loading" Style="font-size: 5rem" Theme="outline" Spin />
-     </Indicator>
-     <ChildContent>
-         <DRIsInSightTable NutrientRanges="@Info.NutrientRanges" />
-     </ChildContent>
- </Spin>
- @code {
-    private ClientInfo Info { get; set; } = new();
+            <Radio RadioButton Value="@("女")">女</Radio>
+        </RadioGroup>
+    </FormItem>
+    <FormItem Label="年龄">
+        <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
+    </FormItem>
+    <FormItem Label="特殊生理状况">
+        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
+            <Radio RadioButton Value="@string.Empty">无</Radio>
+            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+            <Radio RadioButton Value="@("乳母")">乳母</Radio>
+            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+        </RadioGroup>
+    </FormItem>
+</Form>
+<Spin Spinning="@IsLoading">
+    <Indicator>
+        <Icon Type="loading" Style="font-size: 5rem" Theme="outline" Spin />
+    </Indicator>
+    <ChildContent>
+        <DRIsInSightTable NutrientRanges="@Dris.NutrientRanges" />
+    </ChildContent>
+</Spin>
+@code {
+    private IClient Info => Dris.Client;
+
+    private DRIs Dris { get; set; } = new(new ClientInfo());
 
     private bool IsLoading { get; set; } = false;
 
@@ -49,29 +51,7 @@
         try
         {
             IsLoading = true;
-            if (UserSession.UserInfo == null)
-            {
-                Navigation.NavigateTo("/");
-                await Message.Error("需要登录");
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(Info.Gender) && Info.Age >= 0)
-            {
-                try
-                {
-                    var postRes = await HttpClientFactory.CreateClient("Authorize").PostAsJsonAsync($"Energy/DRIs/{Info.Gender}/{Info.Age}", new List<string> { Info.SpecialPhysiologicalPeriod });
-
-                    if (postRes.IsSuccessStatusCode)
-                    {
-                        Info.AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? Info.AvailableDRIs;
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    await Message.Error(ex.Message);
-                }
-            }
+            await Dris.FetchDRIsAsync(Message, HttpClientFactory.CreateClient("Authorize"), UserSession, Navigation);
         }
         finally
         {
