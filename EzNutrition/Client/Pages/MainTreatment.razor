@@ -59,6 +59,7 @@
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
                 @* Advices in pc is here *@
+                <Skeleton />
             }
         }
     </GridCol>
@@ -69,6 +70,7 @@
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
                 @* Cover letter is here *@
+                <Skeleton />
             }
         }
         else
@@ -92,25 +94,23 @@
                 <Paragraph>施工中</Paragraph>
             }
 
-            @* 门诊病史 *@
-            @* 主诉与症状 *@
-            @* 现病史 *@
-            @* 查体 *@
-            @* 既往史 *@
-            @* 辅助检查 *@
-            @* 诊断 *@
+            @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史")
+            {
+                <Paragraph>施工中</Paragraph>
+                @* 主诉与症状 *@
+                @* 现病史 *@
+                @* 查体 *@
+                @* 既往史 *@
+                @* 辅助检查 *@
+                @* 诊断 *@
+            }
+        }
+
+        @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl)
+        {
+            <Skeleton />
         }
     </GridCol>
-
-    @*     @if (MaintreatmentVM.Advices != null && MaintreatmentVM.Advices.Count > 0)
-    {
-        <GridCol Span="24">
-            <Table DataSource="@MaintreatmentVM.Advices" HidePagination=true>
-                <PropertyColumn Property="r=>r.Content" Title="备择膳食建议（仅供营养医师参考，请根据实际情况决定将哪些信息提供给咨询者）" />
-                <PropertyColumn Property="r=>r.Priority" Title="输出顺序" />
-            </Table>
-        </GridCol>
-    } *@
 </GridRow>
 
 @code {

@@ -26,8 +26,6 @@ namespace EzNutrition.Client.Models
 
         public DRIs? DRIs { get; set; }
 
-        public Dictionary<IClient, List<ITreatment>> Clients { get; } = [];
-
         public async Task ClientInfoConfirmed()
         {
             CurrentEnergyCalculator = new EnergyCalculator(CurrentClient);

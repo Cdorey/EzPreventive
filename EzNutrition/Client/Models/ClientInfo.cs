@@ -4,45 +4,6 @@ namespace EzNutrition.Client.Models
 {
     public class ClientInfo : IClient
     {
-        ////        private List<DietaryReferenceIntakeValue> availableDRIs = [];
-
-        ////        public List<EER> AvailableEERs { get; set; } = [];
-
-        ////        public List<DietaryReferenceIntakeValue> AvailableDRIs
-        ////        {
-        ////            get
-        ////            {
-        ////                return availableDRIs;
-        ////            }
-
-        ////            set
-        ////            {
-        ////                availableDRIs = value;
-        ////                NutrientRanges = RangeCastForDRIs().ToList();
-        ////            }
-        ////        }
-
-        ////        public List<NutrientRange> NutrientRanges { get; private set; } = [];
-
-        ////        private IEnumerable<NutrientRange> RangeCastForDRIs()
-        ////        {
-        ////            foreach (var rangeInfo in AvailableDRIs.GroupBy(x => x.Nutrient ?? string.Empty))
-        ////            {
-        ////                NutrientRange result;
-        ////                try
-        ////                {
-        ////                    result = new NutrientRange(rangeInfo);
-        ////                }
-        ////                catch (ArgumentException)
-        ////                {
-        ////#warning 这里直接丢弃不能解析的值，缺少正确的处理逻辑
-        ////                    continue;
-        ////                }
-
-        ////                yield return result;
-        ////            }
-        ////        }
-
         public string? Name { get; set; }
 
         public string? Gender { get; set; }
@@ -61,4 +22,12 @@ namespace EzNutrition.Client.Models
 
     }
 
+    public class Archive(IClient client)
+    {
+        public IClient Client => client;
+
+        public EnergyCalculator? CurrentEnergyCalculator { get; set; }
+
+        public DRIs? DRIs { get; set; }
+    }
 }

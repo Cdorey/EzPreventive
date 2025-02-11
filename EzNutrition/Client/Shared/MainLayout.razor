@@ -4,43 +4,54 @@
 @inject NavigationManager Navigation
 
 <Layout Style="min-height: 100vh; ">
-    <Header Style="height:auto">
-        <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
-            <GridCol>
-                <span style="color:white;">EzNutrition</span>
-            </GridCol>
-            @if (currentBreakpoint >= BreakpointType.Md)
-            {
-                <GridCol>
+    @if (currentBreakpoint >= BreakpointType.Md)
+    {
+        <Sider>
+            <Layout>
+                <Header Style="color:white">
+                    EzNutrition
+                </Header>
+                <Content>
                     <NavMenu />
+                </Content>
+            </Layout>
+        </Sider>
+    }
+    else
+    {
+        <Header Style="height:auto">
+            <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
+                <GridCol>
+                    <span style="color:white;">EzNutrition</span>
                 </GridCol>
+                @* <GridCol>
+                    @if (UserSession.UserInfo != default)
+                    {
+                        <div @onclick="_=>drawerVisible=true">
+                            <Avatar Icon="user" />
+                            <span style="color:white;">@UserSession.UserInfo.UserName</span>
+                        </div>
+                    }
+                </GridCol> *@
+            </GridRow>
+        </Header>
+    }
+    <Layout>
+        <Content>
+            <div class="site-layout-content">
+                @Body
+            </div>
+            @* <BackTop/> *@
+        </Content>
+        <Footer Style="text-align: center;">
+            @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
+            {
+                <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
             }
-
-            <GridCol>
-                @if (UserSession.UserInfo != default)
-                {
-                    <div @onclick="_=>drawerVisible=true">
-                        <Avatar Icon="user" />
-                        <span style="color:white;">@UserSession.UserInfo.UserName</span>
-                    </div>
-                }
-            </GridCol>
-        </GridRow>
-    </Header>
-    <Content>
-        <div class="site-layout-content">
-            @Body
-        </div>
-    </Content>
-    <Footer Style="text-align: center;">
-        @* <a href="https://wiki.cdorey.net"><img style="width:45px;margin:8px;" src="/logo.png" /></a> *@
-        @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
-        {
-            <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
-        }
-    </Footer>
+        </Footer>
+    </Layout>
 </Layout>
-<Drawer Closable="true" Visible="drawerVisible" OnClose="_=>drawerVisible=false" Placement="right" Title="@("EzNutrition")">
+@* <Drawer Closable="true" Visible="drawerVisible" OnClose="_=>drawerVisible=false" Placement="right" Title="@("EzNutrition")">
     @if (currentBreakpoint < BreakpointType.Md)
     {
         <p>
@@ -59,13 +70,14 @@
             </p>
         }
     }
-</Drawer>
+</Drawer> *@
 <style>
     .site-layout-content {
         background: #fff;
         padding: 24px;
         min-height: 100%;
         margin: 16px;
+        overflow: auto;
     }
 </style>
 

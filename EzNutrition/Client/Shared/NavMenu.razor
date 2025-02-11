@@ -1,11 +1,14 @@
-﻿@using EzNutrition.Client.Services;
+﻿@using EzNutrition.Client.Models
+@using EzNutrition.Client.Pages
+@using EzNutrition.Client.Services;
 @inject UserSessionService UserSession
-<Menu Mode="MenuMode.Horizontal" Theme="MenuTheme.Dark">
+@inject MainTreatmentViewModel MaintreatmentVM
+<Menu Mode="MenuMode.Vertical" Theme="MenuTheme.Dark">
     <MenuItem RouterLink="">
         <Icon Type="home" Theme="outline" />
         <span>首页</span>
     </MenuItem>
-    @if (UserSession.UserInfo != default)
+    @if (UserSession.UserInfo is not null)
     {
         <MenuItem RouterLink="maintreatment">
             <Icon Type="medicine-box" Theme="outline" />

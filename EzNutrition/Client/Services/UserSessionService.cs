@@ -24,6 +24,10 @@ namespace EzNutrition.Client.Services
 
         public string CaseNumber { get; private set; }
 
+        public string CoverLetter { get; private set; }
+
+        public string Notice { get; private set; }
+
         public async Task GetSystemInfoAsync()
         {
             CaseNumber = await _client.GetStringAsync("SystemInfo/CaseNumber/");
@@ -114,6 +118,14 @@ namespace EzNutrition.Client.Services
         {
             _client = httpClientFactory.CreateClient("Anonymous");
             CaseNumber = string.Empty;
+            CoverLetter = string.Empty;
+            Notice = string.Empty;
         }
     }
+
+    public class ArchiveManageService
+    {
+        public ArchiveManageService() { }
+    }
+
 }

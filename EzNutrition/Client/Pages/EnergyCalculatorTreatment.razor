@@ -5,8 +5,6 @@
 @inject MainTreatmentViewModel MaintreatmentVM
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
-
-<Title Level="2">能量评估及食物交换份法粗配食谱</Title>
 @if (EnergyCalculator != null)
 {
     <Title Level="3">概要</Title>
@@ -65,7 +63,7 @@
             <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
             <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
         </GridCol>
-        <GridCol Md="12" Xs="24">
+        <GridCol Span="24">
             <Title Level="3">三餐能量分配</Title>
             <GridRow>
                 <GridCol Span="6">
@@ -118,7 +116,7 @@
                 </GridCol>
             </GridRow>
         </GridCol>
-        <GridCol Md="12" Xs="24">
+        <GridCol Span="24">
             <Title Level="3">食物交换份</Title>
             <GridRow>
                 <GridCol Span="6">
