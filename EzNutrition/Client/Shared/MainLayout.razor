@@ -24,15 +24,6 @@
                 <GridCol>
                     <span style="color:white;">EzNutrition</span>
                 </GridCol>
-                @* <GridCol>
-                    @if (UserSession.UserInfo != default)
-                    {
-                        <div @onclick="_=>drawerVisible=true">
-                            <Avatar Icon="user" />
-                            <span style="color:white;">@UserSession.UserInfo.UserName</span>
-                        </div>
-                    }
-                </GridCol> *@
             </GridRow>
         </Header>
     }
@@ -51,26 +42,6 @@
         </Footer>
     </Layout>
 </Layout>
-@* <Drawer Closable="true" Visible="drawerVisible" OnClose="_=>drawerVisible=false" Placement="right" Title="@("EzNutrition")">
-    @if (currentBreakpoint < BreakpointType.Md)
-    {
-        <p>
-            <a href="/">
-                <Icon Type="home" Theme="outline" />
-                <span>首页</span>
-            </a>
-        </p>
-        @if (UserSession.UserInfo != default)
-        {
-            <p>
-                <a href="/maintreatment">
-                    <Icon Type="medicine-box" Theme="outline" />
-                    <span>基本处理</span>
-                </a>
-            </p>
-        }
-    }
-</Drawer> *@
 <style>
     .site-layout-content {
         background: #fff;
@@ -82,8 +53,6 @@
 </style>
 
 @code {
-    private bool drawerVisible;
-
     private BreakpointType currentBreakpoint;
 
     private void HandleBreakpoint(BreakpointType breakpoint)
@@ -107,6 +76,4 @@
         await UserSession.GetSystemInfoAsync();
         await base.OnInitializedAsync();
     }
-
-
 }

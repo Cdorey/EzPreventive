@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using EzNutrition.Shared.Data.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace EzNutrition.Server.Data
 {
-    public class ApplicationDbContext : IdentityDbContext
+    public class ApplicationDbContext(DbContextOptions options) : IdentityDbContext(options)
     {
-        public ApplicationDbContext(DbContextOptions options) : base(options) { }
+        public DbSet<Notice> Notices { get; set; }
     }
 }

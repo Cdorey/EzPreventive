@@ -1,8 +1,10 @@
 ﻿using AntDesign;
 using EzNutrition.Client.Models;
+using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Security.Claims;
 
 namespace EzNutrition.Client.Services
@@ -31,6 +33,26 @@ namespace EzNutrition.Client.Services
         public async Task GetSystemInfoAsync()
         {
             CaseNumber = await _client.GetStringAsync("SystemInfo/CaseNumber/");
+
+            try
+            {
+                var coverLetter = await _client.GetFromJsonAsync<Notice>("SystemInfo/CoverLetter/");
+                if (coverLetter != null)
+                {
+                    CoverLetter = coverLetter.Description;
+                }
+            }
+            catch (HttpRequestException) { }
+
+            try
+            {
+                var notice = await _client.GetFromJsonAsync<Notice>("SystemInfo/Notice/");
+                if (notice != null)
+                {
+                    Notice = notice.Description;
+                }
+            }
+            catch (HttpRequestException) { }
         }
 
         public async ValueTask<AccessTokenResult> RequestAccessToken()
