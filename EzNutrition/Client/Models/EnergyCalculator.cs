@@ -92,13 +92,13 @@ namespace EzNutrition.Client.Models
             string dependency;
             if (energy != 0)
             {
-                dependency = "BW*BEE*PAL。";
+                dependency = "BW*BEE*PAL";
             }
             else
             {
                 var eerWithPAL = AvailableEERs.FirstOrDefault(x => x.PAL == PAL);
                 energy = eerWithPAL?.AvgBwEER ?? 0;
-                dependency = "基于人群平均体重和PAL的建议值。";
+                dependency = "基于人群平均体重和PAL的建议值";
             }
 
             var offsetEnergy = AvailableEERs.Where(x => x.OffsetEnergy != default).Select(x => x.OffsetEnergy).Sum();

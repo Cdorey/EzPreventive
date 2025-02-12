@@ -137,8 +137,9 @@
         }
         else
         {
-            await MaintreatmentVM.ClientInfoConfirmed();
+            await MaintreatmentVM.ClientInfoConfirmed().ConfigureAwait(true);
             isClientInfoFormEnabled = false;
+            StateHasChanged();
         }
     }
 }
