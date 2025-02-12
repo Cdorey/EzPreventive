@@ -14,6 +14,7 @@ namespace EzNutrition.Client.Models
         public string[] Roles { get; }
 
         public string Email { get; }
+        public DateTimeOffset? ExpiresAt { get; internal set; }
 
         internal IEnumerable<Claim> ParseToken()
         {
