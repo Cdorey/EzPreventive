@@ -21,5 +21,10 @@ namespace EzNutrition.Server.Data.Repositories
         {
             return [.. dbContext.Foods!.AsNoTracking()];
         }
+
+        public  Nutrient[] GetNutrients()
+        {
+            return [.. dbContext.Nutrients!.AsNoTracking()];
+        }
     }
 }

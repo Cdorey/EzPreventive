@@ -14,6 +14,11 @@ namespace EzNutrition.Server.Controllers
             return Ok(foodNutritionValueRepository.GetFoods());
         }
 
+        public IActionResult Nutrients()
+        {
+            return Ok(foodNutritionValueRepository.GetNutrients());
+        }
+
         public IActionResult CompositionData([FromQuery] string friendlyCode)
         {
             var res = foodNutritionValueRepository.FoodNutritionValueByFriendlyCode(friendlyCode);
