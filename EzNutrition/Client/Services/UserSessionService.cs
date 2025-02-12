@@ -72,6 +72,7 @@ namespace EzNutrition.Client.Services
                 Notice = notice?.Description ?? string.Empty;
             }
             catch (HttpRequestException) { Notice = string.Empty; }
+            OnStateChanged?.Invoke();
         }
 
         public async ValueTask<AccessTokenResult> RequestAccessToken()

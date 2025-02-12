@@ -4,6 +4,7 @@
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
 @using System.Text;
+@using Markdig
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 @inject MainTreatmentViewModel MaintreatmentVM
@@ -59,7 +60,7 @@
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
                 @* Advices in pc is here *@
-                <Skeleton />
+                <Skeleton Active />
             }
         }
     </GridCol>
@@ -68,8 +69,15 @@
         {
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
-                @* Cover letter is here *@
-                <Skeleton />
+                @if (string.IsNullOrEmpty(UserSession.Notice))
+                {
+                    <Skeleton Active />
+                }
+                else
+                {
+                    <Title Level="2">注意事项</Title>
+                    @((MarkupString)Markdown.ToHtml(UserSession.Notice))
+                }
             }
         }
         else

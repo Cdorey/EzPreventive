@@ -13,7 +13,14 @@
     <GridRow Gutter="(16,16)">
         <GridCol Lg="18" Md="24">
             <article>
-                @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
+                @if (string.IsNullOrEmpty(UserSession.CoverLetter))
+                {
+                    <Skeleton Active />
+                }
+                else
+                {
+                    @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
+                }
             </article>
         </GridCol>
         <GridCol Lg="18" Md="24">
@@ -95,6 +102,17 @@ else
         {
             errorInfo = ex.Message;
         }
+    }
+
+    protected override void OnInitialized()
+    {
+        UserSession.OnStateChanged += StateHasChanged;
+        base.OnInitialized();
+    }
+
+    public void Dispose()
+    {
+        UserSession.OnStateChanged -= StateHasChanged;
     }
 }
 
