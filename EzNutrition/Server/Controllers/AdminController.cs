@@ -11,21 +11,12 @@ namespace EzNutrition.Server.Controllers
     [ApiController]
     [Route("[controller]")]
     [Authorize(Policy = PolicyList.Admin)]
-    public class AdminController : ControllerBase
+    public class AdminController(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger, AuthManagerRepository authManagerRepository) : ControllerBase
     {
-        private readonly JwtService _jwtService;
-        private readonly ApplicationDbContext _context;
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
-        private readonly ILogger<AuthController> _logger;
-
-        private readonly AuthManagerRepository _repository;
-
         [HttpPost("Role/add")]
         public async Task<IActionResult> AddRole([FromForm] string role)
         {
-            var x = await _roleManager.CreateAsync(new IdentityRole { Name = role });
+            var x = await roleManager.CreateAsync(new IdentityRole { Name = role });
             return Ok(x);
         }
 
@@ -34,7 +25,7 @@ namespace EzNutrition.Server.Controllers
         {
             try
             {
-                await _repository.AddToRoleAsync(username, role);
+                await authManagerRepository.AddToRoleAsync(username, role);
                 return Ok();
             }
             catch (Exception e)
@@ -50,24 +41,13 @@ namespace EzNutrition.Server.Controllers
         {
             try
             {
-                var x = await _repository.GetAllUsers(role);
+                var x = await authManagerRepository.GetAllUsers(role);
                 return Ok(x);
             }
             catch (Exception e)
             {
                 return BadRequest(e.Message);
             }
-        }
-
-        public AdminController(JwtService jwtService, ApplicationDbContext dbContext, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signInManager, ILogger<AuthController> logger, AuthManagerRepository authManagerRepository)
-        {
-            _jwtService = jwtService;
-            _context = dbContext;
-            _userManager = userManager;
-            _roleManager = roleManager;
-            _signInManager = signInManager;
-            _logger = logger;
-            _repository = authManagerRepository;
         }
     }
 

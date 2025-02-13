@@ -1,6 +1,4 @@
-﻿using System.Net.Http;
-
-namespace EzNutrition.Client.Models
+﻿namespace EzNutrition.Client.Models
 {
     public interface ITreatment
     {

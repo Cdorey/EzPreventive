@@ -8,15 +8,12 @@ namespace EzNutrition.Server.Controllers
     [ApiController]
     [Route("[controller]")]
     [Authorize]
-    public class PrescriptionController : ControllerBase
+    public class PrescriptionController(DiseaseRepository diseaseRepository, AdviceRepository adviceRepository) : ControllerBase
     {
-        private readonly DiseaseRepository _diseaseRepository;
-        private readonly AdviceRepository _adviceRepository;
-
         [HttpGet("diseases")]
         public IActionResult GetDiseaseList()
         {
-            var diseases = _diseaseRepository.GetDiseases();
+            var diseases = diseaseRepository.GetDiseases();
             return Ok(diseases);
         }
 
@@ -28,13 +25,8 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("Disease IDs must be provided.");
             }
 
-            var advices = _adviceRepository.GetAdviceByDiseaseID(diseaseIDs);
+            var advices = adviceRepository.GetAdviceByDiseaseID(diseaseIDs);
             return Ok(advices);
-        }
-        public PrescriptionController(DiseaseRepository diseaseRepository, AdviceRepository adviceRepository)
-        {
-            _adviceRepository = adviceRepository;
-            _diseaseRepository = diseaseRepository;
         }
     }
 }

@@ -9,18 +9,14 @@ namespace EzNutrition.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController(ILogger<AuthController> logger, AuthManagerRepository authManagerRepository) : ControllerBase
     {
-        private readonly ILogger<AuthController> _logger;
-
-        private readonly AuthManagerRepository _repository;
-
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
             try
             {
-                return Ok(await _repository.Login(username, password));
+                return Ok(await authManagerRepository.Login(username, password));
             }
             catch (Exception e)
             {
@@ -33,7 +29,7 @@ namespace EzNutrition.Server.Controllers
         {
             try
             {
-                await _repository.Register(username, password);
+                await authManagerRepository.Register(username, password);
                 return Ok();
             }
             catch (Exception e)
@@ -46,12 +42,6 @@ namespace EzNutrition.Server.Controllers
         public IActionResult GetProfile()
         {
             return Ok(User.FindFirstValue(ClaimTypes.Name));
-        }
-
-        public AuthController(ILogger<AuthController> logger, AuthManagerRepository authManagerRepository)
-        {
-            _logger = logger;
-            _repository = authManagerRepository;
         }
     }
 }
