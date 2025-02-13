@@ -17,17 +17,23 @@
     </SpaceItem>
     <SpaceItem>
         <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
-            <PropertyColumn Property="r=>r.Food.FriendlyCode">
+            <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
                 @(context.Food.FriendlyCode)
             </PropertyColumn>
-            <PropertyColumn Property="r=>r.Food.FriendlyName">
+            <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
                 @context.Food.FriendlyName
             </PropertyColumn>
-            <PropertyColumn Property="r=>r.Weight">
-                @context.Weight
+            <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
+                <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" />
             </PropertyColumn>
-            <ActionColumn Title="删除">
-                <Button OnClick="() =>RemoveRecord(context)">删除记录</Button>
+            <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
+                <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
+            </PropertyColumn>
+            <PropertyColumn Title="餐次" Property="r=>r.Weight">
+                <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" CheckedChildren="是" UnCheckedChildren="否" />
+            </PropertyColumn>
+            <ActionColumn>
+                <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete"/>
             </ActionColumn>
         </Table>
     </SpaceItem>

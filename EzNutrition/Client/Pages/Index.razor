@@ -11,19 +11,7 @@
 @if (UserSession.UserInfo == default)
 {
     <GridRow Gutter="(16,16)">
-        <GridCol Lg="18" Md="24">
-            <article>
-                @if (string.IsNullOrEmpty(UserSession.CoverLetter))
-                {
-                    <Skeleton Active />
-                }
-                else
-                {
-                    @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
-                }
-            </article>
-        </GridCol>
-        <GridCol Lg="18" Md="24">
+        <GridCol Xl="12" Xs="24">
             <Title Level="3">登录以开始</Title>
             <Paragraph>BBS测试用户EpiMan，密码I_am_epiman</Paragraph>
             <Paragraph>这个账户不能用于调整模型，不过反正调整模型功能暂时还没做出来</Paragraph>
@@ -43,6 +31,18 @@
             {
                 <Alert Message=@errorInfo Type="@AlertType.Error" />
             }
+        </GridCol>
+        <GridCol Xl="12" Xs="24">
+            <article>
+                @if (string.IsNullOrEmpty(UserSession.CoverLetter))
+                {
+                    <Skeleton Active />
+                }
+                else
+                {
+                    @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
+                }
+            </article>
         </GridCol>
     </GridRow>
 }
