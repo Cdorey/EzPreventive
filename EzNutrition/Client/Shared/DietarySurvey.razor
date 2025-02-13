@@ -1,0 +1,55 @@
+﻿@using EzNutrition.Client.Models
+@using EzNutrition.Shared.Data.DietaryRecallSurvey
+@using EzNutrition.Shared.Data.Entities
+@inject IMessageService Message
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigator
+<Title Level="3">24小时回顾法膳食调查</Title>
+<Space Direction="DirectionVHType.Vertical" style="width: 100%;">
+    <SpaceItem>
+        <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
+            <ItemTemplate>
+                <span>@((context as Food).FriendlyName)</span>
+                <span>@((context as Food).Details)</span>
+                <span>@((context as Food).FoodGroups)</span>
+            </ItemTemplate>
+        </Select>
+    </SpaceItem>
+    <SpaceItem>
+        <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
+            <PropertyColumn Property="r=>r.Food.FriendlyCode">
+                @(context.Food.FriendlyCode)
+            </PropertyColumn>
+            <PropertyColumn Property="r=>r.Food.FriendlyName">
+                @context.Food.FriendlyName
+            </PropertyColumn>
+            <PropertyColumn Property="r=>r.Weight">
+                @context.Weight
+            </PropertyColumn>
+            <ActionColumn Title="删除">
+                <Button OnClick="() =>RemoveRecord(context)">删除记录</Button>
+            </ActionColumn>
+        </Table>
+    </SpaceItem>
+</Space>
+@code
+{
+    [Parameter]
+    public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
+
+    public List<DietaryRecallEntry>? Entries => DietaryRecallSurvey?.RecallEntries;
+
+    private void RemoveRecord(DietaryRecallEntry entry)
+    {
+        Entries?.Remove(entry);
+    }
+
+    private async void OnSelectedItemChangedHandler(Food food)
+    {
+        var httpClient = HttpClientFactory.CreateClient("Authorize");
+        var foodDetails = await httpClient.GetFromJsonAsync<List<FoodNutrientValue>>($"FoodComposition/CompositionData?friendlyCode={food.FriendlyCode}").ConfigureAwait(true);
+        food.FoodNutrientValues = foodDetails;
+        Entries?.Add(new DietaryRecallEntry { Food = food, Weight = 100 });
+        StateHasChanged();
+    }
+}

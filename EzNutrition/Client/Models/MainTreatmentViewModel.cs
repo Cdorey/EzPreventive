@@ -26,11 +26,37 @@ namespace EzNutrition.Client.Models
 
         public DRIs? DRIs { get; set; }
 
+        public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
+
         public async Task ClientInfoConfirmed()
         {
+            if (userSession.UserInfo == null)
+            {
+                navigationManager.NavigateTo("/");
+                await message.Error("需要登录");
+                return;
+            }
             CurrentEnergyCalculator = new EnergyCalculator(CurrentClient);
             DRIs = new DRIs(CurrentClient);
             await DRIs.FetchDRIsAsync(message, _httpClient, _userSession, navigationManager);
+
+            if (!string.IsNullOrEmpty(CurrentClient.Gender) && CurrentClient.Age >= 0)
+            {
+                try
+                {
+                    var foods = await _httpClient.GetFromJsonAsync<List<Food>>("FoodComposition/Foods");
+                    var nutrients = await _httpClient.GetFromJsonAsync<List<Nutrient>>("FoodComposition/Nutrients");
+                    if (foods is not null && nutrients is not null)
+                    {
+                        DietaryRecallSurvey = new DietaryRecallSurvey(CurrentClient, foods, nutrients, DRIs);
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    await message.Error(ex.Message);
+                }
+            }
+
         }
 
         ////public ClientInfo UserInfo { get; private set; } = new();

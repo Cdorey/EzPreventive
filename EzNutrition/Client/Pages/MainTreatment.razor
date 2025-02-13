@@ -96,11 +96,10 @@
             {
                 <DRIsInSightTable NutrientRanges="MaintreatmentVM.DRIs.NutrientRanges" />
             }
-            @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "膳食调查")
+            @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "膳食调查") && MaintreatmentVM.DietaryRecallSurvey is not null)
             {
-                <Paragraph>施工中</Paragraph>
+                <DietarySurvey DietaryRecallSurvey="MaintreatmentVM.DietaryRecallSurvey" />
             }
-
             @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史")
             {
                 <Paragraph>施工中</Paragraph>

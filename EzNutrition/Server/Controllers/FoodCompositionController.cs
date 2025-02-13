@@ -28,7 +28,7 @@ namespace EzNutrition.Server.Controllers
             }
             else
             {
-                return Ok(res);
+                return Ok(res.FoodNutrientValues);
             }
         }
     }

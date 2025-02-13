@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace EzNutrition.Shared.Data.Entities
 {
@@ -27,6 +28,7 @@ namespace EzNutrition.Shared.Data.Entities
         /// </summary>
         public string? FoodGroups { get; set; }
 
+        [JsonIgnore]
         public List<FoodNutrientValue>? FoodNutrientValues { get; set; }
     }
 
