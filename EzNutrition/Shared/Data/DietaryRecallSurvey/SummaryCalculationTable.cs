@@ -1,5 +1,6 @@
 ﻿using EzNutrition.Shared.Data.Entities;
 using System.Collections;
+using System.Data;
 
 namespace EzNutrition.Shared.Data.DietaryRecallSurvey
 {
@@ -26,6 +27,29 @@ namespace EzNutrition.Shared.Data.DietaryRecallSurvey
                     Value = foodNutrientValue.Value * weight / 100
                 };
             }
+        }
+
+        public async Task<DataTable> ToCalculateDataTableAsync()
+        {
+            var table = new DataTable();
+            await Task.Run(() =>
+            {
+                table.Columns.Add("原料名称");
+                table.Columns.Add("原料原始重量");
+                table.Columns.Add("均为可食部");
+                foreach (var nutrient in nutrients)
+                {
+                    table.Columns.Add(nutrient.FriendlyName ?? string.Empty, typeof(string));
+                }
+                foreach (var entry in dietaryRecallEntries)
+                {
+                    var x = ToFoodNutrientValue(entry);
+                    var values = from nutrient in nutrients
+                                 select (x.FirstOrDefault(f => f.NutrientId == nutrient.NutrientId)?.Value ?? 0).ToString();
+                    table.Rows.Add([entry.Food.FriendlyName ?? string.Empty, entry.Weight, entry.IsAllEdible, .. values]);
+                }
+            });
+            return table;
         }
 
         /// <summary>

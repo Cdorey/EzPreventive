@@ -1,6 +1,7 @@
 ﻿@using EzNutrition.Client.Models
 @using EzNutrition.Shared.Data.DietaryRecallSurvey
 @using EzNutrition.Shared.Data.Entities
+@using System.Data
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigator
@@ -32,7 +33,7 @@
                     <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
                 </PropertyColumn>
                 <PropertyColumn Title="餐次" Property="r=>r.Weight">
-                    <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" CheckedChildren="是" UnCheckedChildren="否" />
+                    <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" />
                 </PropertyColumn>
                 <ActionColumn>
                     <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete" />
@@ -49,9 +50,42 @@
             @* Summary is here *@
             <Collapse DefaultActiveKey="@(["Summary"])" Accordion>
                 <Panel Header="原始信息" Key="Original Data">
+                    <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Responsive>
+                        <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
+                            @(context.Food.FriendlyCode)
+                        </PropertyColumn>
+                        <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
+                            @context.Food.FriendlyName
+                        </PropertyColumn>
+                        <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
+                            <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" Disabled />
+                        </PropertyColumn>
+                        <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
+                            <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" Disabled />
+                        </PropertyColumn>
+                        <PropertyColumn Title="餐次" Property="r=>r.Weight">
+                            <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" Disabled />
+                        </PropertyColumn>
+                    </Table>
                 </Panel>
                 <Panel Header="核算过程" Key="CalculatorProgress">
+                    @if (calculateProgress is not null)
+                    {
+                        <Table DataSource="calculateProgressRow" ScrollX="4000" HidePagination=true>
+                            @foreach (DataColumn column in calculateProgress.Columns)
+                            {
+                                @if (calculateProgress.Columns.IndexOf(column) <= 2)
+                                {
+                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" Width="100" Fixed="left" />
 
+                                }
+                                else
+                                {
+                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" />
+                                }
+                            }
+                        </Table>
+                    }
                 </Panel>
                 <Panel Header="调查结果" Key="Summary">
                     @if (SummaryRows.Any())
@@ -121,6 +155,9 @@
         public const string Negative = "minus";
     }
 
+    private DataTable? calculateProgress;
+
+    DataRow[]? calculateProgressRow => calculateProgress?.AsEnumerable().ToArray();
 
     private List<SummaryRow> SummaryRows = [];
 
@@ -134,7 +171,7 @@
         Entries?.Remove(entry);
     }
 
-    private async void OnSelectedItemChangedHandler(Food food)
+    private async Task OnSelectedItemChangedHandler(Food food)
     {
         var httpClient = HttpClientFactory.CreateClient("Authorize");
         var foodDetails = await httpClient.GetFromJsonAsync<List<FoodNutrientValue>>($"FoodComposition/CompositionData?friendlyCode={food.FriendlyCode}").ConfigureAwait(true);
@@ -143,17 +180,17 @@
         StateHasChanged();
     }
 
-    private void Calculate()
+    private async Task Calculate()
     {
         if (DietaryRecallSurvey is null)
         {
-            Message.Error("问卷系统初始化失败");
+            await Message.Error("问卷系统初始化失败");
             return;
         }
 
         if (Entries is null || Entries.Count == 0)
         {
-            Message.Error("一条记录都没有怎么算？");
+            await Message.Error("一条记录都没有怎么算？");
             return;
         }
 
@@ -161,13 +198,17 @@
         {
             if (entry.Weight <= 0)
             {
-                Message.Error($"{entry.Food.FriendlyName}的原料重量{entry.Weight}(g)不符合逻辑");
+                await Message.Error($"{entry.Food.FriendlyName}的原料重量{entry.Weight}(g)不符合逻辑");
                 return;
             }
         }
-        DietaryRecallSurvey.SummaryCalculationTable = new SummaryCalculationTable(Entries, DietaryRecallSurvey.Nutrients.ToList());
-
-        GenerateSummaryRows();
+        await Task.Run(() =>
+        {
+            DietaryRecallSurvey.SummaryCalculationTable = new SummaryCalculationTable(Entries, DietaryRecallSurvey.Nutrients.ToList());
+            GenerateSummaryRows();
+            StateHasChanged();
+        });
+        calculateProgress = await DietaryRecallSurvey.SummaryCalculationTable!.ToCalculateDataTableAsync();
         StateHasChanged();
     }
 
