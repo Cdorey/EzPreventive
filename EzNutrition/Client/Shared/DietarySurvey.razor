@@ -6,40 +6,124 @@
 @inject NavigationManager Navigator
 <Title Level="3">24小时回顾法膳食调查</Title>
 <Space Direction="DirectionVHType.Vertical" style="width: 100%;">
-    <SpaceItem>
-        <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
-            <ItemTemplate>
-                <span>@((context as Food).FriendlyName)</span>
-                <span>@((context as Food).Details)</span>
-                <span>@((context as Food).FoodGroups)</span>
-            </ItemTemplate>
-        </Select>
-    </SpaceItem>
-    <SpaceItem>
-        <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
-            <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
-                @(context.Food.FriendlyCode)
-            </PropertyColumn>
-            <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
-                @context.Food.FriendlyName
-            </PropertyColumn>
-            <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
-                <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" />
-            </PropertyColumn>
-            <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
-                <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
-            </PropertyColumn>
-            <PropertyColumn Title="餐次" Property="r=>r.Weight">
-                <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" CheckedChildren="是" UnCheckedChildren="否" />
-            </PropertyColumn>
-            <ActionColumn>
-                <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete"/>
-            </ActionColumn>
-        </Table>
-    </SpaceItem>
+    @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
+    {
+        <SpaceItem>
+            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
+                <ItemTemplate>
+                    <span>@((context as Food).FriendlyName)</span>
+                    <span>@((context as Food).Details)</span>
+                    <span>@((context as Food).FoodGroups)</span>
+                </ItemTemplate>
+            </Select>
+        </SpaceItem>
+        <SpaceItem>
+            <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
+                <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
+                    @(context.Food.FriendlyCode)
+                </PropertyColumn>
+                <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
+                    @context.Food.FriendlyName
+                </PropertyColumn>
+                <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
+                    <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" />
+                </PropertyColumn>
+                <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
+                    <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
+                </PropertyColumn>
+                <PropertyColumn Title="餐次" Property="r=>r.Weight">
+                    <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" CheckedChildren="是" UnCheckedChildren="否" />
+                </PropertyColumn>
+                <ActionColumn>
+                    <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete" />
+                </ActionColumn>
+            </Table>
+        </SpaceItem>
+        <SpaceItem>
+            <Button Type="ButtonType.Primary" Block OnClick="Calculate"><Icon Type="radar-chart" Theme="Outline" />完成调查，计算结果</Button>
+        </SpaceItem>
+    }
+    else
+    {
+        <SpaceItem>
+            @* Summary is here *@
+            <Collapse DefaultActiveKey="@(["Summary"])" Accordion>
+                <Panel Header="原始信息" Key="Original Data">
+                </Panel>
+                <Panel Header="核算过程" Key="CalculatorProgress">
+
+                </Panel>
+                <Panel Header="调查结果" Key="Summary">
+                    @if (SummaryRows.Any())
+                    {
+                        <Table TItem="SummaryRow" DataSource="@SummaryRows" HidePagination=true RowExpandable="@((record)=>record.Data.Expandable)">
+                            <ColumnDefinitions>
+                                <Column TData="string" Title="缩写" DataIndex="Abbreviation" />
+                                <Column TData="string" Title="项目名称" DataIndex="FriendlyName" />
+                                <PropertyColumn Title="参考标记" Property="x=>x.Flag">
+                                    @if (context.Flag is not null)
+                                    {
+                                        <Icon Type="@context.Flag" Theme="Outline" />
+                                    }
+                                </PropertyColumn>
+                                <Column TData="string" Title="结果值" DataIndex="ValueString" />
+                                <Column TData="string" Title="单位" DataIndex="Unit" />
+                                <Column TData="string" Title="参考值" DataIndex="ReferenceRange" />
+                            </ColumnDefinitions>
+                            <ExpandTemplate>
+                                @if (context.Data.ExpendDescriptions is not null && context.Data.ExpendDescriptions.Any())
+                                {
+                                    <Descriptions Title="@context.Data.ExpendTitle" Column="@(new Dictionary<string,int>{{ "xs", 1}})">
+                                        @foreach (var description in context.Data.ExpendDescriptions)
+                                        {
+                                            <DescriptionsItem Title="@(description.Item1.Length>12?$"{description.Item1.Substring(0,11)}…":description.Item1)">@description.Item2</DescriptionsItem>
+                                        }
+                                    </Descriptions>
+                                }
+                            </ExpandTemplate>
+                        </Table>
+                    }
+                </Panel>
+            </Collapse>
+        </SpaceItem>
+    }
 </Space>
 @code
 {
+    private class SummaryRow
+    {
+        public string Abbreviation { get; set; } = string.Empty;
+
+        public required string FriendlyName { get; set; }
+
+        public required string ValueString { get; set; }
+
+        public string Unit { get; set; } = string.Empty;
+
+        public string? Flag { get; set; }
+
+        public string ReferenceRange { get; set; } = string.Empty;
+
+        public bool Expanded { get; set; } = false;
+
+        public bool Expandable { get; set; } = false;
+
+        public string ExpendTitle { get; set; } = "详细信息";
+
+        public (string, string)[]? ExpendDescriptions { get; set; }
+    }
+
+    private static class Flags
+    {
+        public const string Higher = "arrow-up";
+        public const string Lower = "arrow-down";
+        public const string Positive = "plus";
+        public const string Negative = "minus";
+    }
+
+
+    private List<SummaryRow> SummaryRows = [];
+
     [Parameter]
     public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
@@ -57,5 +141,254 @@
         food.FoodNutrientValues = foodDetails;
         Entries?.Add(new DietaryRecallEntry { Food = food, Weight = 100 });
         StateHasChanged();
+    }
+
+    private void Calculate()
+    {
+        if (DietaryRecallSurvey is null)
+        {
+            Message.Error("问卷系统初始化失败");
+            return;
+        }
+
+        if (Entries is null || Entries.Count == 0)
+        {
+            Message.Error("一条记录都没有怎么算？");
+            return;
+        }
+
+        foreach (var entry in Entries)
+        {
+            if (entry.Weight <= 0)
+            {
+                Message.Error($"{entry.Food.FriendlyName}的原料重量{entry.Weight}(g)不符合逻辑");
+                return;
+            }
+        }
+        DietaryRecallSurvey.SummaryCalculationTable = new SummaryCalculationTable(Entries, DietaryRecallSurvey.Nutrients.ToList());
+
+        GenerateSummaryRows();
+        StateHasChanged();
+    }
+
+    private string? CompareWithDris(decimal actualValue, IDietaryReferenceIntakeValue? lowerThan, IDietaryReferenceIntakeValue? higherThan)
+    {
+        string? result = null;
+        if (lowerThan is not null && actualValue < lowerThan.Value)
+        {
+            result = Flags.Lower;
+        }
+        else if (higherThan is not null && actualValue > higherThan.Value)
+        {
+            result = Flags.Higher;
+        }
+        return result;
+    }
+
+    private string? CompareWithDris(decimal actualValue, NutrientRange? range) => CompareWithDris(actualValue, range?.RNI, range?.UL);
+
+    private SummaryRow GenerateSummaryRow(string friendlyName, string? abbreviation = null, string? friendlyNameInFoodComposition = null, string? friendlyNameInDRIs = null)
+    {
+        ArgumentNullException.ThrowIfNull(DietaryRecallSurvey);
+        ArgumentNullException.ThrowIfNull(DietaryRecallSurvey.SummaryCalculationTable);
+
+        var dris = DietaryRecallSurvey.DRIs.NutrientRanges.FirstOrDefault(x => x.Nutrient == (friendlyNameInDRIs ?? friendlyName));
+        var actualValue = DietaryRecallSurvey.SummaryCalculationTable[(friendlyNameInFoodComposition ?? friendlyName)];
+        var rni = string.Empty;
+        var rniValue = dris?.RNI?.Value;
+        if (rniValue is not null)
+        {
+            rni = ((rniValue % 1 == 0) ? (int)rniValue : rniValue).ToString();
+        }
+        var ul = string.Empty;
+        var ulValue = dris?.UL?.Value;
+        if (ulValue is not null)
+        {
+            ul = ((ulValue % 1 == 0) ? (int)ulValue : ulValue).ToString();
+        }
+        return new SummaryRow
+            {
+                Abbreviation = abbreviation ?? string.Empty,
+                FriendlyName = friendlyName,
+                ValueString = actualValue.ToString("0.00"),
+                Unit = dris?.RNI?.MeasureUnit ?? string.Empty,
+                ReferenceRange = $"{rni}~{ul}",
+                Flag = CompareWithDris(actualValue, dris)
+            };
+
+    }
+
+    private void GenerateSummaryRows()
+    {
+        if (DietaryRecallSurvey is null || DietaryRecallSurvey.SummaryCalculationTable is null)
+        {
+            return;
+        }
+
+        SummaryRows.Clear();
+        var energy = new SummaryRow
+            {
+                Abbreviation = "E",
+                FriendlyName = "总能量",
+                ValueString = DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy.ToString("0") ?? "0",
+                Unit = "kCal"
+            };
+
+        energy.Expandable = true;
+
+        var breakFastEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.Breakfast].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var breakFastPercentage = Math.Round(((breakFastEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+        var morningSnackEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.MorningSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var morningSnackPercentage = Math.Round(((morningSnackEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+        var lunchEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.Lunch].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var lunchPercentage = Math.Round(((lunchEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+        var afternoonSnackEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.AfternoonSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var afternoonSnackPercentage = Math.Round(((afternoonSnackEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+        var dinnerEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.Dinner].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var dinnerPercentage = Math.Round(((dinnerEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+        var lateNightSnackEnergy = DietaryRecallSurvey.SummaryCalculationTable[MealOccasion.LateNightSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
+        var lateNightSnackPercentage = Math.Round(((lateNightSnackEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+
+
+        energy.ExpendDescriptions = [("早餐供能", $"{breakFastEnergy}kCal，{breakFastPercentage}%E"), ("上午供能", $"{morningSnackEnergy}kCal，{morningSnackPercentage}%E"), ("午餐供能", $"{lunchEnergy}kCal，{lunchPercentage}%E"), ("下午供能", $"{afternoonSnackEnergy}kCal，{afternoonSnackPercentage}%E"), ("晚餐供能", $"{dinnerEnergy}kCal，{dinnerPercentage}%E"), ("宵夜供能", $"{lateNightSnackEnergy}kCal，{lateNightSnackPercentage}%E")];
+        SummaryRows.Add(energy);
+
+        //蛋白质
+        var proteinDris = DietaryRecallSurvey.DRIs.NutrientRanges.FirstOrDefault(x => x.Nutrient == "蛋白质");
+        var proteinValue = DietaryRecallSurvey.SummaryCalculationTable["蛋白质"];
+        var protein = new SummaryRow
+            {
+                FriendlyName = "蛋白质",
+                ValueString = proteinValue.ToString("0.00"),
+                Unit = "g",
+                ReferenceRange = $"{proteinDris?.RNI?.Value.ToString("0.00") ?? string.Empty}~{proteinDris?.UL?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(proteinValue, proteinDris)
+            };
+        protein.Expandable = true;
+        protein.ExpendTitle = "蛋白质供应顺位";
+        protein.ExpendDescriptions = DietaryRecallSurvey.SummaryCalculationTable.ProteinRank.Select((x) => { return (x.Food?.FriendlyName ?? string.Empty, x.Value.ToString("0.00") + "g"); }).ToArray();
+
+        SummaryRows.Add(protein);
+
+        var proteinPercentage = Math.Round(((DietaryRecallSurvey.SummaryCalculationTable.ProteinEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0);
+        var proteinAmdrL = proteinDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
+        var proteinAmdrH = proteinDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
+        SummaryRows.Add(new SummaryRow
+            {
+                FriendlyName = "蛋白质供能比",
+                ValueString = proteinPercentage.ToString("0"),
+                Unit = "%E",
+                ReferenceRange = $"{proteinAmdrL?.Value.ToString("0.00") ?? string.Empty}~{proteinAmdrH?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(proteinPercentage, proteinAmdrL, proteinAmdrH)
+            });
+
+        //脂肪
+        var fatDris = DietaryRecallSurvey.DRIs.NutrientRanges.FirstOrDefault(x => x.Nutrient == "总脂肪");
+        var fatValue = DietaryRecallSurvey.SummaryCalculationTable["脂肪"];
+        var fat = new SummaryRow
+            {
+                FriendlyName = "总脂肪",
+                ValueString = fatValue.ToString("0.00"),
+                Unit = "g",
+                ReferenceRange = $"{fatDris?.RNI?.Value.ToString("0.00") ?? string.Empty}~{fatDris?.UL?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(fatValue, fatDris)
+            };
+        fat.Expandable = true;
+        fat.ExpendTitle = "脂肪供应顺位";
+        fat.ExpendDescriptions = DietaryRecallSurvey.SummaryCalculationTable.FatRank.Select((x) => { return (x.Food?.FriendlyName ?? string.Empty, x.Value.ToString("0.00") + "g"); }).ToArray();
+
+        SummaryRows.Add(fat);
+
+        var fatPercentage = Math.Round(((DietaryRecallSurvey.SummaryCalculationTable.FatEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0);
+        var fatAmdrL = fatDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
+        var fatAmdrH = fatDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
+        SummaryRows.Add(new SummaryRow
+            {
+                FriendlyName = "脂肪供能比",
+                ValueString = fatPercentage.ToString("0"),
+                Unit = "%E",
+                ReferenceRange = $"{fatAmdrL?.Value.ToString("0.00") ?? string.Empty}~{fatAmdrH?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(fatPercentage, fatAmdrL, fatAmdrH)
+            });
+
+        //碳水化合物
+        var carbohydrateDris = DietaryRecallSurvey.DRIs.NutrientRanges.FirstOrDefault(x => x.Nutrient == "碳水化合物");
+        var carbohydrateValue = DietaryRecallSurvey.SummaryCalculationTable["碳水化合物"];
+        var carbohydrate = new SummaryRow
+            {
+                FriendlyName = "碳水化合物",
+                ValueString = carbohydrateValue.ToString("0.00"),
+                Unit = "g",
+                ReferenceRange = $"{carbohydrateDris?.RNI?.Value.ToString("0.00") ?? string.Empty}~{carbohydrateDris?.UL?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(carbohydrateValue, carbohydrateDris)
+            };
+        carbohydrate.Expandable = true;
+        carbohydrate.ExpendTitle = "碳水化合物供应顺位";
+        carbohydrate.ExpendDescriptions = DietaryRecallSurvey.SummaryCalculationTable.CarbohydrateRank.Select((x) => { return (x.Food?.FriendlyName ?? string.Empty, x.Value.ToString("0.00") + "g"); }).ToArray();
+
+        SummaryRows.Add(carbohydrate);
+
+        var carbohydratePercentage = Math.Round(((DietaryRecallSurvey.SummaryCalculationTable.CarbohydrateEnergy / DietaryRecallSurvey.SummaryCalculationTable.TotalEnergy * 100)), 0);
+        var carbohydrateAmdrL = carbohydrateDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
+        var carbohydrateAmdrH = carbohydrateDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
+        SummaryRows.Add(new SummaryRow
+            {
+                FriendlyName = "碳水化合物供能比",
+                ValueString = carbohydratePercentage.ToString("0"),
+                Unit = "%E",
+                ReferenceRange = $"{carbohydrateAmdrL?.Value.ToString("0.00") ?? string.Empty}~{carbohydrateAmdrH?.Value.ToString("0.00") ?? string.Empty}",
+                Flag = CompareWithDris(carbohydratePercentage, carbohydrateAmdrL, carbohydrateAmdrH)
+            });
+
+        //矿物质
+        SummaryRows.Add(GenerateSummaryRow("钾", "K"));
+        SummaryRows.Add(GenerateSummaryRow("钠", "Na"));
+        SummaryRows.Add(GenerateSummaryRow("镁", "Mg"));
+        SummaryRows.Add(GenerateSummaryRow("铁", "Fe"));
+        SummaryRows.Add(GenerateSummaryRow("锰", "Mn"));
+        SummaryRows.Add(GenerateSummaryRow("锌", "Zn"));
+        SummaryRows.Add(GenerateSummaryRow("磷", "P"));
+        SummaryRows.Add(GenerateSummaryRow("硒", "Se"));
+        SummaryRows.Add(GenerateSummaryRow("铜", "Cu"));
+
+        //维生素
+        //VitA只能自己写
+        //totalVitA有RNI
+        //视黄醇有UL
+        //类胡萝卜素没有基础DRIs
+        var vitADris = DietaryRecallSurvey.DRIs.NutrientRanges.FirstOrDefault(x => x.Nutrient == "VitA");
+        var totalVitA = DietaryRecallSurvey.SummaryCalculationTable["总维生素A"];
+        SummaryRows.Add(new SummaryRow
+            {
+                Abbreviation = "VitA",
+                FriendlyName = "总维生素A",
+                ValueString = totalVitA.ToString("0.00"),
+                Unit = vitADris?.RNI?.MeasureUnit ?? string.Empty,
+                ReferenceRange = $"{vitADris?.RNI?.Value.ToString("0") ?? string.Empty}~",
+                Flag = CompareWithDris(totalVitA, vitADris?.RNI, null)
+            });
+        var retinol = DietaryRecallSurvey.SummaryCalculationTable["视黄醇"];
+        SummaryRows.Add(new SummaryRow
+            {
+                FriendlyName = "视黄醇",
+                ValueString = retinol.ToString("0.00"),
+                Unit = vitADris?.UL?.MeasureUnit ?? string.Empty,
+                ReferenceRange = $"~{vitADris?.UL?.Value.ToString("0") ?? string.Empty}",
+                Flag = CompareWithDris(retinol, null, vitADris?.UL)
+            });
+        SummaryRows.Add(GenerateSummaryRow("胡萝卜素"));
+        //VitB
+        SummaryRows.Add(GenerateSummaryRow("维生素B1", "VitB1", "硫胺素", "VitB1"));
+        SummaryRows.Add(GenerateSummaryRow("维生素B2", "VitB2", "核黄素", "VitB2"));
+        var niacin = GenerateSummaryRow("烟酸", "VitB3");
+        niacin.Unit = "mg";
+        SummaryRows.Add(niacin);
+        SummaryRows.Add(GenerateSummaryRow("维生素C", "VitC", null, "VitC"));
+        SummaryRows.Add(GenerateSummaryRow("总维生素E", "VitE", null, "VitE"));
     }
 }
