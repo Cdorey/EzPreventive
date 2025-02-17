@@ -16,37 +16,40 @@
         <Title Level="2">基本信息</Title>
         @if (CurrentArchive.ClientInfoFormEnabled)
         {
-            <Form Model="@CurrentClient" LabelAlign="AntLabelAlignType.Left">
-                <FormItem Label="姓名">
-                    <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
-                </FormItem>
-                <FormItem Label="性别">
-                    <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
-                        <Radio RadioButton Value="@("男")">男</Radio>
-                        <Radio RadioButton Value="@("女")">女</Radio>
-                    </RadioGroup>
-                </FormItem>
-                <FormItem Label="年龄">
-                    <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" Min="0" />
-                </FormItem>
-                <FormItem Label="身高（cm）">
-                    <Input @bind-Value="context.Height" type="number" min="0" />
-                </FormItem>
-                <FormItem Label="体重（kg）">
-                    <Input @bind-Value="context.Weight" type="number" min="0" />
-                </FormItem>
-                <FormItem Label="特殊生理状况">
-                    <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">
-                        <Radio RadioButton Value="@string.Empty">无</Radio>
-                        <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-                        <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-                        <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-                        <Radio RadioButton Value="@("乳母")">乳母</Radio>
-                        <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
-                    </RadioGroup>
-                </FormItem>
-                <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
-            </Form>
+            <Spin Spinning="ArchiveManager.Loading">
+                <Form Model="@CurrentClient" LabelAlign="AntLabelAlignType.Left">
+                    <FormItem Label="姓名">
+                        <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
+                    </FormItem>
+                    <FormItem Label="性别">
+                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
+                            <Radio RadioButton Value="@("男")">男</Radio>
+                            <Radio RadioButton Value="@("女")">女</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                    <FormItem Label="年龄">
+                        <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" Min="0" />
+                    </FormItem>
+                    <FormItem Label="身高（cm）">
+                        <Input @bind-Value="context.Height" type="number" min="0" />
+                    </FormItem>
+                    <FormItem Label="体重（kg）">
+                        <Input @bind-Value="context.Weight" type="number" min="0" />
+                    </FormItem>
+                    <FormItem Label="特殊生理状况">
+                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">
+                            <Radio RadioButton Value="@string.Empty">无</Radio>
+                            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+                            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+                            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+                            <Radio RadioButton Value="@("乳母")">乳母</Radio>
+                            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                    <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
+                </Form>
+
+            </Spin>
         }
         else
         {

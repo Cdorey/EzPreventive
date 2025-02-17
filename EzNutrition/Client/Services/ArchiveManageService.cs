@@ -31,6 +31,9 @@ namespace EzNutrition.Client.Services
         //    this[client.ClientId] = archive;
         //}
 
+        public bool Loading { get; set; } = false;
+
+
         public Guid NewArchive()
         {
             var client = new ClientInfo();
@@ -64,6 +67,7 @@ namespace EzNutrition.Client.Services
 
             try
             {
+                Loading = true;
                 archive.CurrentEnergyCalculator = new EnergyCalculator(archive.Client);
                 archive.DRIs = new DRIs(archive.Client);
                 await archive.DRIs.FetchDRIsAsync(message, _httpClient, userSession, navigationManager);
@@ -94,6 +98,10 @@ namespace EzNutrition.Client.Services
                 archive.DietaryRecallSurvey = null;
                 archive.DietaryTower = null;
                 archive.ClientInfoFormEnabled = true;
+            }
+            finally
+            {
+                Loading = false;
             }
         }
 
