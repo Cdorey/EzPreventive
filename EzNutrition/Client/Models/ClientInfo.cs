@@ -4,7 +4,19 @@ namespace EzNutrition.Client.Models
 {
     public class ClientInfo : IClient
     {
-        public string? Name { get; set; }
+        private string? name;
+
+        public event EventHandler? NameChanged;
+
+        public string? Name
+        {
+            get => name;
+            set
+            {
+                name = value;
+                NameChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
 
         public string? Gender { get; set; }
 

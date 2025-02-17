@@ -61,6 +61,8 @@
             {
                 <Summary Archive="@CurrentArchive" />
                 @* Advices in pc is here *@
+                <Title Level="3">膳食建议</Title>
+                <Title Level="4">施工中</Title>
                 <Skeleton Active />
             }
         }
@@ -99,7 +101,7 @@
             }
             @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "膳食调查") && CurrentArchive.DietaryRecallSurvey is not null)
             {
-                <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" />
+                <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
             }
             @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史")
             {
@@ -143,6 +145,11 @@
     private async void OnCalculateBtnClick(MouseEventArgs e)
     {
         await ArchiveManager.ClientInfoConfirmed(CurrentArchive).ConfigureAwait(true);
+        StateHasChanged();
+    }
+
+    private void DietarySurveyCalculationCompleted()
+    {
         StateHasChanged();
     }
 }

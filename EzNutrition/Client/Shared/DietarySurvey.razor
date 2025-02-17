@@ -1,11 +1,13 @@
 ﻿@using EzNutrition.Client.Models
 @using EzNutrition.Client.Models.DietarySurvey
+@using EzNutrition.Client.Services
 @using EzNutrition.Shared.Data.DietaryRecallSurvey
 @using EzNutrition.Shared.Data.Entities
 @using System.Data
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigator
+@inject ArchiveManageService ArchiveManager
 <Title Level="3">24小时回顾法膳食调查</Title>
 <Space Direction="DirectionVHType.Vertical" style="width: 100%;">
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
@@ -128,6 +130,9 @@
     [Parameter]
     public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
+    [Parameter]
+    public EventCallback OnCalculationCompleted { get; set; }
+
     public List<DietaryRecallEntry>? Entries => DietaryRecallSurvey?.RecallEntries;
 
     private void RemoveRecord(DietaryRecallEntry entry)
@@ -168,5 +173,6 @@
         }
         await DietaryRecallSurvey.CalculateAsync();
         StateHasChanged();
+        await OnCalculationCompleted.InvokeAsync();
     }
 }

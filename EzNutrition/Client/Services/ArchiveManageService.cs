@@ -5,7 +5,6 @@ using EzNutrition.Shared.Data.DietaryRecallSurvey;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components;
 using System.Collections.Concurrent;
-using System.Net.Http;
 using System.Net.Http.Json;
 
 namespace EzNutrition.Client.Services
@@ -17,30 +16,33 @@ namespace EzNutrition.Client.Services
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Authorize");
 
-        public void Add(Archive archive)
-        {
-            var client = archive.Client as ClientInfo;
-            ArgumentNullException.ThrowIfNull(client?.ClientId);
+        public event EventHandler? ClientNameChanged;
 
-            if (client.ClientId == Guid.Empty)
-            {
-                client.ClientId = Guid.NewGuid();
-            }
+        //public void Add(Archive archive)
+        //{
+        //    var client = archive.Client as ClientInfo;
+        //    ArgumentNullException.ThrowIfNull(client?.ClientId);
 
-            this[client.ClientId] = archive;
-        }
+        //    if (client.ClientId == Guid.Empty)
+        //    {
+        //        client.ClientId = Guid.NewGuid();
+        //    }
+
+        //    this[client.ClientId] = archive;
+        //}
 
         public Guid NewArchive()
         {
             var client = new ClientInfo();
             this[client.ClientId] = new Archive(client);
+            client.NameChanged += ClientNameChanged;
             return client.ClientId;
         }
 
         public async Task ClientInfoConfirmed(Archive archive)
         {
-            using var scope = serviceProvider.CreateScope();
-            var message = scope.ServiceProvider.GetRequiredService<IMessageService>();
+            using IServiceScope scope = serviceProvider.CreateScope();
+            IMessageService message = scope.ServiceProvider.GetRequiredService<IMessageService>();
             if (userSession.UserInfo == null)
             {
                 navigationManager.NavigateTo("/");
@@ -65,12 +67,20 @@ namespace EzNutrition.Client.Services
                 archive.CurrentEnergyCalculator = new EnergyCalculator(archive.Client);
                 archive.DRIs = new DRIs(archive.Client);
                 await archive.DRIs.FetchDRIsAsync(message, _httpClient, userSession, navigationManager);
-                var foods = await _httpClient.GetFromJsonAsync<List<Food>>("FoodComposition/Foods");
-                var nutrients = await _httpClient.GetFromJsonAsync<List<Nutrient>>("FoodComposition/Nutrients");
+                List<Food>? foods = await _httpClient.GetFromJsonAsync<List<Food>>("FoodComposition/Foods");
+                List<Nutrient>? nutrients = await _httpClient.GetFromJsonAsync<List<Nutrient>>("FoodComposition/Nutrients");
 
                 if (foods is not null && nutrients is not null)
                 {
                     archive.DietaryRecallSurvey = new DietaryRecallSurvey(archive.Client, foods, nutrients, archive.DRIs);
+                    archive.DietaryRecallSurvey.OnCalculate += (sender, e) =>
+                    {
+                        var stdTower = StandardTower.GetStandardTower(archive.Client.Age);
+                        if (stdTower is not null)
+                        {
+                            archive.DietaryTower = new DietaryRecallTower(archive.DietaryRecallSurvey.RecallEntries, stdTower);
+                        }
+                    };
                 }
 
                 archive.DietaryTower = StandardTower.GetStandardTower(archive.Client.Age);
@@ -87,6 +97,9 @@ namespace EzNutrition.Client.Services
             }
         }
 
-        public async Task ClientInfoConfirmed(Guid archiveId) => await ClientInfoConfirmed(this[archiveId]);
+        public async Task ClientInfoConfirmed(Guid archiveId)
+        {
+            await ClientInfoConfirmed(this[archiveId]);
+        }
     }
 }

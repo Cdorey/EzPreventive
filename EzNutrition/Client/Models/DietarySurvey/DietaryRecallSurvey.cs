@@ -7,34 +7,6 @@ namespace EzNutrition.Client.Models.DietarySurvey
 {
     public class DietaryRecallSurvey(IClient client, IEnumerable<Food> foods, IEnumerable<Nutrient> nutrients, DRIs dRIs) : ITreatment
     {
-        [JsonIgnore]
-        public string[] Requirements { get; } = [];
-
-        public IClient Client => client;
-
-        [JsonIgnore]
-        public IEnumerable<Food> Foods => foods;
-
-        [JsonIgnore]
-        public IEnumerable<Nutrient> Nutrients => nutrients;
-
-        [JsonIgnore]
-        public DRIs DRIs => dRIs;
-
-        public List<DietaryRecallEntry> RecallEntries { get; } = [];
-
-        public SummaryCalculationTable? SummaryCalculationTable { get; set; }
-
-        public async Task CalculateAsync()
-        {
-            await Task.Run(async () =>
-            {
-                SummaryCalculationTable = new SummaryCalculationTable(RecallEntries, Nutrients.ToList());
-                GenerateSummaryRows();
-                CalculateProgress = await SummaryCalculationTable.ToCalculateDataTableAsync();
-            });
-        }
-
         private void GenerateSummaryRows()
         {
             if (SummaryCalculationTable is null)
@@ -208,7 +180,9 @@ namespace EzNutrition.Client.Models.DietarySurvey
             SummaryRows.Add(GenerateSummaryRow("总维生素E", "VitE", null, "VitE"));
         }
 
-        private static string? CompareWithDris(decimal actualValue, IDietaryReferenceIntakeValue? lowerThan, IDietaryReferenceIntakeValue? higherThan)
+        private static string? CompareWithDris(decimal actualValue,
+                                               IDietaryReferenceIntakeValue? lowerThan,
+                                               IDietaryReferenceIntakeValue? higherThan)
         {
             string? result = null;
             if (lowerThan is not null && actualValue < lowerThan.Value)
@@ -224,7 +198,10 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
         private static string? CompareWithDris(decimal actualValue, NutrientRange? range) => CompareWithDris(actualValue, range?.RNI, range?.UL);
 
-        private DietarySurveySummaryRow GenerateSummaryRow(string friendlyName, string? abbreviation = null, string? friendlyNameInFoodComposition = null, string? friendlyNameInDRIs = null)
+        private DietarySurveySummaryRow GenerateSummaryRow(string friendlyName,
+                                                           string? abbreviation = null,
+                                                           string? friendlyNameInFoodComposition = null,
+                                                           string? friendlyNameInDRIs = null)
         {
             ArgumentNullException.ThrowIfNull(SummaryCalculationTable);
 
@@ -254,10 +231,39 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
         }
 
+        public event EventHandler<EventArgs>? OnCalculate;
+
+        [JsonIgnore]
+        public string[] Requirements { get; } = [];
+
+        public IClient Client => client;
+
+        [JsonIgnore]
+        public IEnumerable<Food> Foods => foods;
+
+        [JsonIgnore]
+        public IEnumerable<Nutrient> Nutrients => nutrients;
+
+        [JsonIgnore]
+        public DRIs DRIs => dRIs;
+
+        public List<DietaryRecallEntry> RecallEntries { get; } = [];
+
+        public SummaryCalculationTable? SummaryCalculationTable { get; set; }
+
+        public async Task CalculateAsync()
+        {
+            await Task.Run(async () =>
+            {
+                SummaryCalculationTable = new SummaryCalculationTable(RecallEntries, Nutrients.ToList());
+                GenerateSummaryRows();
+                CalculateProgress = await SummaryCalculationTable.ToCalculateDataTableAsync();
+                OnCalculate?.Invoke(this, EventArgs.Empty);
+            });
+        }
+
         public DataTable? CalculateProgress { get; private set; }
 
-
         public List<DietarySurveySummaryRow> SummaryRows = [];
-
     }
 }

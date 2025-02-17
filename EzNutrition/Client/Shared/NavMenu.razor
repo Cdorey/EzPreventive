@@ -35,6 +35,12 @@
         {
             StateHasChanged();
         };
+
+        ArchiveManager.ClientNameChanged += (sender, e) =>
+        {
+            StateHasChanged();
+        };
+
         base.OnInitialized();
     }
 
