@@ -1,5 +1,7 @@
 ﻿using AntDesign;
 using EzNutrition.Client.Models;
+using EzNutrition.Client.Models.DietarySurvey;
+using EzNutrition.Shared.Data.DietaryRecallSurvey;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components;
 using System.Collections.Concurrent;
@@ -71,11 +73,17 @@ namespace EzNutrition.Client.Services
                     archive.DietaryRecallSurvey = new DietaryRecallSurvey(archive.Client, foods, nutrients, archive.DRIs);
                 }
 
+                archive.DietaryTower = StandardTower.GetStandardTower(archive.Client.Age);
                 archive.ClientInfoFormEnabled = false;
             }
             catch (HttpRequestException ex)
             {
                 await message.Error(ex.Message);
+                archive.CurrentEnergyCalculator = null;
+                archive.DRIs = null;
+                archive.DietaryRecallSurvey = null;
+                archive.DietaryTower = null;
+                archive.ClientInfoFormEnabled = true;
             }
         }
 

@@ -1,0 +1,30 @@
+﻿@using EzNutrition.Client.Models
+@using EzNutrition.Shared.Data.DietaryRecallSurvey
+<Title Level="3">总结</Title>
+@if (Archive?.DietaryTower is not null)
+{
+    <Title Level="4">膳食平衡宝塔</Title>
+    @* Tower is here *@
+    <Table TItem="TowerLayer" TreeChildren="x=>x.Children" DataSource="Archive.DietaryTower.RenderTower()" HidePagination Size="TableSize.Small" DefaultExpandAllRows>
+        <PropertyColumn Title="类别" Property="r=>r.LayerName">
+            @(context.LayerName)
+        </PropertyColumn>
+        <PropertyColumn Title="宝塔建议值" Property="r=>r.StandardTowerValue">
+            @(context.StandardTowerValue)
+        </PropertyColumn>
+        @if (Archive.DietaryTower is DietaryRecallTower)
+        {
+            <PropertyColumn Title="膳食调查计算结果" Property="r=>r.DietaryRecallTower">
+                @(context.DietaryRecallTower)
+            </PropertyColumn>
+        }
+    </Table>
+}
+else
+{
+    <Skeleton Active />
+}
+@code {
+    [Parameter]
+    public Archive? Archive { get; set; }
+}

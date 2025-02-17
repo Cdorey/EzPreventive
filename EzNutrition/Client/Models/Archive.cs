@@ -1,4 +1,7 @@
-﻿namespace EzNutrition.Client.Models
+﻿using EzNutrition.Client.Models.DietarySurvey;
+using EzNutrition.Shared.Data.DietaryRecallSurvey;
+
+namespace EzNutrition.Client.Models
 {
     public class Archive(IClient client)
     {
@@ -12,5 +15,6 @@
 
         public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
+        public DietaryTower? DietaryTower { get; set; }
     }
 }

@@ -8,7 +8,7 @@
             "谷类", "全谷物和杂豆", "薯类", "水",
         ];
 
-        protected static int[] ParentIndex { get; } = [-1, -1, -1, 2, -1, 4, 4, 0, 7, 7, 9, 9, -1, -1, -1, -1, 15, -1, -1,];
+        protected static int[] ParentIndex { get; } = [-1, -1, -1, 2, -1, 4, 4, -1, 7, 7, 9, 9, -1, -1, -1, -1, 15, -1, -1,];
 
         public abstract TowerLayer[] RenderTower();
     }

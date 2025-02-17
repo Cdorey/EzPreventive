@@ -12,7 +12,7 @@
 @inject ArchiveManageService ArchiveManager
 <GridRow Gutter="(16,16)" OnBreakpoint="HandleBreakpoint">
     @* IClient Information *@
-    <GridCol Xl="12" Sm="24" Xs="24">
+    <GridCol Xl="10" Sm="24" Xs="24">
         <Title Level="2">基本信息</Title>
         @if (CurrentArchive.ClientInfoFormEnabled)
         {
@@ -45,7 +45,6 @@
                         <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
                     </RadioGroup>
                 </FormItem>
-
                 <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
             </Form>
         }
@@ -60,12 +59,13 @@
             </Descriptions>
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
+                <Summary Archive="@CurrentArchive" />
                 @* Advices in pc is here *@
                 <Skeleton Active />
             }
         }
     </GridCol>
-    <GridCol Xl="12" Sm="24" Xs="24">
+    <GridCol Xl="14" Sm="24" Xs="24">
         @if (CurrentArchive.ClientInfoFormEnabled)
         {
             @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)

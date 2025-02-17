@@ -34,7 +34,6 @@
 
 <Button OnClick="OnEERsChanged" />
 @code {
-
     public class Model
     {
         [Required, DisplayName("User Name")]
@@ -48,7 +47,6 @@
 
     private string? errorInfo;
 
-
     private bool IsLoading { get; set; } = false;
 
     private async Task OnEERsChanged()
@@ -57,7 +55,6 @@
         {
             IsLoading = true;
             var postRes = await HttpClientFactory.CreateClient("Authorize").GetFromJsonAsync<List<dynamic>>("Admin/User");
-
         }
         finally
         {
@@ -88,5 +85,4 @@
             errorInfo = ex.Message;
         }
     }
-
 }

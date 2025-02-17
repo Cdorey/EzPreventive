@@ -56,7 +56,10 @@
                 {
                     continue;
                 }
-
+                if (string.IsNullOrWhiteSpace(comparedWith.TowerInfo[i]))
+                {
+                    continue;
+                }
                 while (parentIndex[i] != -1 && comparedWith.TowerInfo[parentIndex[i]] is null && !indexInStandardTower.Contains(i))
                 {
                     parentIndex[i] = parentIndex[parentIndex[i]];
