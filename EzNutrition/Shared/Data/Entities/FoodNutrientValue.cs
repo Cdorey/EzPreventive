@@ -20,6 +20,7 @@ namespace EzNutrition.Shared.Data.Entities
         public Food? Food { get; set; }
 
         public int NutrientId { get; set; }
+
         public Nutrient? Nutrient { get; set; }
     }
 

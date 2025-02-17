@@ -4,22 +4,18 @@
       "type": "secrets.user"
     },
     "mssql1": {
+      "serviceConnectorResourceId": "",
       "secretStore": "LocalSecretsFile",
+      "resourceId": null,
       "type": "mssql.onprem",
-      "connectionId": "ConnectionStrings:EzNutritionDB",
-      "dynamicId": null
+      "connectionId": "ConnectionStrings:EzNutritionDB"
     },
     "mssql2": {
       "serviceConnectorResourceId": "",
       "secretStore": "LocalSecretsFile",
+      "resourceId": null,
       "type": "mssql.onprem",
       "connectionId": "ConnectionStrings:ApplicationDb"
-    },
-    "mssql3": {
-      "serviceConnectorResourceId": "",
-      "secretStore": "LocalSecretsFile",
-      "type": "mssql.onprem",
-      "connectionId": "ConnectionStrings:EzNutritionDBProd"
     }
   }
 }

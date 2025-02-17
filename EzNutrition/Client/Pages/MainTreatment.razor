@@ -1,338 +1,158 @@
-﻿@page "/maintreatment"
+﻿@page "/maintreatment/{id?}"
 @using EzNutrition.Client.Models;
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
 @using System.Text;
+@using Markdig
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 @inject MainTreatmentViewModel MaintreatmentVM
-
-
-<Title>核心档案管理</Title>
-<GridRow Gutter="(16,16)">
-    <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
+@inject IMessageService Message
+@inject ArchiveManageService ArchiveManager
+<GridRow Gutter="(16,16)" OnBreakpoint="HandleBreakpoint">
+    @* IClient Information *@
+    <GridCol Xl="10" Sm="24" Xs="24">
         <Title Level="2">基本信息</Title>
-        <Form Model="@MaintreatmentVM.UserInfo" LabelAlign="AntLabelAlignType.Left">
-            <FormItem Label="姓名">
-                <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
-            </FormItem>
-            <FormItem Label="性别">
-                <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
-                    <Radio RadioButton Value="@("男")">男</Radio>
-                     <Radio RadioButton Value="@("女")">女</Radio>
-                 </RadioGroup>
-             </FormItem>
-             <FormItem Label="年龄">
-                 <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
-             </FormItem>
-             <FormItem Label="PAL">
-                 <RadioGroup id="pal" @bind-Value="context.PAL">
-                     @foreach (var eer in context.AvailableEERs)
-                    {
-                        @if (eer.PAL != null)
-                        {
-                            <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
-                        }
-                    }
-                </RadioGroup>
-            </FormItem>
-            <FormItem Label="身高（cm）">
-                <Input @bind-Value="context.Height" type="number" min="0" />
-            </FormItem>
-            <FormItem Label="体重（kg）">
-                <Input @bind-Value="context.Weight" type="number" min="0" />
-            </FormItem>
-            <FormItem Label="特殊生理状况">
-                <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
-                    <Radio RadioButton Value="@string.Empty">无</Radio>
-                     <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-                     <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-                     <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-                     <Radio RadioButton Value="@("乳母")">乳母</Radio>
-                     <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
-                 </RadioGroup>
-             </FormItem>
-
-             <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算</Button>
-             <Button Type="@ButtonType.Dashed" @onclick="OnResetBtnClick">重置</Button>
-         </Form>
-     </GridCol>
-     <GridCol Xl="12" Lg="12" Md="24" Sm="24" Xs="24">
-         <Title Level="2">概要</Title>
-         @if (MaintreatmentVM.Summary != null)
+        @if (CurrentArchive.ClientInfoFormEnabled)
         {
-            <Paragraph>@MaintreatmentVM.Summary</Paragraph>
-            @if (MaintreatmentVM.Allocation != null)
+            <Spin Spinning="ArchiveManager.Loading">
+                <Form Model="@CurrentClient" LabelAlign="AntLabelAlignType.Left">
+                    <FormItem Label="姓名">
+                        <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
+                    </FormItem>
+                    <FormItem Label="性别">
+                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
+                            <Radio RadioButton Value="@("男")">男</Radio>
+                            <Radio RadioButton Value="@("女")">女</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                    <FormItem Label="年龄">
+                        <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" Min="0" />
+                    </FormItem>
+                    <FormItem Label="身高（cm）">
+                        <Input @bind-Value="context.Height" type="number" min="0" />
+                    </FormItem>
+                    <FormItem Label="体重（kg）">
+                        <Input @bind-Value="context.Weight" type="number" min="0" />
+                    </FormItem>
+                    <FormItem Label="特殊生理状况">
+                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">
+                            <Radio RadioButton Value="@string.Empty">无</Radio>
+                            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+                            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+                            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+                            <Radio RadioButton Value="@("乳母")">乳母</Radio>
+                            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                    <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
+                </Form>
+
+            </Spin>
+        }
+        else
+        {
+            <Descriptions Title="@CurrentClient.Name">
+                <DescriptionsItem Title="性别">@CurrentClient.Gender</DescriptionsItem>
+                <DescriptionsItem Title="年龄">@CurrentClient.Age</DescriptionsItem>
+                <DescriptionsItem Title="身高（cm）">@CurrentClient.Height</DescriptionsItem>
+                <DescriptionsItem Title="体重（kg）">@CurrentClient.Weight</DescriptionsItem>
+                <DescriptionsItem Title="特殊生理状况">@CurrentClient.SpecialPhysiologicalPeriod</DescriptionsItem>
+            </Descriptions>
+            @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
             {
-                <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
+                <Summary Archive="@CurrentArchive" />
+                @* Advices in pc is here *@
+                <Title Level="3">膳食建议</Title>
+                <Title Level="4">施工中</Title>
+                <Skeleton Active />
+            }
+        }
+    </GridCol>
+    <GridCol Xl="14" Sm="24" Xs="24">
+        @if (CurrentArchive.ClientInfoFormEnabled)
+        {
+            @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
+            {
+                @if (string.IsNullOrEmpty(UserSession.Notice))
+                {
+                    <Skeleton Active />
+                }
+                else
+                {
+                    <Title Level="2">注意事项</Title>
+                    @((MarkupString)Markdown.ToHtml(UserSession.Notice))
+                }
             }
         }
         else
         {
-            <Paragraph>键入咨询者的基本信息后点击计算……</Paragraph>
+            @* ITreatments *@
+            @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
+            {
+                <Segmented Block Size="SegmentedSize.Large" TValue="string" Labels=@(new[]{"能量评估", "参考摄入量", "膳食调查"}) Value=@currentTreatment OnChange=@setValue />
+            }
+
+            @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "能量评估") && CurrentArchive.CurrentEnergyCalculator is not null)
+            {
+                <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
+            }
+            @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "参考摄入量") && CurrentArchive.DRIs is not null)
+            {
+                <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
+            }
+            @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "膳食调查") && CurrentArchive.DietaryRecallSurvey is not null)
+            {
+                <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
+            }
+            @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史")
+            {
+                <Paragraph>施工中</Paragraph>
+                @* 主诉与症状 *@
+                @* 现病史 *@
+                @* 查体 *@
+                @* 既往史 *@
+                @* 辅助检查 *@
+                @* 诊断 *@
+            }
+        }
+
+        @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl)
+        {
+            <Skeleton />
         }
     </GridCol>
-    @if (MaintreatmentVM.Allocation != null)
-    {
-        <GridCol Span="24">
-            <MedicalHistory AdviceDataChanged="AdviceDataChangedEventHandler" />
-        </GridCol>
-
-        @if (MaintreatmentVM.UserInfo.AvailableDRIs.Any())
-        {
-            <GridCol Span="24">
-                <Title Level="2">DRIs模型</Title>
-                <DRIsInSightTable NutrientRanges="@MaintreatmentVM.UserInfo.NutrientRanges" />
-            </GridCol>
-        }
-
-        <GridCol Span="24">
-            <Title Level="2">能量模型</Title>
-            <GridRow Justify="space-around">
-                <GridCol Flex=@("none")>
-                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'P'.ToString()" Percent=@ProteinPercentage />
-                </GridCol>
-                <GridCol Flex=@("none")>
-                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'C'.ToString()" Percent=@CarbohydratePercentage />
-                </GridCol>
-                <GridCol Flex=@("none")>
-                    <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'F'.ToString()" Percent=@FatPercentage />
-                </GridCol>
-            </GridRow>
-        </GridCol>
-        <GridCol Span="24">
-            <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
-            <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
-            <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
-        </GridCol>
-        <GridCol Md="12" Xs="24">
-            <Title Level="3">三餐能量分配</Title>
-            <GridRow>
-                <GridCol Span="6">
-                    <Paragraph>餐次</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>蛋白质(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>碳水化合物(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>脂肪(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>早餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastFatContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>午餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchFatContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>晚餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerFatContent</Paragraph>
-                </GridCol>
-            </GridRow>
-        </GridCol>
-        <GridCol Md="12" Xs="24">
-            <Title Level="3">食物交换份</Title>
-            <GridRow>
-                <GridCol Span="6">
-                    <Paragraph>餐次</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>蛋白质</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>碳水化合物</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>脂肪</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>早餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.BreakfastFatPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>午餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.LunchFatPortionst</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>晚餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@MaintreatmentVM.Allocation?.DinnerFatPortions</Paragraph>
-                </GridCol>
-            </GridRow>
-        </GridCol>
-    }
-    @if (@MaintreatmentVM.FoodExchangeAllocation != null)
-    {
-        <GridCol Span="24">
-            <Title Level="2">食物交换份品类及修正</Title>
-            <Form Model="@MaintreatmentVM.FoodExchangeAllocation" LabelColSpan="24">
-                <GridRow Gutter="(16,16)">
-                    <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                        <FormItem Label="谷薯类（自动计算）">
-                            <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.GrainsAndStarchyFoods" />
-                         </FormItem>
-                     </GridCol>
-                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                         <FormItem Label="豆乳类">
-                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.LegumesAndDairyAlternatives" />
-                         </FormItem>
-                     </GridCol>
-                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                         <FormItem Label="肉蛋类（自动计算）">
-                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" Disabled Value="@context.MeatsAndEggs" />
-                         </FormItem>
-                     </GridCol>
-                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                         <FormItem Label="蔬菜类">
-                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Vegetables" />
-                         </FormItem>
-                     </GridCol>
-                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                         <FormItem Label="能量类">
-                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.EnergyFoodsOrFats" />
-                         </FormItem>
-                     </GridCol>
-                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
-                         <FormItem Label="水果类">
-                             <AntDesign.InputNumber TValue="double" Style="width:100%" Min="0" @bind-Value="@context.Fruits" />
-                         </FormItem>
-                     </GridCol>
-                 </GridRow>
-             </Form>
-         </GridCol>
-    }
-
-    @if (MaintreatmentVM.Advices != null && MaintreatmentVM.Advices.Count > 0)
-    {
-        <GridCol Span="24">
-            <Table DataSource="@MaintreatmentVM.Advices" HidePagination=true>
-                <PropertyColumn Property="r=>r.Content" Title="备择膳食建议（仅供营养医师参考，请根据实际情况决定将哪些信息提供给咨询者）" />
-                <PropertyColumn Property="r=>r.Priority" Title="输出顺序" />
-            </Table>
-        </GridCol>
-    }
 </GridRow>
 
 @code {
-    private (double, double) macroPercentage = (15, 100 - 25);
+    string currentTreatment = "能量评估";
 
-    private double ProteinPercentage
+    [Parameter]
+    public string? Id { get; set; }
+
+    public Archive CurrentArchive => ArchiveManager[Guid.Parse(Id!)];
+
+    public IClient CurrentClient => CurrentArchive.Client;
+
+    void setValue(string value)
     {
-        get => Math.Round((MaintreatmentVM.Allocation?.ProteinPercentage * 100 ?? 0));
-        set
-        {
-            if (MaintreatmentVM.Allocation != null)
-            {
-                MaintreatmentVM.Allocation.ProteinPercentage = value / 100;
-            }
-        }
+        currentTreatment = value;
     }
 
-    private double CarbohydratePercentage
+    void HandleBreakpoint(BreakpointType breakpoint)
     {
-        get => Math.Round((MaintreatmentVM.Allocation?.CarbohydratePercentage * 100 ?? 0));
+        MaintreatmentVM.CurrentBreakpoint = breakpoint;
     }
 
-    private double FatPercentage
+    private async void OnCalculateBtnClick(MouseEventArgs e)
     {
-        get => Math.Round((MaintreatmentVM.Allocation?.FatPercentage * 100 ?? 0));
-        set
-        {
-            if (MaintreatmentVM.Allocation != null)
-            {
-                MaintreatmentVM.Allocation.FatPercentage = value / 100;
-            }
-        }
+        await ArchiveManager.ClientInfoConfirmed(CurrentArchive).ConfigureAwait(true);
+        StateHasChanged();
     }
 
-    private async Task OnEERsChanged()
+    private void DietarySurveyCalculationCompleted()
     {
-        await MaintreatmentVM.FetchEERs();
-        await MaintreatmentVM.FetchDRIs();
-    }
-
-    private void OnCalculateBtnClick()
-    {
-        MaintreatmentVM.Calculate();
-
-    }
-
-    private void OnResetBtnClick()
-    {
-        MaintreatmentVM.Reset();
-    }
-
-    private void OnCorrectEnergyChanged(int newEnergy)
-    {
-        MaintreatmentVM.CorrectEnergy(newEnergy);
-    }
-
-    private void AdviceDataChangedEventHandler(List<Advice> newAdvices)
-    {
-        MaintreatmentVM.Advices = newAdvices;
-    }
-
-    private string TipFormatter(double currentValue)
-    {
-
-        return (currentValue == macroPercentage.Item1 ? currentValue : 100 - currentValue).ToString();
-    }
-
-    private void OnMacroPercentageChanged((double, double) args)
-    {
-        ProteinPercentage = args.Item1;
-        FatPercentage = 100 - args.Item2;
+        StateHasChanged();
     }
 }

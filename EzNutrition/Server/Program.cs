@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using System;
 using System.Security.Cryptography;
 
 namespace EzNutrition
@@ -20,7 +21,6 @@ namespace EzNutrition
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
             // Add services to the container.
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDb")));
@@ -66,8 +66,24 @@ namespace EzNutrition
             builder.Services.AddTransient<AdviceRepository>();
             builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
             builder.Services.AddTransient<AuthManagerRepository>();
+            builder.Services.AddTransient<FoodNutritionValueRepository>();
+
 
             var app = builder.Build();
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var nutrDb = scope.ServiceProvider.GetRequiredService<EzNutritionDbContext>();
+                nutrDb.Database.Migrate();
+                var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                appDb.Database.Migrate();
+                if (args.Any(x => x == "AuthInitialize"))
+                {
+                    var auth = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
+                    auth.Initialize().Wait();
+                }
+            }
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {

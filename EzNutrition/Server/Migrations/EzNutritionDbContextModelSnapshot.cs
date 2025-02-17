@@ -17,10 +17,10 @@ namespace EzNutrition.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.21")
+                .HasAnnotation("ProductVersion", "8.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("AdviceDisease", b =>
                 {
@@ -43,7 +43,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdviceId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdviceId"));
 
                     b.Property<string>("Content")
                         .HasColumnType("nvarchar(max)");
@@ -62,7 +62,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DietaryReferenceIntakeValueId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DietaryReferenceIntakeValueId"));
 
                     b.Property<decimal?>("AgeStart")
                         .HasColumnType("decimal(18,2)");
@@ -106,7 +106,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DiseaseId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DiseaseId"));
 
                     b.Property<string>("FriendlyName")
                         .HasColumnType("nvarchar(max)");
@@ -125,7 +125,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EERId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EERId"));
 
                     b.Property<decimal?>("AgeStart")
                         .HasColumnType("decimal(18,2)");
@@ -139,8 +139,14 @@ namespace EzNutrition.Server.Migrations
                     b.Property<string>("Gender")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal?>("OffsetEnergy")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal?>("PAL")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SpecialPhysiologicalPeriod")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("EERId");
 
@@ -159,6 +165,12 @@ namespace EzNutrition.Server.Migrations
                     b.Property<string>("Details")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("EdiblePortion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FoodGroups")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FriendlyCode")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -167,7 +179,7 @@ namespace EzNutrition.Server.Migrations
                     b.Property<string>("FriendlyName")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("FoodId");
 
@@ -180,7 +192,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FoodNutrientValueId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FoodNutrientValueId"));
 
                     b.Property<string>("Details")
                         .HasColumnType("nvarchar(max)");
@@ -213,7 +225,7 @@ namespace EzNutrition.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NutrientId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NutrientId"));
 
                     b.Property<string>("DefaultMeasureUnit")
                         .IsRequired()
@@ -226,11 +238,11 @@ namespace EzNutrition.Server.Migrations
                     b.Property<string>("FriendlyName")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("NutrientId");
 
-                    b.ToTable("Nutrient");
+                    b.ToTable("Nutrients");
                 });
 
             modelBuilder.Entity("AdviceDisease", b =>

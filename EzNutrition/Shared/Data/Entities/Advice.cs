@@ -10,5 +10,4 @@
 
         public List<Disease>? Diseases { get; set; }
     }
-
 }

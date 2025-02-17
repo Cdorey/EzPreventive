@@ -1,5 +1,7 @@
 ﻿using EzNutrition.Shared.Data.Entities;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq;
 
 namespace EzNutrition.Server.Data.Repositories
@@ -8,13 +10,24 @@ namespace EzNutrition.Server.Data.Repositories
     {
         private readonly EzNutritionDbContext dbContext;
 
-        public List<EER> GetEERsByPersonalInfo(decimal age, string gender)
+        public IEnumerable<EER> GetEERsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
         {
             var eers = from eer in dbContext.EERs
-                       where eer.Gender == gender
-                       && eer.AgeStart <= age
+                       where (eer.Gender == gender || eer.Gender == null) && (eer.AgeStart <= age || eer.AgeStart == null) && (specialPhysiologicalPeriod.Contains(eer.SpecialPhysiologicalPeriod) || eer.SpecialPhysiologicalPeriod == null)
                        select eer;
-            return eers.Where(x => x.AgeStart == eers.Max(x => x.AgeStart)).ToList() ?? new List<EER>();
+            var maxAge = eers.Max(x => x.AgeStart);
+
+            foreach (var eer in eers)
+            {
+                if (eer.AgeStart != default && eer.AgeStart != maxAge)
+                {
+                    continue;
+                }
+                else
+                {
+                    yield return eer;
+                }
+            }
         }
 
         public IEnumerable<DietaryReferenceIntakeValue> GetDRIsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
@@ -29,7 +42,6 @@ namespace EzNutrition.Server.Data.Repositories
                             DRIs = from record in records
                                    group record by (record.RecordType == DietaryReferenceIntakeType.AI ? "RNI" : record.RecordType.ToString())
                         };
-
             var nutrients = query.ToList();
 
             foreach (var nutrient in nutrients)

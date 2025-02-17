@@ -4,80 +4,55 @@
 @inject NavigationManager Navigation
 
 <Layout Style="min-height: 100vh; ">
-    <Header Style="height:auto">
-        <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
-            <GridCol>
-                <span style="color:white;">EzNutrition</span>
-            </GridCol>
-            @if (currentBreakpoint >= BreakpointType.Md)
-            {
-                <GridCol>
-                    <NavMenu />
-                </GridCol>
-            }
-
-            <GridCol>
-                @if (UserSession.UserInfo != default)
-                {
-                    <div @onclick="_=>drawerVisible=true">
-                        <Avatar Icon="user" />
-                        <span style="color:white;">@UserSession.UserInfo.UserName</span>
-                    </div>
-                }
-            </GridCol>
-        </GridRow>
-    </Header>
-    <Content>
-        <div class="site-layout-content">
-            @Body
-        </div>
-    </Content>
-    <Footer Style="text-align: center;">
-        @* <a href="https://wiki.cdorey.net"><img style="width:45px;margin:8px;" src="/logo.png" /></a> *@
-        @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
-        {
-            <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
-        }
-    </Footer>
-</Layout>
-<Drawer Closable="true" Visible="drawerVisible" OnClose="_=>drawerVisible=false" Placement="right" Title="@("EzNutrition")">
-    @if (currentBreakpoint < BreakpointType.Md)
+    @if (currentBreakpoint >= BreakpointType.Md)
     {
-        <p>
-            <a href="/">
-                <Icon Type="home" Theme="outline" />
-                <span>首页</span>
-            </a>
-        </p>
-        @if (UserSession.UserInfo != default)
-        {
-            <p>
-                <a href="/maintreatment">
-                    <Icon Type="medicine-box" Theme="outline" />
-                    <span>基本处理</span>
-                </a>
-            </p>
-            <p>
-                <a href="/drisinsights">
-                    <Icon Type="medicine-box" Theme="outline" />
-                    <span>DRIs见解</span>
-                </a>
-            </p>
-        }
+        <Sider>
+            <Layout>
+                <Header Style="color:white">
+                    EzNutrition
+                </Header>
+                <Content>
+                    <NavMenu />
+                </Content>
+            </Layout>
+        </Sider>
     }
-</Drawer>
+    else
+    {
+        <Header Style="height:auto">
+            <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
+                <GridCol>
+                    <span style="color:white;">EzNutrition</span>
+                </GridCol>
+            </GridRow>
+        </Header>
+    }
+    <Layout>
+        <Content>
+            <div class="site-layout-content">
+                @Body
+            </div>
+            @* <BackTop/> *@
+        </Content>
+        <Footer Style="text-align: center;">
+            @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
+            {
+                <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
+            }
+        </Footer>
+    </Layout>
+</Layout>
 <style>
     .site-layout-content {
         background: #fff;
         padding: 24px;
         min-height: 100%;
         margin: 16px;
+        overflow: auto;
     }
 </style>
 
 @code {
-    private bool drawerVisible;
-
     private BreakpointType currentBreakpoint;
 
     private void HandleBreakpoint(BreakpointType breakpoint)
@@ -101,6 +76,4 @@
         await UserSession.GetSystemInfoAsync();
         await base.OnInitializedAsync();
     }
-
-
 }
