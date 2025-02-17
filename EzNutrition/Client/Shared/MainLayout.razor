@@ -4,29 +4,16 @@
 @inject NavigationManager Navigation
 
 <Layout Style="min-height: 100vh; ">
-    @if (currentBreakpoint >= BreakpointType.Md)
-    {
-        <Sider>
-            <Layout>
-                <Header Style="color:white">
-                    EzNutrition
-                </Header>
-                <Content>
-                    <NavMenu />
-                </Content>
-            </Layout>
-        </Sider>
-    }
-    else
-    {
-        <Header Style="height:auto">
-            <GridRow Justify="space-between" OnBreakpoint="HandleBreakpoint">
-                <GridCol>
-                    <span style="color:white;">EzNutrition</span>
-                </GridCol>
-            </GridRow>
-        </Header>
-    }
+    <Sider Breakpoint="BreakpointType.Md" CollapsedWidth="0">
+        <Layout>
+            <Header Style="color:white">
+                EzNutrition
+            </Header>
+            <Content>
+                <NavMenu />
+            </Content>
+        </Layout>
+    </Sider>
     <Layout>
         <Content>
             <div class="site-layout-content">

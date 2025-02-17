@@ -6,6 +6,8 @@
 @using Markdig
 @inject IHttpClientFactory HttpClientFactory
 @inject UserSessionService UserSession
+@inject ArchiveManageService ArchiveManager
+@inject NavigationManager Navigator
 
 <PageTitle>首页</PageTitle>
 @if (UserSession.UserInfo == default)
@@ -48,11 +50,15 @@
 }
 else
 {
-    <GridRow Gutter="(16,16)">
+    <GridRow Justify="space-around" Align="middle" Gutter="(16,16)">
         <GridCol Lg="18" Md="24">
             <article>
                 @((MarkupString)Markdown.ToHtml(UserSession.Notice))
             </article>
+        </GridCol>
+        <GridCol Lg="6" Md="24">
+            <Button Style="margin-bottom:12px" Type="@ButtonType.Primary" Block OnClick="@(()=>{Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");})">开启咨询</Button>
+            <Button Style="margin-bottom:12px" Block OnClick="@(()=>{Navigator.NavigateTo($"drisinsights");})">DRIs浏览器</Button>
         </GridCol>
     </GridRow>
 }
