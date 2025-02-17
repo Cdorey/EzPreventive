@@ -58,11 +58,24 @@
                 </GridCol>
             </GridRow>
         </GridCol>
-        <GridCol Span="24">
-            <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
-            <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
-            <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
-        </GridCol>
+        @if (UserSession.IsTouchDetected)
+        {
+            <GridCol Span="24">
+                <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请输入</Paragraph>
+                <Text>蛋白质</Text>
+                <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@ProteinPercentage" Min="0" Max="100" />
+                <Text>脂肪</Text>
+                <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@FatPercentage" Min="0" Max="100" />
+            </GridCol>
+        }
+        else
+        {
+            <GridCol Span="24">
+                <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
+                <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
+                <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
+            </GridCol>
+        }
         <GridCol Span="24">
             <Title Level="3">三餐能量分配</Title>
             <GridRow>
@@ -225,6 +238,10 @@
             if (EnergyCalculator?.Allocation != null)
             {
                 EnergyCalculator.Allocation.ProteinPercentage = value / 100;
+                if ((value + FatPercentage) > 100)
+                {
+                    FatPercentage = 100 - value;
+                }
             }
         }
     }
@@ -242,6 +259,10 @@
             if (EnergyCalculator?.Allocation != null)
             {
                 EnergyCalculator.Allocation.FatPercentage = value / 100;
+                if ((value + ProteinPercentage) > 100)
+                {
+                    ProteinPercentage = 100 - value;
+                }
             }
         }
     }

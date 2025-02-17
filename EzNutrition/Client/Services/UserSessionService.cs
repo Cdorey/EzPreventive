@@ -17,7 +17,7 @@ namespace EzNutrition.Client.Services
         private UserInfo? userInfo;
 
         public event PropertyChangedEventHandler? PropertyChanged;
-        public event Action? OnStateChanged; 
+        public event Action? OnStateChanged;
 
         public UserInfo? UserInfo
         {
@@ -54,6 +54,8 @@ namespace EzNutrition.Client.Services
             get => notice;
             private set { notice = value; OnPropertyChanged(); }
         }
+
+        public bool IsTouchDetected { get; set; } = false;
 
         public async Task GetSystemInfoAsync()
         {

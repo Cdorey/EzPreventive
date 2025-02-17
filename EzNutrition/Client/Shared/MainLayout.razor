@@ -3,7 +3,7 @@
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 
-<Layout Style="min-height: 100vh; ">
+<Layout Style="min-height: 100vh; " >
     <Sider Breakpoint="BreakpointType.Md" CollapsedWidth="0">
         <Layout>
             <Header Style="color:white">
@@ -16,7 +16,7 @@
     </Sider>
     <Layout>
         <Content>
-            <div class="site-layout-content">
+            <div class="site-layout-content" @ontouchstart="DetectTouch">
                 @Body
             </div>
             @* <BackTop/> *@
@@ -41,6 +41,12 @@
 
 @code {
     private BreakpointType currentBreakpoint;
+
+    private void DetectTouch(TouchEventArgs e)
+    {
+        UserSession.IsTouchDetected = true;
+        StateHasChanged();
+    }
 
     private void HandleBreakpoint(BreakpointType breakpoint)
     {
