@@ -16,18 +16,9 @@ namespace EzNutrition.Client.Models
 
         public decimal? Weight { get; set; }
 
-        public Guid ClientId { get; set; } = new Guid();
+        public Guid ClientId { get; set; } = Guid.NewGuid();
 
         public string SpecialPhysiologicalPeriod { get; set; } = string.Empty;
 
-    }
-
-    public class Archive(IClient client)
-    {
-        public IClient Client => client;
-
-        public EnergyCalculator? CurrentEnergyCalculator { get; set; }
-
-        public DRIs? DRIs { get; set; }
     }
 }

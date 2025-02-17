@@ -192,6 +192,6 @@ namespace EzNutrition.Shared.Data.DietaryRecallSurvey
             }
         }
 
-        public DietaryTower DietaryTower { get; } = new DietaryTower(dietaryRecallEntries);
+        //public DietaryTower DietaryTower { get; } = new DietaryRecallTower(dietaryRecallEntries);
     }
 }

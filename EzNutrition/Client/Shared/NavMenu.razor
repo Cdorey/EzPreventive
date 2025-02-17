@@ -3,23 +3,29 @@
 @using EzNutrition.Client.Services;
 @inject UserSessionService UserSession
 @inject MainTreatmentViewModel MaintreatmentVM
-<Menu Mode="MenuMode.Vertical" Theme="MenuTheme.Dark">
+@inject ArchiveManageService ArchiveManager
+@inject NavigationManager Navigator
+<Menu OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode=@MenuMode.Inline>
     <MenuItem RouterLink="">
         <Icon Type="home" Theme="outline" />
         <span>首页</span>
     </MenuItem>
     @if (UserSession.UserInfo is not null)
     {
-        <MenuItem RouterLink="maintreatment">
-            <Icon Type="medicine-box" Theme="outline" />
-            <span>基本处理</span>
-        </MenuItem>
+        <SubMenu Key="maintreatments" Title="门诊咨询">
+            <MenuItem OnClick="OpenArchive">新建</MenuItem>
+            <MenuItemGroup Title="已诊对象">
+                @foreach (var archive in ArchiveManager)
+                {
+                    <MenuItem RouterLink="@($"maintreatment/{archive.Key}")">@(string.IsNullOrWhiteSpace(archive.Value.Client.Name) ? archive.Key : archive.Value.Client.Name)</MenuItem>
+                }
+            </MenuItemGroup>
+        </SubMenu>
         <MenuItem RouterLink="drisinsights">
             <Icon Type="medicine-box" Theme="outline" />
             <span>DRIs见解</span>
         </MenuItem>
     }
-
 </Menu>
 
 @code {
@@ -32,4 +38,8 @@
         base.OnInitialized();
     }
 
+    private void OpenArchive()
+    {
+        Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");
+    }
 }

@@ -27,6 +27,7 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<MainTreatmentViewModel>();
             builder.Services.AddSingleton<AuthenticationStateProvider, UserSessionService>();
             builder.Services.AddSingleton<UserSessionService>();
+            builder.Services.AddSingleton<ArchiveManageService>();
 
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
