@@ -73,7 +73,6 @@
             <GridCol Span="24">
                 <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
                 <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
-                <Alert Message="已知问题：在触屏设备上滑动块不能正确工作，正在处理" Type="@AlertType.Info" />
             </GridCol>
         }
         <GridCol Span="24">

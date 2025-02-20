@@ -81,8 +81,13 @@ namespace EzNutrition.Client.Services
         {
             if (UserInfo == null || string.IsNullOrEmpty(UserInfo.Token))
             {
-                return new AccessTokenResult(AccessTokenResultStatus.RequiresRedirect, new AccessToken(), "/Index");
+                return new AccessTokenResult(AccessTokenResultStatus.RequiresRedirect,
+                                             new AccessToken(),
+                                             "/Index",
+                                             new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/Index" });
             }
+
+
 
             var expiresAt = UserInfo.ExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30); // 默认30分钟
 
@@ -103,7 +108,7 @@ namespace EzNutrition.Client.Services
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             var userPrincipal = UserInfo != null
-                ? new ClaimsPrincipal(new ClaimsIdentity(UserInfo.ParseToken(), "jwt"))
+                ? new ClaimsPrincipal(new ClaimsIdentity(UserInfo.Claims, "jwt"))
                 : new ClaimsPrincipal(new ClaimsIdentity());
 
             return new AuthenticationState(userPrincipal);
@@ -113,11 +118,11 @@ namespace EzNutrition.Client.Services
         {
             if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password)) return;
 
-            var formContent = new FormUrlEncodedContent(new[]
-            {
+            var formContent = new FormUrlEncodedContent(
+            [
                 new KeyValuePair<string, string>(nameof(userName), userName),
                 new KeyValuePair<string, string>(nameof(password), password)
-            });
+            ]);
 
             var res = await _client.PostAsync("Auth", formContent);
             if (!res.IsSuccessStatusCode)
@@ -126,15 +131,7 @@ namespace EzNutrition.Client.Services
             }
 
             var token = await res.Content.ReadAsStringAsync();
-            var jwtHandler = new JwtSecurityTokenHandler();
-            var jwtToken = jwtHandler.ReadJwtToken(token);
-
-            var expClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
-            var expiresAt = expClaim != null
-                ? DateTimeOffset.FromUnixTimeSeconds(long.Parse(expClaim))
-                : DateTimeOffset.UtcNow.AddMinutes(30);
-
-            UserInfo = new UserInfo(token) { ExpiresAt = expiresAt };
+            UserInfo = new UserInfo(token);
         }
 
         public async Task SignOutAsync()
@@ -158,6 +155,7 @@ namespace EzNutrition.Client.Services
                 }
             }
         }
+
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

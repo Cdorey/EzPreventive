@@ -8,60 +8,61 @@
 @inject UserSessionService UserSession
 @inject ArchiveManageService ArchiveManager
 @inject NavigationManager Navigator
-
 <PageTitle>首页</PageTitle>
-@if (UserSession.UserInfo == default)
-{
-    <GridRow Gutter="(16,16)">
-        <GridCol Xl="12" Xs="24">
-            <Title Level="3">登录以开始</Title>
-            <Paragraph>BBS测试用户EpiMan，密码I_am_epiman</Paragraph>
-            <Paragraph>这个账户不能用于调整模型，不过反正调整模型功能暂时还没做出来</Paragraph>
-            <Form Model="@innerModel">
-                <FormItem Label="用户名">
-                    <Input @bind-Value="@context.Username" />
-                </FormItem>
-                <FormItem Label="密码">
-                    <InputPassword @bind-Value="@context.Password" />
-                </FormItem>
-                <FormItem>
-                    <Button Type="@ButtonType.Primary" OnClick="Login">登录</Button>
-                    <Button OnClick="Regist">注册</Button>
-                </FormItem>
-            </Form>
-            @if (!string.IsNullOrEmpty(errorInfo))
-            {
-                <Alert Message=@errorInfo Type="@AlertType.Error" />
-            }
-        </GridCol>
-        <GridCol Xl="12" Xs="24">
-            <article>
-                @if (string.IsNullOrEmpty(UserSession.CoverLetter))
+<AuthorizeView>
+    <Authorized>
+        <GridRow Justify="space-around" Align="middle" Gutter="(16,16)">
+            <GridCol Lg="18" Md="24">
+                <article>
+                    @((MarkupString)Markdown.ToHtml(UserSession.Notice))
+                </article>
+            </GridCol>
+            <GridCol Lg="6" Md="24">
+                <Button Style="margin-bottom:12px" Type="@ButtonType.Primary" Block OnClick="@(()=>{Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");})">开启咨询</Button>
+                <Button Style="margin-bottom:12px" Block OnClick="@(()=>{Navigator.NavigateTo($"drisinsights");})">DRIs浏览器</Button>
+            </GridCol>
+        </GridRow>
+    </Authorized>
+    <NotAuthorized>
+        <GridRow Gutter="(16,16)">
+            <GridCol Xl="12" Xs="24">
+                <Title Level="3">登录以开始</Title>
+                <Paragraph>BBS测试用户EpiMan，密码I_am_epiman</Paragraph>
+                <Paragraph>这个账户不能用于调整模型，不过反正调整模型功能暂时还没做出来</Paragraph>
+                <Form Model="@innerModel">
+                    <ChildContent Context="formContext">
+                        <FormItem Label="用户名">
+                            <Input @bind-Value="@formContext.Username" />
+                        </FormItem>
+                        <FormItem Label="密码">
+                            <InputPassword @bind-Value="@formContext.Password" />
+                        </FormItem>
+                        <FormItem>
+                            <Button Type="@ButtonType.Primary" OnClick="Login">登录</Button>
+                            <Button OnClick="Regist">注册</Button>
+                        </FormItem>
+                    </ChildContent>
+                </Form>
+                @if (!string.IsNullOrEmpty(errorInfo))
                 {
-                    <Skeleton Active />
+                    <Alert Message=@errorInfo Type="@AlertType.Error" />
                 }
-                else
-                {
-                    @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
-                }
-            </article>
-        </GridCol>
-    </GridRow>
-}
-else
-{
-    <GridRow Justify="space-around" Align="middle" Gutter="(16,16)">
-        <GridCol Lg="18" Md="24">
-            <article>
-                @((MarkupString)Markdown.ToHtml(UserSession.Notice))
-            </article>
-        </GridCol>
-        <GridCol Lg="6" Md="24">
-            <Button Style="margin-bottom:12px" Type="@ButtonType.Primary" Block OnClick="@(()=>{Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");})">开启咨询</Button>
-            <Button Style="margin-bottom:12px" Block OnClick="@(()=>{Navigator.NavigateTo($"drisinsights");})">DRIs浏览器</Button>
-        </GridCol>
-    </GridRow>
-}
+            </GridCol>
+            <GridCol Xl="12" Xs="24">
+                <article>
+                    @if (string.IsNullOrEmpty(UserSession.CoverLetter))
+                    {
+                        <Skeleton Active />
+                    }
+                    else
+                    {
+                        @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
+                    }
+                </article>
+            </GridCol>
+        </GridRow>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     public class Model
@@ -90,7 +91,7 @@ else
     {
         try
         {
-            await UserSession.SignInAsync(innerModel.Username, innerModel.Password);
+            await UserSession.SignInAsync(innerModel.Username ?? string.Empty, innerModel.Password ?? string.Empty);
         }
         catch (Exception ex)
         {

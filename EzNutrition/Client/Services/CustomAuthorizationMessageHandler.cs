@@ -4,11 +4,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace EzNutrition.Client.Services
 {
-    public class CustomAuthorizationMessageHandler : BaseAddressAuthorizationMessageHandler
+    public class CustomAuthorizationMessageHandler(UserSessionService provider, NavigationManager navigation) : BaseAddressAuthorizationMessageHandler(provider, navigation)
     {
-        public CustomAuthorizationMessageHandler(UserSessionService provider, NavigationManager navigation) : base(provider, navigation)
-        {
-
-        }
     }
 }

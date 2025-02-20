@@ -14,9 +14,30 @@ namespace EzNutrition.Client.Models
         public string[] Roles { get; }
 
         public string Email { get; }
-        public DateTimeOffset? ExpiresAt { get; internal set; }
+        public DateTimeOffset? ExpiresAt
+        {
+            get
+            {
+                var expClaim = Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
+                if (expClaim == null)
+                {
+                    return null;
+                }
 
-        internal IEnumerable<Claim> ParseToken()
+                // 将 Unix 时间戳字符串转换为 long
+                if (!long.TryParse(expClaim, out var expSeconds))
+                {
+                    return null;
+                }
+
+                // Unix 时间戳通常以秒为单位，转换为 DateTimeOffset
+                return DateTimeOffset.FromUnixTimeSeconds(expSeconds);
+            }
+        }
+
+        public IEnumerable<Claim> Claims => ParseToken();
+
+        private IEnumerable<Claim> ParseToken()
         {
             if (!string.IsNullOrEmpty(Token))
             {
@@ -35,10 +56,9 @@ namespace EzNutrition.Client.Models
         public UserInfo(string token)
         {
             Token = token;
-            var claims = ParseToken();
-            UserName = claims.FirstOrDefault(x => x.Type == "unique_name")?.Value ?? string.Empty;
-            Roles = claims.Where(x => x.Type == "role")?.Select(x => x.Value)?.ToArray() ?? Array.Empty<string>();
-            Email = claims.FirstOrDefault(x => x.Type == "email")?.Value ?? string.Empty;
+            UserName = Claims.FirstOrDefault(x => x.Type == "unique_name")?.Value ?? string.Empty;
+            Roles = Claims.Where(x => x.Type == "role")?.Select(x => x.Value)?.ToArray() ?? [];
+            Email = Claims.FirstOrDefault(x => x.Type == "email")?.Value ?? string.Empty;
         }
     }
 }

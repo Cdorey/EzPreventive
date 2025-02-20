@@ -9,7 +9,7 @@ using System.Net.Http.Json;
 
 namespace EzNutrition.Client.Services
 {
-    public class ArchiveManageService(IServiceProvider serviceProvider,
+    public class ArchiveManageService(IMessageService message,
                                       IHttpClientFactory httpClientFactory,
                                       UserSessionService userSession,
                                       NavigationManager navigationManager) : ConcurrentDictionary<Guid, Archive>()
@@ -17,19 +17,6 @@ namespace EzNutrition.Client.Services
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Authorize");
 
         public event EventHandler? ClientNameChanged;
-
-        //public void Add(Archive archive)
-        //{
-        //    var client = archive.Client as ClientInfo;
-        //    ArgumentNullException.ThrowIfNull(client?.ClientId);
-
-        //    if (client.ClientId == Guid.Empty)
-        //    {
-        //        client.ClientId = Guid.NewGuid();
-        //    }
-
-        //    this[client.ClientId] = archive;
-        //}
 
         public bool Loading { get; set; } = false;
 
@@ -44,8 +31,6 @@ namespace EzNutrition.Client.Services
 
         public async Task ClientInfoConfirmed(Archive archive)
         {
-            using IServiceScope scope = serviceProvider.CreateScope();
-            IMessageService message = scope.ServiceProvider.GetRequiredService<IMessageService>();
             if (userSession.UserInfo == null)
             {
                 navigationManager.NavigateTo("/");

@@ -1,0 +1,23 @@
+﻿@inherits LayoutComponentBase
+
+<Layout Style="min-height: 100vh; ">
+    <Content>
+        <div class="site-layout-content">
+            @Body
+        </div>
+        @* <BackTop/> *@
+    </Content>
+</Layout>
+<style>
+    .site-layout-content {
+        background: #fff;
+        padding: 24px;
+        min-height: 100%;
+        margin: 16px;
+        overflow: auto;
+    }
+</style>
+
+@code {
+
+}

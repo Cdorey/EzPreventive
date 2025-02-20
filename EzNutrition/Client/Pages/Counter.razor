@@ -5,6 +5,7 @@
 @using System.IdentityModel.Tokens.Jwt;
 @inject IHttpClientFactory HttpClientFactory
 @inject DrawerService DrawerService
+@inject NavigationManager Navigator
 
 <PageTitle>Counter</PageTitle>
 
@@ -41,20 +42,5 @@ else
 
     private async Task OpenComponent()
     {
-        var options = new DrawerOptions()
-            {
-                Title = "Component",
-                Width = 350,
-            };
-
-        // var drawerRef = await DrawerService.CreateAsync<DrawerMenuComponent, string, string>(options, "blazor");
-
-        // drawerRef.OnClosed = async result =>
-        // {
-        //     Console.WriteLine("OnAfterClosed:" + result);
-
-        //     await InvokeAsync(StateHasChanged);
-        // };
-
     }
 }

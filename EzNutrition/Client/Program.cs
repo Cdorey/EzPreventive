@@ -1,12 +1,8 @@
-using EzNutrition.Client;
 using EzNutrition.Client.Models;
 using EzNutrition.Client.Services;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using System.Net.Http;
-using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EzNutrition.Client
 {
@@ -22,13 +18,13 @@ namespace EzNutrition.Client
             builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
             builder.Services.AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)).AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
             builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
-            //builder.Services.AddSingleton<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
+            //builder.Services.AddScoped<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
 
             builder.Services.AddScoped<MainTreatmentViewModel>();
-            builder.Services.AddSingleton<AuthenticationStateProvider, UserSessionService>();
+            //builder.Services.AddScoped<AuthenticationStateProvider, UserSessionService>();
             builder.Services.AddSingleton<UserSessionService>();
-            builder.Services.AddSingleton<ArchiveManageService>();
-
+            builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
+            builder.Services.AddScoped<ArchiveManageService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
             await builder.Build().RunAsync();

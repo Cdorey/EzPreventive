@@ -67,7 +67,7 @@
                     <Summary Archive="@CurrentArchive" />
                     @* Advices in pc is here *@
                     <Title Level="3">膳食建议</Title>
-                    <Title Level="4">施工中</Title>
+                    <Alert Message="施工中" Type="@AlertType.Info" />
                     <Skeleton Active />
                 }
             }
@@ -122,7 +122,8 @@
 
             @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl)
             {
-                <Skeleton />
+                <Skeleton Active />
+                <Alert Message="施工中" Type="@AlertType.Info" />
             }
         </GridCol>
     </GridRow>

@@ -10,8 +10,7 @@
         <Icon Type="home" Theme="outline" />
         <span>首页</span>
     </MenuItem>
-    @if (UserSession.UserInfo is not null)
-    {
+    <AuthorizeView>
         <SubMenu Key="maintreatments" Title="门诊咨询">
             <MenuItem OnClick="OpenArchive">新建</MenuItem>
             <MenuItemGroup Title="已诊对象">
@@ -25,7 +24,7 @@
             <Icon Type="medicine-box" Theme="outline" />
             <span>DRIs见解</span>
         </MenuItem>
-    }
+    </AuthorizeView>
 </Menu>
 
 @code {

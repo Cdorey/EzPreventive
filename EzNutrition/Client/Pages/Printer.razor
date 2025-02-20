@@ -1,0 +1,25 @@
+﻿@page "/printer/{taskId:int}"
+@layout EmptyLayout
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h1>打印页面</h1>
+
+<div id="printContent">
+    <p>这里是需要打印的内容</p>
+    <p>你可以在这里动态传入数据</p>
+</div>
+
+@code {
+    [Parameter]
+    public int TaskId { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("window.print");
+            Navigation.NavigateTo("/");
+        }
+    }
+}
