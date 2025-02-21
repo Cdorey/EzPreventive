@@ -13,7 +13,7 @@
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
         <SpaceItem>
-            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
+            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择食材原料" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
                 <ItemTemplate>
                     <span>@((context as Food).FriendlyName)</span>
                     <span>@((context as Food).Details)</span>

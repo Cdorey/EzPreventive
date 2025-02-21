@@ -18,49 +18,13 @@ namespace EzNutrition.Server
 {
     public class Program
     {
-
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDb")));
-            #region Identity and Auth
-            //Identity and Auth
-            builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
-            builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
-            JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
-
-            var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
-            var rsa = RSA.Create();
-            rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = "EzPreventive",
-                    ValidAudience = "EzNutrition",
-                    IssuerSigningKey = new RsaSecurityKey(rsa)
-                };
-            });
-            builder.Services.Configure<IdentityOptions>(options =>
-            {
-                options.Password.RequireDigit = false;
-                options.Password.RequiredLength = 6;
-                options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequireUppercase = false;
-                options.Password.RequireLowercase = false;
-            });
-            #endregion
+            builder.AuthorizeConfiguration();
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             builder.Services.AddTransient<JwtService>();
@@ -108,6 +72,49 @@ namespace EzNutrition.Server
             app.MapFallbackToFile("index.html");
 
             app.Run();
+        }
+    }
+
+    internal static class ProgramExtension
+    {
+        internal static void AuthorizeConfiguration(this WebApplicationBuilder builder)
+        {
+            #region Identity and Auth
+            //Identity and Auth
+            builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
+            builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
+            JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
+
+            var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
+            var rsa = RSA.Create();
+            rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = "EzPreventive",
+                    ValidAudience = "EzNutrition",
+                    IssuerSigningKey = new RsaSecurityKey(rsa)
+                };
+            });
+            builder.Services.Configure<IdentityOptions>(options =>
+            {
+                options.Password.RequireDigit = false;
+                options.Password.RequiredLength = 6;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+            });
+            #endregion
         }
     }
 }

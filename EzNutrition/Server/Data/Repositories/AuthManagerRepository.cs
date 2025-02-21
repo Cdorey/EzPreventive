@@ -55,9 +55,9 @@ namespace EzNutrition.Server.Data.Repositories
             var adminRole = await roleManager.FindByNameAsync("Admin");
             if (adminRole != default)
             {
-                var x = await roleManager.AddClaimAsync(adminRole, new Claim(PolicyType.Permission.ToString(), nameof(PolicyList.Admin)));
-                if (!x.Succeeded)
-                    throw new Exception("failed to add Admin Permission");
+                //var x = await roleManager.AddClaimAsync(adminRole, new Claim(PolicyType.Permission.ToString(), nameof(PolicyList.Admin)));
+                //if (!x.Succeeded)
+                //    throw new Exception("failed to add Admin Permission");
 
                 var admin = await userManager.FindByNameAsync("Admin");
                 if (admin == default)

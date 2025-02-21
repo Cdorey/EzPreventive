@@ -1,12 +1,8 @@
 ﻿namespace EzNutrition.Shared.Policies
 {
     [AttributeUsage(AttributeTargets.Field)]
-    public class PolicyDefinedAttribute : Attribute
+    public class PolicyDefinedAttribute(PolicyType policyType) : Attribute
     {
-        public PolicyType PolicyType { get; set; }
-        public PolicyDefinedAttribute(PolicyType policyType)
-        {
-            PolicyType = policyType;
-        }
+        public PolicyType PolicyType { get; } = policyType;
     }
 }
