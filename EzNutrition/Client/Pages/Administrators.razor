@@ -1,15 +1,43 @@
 ﻿@page "/administrators"
+@using EzNutrition.Shared.Data.DTO
 @using EzNutrition.Shared.Policies
-<h3>Administrators</h3>
+@inject IHttpClientFactory HttpClientFactory
+<Title Level="1">Administrators</Title>
 <AuthorizeView Policy="@PolicyList.Admin">
     <Authorized>
-        <h3>欢迎管理员</h3>
-        <p>这里是管理员专属的内容。</p>
+        <Title Level="2">注册用户列表</Title>
+        <Table TItem="UserDto" DataSource="UserList">
+            <ChildContent Context="userListContext">
+                <GenerateColumns />
+                <ActionColumn Title="Operate">
+                    <Space>
+                        <SpaceItem>
+                            <Button Danger>
+                                Edit
+                            </Button>
+                        </SpaceItem>
+                    </Space>
+                </ActionColumn>
+            </ChildContent>
+        </Table>
     </Authorized>
     <NotAuthorized>
-        <p>你没有足够权限访问此内容。</p>
+        <Paragraph>你没有足够权限访问此内容。</Paragraph>
     </NotAuthorized>
 </AuthorizeView>
 @code {
+    private List<UserDto> UserList { get; } = [];
 
+    private async Task GetUserList()
+    {
+        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        var getRes = await httpClient.GetFromJsonAsync<List<UserDto>>($"Admin/GetUsers");
+        UserList.AddRange(getRes!);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUserList();
+        await base.OnInitializedAsync();
+    }
 }
