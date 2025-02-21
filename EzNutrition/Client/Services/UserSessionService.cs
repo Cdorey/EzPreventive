@@ -97,7 +97,10 @@ namespace EzNutrition.Client.Services
                 Expires = expiresAt
             };
 
-            return new AccessTokenResult(AccessTokenResultStatus.Success, token, "/Index");
+            return new AccessTokenResult(AccessTokenResultStatus.Success,
+                                         token,
+                                         "/Index",
+                                         new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/Index" });
         }
 
         public async ValueTask<AccessTokenResult> RequestAccessToken(AccessTokenRequestOptions options)
@@ -110,7 +113,6 @@ namespace EzNutrition.Client.Services
             var userPrincipal = UserInfo != null
                 ? new ClaimsPrincipal(new ClaimsIdentity(UserInfo.Claims, "jwt"))
                 : new ClaimsPrincipal(new ClaimsIdentity());
-
             return new AuthenticationState(userPrincipal);
         }
 

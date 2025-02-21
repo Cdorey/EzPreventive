@@ -1,7 +1,7 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
-using EzNutrition.Server.Policies;
 using EzNutrition.Server.Services;
+using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

@@ -1,7 +1,7 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
-using EzNutrition.Server.Policies;
 using EzNutrition.Server.Services;
+using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -11,9 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 
-namespace EzNutrition
+namespace EzNutrition.Server
 {
     public class Program
     {
@@ -28,6 +29,7 @@ namespace EzNutrition
             //Identity and Auth
             builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
             builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
+            JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
 
             var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
             var rsa = RSA.Create();

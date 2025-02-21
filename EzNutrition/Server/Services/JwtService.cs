@@ -39,32 +39,40 @@ namespace EzNutrition.Server.Services
             var privateKey = new RsaSecurityKey(rsa);
 
             var tokenHandler = new JwtSecurityTokenHandler();
+            var claimsList = new List<Claim>();
 
-            var userClaims = await _userManager.GetClaimsAsync(user);
+            // 1. 加入用户已有 Claims
+            claimsList.AddRange(await _userManager.GetClaimsAsync(user));
 
-            var roles = from roleName in await _userManager.GetRolesAsync(user) select new Claim(ClaimTypes.Role, roleName);
+            // 2. 加入 Upn、Name
+            claimsList.Add(new Claim(ClaimTypes.Upn, user.Id));
+            claimsList.Add(new Claim(ClaimTypes.Name, user.UserName!));
 
-            var claims = userClaims.Union(roles).Append(new Claim(ClaimTypes.Upn, user.Id)).Append(new Claim(ClaimTypes.Name, user.UserName));
-
-            if (roles.Any())
+            // 3. 加入角色及其 Claims
+            var roleNames = await _userManager.GetRolesAsync(user);
+            foreach (var roleName in roleNames)
             {
-                foreach (var role in roles)
-                {
-                    claims = claims.Union(await _roleManager.GetClaimsAsync(await _roleManager.FindByNameAsync(role.Value)));
-                }
+                // 3.1 加入角色声明
+                claimsList.Add(new Claim(ClaimTypes.Role, roleName));
+
+                // 3.2 如果你的角色本身在 RoleClaims 表中有额外声明，也加进来
+                var roleEntity = await _roleManager.FindByNameAsync(roleName);
+                var extraRoleClaims = await _roleManager.GetClaimsAsync(roleEntity!);
+                claimsList.AddRange(extraRoleClaims);
             }
 
+            // 4. 构造 tokenDescriptor
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(claims),
+                Subject = new ClaimsIdentity(claimsList),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(privateKey, SecurityAlgorithms.RsaSha256Signature),
                 Audience = "EzNutrition",
-                Issuer = "EzPreventive"
+                Issuer = "EzPreventive",
             };
+
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
-
     }
 }

@@ -43,6 +43,7 @@ namespace EzNutrition.Client.Models
             {
                 // 使用令牌解析用户信息
                 var tokenHandler = new JwtSecurityTokenHandler();
+                JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
                 var jwtToken = tokenHandler.ReadJwtToken(Token);
                 return jwtToken.Claims;
             }

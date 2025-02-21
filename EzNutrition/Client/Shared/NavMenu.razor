@@ -1,6 +1,7 @@
 ﻿@using EzNutrition.Client.Models
 @using EzNutrition.Client.Pages
 @using EzNutrition.Client.Services;
+@using EzNutrition.Shared.Policies
 @inject UserSessionService UserSession
 @inject MainTreatmentViewModel MaintreatmentVM
 @inject ArchiveManageService ArchiveManager
@@ -24,6 +25,11 @@
             <Icon Type="medicine-box" Theme="outline" />
             <span>DRIs见解</span>
         </MenuItem>
+    </AuthorizeView>
+    <AuthorizeView Policy="@PolicyList.Admin">
+        <Authorized>
+            <MenuItem RouterLink="administrators">站点管理</MenuItem>
+        </Authorized>
     </AuthorizeView>
 </Menu>
 

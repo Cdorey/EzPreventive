@@ -1,0 +1,15 @@
+﻿@page "/administrators"
+@using EzNutrition.Shared.Policies
+<h3>Administrators</h3>
+<AuthorizeView Policy="@PolicyList.Admin">
+    <Authorized>
+        <h3>欢迎管理员</h3>
+        <p>这里是管理员专属的内容。</p>
+    </Authorized>
+    <NotAuthorized>
+        <p>你没有足够权限访问此内容。</p>
+    </NotAuthorized>
+</AuthorizeView>
+@code {
+
+}
