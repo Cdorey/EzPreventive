@@ -39,7 +39,7 @@
                         </FormItem>
                         <FormItem>
                             <Button Type="@ButtonType.Primary" OnClick="Login">登录</Button>
-                            <Button OnClick="Regist">注册</Button>
+                            <Button OnClick="@(()=>{Navigator.NavigateTo("register");})">注册</Button>
                         </FormItem>
                     </ChildContent>
                 </Form>
@@ -92,18 +92,6 @@
         try
         {
             await UserSession.SignInAsync(innerModel.Username ?? string.Empty, innerModel.Password ?? string.Empty);
-        }
-        catch (Exception ex)
-        {
-            errorInfo = ex.Message;
-        }
-    }
-
-    private async Task Regist()
-    {
-        try
-        {
-            await UserSession.RegistAsync(innerModel.Username, innerModel.Password);
         }
         catch (Exception ex)
         {

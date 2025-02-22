@@ -1,0 +1,22 @@
+﻿@page "/register"
+@using EzNutrition.Shared.Data.DTO
+@using EzNutrition.Shared.Policies
+@inject IHttpClientFactory HttpClientFactory
+<Title Level="1">注册</Title>
+<GridRow Gutter="(16,16)">
+    <GridCol Span="24">
+        <Steps OnChange="OnChange" Current="currentStep">
+            <Step Title="基本信息" Description="填写您的账户基本信息（例如用户名、密码、邮箱及手机号）" Icon="user" />
+            <Step Title="专业身份认证" Description="提供营养学或医疗相关专业身份信息，或上传相关资质证明（可选，稍后可补充）" Icon="solution" />
+            <Step Title="确认提交" Description="检查并确认您的注册信息，然后提交注册申请" Icon="cloud-upload" />
+        </Steps>
+    </GridCol>
+</GridRow>
+@code {
+    int currentStep;
+
+    void OnChange(int current)
+    {
+        currentStep = current;
+    }
+}
