@@ -126,7 +126,7 @@ namespace EzNutrition.Client.Services
                 new KeyValuePair<string, string>(nameof(password), password)
             ]);
 
-            var res = await _client.PostAsync("Auth", formContent);
+            var res = await _client.PostAsync("Auth/Login", formContent);
             if (!res.IsSuccessStatusCode)
             {
                 throw new Exception(await res.Content.ReadAsStringAsync());

@@ -1,9 +1,11 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Services;
+using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -32,7 +34,10 @@ namespace EzNutrition.Server
             builder.Services.AddTransient<AdviceRepository>();
             builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
             builder.Services.AddTransient<AuthManagerRepository>();
+            builder.Services.AddTransient<IEmailSender<IdentityUser>, SmtpEmailSender>();
             builder.Services.AddTransient<FoodNutritionValueRepository>();
+            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(nameof(EmailSettings)));
+            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));
 
 
             var app = builder.Build();
@@ -84,8 +89,7 @@ namespace EzNutrition.Server
             builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
             builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
             JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
-
-            var publicKeyBytes = Convert.FromBase64String(builder.Configuration.GetSection("PublicKey").Value);
+            var publicKeyBytes = Convert.FromBase64String(builder.Configuration["JwtSettings:PublicKey"]!);
             var rsa = RSA.Create();
             rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
             builder.Services.AddAuthentication(options =>

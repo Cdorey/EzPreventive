@@ -31,6 +31,20 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
+        /// 检查邮箱是否可用
+        /// GET api/Account/CheckEmail?email=xxx@example.com
+        /// </summary>
+        [HttpGet("CheckEmail")]
+        public async Task<IActionResult> CheckEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return BadRequest("Email is required.");
+
+            var available = await authManagerRepository.CheckEmail(email);
+            return Ok(available);
+        }
+
+        /// <summary>
         /// 用户注册，同时提交基本信息和专业身份信息
         /// 返回一个 uploadTicket，供后续上传证件照片使用
         /// </summary>

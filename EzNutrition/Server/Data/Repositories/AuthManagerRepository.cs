@@ -5,17 +5,21 @@ using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text;
 
 namespace EzNutrition.Server.Data.Repositories
 {
     public class AuthManagerRepository(JwtService jwtService,
-                                           ApplicationDbContext dbContext,
-                                           UserManager<IdentityUser> userManager,
-                                           RoleManager<IdentityRole> roleManager,
-                                           SignInManager<IdentityUser> signInManager,
-                                           ILogger<AuthController> logger)
+                                       ApplicationDbContext dbContext,
+                                       UserManager<IdentityUser> userManager,
+                                       RoleManager<IdentityRole> roleManager,
+                                       SignInManager<IdentityUser> signInManager,
+                                       ILogger<AuthController> logger,
+                                       IConfiguration configuration,
+                                       IEmailSender<IdentityUser> emailSender)
     {
         /// <summary>
         /// 创建基础的Role关系，以及管理员账号
@@ -276,6 +280,7 @@ namespace EzNutrition.Server.Data.Repositories
                 var certificateTicket = await CreateProfessionalIdentityRequest(registrationDto.ProfessionalIdentity, user);
 
                 logger.LogInformation("用户注册成功：{UserName}，上传票据：{UploadTicket}", registrationDto.UserName, certificateTicket);
+                await SendEmailConfirmationAsync(user);
                 return new RegistrationResultDto
                 {
                     Success = true,
@@ -286,6 +291,7 @@ namespace EzNutrition.Server.Data.Repositories
             else
             {
                 logger.LogInformation("用户注册成功：{UserName}", registrationDto.UserName);
+                await SendEmailConfirmationAsync(user);
                 return new RegistrationResultDto
                 {
                     Success = true,
@@ -297,7 +303,9 @@ namespace EzNutrition.Server.Data.Repositories
         public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, ClaimsPrincipal user)
         {
             var userIdentiy = await userManager.GetUserAsync(user);
-            return await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
+            return userIdentiy == null
+                ? throw new Exception("用户未找到")
+                : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
         }
 
         public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, IdentityUser user)
@@ -324,6 +332,33 @@ namespace EzNutrition.Server.Data.Repositories
             var isValid = await dbContext.ProfessionalCertificationRequests.AnyAsync(x => x.CertificateTicket.ToString() == uploadTicket);
             logger.LogInformation("验证上传票据：{UploadTicket}，结果：{IsValid}", uploadTicket, isValid);
             return isValid;
+        }
+
+        public async Task<bool> CheckEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
+            var user = await userManager.FindByEmailAsync(email);
+            return user == null;
+        }
+
+        /// <summary>
+        /// 私有方法：生成邮箱确认 token 并发送确认邮件
+        /// </summary>
+        private async Task SendEmailConfirmationAsync(IdentityUser user)
+        {
+            // 生成邮箱确认 Token
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            // 对 token 进行 URL 安全编码
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+            // 构建确认链接。注意 ClientUrl 可以在配置文件中设置
+            var confirmationLink = $"{configuration["AppSettings:ClientUrl"]}/confirm-email?userId={user.Id}&token={encodedToken}";
+
+            // 发送确认邮件
+            await emailSender.SendConfirmationLinkAsync(user, user.Email!, confirmationLink);
         }
     }
 }
