@@ -5,7 +5,10 @@ using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text;
 
 namespace EzNutrition.Server.Controllers
 {
@@ -13,6 +16,12 @@ namespace EzNutrition.Server.Controllers
     [Route("[controller]/[Action]")]
     public class AuthController(ILogger<AuthController> logger, AuthManagerRepository authManagerRepository) : ControllerBase
     {
+        /// <summary>
+        /// 登录，返回一个包含 token 的对象
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
@@ -34,8 +43,8 @@ namespace EzNutrition.Server.Controllers
         /// 检查邮箱是否可用
         /// GET api/Account/CheckEmail?email=xxx@example.com
         /// </summary>
-        [HttpGet("CheckEmail")]
-        public async Task<IActionResult> CheckEmail(string email)
+        [HttpGet]
+        public async Task<IActionResult> CheckEmail([FromQuery] string email)
         {
             if (string.IsNullOrWhiteSpace(email))
                 return BadRequest("Email is required.");
@@ -79,6 +88,35 @@ namespace EzNutrition.Server.Controllers
             }
         }
 
+        /// <summary>
+        /// 确认邮箱地址
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<IActionResult> ConfirmEmail([FromQuery][Required] string userId, [FromQuery][Required] string token)
+        {
+            if (userId == null || token == null)
+            {
+                return BadRequest("确认链接不完整，请检查");
+            }
+            var result = await authManagerRepository.ConfirmEmailAsync(userId, token);
+            if (result is not null && result.Succeeded)
+            {
+                return Ok("Email地址已确认！");
+            }
+            else
+            {
+                return BadRequest("Email地址确认失败，请重试或重新请求确认邮件。");
+            }
+        }
+
+        /// <summary>
+        /// 提交专业身份审核请求
+        /// </summary>
+        /// <param name="professionalIdentityDto"></param>
+        /// <returns></returns>
         [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateProfessionalIdentity([FromBody] ProfessionalIdentityDto professionalIdentityDto)
@@ -92,9 +130,13 @@ namespace EzNutrition.Server.Controllers
             try
             {
                 logger.LogInformation("User {User} attempting to create professional identity.", User.Identity?.Name);
-                await authManagerRepository.CreateProfessionalIdentityRequest(professionalIdentityDto, User);
+                var result = await authManagerRepository.CreateProfessionalIdentityRequest(professionalIdentityDto, User);
                 logger.LogInformation("Professional identity created successfully for user {User}.", User.Identity?.Name);
-                return Ok();
+                return Ok(new
+                {
+                    UploadTicket = result,
+                    Message = "Professional identity request received successfully."
+                });
             }
             catch (Exception e)
             {

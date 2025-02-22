@@ -62,7 +62,7 @@ namespace EzNutrition.Server.Services
   <p style='word-break:break-all;'>{confirmationLink}</p>
   
   <p>祝您生活愉快！</p>
-  <p>此致,<br/>EzNutrition 团队</p>
+  <p>此致,<br/>作者 CdoreyPoisson</p>
 </div>";
             await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body);
         }

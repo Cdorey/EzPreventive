@@ -1,12 +1,15 @@
 ﻿using EzNutrition.Server.Controllers;
 using EzNutrition.Server.Data.Entities;
 using EzNutrition.Server.Services;
+using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
 
@@ -18,7 +21,7 @@ namespace EzNutrition.Server.Data.Repositories
                                        RoleManager<IdentityRole> roleManager,
                                        SignInManager<IdentityUser> signInManager,
                                        ILogger<AuthController> logger,
-                                       IConfiguration configuration,
+                                       IOptions<EmailSettings> options,
                                        IEmailSender<IdentityUser> emailSender)
     {
         /// <summary>
@@ -143,37 +146,6 @@ namespace EzNutrition.Server.Data.Repositories
         }
 
         /// <summary>
-        /// 注册
-        /// </summary>
-        /// <param name="username"></param>
-        /// <param name="password"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public async Task Register(string username, string password)
-        {
-            logger.LogInformation("用户注册申请：{username}", username);
-            var user = dbContext.Users.FirstOrDefault(x => x.UserName == username);
-            if (user != default)
-            {
-                logger.LogWarning("用户注册失败：{username}已占用", username);
-                throw new Exception($"{username} was registered");
-            }
-            else
-            {
-                var x = await userManager.CreateAsync(new IdentityUser { UserName = username }, password);
-                if (!x.Succeeded)
-                {
-                    logger.LogError("用户注册失败：CreateAsync调用异常，{errors}", x.Errors.ToString());
-                    throw new Exception("failed");
-                }
-                else
-                {
-                    logger.LogInformation("用户注册成功：{username}", username);
-                }
-            }
-        }
-
-        /// <summary>
         /// 将一个用户加入用户组
         /// </summary>
         /// <param name="username"></param>
@@ -254,6 +226,11 @@ namespace EzNutrition.Server.Data.Repositories
             return roleManager.Roles;
         }
 
+        /// <summary>
+        /// 注册用户
+        /// </summary>
+        /// <param name="registrationDto"></param>
+        /// <returns></returns>
         public async Task<RegistrationResultDto> RegisterUserAsync(RegistrationDto registrationDto)
         {
             logger.LogInformation("用户注册申请：{UserName}", registrationDto.UserName);
@@ -300,6 +277,31 @@ namespace EzNutrition.Server.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// 私有方法：生成邮箱确认 token 并发送确认邮件
+        /// </summary>
+        private async Task SendEmailConfirmationAsync(IdentityUser user)
+        {
+            // 生成邮箱确认 Token
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            // 对 token 进行 URL 安全编码
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+            // 构建确认链接。注意 ClientUrl 可以在配置文件中设置
+            var confirmationLink = $"{options.Value.ClientUrl}/Auth/ConfirmEmail?userId={user.Id}&token={encodedToken}";
+
+            // 发送确认邮件
+            await emailSender.SendConfirmationLinkAsync(user, user.Email!, confirmationLink);
+        }
+
+        /// <summary>
+        /// 创建专业身份认证请求
+        /// </summary>
+        /// <param name="professionalIdentityDto"></param>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, ClaimsPrincipal user)
         {
             var userIdentiy = await userManager.GetUserAsync(user);
@@ -308,6 +310,12 @@ namespace EzNutrition.Server.Data.Repositories
                 : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
         }
 
+        /// <summary>
+        /// 创建专业身份认证请求
+        /// </summary>
+        /// <param name="professionalIdentityDto"></param>
+        /// <param name="user"></param>
+        /// <returns></returns>
         public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, IdentityUser user)
         {
             var certificateTicket = Guid.NewGuid();
@@ -327,6 +335,11 @@ namespace EzNutrition.Server.Data.Repositories
             return certificateTicket.ToString();
         }
 
+        /// <summary>
+        /// 验证上传票据
+        /// </summary>
+        /// <param name="uploadTicket"></param>
+        /// <returns></returns>
         public async Task<bool> ValidateUploadTicket(string uploadTicket)
         {
             var isValid = await dbContext.ProfessionalCertificationRequests.AnyAsync(x => x.CertificateTicket.ToString() == uploadTicket);
@@ -334,6 +347,11 @@ namespace EzNutrition.Server.Data.Repositories
             return isValid;
         }
 
+        /// <summary>
+        /// 验证邮箱是否可用
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
         public async Task<bool> CheckEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
@@ -344,21 +362,23 @@ namespace EzNutrition.Server.Data.Repositories
         }
 
         /// <summary>
-        /// 私有方法：生成邮箱确认 token 并发送确认邮件
+        /// 邮箱确认
         /// </summary>
-        private async Task SendEmailConfirmationAsync(IdentityUser user)
+        /// <param name="userId"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public async Task<IdentityResult?> ConfirmEmailAsync(string userId, string token)
         {
-            // 生成邮箱确认 Token
-            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var user = await userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return null;
+            }
 
-            // 对 token 进行 URL 安全编码
-            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            // 解码 token（如果在生成时做了编码处理）
+            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
 
-            // 构建确认链接。注意 ClientUrl 可以在配置文件中设置
-            var confirmationLink = $"{configuration["AppSettings:ClientUrl"]}/confirm-email?userId={user.Id}&token={encodedToken}";
-
-            // 发送确认邮件
-            await emailSender.SendConfirmationLinkAsync(user, user.Email!, confirmationLink);
+            return await userManager.ConfirmEmailAsync(user, decodedToken);
         }
     }
 }
