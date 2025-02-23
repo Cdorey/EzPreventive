@@ -78,7 +78,7 @@ namespace EzNutrition.Server.Controllers
                 else
                 {
                     logger.LogInformation("User {Username} registered successfully.", registrationDto.UserName);
-                    return Ok(new { result.UploadTicket, result.Message });
+                    return Ok(result);
                 }
             }
             catch (Exception e)

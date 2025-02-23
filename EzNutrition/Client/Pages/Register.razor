@@ -1,22 +1,177 @@
 ﻿@page "/register"
 @using EzNutrition.Shared.Data.DTO
 @using EzNutrition.Shared.Policies
+@using EzNutrition.Client.Services
 @inject IHttpClientFactory HttpClientFactory
+@inject IMessageService Message
+@inject UserSessionService UserSession
+@inject NavigationManager Navigator
 <Title Level="1">注册</Title>
-<GridRow Gutter="(16,16)">
-    <GridCol Span="24">
-        <Steps OnChange="OnChange" Current="currentStep">
-            <Step Title="基本信息" Description="填写您的账户基本信息（例如用户名、密码、邮箱及手机号）" Icon="user" />
-            <Step Title="专业身份认证" Description="提供营养学或医疗相关专业身份信息，或上传相关资质证明（可选，稍后可补充）" Icon="solution" />
-            <Step Title="确认提交" Description="检查并确认您的注册信息，然后提交注册申请" Icon="cloud-upload" />
-        </Steps>
-    </GridCol>
-</GridRow>
-@code {
-    int currentStep;
+@if (finished)
+{
+    <Result Status="success"
+            Title="信息提交成功"
+            SubTitle="一封确认邮件已发送到您的邮箱，请尽快激活您的账号。">
+        <Extra>
+            <Button Type="ButtonType.Primary" OnClick="Login">登录</Button>
+        </Extra>
+    </Result>
+}
+else
+{
+    <Spin Spinning="@loading">
+        <Indicator>
+            <Icon Type="@IconType.Outline.Loading" Style="font-size: 72px" Spin />
+        </Indicator>
+        <ChildContent>
+            <Title Level="2">基本信息</Title>
+            <Form Model="@registrationDto" ValidateMode="@FormValidateMode.Default" ValidateOnChange>
+                <FormItem>
+                    <Input @bind-Value="@context.UserName" />
+                </FormItem>
+                <FormItem Label="Password">
+                    <InputPassword @bind-Value="@context.Password" />
+                </FormItem>
+                <FormItem>
+                    <Input @bind-Value="@context.Email" />
+                </FormItem>
+                <FormItem>
+                    <Input @bind-Value="@context.PhoneNumber" />
+                </FormItem>
+            </Form>
+            <Title Level="2">专业认证</Title>
+            <Switch @bind-Value="professionalIdentity" CheckedChildren="专业认证" UnCheckedChildren="暂时跳过" />
+            @if (professionalIdentity)
+            {
+                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" />
+            }
 
-    void OnChange(int current)
+            <Button Type="@ButtonType.Primary" Style="margin-top: 16px;" OnClick="RegistAsync">提交注册信息</Button>
+        </ChildContent>
+    </Spin>
+}
+
+@code {
+    string identityType = string.Empty;
+
+    bool loading = false;
+    bool finished = false;
+
+    bool professionalIdentity = true;
+    IBrowserFile? currentSelectedFile;
+
+    private readonly RegistrationDto registrationDto = new RegistrationDto { Email = string.Empty, Password = string.Empty, UserName = string.Empty };
+
+    private readonly ProfessionalIdentityDto professionalIdentityDto = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
     {
-        currentStep = current;
+        currentSelectedFile = e.File;
+    }
+
+    private async Task RegistAsync()
+    {
+        loading = true;
+        if (professionalIdentity)
+        {
+            if (currentSelectedFile is null)
+            {
+                await Message.Error("请选择要上传的证明图片");
+                loading = false;
+                return;
+            }
+            else
+            {
+                registrationDto.ProfessionalIdentity = professionalIdentityDto;
+            }
+        }
+
+        await Message.Info("正在提交注册信息");
+        using var httpClient = HttpClientFactory.CreateClient("Anonymous");
+        var response = await httpClient.PostAsJsonAsync("Auth/Register", registrationDto);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>();
+            if (result?.Success is not true)
+            {
+                await Message.Error(result?.Message ?? "注册失败");
+                loading = false;
+                return;
+            }
+
+            var upLoadTicket = result?.UploadTicket;
+            if (professionalIdentity && upLoadTicket is not null)
+            {
+                await UploadFile(upLoadTicket);
+            }
+            else
+            {
+                await Message.Success("注册成功");
+                finished = true;
+            }
+        }
+        else
+        {
+            var errorMsg = await response.Content.ReadAsStringAsync();
+            await Message.Error($"提交注册信息失败：{errorMsg}");
+            loading = false;
+        }
+    }
+
+    private async Task UploadFile(string uploadTicket)
+    {
+        if (currentSelectedFile is null)
+        {
+            await Message.Error("待上传的文件丢失");
+            loading = false;
+            return;
+        }
+
+        // 限制文件大小（例如 10MB），以防止超出服务端限制
+        var maxAllowedSize = 10 * 1024 * 1024;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+
+            // 使用 StreamContent 包装文件流
+            var fileContent = new StreamContent(currentSelectedFile.OpenReadStream(maxAllowedSize));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(currentSelectedFile.ContentType);
+            // name 必须与后端 [FromForm] 的参数名称一致，这里为 certificateFile
+            content.Add(content: fileContent, name: "certificateFile", fileName: currentSelectedFile.Name);
+
+            // 发送 POST 请求到指定的 URL（将 uploadTicket 拼接到 URL 路径中）
+            using var httpClient = HttpClientFactory.CreateClient("Anonymous");
+            var uploadResponseMessage = await httpClient.PostAsync($"Auth/UploadCertificate/{uploadTicket}", content);
+            if (uploadResponseMessage.IsSuccessStatusCode)
+            {
+                await Message.Success("上传成功！");
+                await Message.Success("注册成功");
+                finished = true;
+            }
+            else
+            {
+                var errorMsg = await uploadResponseMessage.Content.ReadAsStringAsync();
+                await Message.Error($"上传失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error($"发生异常：{ex.Message}");
+            loading = false;
+        }
+
+    }
+
+    private async Task Login()
+    {
+        try
+        {
+            await UserSession.SignInAsync(registrationDto.UserName ?? string.Empty, registrationDto.Password ?? string.Empty);
+            Navigator.NavigateTo("");
+        }
+        catch (Exception ex)
+        {
+            await Message.Error(ex.Message);
+        }
     }
 }

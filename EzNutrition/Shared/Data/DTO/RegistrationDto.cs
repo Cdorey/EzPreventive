@@ -7,26 +7,26 @@ namespace EzNutrition.Shared.Data.DTO
         /// <summary>
         /// 用户名，必填且应唯一
         /// </summary>
-        [Required]
+        [Required,Display(Name ="用户名")]
         public required string UserName { get; set; }
 
         /// <summary>
         /// 密码，必填，前端应做强度校验
         /// </summary>
-        [Required]
+        [Required, Display(Name = "密码")]
         public required string Password { get; set; }
 
         /// <summary>
         /// 电子邮箱，必填，格式需要校验
         /// </summary>
         [Required]
-        [EmailAddress]
+        [EmailAddress, Display(Name = "电子邮箱")]
         public required string Email { get; set; }
 
         /// <summary>
         /// 手机号码，可选，格式需校验
         /// </summary>
-        [Phone]
+        [Phone, Display(Name = "手机号码")]
         public string? PhoneNumber { get; set; }
 
         /// <summary>
