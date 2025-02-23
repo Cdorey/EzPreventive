@@ -9,7 +9,7 @@
 @inject NavigationManager Navigator
 @inject ArchiveManageService ArchiveManager
 <Title Level="3">24小时回顾法膳食调查</Title>
-<Space Direction="DirectionVHType.Vertical" style="width: 100%;">
+<Space Direction="SpaceDirection.Vertical" style="width: 100%;">
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
         <SpaceItem>
@@ -30,7 +30,7 @@
                     @context.Food.FriendlyName
                 </PropertyColumn>
                 <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
-                    <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" />
+                    <Input Placeholder="通常为原料生重" type="InputType.Number" min="0" step="1" @bind-Value="@context.Weight" />
                 </PropertyColumn>
                 <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
                     <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
@@ -44,7 +44,7 @@
             </Table>
         </SpaceItem>
         <SpaceItem>
-            <Button Type="ButtonType.Primary" Block OnClick="Calculate"><Icon Type="radar-chart" Theme="Outline" />完成调查，计算结果</Button>
+            <Button Type="ButtonType.Primary" Block OnClick="Calculate"><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查，计算结果</Button>
         </SpaceItem>
     }
     else
@@ -61,7 +61,7 @@
                             @context.Food.FriendlyName
                         </PropertyColumn>
                         <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
-                            <Input Placeholder="通常为原料生重" type="number" min="0" step="1" @bind-Value="@context.Weight" Disabled />
+                            <Input Placeholder="通常为原料生重" type="InputType.Number" min="0" step="1" @bind-Value="@context.Weight" Disabled />
                         </PropertyColumn>
                         <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
                             <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" Disabled />
@@ -79,7 +79,7 @@
                             {
                                 @if (DietaryRecallSurvey.CalculateProgress.Columns.IndexOf(column) <= 2)
                                 {
-                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" Width="100" Fixed="left" />
+                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" Width="100" Fixed="ColumnFixPlacement.Left" />
 
                                 }
                                 else
@@ -100,7 +100,7 @@
                                 <PropertyColumn Title="参考标记" Property="x=>x.Flag">
                                     @if (context.Flag is not null)
                                     {
-                                        <Icon Type="@context.Flag" Theme="Outline" />
+                                        <Icon Type="@context.Flag" Theme="IconThemeType.Outline" />
                                     }
                                 </PropertyColumn>
                                 <Column TData="string" Title="结果值" DataIndex="ValueString" />

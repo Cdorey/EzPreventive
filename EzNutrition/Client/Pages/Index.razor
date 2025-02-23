@@ -11,7 +11,7 @@
 <PageTitle>首页</PageTitle>
 <AuthorizeView>
     <Authorized>
-        <GridRow Justify="space-around" Align="middle" Gutter="(16,16)">
+        <GridRow Justify="RowJustify.SpaceAround" Align="RowAlign.Middle" Gutter="(16,16)">
             <GridCol Lg="18" Md="24">
                 <article>
                     @((MarkupString)Markdown.ToHtml(UserSession.Notice))

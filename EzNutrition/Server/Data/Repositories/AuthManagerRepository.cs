@@ -146,55 +146,6 @@ namespace EzNutrition.Server.Data.Repositories
         }
 
         /// <summary>
-        /// 将一个用户加入用户组
-        /// </summary>
-        /// <param name="username"></param>
-        /// <param name="role"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public async Task AddToRoleAsync(string username, string role)
-        {
-            var user = await userManager.FindByNameAsync(username);
-            if (user != default)
-            {
-                var addToRole = await userManager.AddToRoleAsync(user, role);
-                if (!addToRole.Succeeded)
-                {
-                    logger.LogError("为用户 {username} 添加角色 {role} 失败", username, role);
-                    throw new Exception("failed to add user to role");
-                }
-                else
-                {
-                    logger.LogInformation("为用户 {username} 添加角色 {role} 成功", username, role);
-                }
-            }
-            else
-            {
-                logger.LogWarning("未找到用户：{username}", username);
-                throw new Exception($"there is not a user named {username}.");
-            }
-        }
-
-        /// <summary>
-        /// 获取用户列表
-        /// </summary>
-        /// <param name="role"></param>
-        /// <returns></returns>
-        public async Task<IEnumerable<IdentityUser>> GetAllUsers(string? role = default)
-        {
-            if (role != default)
-            {
-                logger.LogInformation("获取角色为 {role} 的用户列表", role);
-                return await userManager.GetUsersInRoleAsync(role);
-            }
-            else
-            {
-                logger.LogInformation("获取所有用户列表");
-                return userManager.Users;
-            }
-        }
-
-        /// <summary>
         /// 锁定用户
         /// </summary>
         /// <param name="userName"></param>

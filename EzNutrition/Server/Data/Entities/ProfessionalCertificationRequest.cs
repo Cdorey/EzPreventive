@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using EzNutrition.Shared.Data.DTO;
+using System.ComponentModel.DataAnnotations;
 
 namespace EzNutrition.Server.Data.Entities
 {
@@ -56,15 +57,5 @@ namespace EzNutrition.Server.Data.Entities
         /// 其他备注信息
         /// </summary>
         public string? Remarks { get; set; }
-    }
-
-    /// <summary>
-    /// 请求状态枚举，便于状态管理
-    /// </summary>
-    public enum RequestStatus
-    {
-        Pending,   // 待审核
-        Approved,  // 已通过
-        Rejected   // 拒绝
     }
 }

@@ -7,7 +7,7 @@
 @inject NavigationManager Navigation
 
 <Title Level="2">病史记录</Title>
-<Space Direction="DirectionVHType.Vertical" style="width: 100%;">
+<Space Direction="SpaceDirection.Vertical" style="width: 100%;">
     <SpaceItem>
         <Select TItem="Disease" TItemValue="int" DataSource="@diseasesInDB" LabelName="@nameof(Disease.FriendlyName)" ValueName="@nameof(Disease.DiseaseId)" Placeholder="请选择既往史" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" />
      </SpaceItem>

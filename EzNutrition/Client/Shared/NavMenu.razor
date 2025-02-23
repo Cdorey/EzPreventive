@@ -8,7 +8,7 @@
 @inject NavigationManager Navigator
 <Menu OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode=@MenuMode.Inline>
     <MenuItem RouterLink="">
-        <Icon Type="home" Theme="outline" />
+        <Icon Type="home" Theme="IconThemeType.Outline" />
         <span>首页</span>
     </MenuItem>
     <AuthorizeView>
@@ -22,7 +22,7 @@
             </MenuItemGroup>
         </SubMenu>
         <MenuItem RouterLink="drisinsights">
-            <Icon Type="medicine-box" Theme="outline" />
+            <Icon Type="medicine-box" Theme="IconThemeType.Outline" />
             <span>DRIs见解</span>
         </MenuItem>
     </AuthorizeView>

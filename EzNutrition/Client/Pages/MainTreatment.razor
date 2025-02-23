@@ -33,10 +33,10 @@
                             <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" Min="0" />
                         </FormItem>
                         <FormItem Label="身高（cm）">
-                            <Input @bind-Value="context.Height" type="number" min="0" />
+                            <Input @bind-Value="context.Height" type="InputType.Number" min="0" />
                         </FormItem>
                         <FormItem Label="体重（kg）">
-                            <Input @bind-Value="context.Weight" type="number" min="0" />
+                            <Input @bind-Value="context.Weight" type="InputType.Number" min="0" />
                         </FormItem>
                         <FormItem Label="特殊生理状况">
                             <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">

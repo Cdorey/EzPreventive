@@ -13,7 +13,7 @@
         <Paragraph>确认身体活动强度</Paragraph>
         @if (IsEerLoading)
         {
-            <Spin Size="large">
+            <Spin Size="SpinSize.Large">
                 <Indicator>
                     <Icon Type="loading" Spin />
                 </Indicator>
@@ -46,7 +46,7 @@
     {
         <GridCol Span="24">
             <Title Level="3">能量模型</Title>
-            <GridRow Justify="space-around">
+            <GridRow Justify="RowJustify.SpaceAround">
                 <GridCol Flex=@("none")>
                     <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'P'.ToString()" Percent=@ProteinPercentage />
                 </GridCol>

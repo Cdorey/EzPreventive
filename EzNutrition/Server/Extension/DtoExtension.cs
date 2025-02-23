@@ -1,4 +1,5 @@
-﻿using EzNutrition.Shared.Data.DTO;
+﻿using EzNutrition.Server.Data.Entities;
+using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Identity;
 
 namespace EzNutrition.Server.Extension
@@ -23,5 +24,30 @@ namespace EzNutrition.Server.Extension
                 AccessFailedCount = user.AccessFailedCount
             };
         }
+
+        /// <summary>
+        /// 根据实体对象创建 DTO
+        /// </summary>
+        /// <param name="request">专业认证请求实体</param>
+        /// <returns>对应的 DTO 对象</returns>
+        public static ProfessionalCertificationRequestDto ToDto(this ProfessionalCertificationRequest request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            return new ProfessionalCertificationRequestDto
+            {
+                Id = request.Id,
+                UserId = request.UserId,
+                RequestTime = request.RequestTime,
+                IdentityType = request.IdentityType,
+                InstitutionName = request.InstitutionName,
+                Status = request.Status,
+                ProcessedTime = request.ProcessedTime,
+                ProcessDetails = request.ProcessDetails,
+                CertificateTicket = request.CertificateTicket,
+                Remarks = request.Remarks
+            };
+        }
+
     }
 }
