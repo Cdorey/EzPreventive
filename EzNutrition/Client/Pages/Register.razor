@@ -43,7 +43,7 @@ else
             <Switch @bind-Value="professionalIdentity" CheckedChildren="专业认证" UnCheckedChildren="暂时跳过" />
             @if (professionalIdentity)
             {
-                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" />
+                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
             }
 
             <Button Type="@ButtonType.Primary" Style="margin-top: 16px;" OnClick="RegistAsync">提交注册信息</Button>
@@ -127,8 +127,8 @@ else
             return;
         }
 
-        // 限制文件大小（例如 10MB），以防止超出服务端限制
-        var maxAllowedSize = 10 * 1024 * 1024;
+        // 限制文件大小（例如 45MB），以防止超出服务端限制
+        var maxAllowedSize = 45 * 1024 * 1024;
         try
         {
             using var content = new MultipartFormDataContent();

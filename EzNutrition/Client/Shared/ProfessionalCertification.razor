@@ -70,10 +70,17 @@
         <Icon Type="upload" />上传资格证明
     </label>
 </Upload>
+@if (@Filename != string.Empty)
+{
+    <Paragraph>已选择的文件名：@Filename</Paragraph>
+}
 @code {
     [Parameter, EditorRequired]
     public ProfessionalIdentityDto ProfessionalIdentityDto { get; set; } = default!;
 
     [Parameter, EditorRequired]
     public EventCallback<InputFileChangeEventArgs> OnFileSelected { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Filename { get; set; } = string.Empty;
 }

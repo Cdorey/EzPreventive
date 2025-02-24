@@ -149,6 +149,7 @@ namespace EzNutrition.Server.Controllers
         /// 根据 uploadTicket 上传证件照片
         /// </summary>
         [HttpPost("{uploadTicket}")]
+        [RequestSizeLimit(50 * 1024 * 1024)]
         public async Task<IActionResult> UploadCertificate([FromForm] IFormFile certificateFile, [FromRoute] string uploadTicket)
         {
             if (certificateFile == null || certificateFile.Length == 0)
@@ -165,7 +166,7 @@ namespace EzNutrition.Server.Controllers
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
             var extension = Path.GetExtension(certificateFile.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension) || certificateFile.Length > 10 * 1024 * 1024)
+            if (!allowedExtensions.Contains(extension) || certificateFile.Length > 50 * 1024 * 1024)
             {
                 logger.LogWarning("Invalid file type or size for upload ticket {UploadTicket}.", uploadTicket);
                 return BadRequest("Invalid file type or size.");
