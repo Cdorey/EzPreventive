@@ -1,56 +1,174 @@
 ﻿@page "/administrators"
 @using EzNutrition.Shared.Data.DTO
 @using EzNutrition.Shared.Policies
+@using System.ComponentModel.DataAnnotations
 @inject IHttpClientFactory HttpClientFactory
+@inject IMessageService Message
 <Title Level="1">Administrators</Title>
 <AuthorizeView Policy="@PolicyList.Admin">
     <Authorized>
-        <Title Level="2">注册用户列表</Title>
-        <Table TItem="UserDto" DataSource="UserList">
-            <ChildContent Context="userListContext">
-                <GenerateColumns />
-                <ActionColumn Title="Operate">
-                    <Space>
-                        <SpaceItem>
-                            <Button Danger OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
-                                Edit
-                            </Button>
-                        </SpaceItem>
-                    </Space>
-                </ActionColumn>
-            </ChildContent>
-        </Table>
-        <Title Level="2">专业认证申请列表</Title>
-        <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList">
-            <ChildContent Context="requestListContext">
-                <GenerateColumns />
-                <ActionColumn Title="Operate">
-                    <Space>
-                        <SpaceItem>
-                            <Button Danger>
-                                Edit
-                            </Button>
-                        </SpaceItem>
-                    </Space>
-                </ActionColumn>
-            </ChildContent>
-        </Table>
-        <Drawer Closable="true" @bind-Visible="drawerVisible" Title="@("编辑用户信息")">
+        <Tabs>
+            <TabPane Tab="注册用户列表">
+                <Table TItem="UserDto" DataSource="UserList">
+                    <ChildContent Context="userListContext">
+                        <GenerateColumns />
+                        <ActionColumn Title="Operate">
+                            <Space>
+                                <SpaceItem>
+                                    <Button Danger OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
+                                        Edit
+                                    </Button>
+                                </SpaceItem>
+                            </Space>
+                        </ActionColumn>
+                    </ChildContent>
+                </Table>
+            </TabPane>
+            <TabPane Tab="专业认证申请列表">
+                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList">
+                    <ChildContent Context="requestListContext">
+                        <GenerateColumns />
+                        <ActionColumn Title="Operate">
+                            <Space>
+                                <SpaceItem>
+                                    <Button Danger OnClick="(x)=>EditBtnClick(requestListContext)" AutoLoading>
+                                        Edit
+                                    </Button>
+                                </SpaceItem>
+                            </Space>
+                        </ActionColumn>
+                    </ChildContent>
+                </Table>
+            </TabPane>
+            <TabPane Tab="角色列表">
+                <AntList Bordered DataSource="RoleList">
+                    <Header>角色名称</Header>
+                    <ChildContent Context="item">
+                        <ListItem>
+                            @item
+                        </ListItem>
+                    </ChildContent>
+                    <Footer>
+                        <Input Type="@InputType.Text" @bind-value="@newRole" />
+                        <Button Type="@ButtonType.Primary" OnClick="AddRole" AutoLoading>Add</Button>
+                    </Footer>
+                </AntList>
+            </TabPane>
+        </Tabs>
+        <Drawer Width="800" Closable="true" @bind-Visible="drawerVisible" Title="@("编辑用户信息")">
             @if (userInfoDto is not null)
             {
                 <Form Model="@userInfoDto">
                     <ChildContent Context="userDtoContext">
+                        <!-- 用户ID：只读显示 -->
+                        <FormItem Label="用户ID">
+                            <Input @bind-Value="userDtoContext.UserId" Disabled="true" />
+                        </FormItem>
+
+                        <!-- 用户名 -->
                         <FormItem Label="用户名">
                             <Input @bind-Value="userDtoContext.UserName" />
                         </FormItem>
+
+                        <!-- 邮箱 -->
                         <FormItem Label="邮箱">
-                            <Input @bind-Value="userDtoContext.Email" />
+                            <Input type="InputType.Email" @bind-Value="userDtoContext.Email" />
                         </FormItem>
+
+                        <!-- 电话 -->
                         <FormItem Label="电话">
-                            <Input @bind-Value="userDtoContext.PhoneNumber" />
+                            <Input type="InputType.Text" @bind-Value="userDtoContext.PhoneNumber" />
                         </FormItem>
+
+                        <!-- 角色：使用复选框列表，allRoles 为可选角色列表 -->
+                        <FormItem Label="角色">
+                            @foreach (var role in RoleList)
+                            {
+                                <Checkbox Value="@userDtoContext.Roles.Contains(role)" Label="@role" OnChange="@((e) => ToggleRole(e, role))" />
+                            }
+                        </FormItem>
+
+                        <!-- Claims：展示已有 Claim，每项包含 Type 与 Value，同时提供添加/删除操作 -->
+                        <FormItem Label="Claims">
+                            @foreach (var claim in userDtoContext.Claims)
+                            {
+                                <InputGroup Compact>
+                                    <Input placeholder="Claim Type" @bind-Value="claim.Type" />
+                                    <Input placeholder="Claim Value" @bind-Value="claim.Value" />
+                                    <Button Danger OnClick="@((e)=>RemoveClaim(claim))">删除</Button>
+                                </InputGroup>
+                            }
+                            <Button type="ButtonType.Primary" OnClick="AddClaim">添加 Claim</Button>
+                        </FormItem>
+                        @if (requestDto is null)
+                        {
+                            <!-- 提交按钮 -->
+                            <FormItem>
+                                <Button type="ButtonType.Primary" OnClick="UpdateUserBtnClick" AutoLoading>提交</Button>
+                            </FormItem>
+                        }
                     </ChildContent>
                 </Form>
+            }
+
+            @if (requestDto is not null)
+            {
+                <Form Model="@requestDto">
+                    <ChildContent Context="requestDtoContext">
+                        <!-- 申请时间：只读显示 -->
+                        <FormItem Label="申请时间">
+                            <Input @bind-Value="requestDtoContext.RequestTime" Disabled="true" />
+                        </FormItem>
+                        <!-- 申请状态：只读显示 -->
+                        <FormItem Label="申请状态">
+                            <Input @bind-Value="requestDtoContext.Status" Disabled="true" />
+                        </FormItem>
+                        <!-- 申请内容 -->
+                        <FormItem Label="申请内容">
+                            <Input @bind-Value="requestDtoContext.IdentityType" Disabled="true" />
+                        </FormItem>
+                        <FormItem Label="申请机构">
+                            <Input @bind-Value="requestDtoContext.InstitutionName" />
+                        </FormItem>
+                        <FormItem Label="审核处理意见">
+                            <Input @bind-Value="requestDtoContext.ProcessDetails" />
+                        </FormItem>
+                        <FormItem Label="备注信息">
+                            <Input @bind-Value="requestDtoContext.Remarks" />
+                        </FormItem>
+                        <!-- 申请图片 -->
+                        <FormItem Label="申请图片">
+                            <Image Src="@($"data:image/jpeg;base64,{ImageBase64}")" />
+                        </FormItem>
+                        <!-- 通过/拒绝按钮 -->
+                    </ChildContent>
+                </Form>
+                @if (userInfoExtension is not null)
+                {
+                    <Form Model="@userInfoExtension">
+                        <ChildContent Context="userInfoExtensionContext">
+                            <FormItem Label="真实姓名">
+                                <Input @bind-Value="userInfoExtensionContext.RealName" />
+                            </FormItem>
+                            <FormItem Label="执业类别">
+                                <Input @bind-Value="userInfoExtensionContext.PracticingType" />
+                            </FormItem>
+                            <FormItem Label="执业范围">
+                                <Input @bind-Value="userInfoExtensionContext.PracticingScope" />
+                            </FormItem>
+                            <FormItem Label="所学专业">
+                                <Input @bind-Value="userInfoExtensionContext.Major" />
+                            </FormItem>
+                            <FormItem Label="所教专业">
+                                <Input @bind-Value="userInfoExtensionContext.PrimarySubject" />
+                            </FormItem>
+                            <FormItem>
+                                <Button type="ButtonType.Default" OnClick="ApproveBtnClick">通过</Button>
+                                <Button type="ButtonType.Dashed" OnClick="RejectBtnClick">拒绝</Button>
+                            </FormItem>
+                        </ChildContent>
+                    </Form>
+                }
             }
         </Drawer>
     </Authorized>
@@ -60,18 +178,25 @@
 </AuthorizeView>
 @code {
     private List<UserDto> UserList { get; } = [];
+    private List<string> RoleList { get; } = [];
+    private string newRole = string.Empty;
     private UserInfoDto? userInfoDto;
+    // 保存图片的 Base64 字符串
+    private string ImageBase64 { get; set; } = string.Empty;
 
     private Guid currentRequestId = Guid.Empty;
     private List<ProfessionalCertificationRequestDto> ProfessionalCertificationRequestList { get; } = [];
     private ProfessionalCertificationRequestDto? requestDto => ProfessionalCertificationRequestList.FirstOrDefault(x => x.Id == currentRequestId);
+    private UserInfoExtension? userInfoExtension;
 
     private bool drawerVisible = false;
 
     private async Task EditBtnClick(object dataContext)
     {
+        ImageBase64 = string.Empty;
         userInfoDto = null;
         currentRequestId = Guid.Empty;
+        userInfoExtension = null;
         if (dataContext is UserDto user)
         {
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
@@ -84,13 +209,65 @@
         }
         else if (dataContext is ProfessionalCertificationRequestDto requestDto)
         {
-            using var httpClient = HttpClientFactory.CreateClient("Authorize");
-            var getRes = await httpClient.GetFromJsonAsync<UserInfoDto>($"Admin/GetUserInfo/{requestDto.UserId}");
-            if (getRes is not null)
+            try
             {
+                using var httpClient = HttpClientFactory.CreateClient("Authorize");
+
+                // 获取用户信息
+                var userResponse = await httpClient.GetAsync($"Admin/GetUserInfo/{requestDto.UserId}");
+                if (!userResponse.IsSuccessStatusCode)
+                {
+                    await Message.Error($"获取用户信息失败：{userResponse.ReasonPhrase}");
+                    return;
+                }
+
+                var getRes = await userResponse.Content.ReadFromJsonAsync<UserInfoDto>();
+                if (getRes is null)
+                {
+                    await Message.Error("用户信息为空。");
+                    return;
+                }
+
                 userInfoDto = getRes;
                 currentRequestId = requestDto.Id;
+
+                // 判断 CertificateTicket 是否有效
+                if (requestDto.CertificateTicket is null)
+                {
+                    _ = Message.Error("证件图片标识为空。");
+                }
+                else
+                {
+                    var imageResponse = await httpClient.GetAsync($"Admin/CertificateImage/{requestDto.CertificateTicket}");
+                    if (!imageResponse.IsSuccessStatusCode)
+                    {
+                        _ = Message.Error($"获取证件图片失败：{imageResponse.ReasonPhrase}");
+                    }
+                    else
+                    {
+                        var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync();
+                        if (imageBytes is null || imageBytes.Length == 0)
+                        {
+                            _ = Message.Error("证件图片为空或加载失败。");
+                        }
+                        else
+                        {
+                            // 转换为 Base64 字符串
+                            ImageBase64 = Convert.ToBase64String(imageBytes);
+                        }
+                    }
+                }
+
+                if (requestDto.Status == RequestStatus.Pending)
+                {
+                    userInfoExtension = new UserInfoExtension();
+                }
                 drawerVisible = true;
+            }
+            catch (Exception ex)
+            {
+                // 记录异常信息，并给用户提示
+                _ = Message.Error($"发生异常：{ex.Message}");
             }
         }
     }
@@ -99,8 +276,16 @@
     {
         UserList.Clear();
         using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var getRes = await httpClient.GetFromJsonAsync<List<UserDto>>($"Admin/GetUsers");
+        var getRes = await httpClient.GetFromJsonAsync<List<UserDto>>($"Admin/Users");
         UserList.AddRange(getRes!);
+    }
+
+    private async Task GetRoleList()
+    {
+        RoleList.Clear();
+        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        var getRes = await httpClient.GetFromJsonAsync<List<string>>($"Admin/Roles");
+        RoleList.AddRange(getRes!);
     }
 
     private async Task GetCertificationRequestList()
@@ -111,10 +296,245 @@
         ProfessionalCertificationRequestList.AddRange(getRes!);
     }
 
+    private async Task UpdateUserAsync()
+    {
+        try
+        {
+            // 获取带授权的 HttpClient
+            using var httpClient = HttpClientFactory.CreateClient("Authorize");
+
+            // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
+            var response = await httpClient.PutAsJsonAsync("Admin/UpdateUser", userInfoDto);
+            if (response.IsSuccessStatusCode)
+            {
+
+                _ = Message.Success("用户更新成功！");
+                await GetUserList();
+                userInfoDto = null;
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                await Message.Error($"更新失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error($"请求异常：{ex.Message}");
+        }
+    }
+
+    private async Task UpdateUserBtnClick()
+    {
+        await UpdateUserAsync();
+        drawerVisible = false;
+    }
+
+    private async Task ApproveBtnClick()
+    {
+        if (userInfoDto is null)
+            return;
+
+        if (requestDto is null)
+            return;
+
+        if (userInfoExtension is null)
+            return;
+
+        //根据Require验证UserInfoExtension模型是否合法
+        userInfoDto.Roles.Add(requestDto.IdentityType);
+        userInfoDto.Claims.Add(new UserClaimDto { Type = "InstitutionName", Value = requestDto.InstitutionName });
+        userInfoDto.Claims.Add(new UserClaimDto { Type = "IdentityType", Value = userInfoExtension.RealName });
+
+        if (userInfoExtension.PracticingType is not null)
+        {
+            userInfoDto.Claims.Add(new UserClaimDto { Type = "PracticingType", Value = userInfoExtension.PracticingType });
+        }
+        if (userInfoExtension.PracticingScope is not null)
+        {
+            userInfoDto.Claims.Add(new UserClaimDto { Type = "PracticingScope", Value = userInfoExtension.PracticingScope });
+        }
+        if (userInfoExtension.Major is not null)
+        {
+            userInfoDto.Claims.Add(new UserClaimDto { Type = "Major", Value = userInfoExtension.Major });
+        }
+        if (userInfoExtension.PrimarySubject is not null)
+        {
+            userInfoDto.Claims.Add(new UserClaimDto { Type = "PrimarySubject", Value = userInfoExtension.PrimarySubject });
+        }
+
+        requestDto.Status = RequestStatus.Approved;
+
+        await UpdateUserAsync();
+
+        try
+        {
+            // 获取带授权的 HttpClient
+            using var httpClient = HttpClientFactory.CreateClient("Authorize");
+
+            // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
+            var response = await httpClient.PutAsJsonAsync("Admin/UpdateRequest", requestDto);
+            if (response.IsSuccessStatusCode)
+            {
+
+                _ = Message.Success("审核列表更新成功！");
+                await GetCertificationRequestList();
+                ImageBase64 = string.Empty;
+                currentRequestId = Guid.Empty;
+                userInfoExtension = null;
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                await Message.Error($"审核列表更新失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error($"请求异常：{ex.Message}");
+        }
+
+        drawerVisible = false;
+    }
+
+    private async Task RejectBtnClick()
+    {
+        if (requestDto is null)
+            return;
+
+        requestDto.Status = RequestStatus.Rejected;
+
+        try
+        {
+            // 获取带授权的 HttpClient
+            using var httpClient = HttpClientFactory.CreateClient("Authorize");
+            // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
+            var response = await httpClient.PutAsJsonAsync("Admin/UpdateRequest", requestDto);
+            if (response.IsSuccessStatusCode)
+            {
+
+                _ = Message.Success("审核列表更新成功！");
+                await GetCertificationRequestList();
+                ImageBase64 = string.Empty;
+                currentRequestId = Guid.Empty;
+                userInfoDto = null;
+                userInfoExtension = null;
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                await Message.Error($"审核列表更新失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error($"请求异常：{ex.Message}");
+        }
+
+        drawerVisible = false;
+    }
+
+
     protected override async Task OnInitializedAsync()
     {
         await GetUserList();
+        await GetRoleList();
         await GetCertificationRequestList();
         await base.OnInitializedAsync();
+    }
+
+    /// <summary>
+    /// 切换角色选中状态
+    /// </summary>
+    private void ToggleRole(bool isChecked, string role)
+    {
+        if (userInfoDto is not null)
+        {
+            if (isChecked)
+            {
+                if (!userInfoDto.Roles.Contains(role))
+                {
+                    userInfoDto.Roles.Add(role);
+                }
+            }
+            else
+            {
+                userInfoDto.Roles.Remove(role);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 添加一个空 Claim
+    /// </summary>
+    private void AddClaim()
+    {
+        if (userInfoDto is not null)
+        {
+            userInfoDto.Claims.Add(new UserClaimDto { Type = string.Empty, Value = string.Empty });
+        }
+    }
+
+    private async Task AddRole()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(newRole))
+            {
+                using var httpClient = HttpClientFactory.CreateClient("Authorize");
+
+
+                var formContent = new FormUrlEncodedContent([new KeyValuePair<string, string>(nameof(newRole), newRole)]);
+
+                var res = await httpClient.PostAsync("Admin/AddRole", formContent);
+                if (!res.IsSuccessStatusCode)
+                {
+                    throw new Exception(await res.Content.ReadAsStringAsync());
+                }
+            }
+            else
+            {
+                await Message.Error("role name不可为空");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error(ex.Message);
+        }
+        finally
+        {
+            newRole = string.Empty;
+            await GetRoleList();
+        }
+    }
+
+    /// <summary>
+    /// 删除指定索引的 Claim
+    /// </summary>
+    /// <param name="claim"></param>
+    private void RemoveClaim(UserClaimDto claim)
+    {
+        if (userInfoDto is not null)
+        {
+            userInfoDto.Claims.Remove(claim);
+        }
+    }
+
+    private class UserInfoExtension
+    {
+        [Required, Display(Name = "真实姓名")]
+        public string RealName { get; set; } = string.Empty;
+
+        [Display(Name = "执业类别")]
+        public string? PracticingType { get; set; }
+
+        [Display(Name = "执业范围")]
+        public string? PracticingScope { get; set; }
+
+        [Display(Name = "所学专业")]
+        public string? Major { get; set; }
+
+        [Display(Name = "所教专业")]
+        public string? PrimarySubject { get; set; }
     }
 }

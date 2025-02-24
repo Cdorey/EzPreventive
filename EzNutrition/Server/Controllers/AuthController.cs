@@ -203,5 +203,6 @@ namespace EzNutrition.Server.Controllers
             logger.LogInformation("User {User} accessed profile.", User.Identity?.Name);
             return Ok();
         }
+
     }
 }

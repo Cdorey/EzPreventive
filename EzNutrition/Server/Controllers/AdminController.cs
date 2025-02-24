@@ -1,4 +1,5 @@
-﻿using EzNutrition.Server.Data;
+﻿using AntDesign;
+using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Extension;
 using EzNutrition.Shared.Data.DTO;
@@ -21,14 +22,14 @@ namespace EzNutrition.Server.Controllers
         /// <summary>
         /// 添加角色
         /// </summary>
-        /// <param name="role"></param>
+        /// <param name="newRole"></param>
         /// <returns></returns>
         [HttpPost]
-        public async Task<IActionResult> AddRole([FromForm][Required] string role)
+        public async Task<IActionResult> AddRole([FromForm][Required] string newRole)
         {
             try
             {
-                var result = await roleManager.CreateAsync(new IdentityRole { Name = role });
+                var result = await roleManager.CreateAsync(new IdentityRole { Name = newRole });
                 return result.Succeeded ? Ok(new { message = "Role created successfully" }) : BadRequest(result.Errors);
             }
             catch (Exception ex)
@@ -44,7 +45,7 @@ namespace EzNutrition.Server.Controllers
         /// <param name="role"></param>
         /// <returns></returns>
         [HttpGet("{role?}")]
-        public async Task<IActionResult> GetUsers(string? role = default)
+        public async Task<IActionResult> Users(string? role = default)
         {
             if (role != default)
             {
@@ -56,6 +57,16 @@ namespace EzNutrition.Server.Controllers
                 logger.LogInformation("获取所有用户列表");
                 return Ok(userManager.Users);
             }
+        }
+
+        /// <summary>
+        /// 获取角色列表
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<IActionResult> Roles()
+        {
+            return Ok(await roleManager.Roles.Select(x => x.Name).ToListAsync());
         }
 
         /// <summary>
@@ -226,6 +237,119 @@ namespace EzNutrition.Server.Controllers
         {
             var x = await applicationDbContext.ProfessionalCertificationRequests.AsNoTracking().Select(x => x.ToDto()).ToListAsync();
             return Ok(x);
+        }
+
+        /// <summary>
+        /// 根据 Ticket 请求上传的图片，Ticket 为文件名前缀（扩展名不可知）
+        /// </summary>
+        /// <param name="ticket">上传图片的 Ticket</param>
+        /// <returns>图片文件流</returns>
+        [HttpGet("{ticket}")]
+        public IActionResult CertificateImage([FromRoute] string ticket)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(ticket))
+                {
+                    return BadRequest("Ticket 不能为空");
+                }
+
+                var tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
+                if (!Directory.Exists(tempFolder))
+                {
+                    Directory.CreateDirectory(tempFolder);
+                }
+
+                // 在 TempUploads 文件夹中查找以 ticket 为前缀的文件
+                var files = Directory.GetFiles(tempFolder, ticket + ".*");
+                if (files == null || files.Length == 0)
+                {
+                    logger.LogWarning("未找到 Ticket {Ticket} 对应的文件", ticket);
+                    return NotFound("未找到对应文件");
+                }
+
+                // 默认取第一个匹配的文件
+                var filePath = files[0];
+                var ext = Path.GetExtension(filePath).ToLowerInvariant();
+
+                // 根据扩展名设置 MIME 类型
+                string contentType = ext switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    _ => "application/octet-stream"
+                };
+
+                var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return File(fileStream, contentType);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "根据 Ticket {Ticket} 获取文件失败", ticket);
+                return StatusCode(500, "服务器内部错误");
+            }
+        }
+
+        /// <summary>
+        /// 更新用户专业认证请求
+        /// </summary>
+        /// <param name="dto">专业认证请求 DTO</param>
+        /// <returns></returns>
+        [HttpPut]
+        public async Task<IActionResult> UpdateRequest([FromBody] ProfessionalCertificationRequestDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                // 根据 DTO 中的 Id 查找数据库中的对象
+                var request = await applicationDbContext.ProfessionalCertificationRequests.FindAsync(dto.Id);
+                if (request == null)
+                {
+                    logger.LogWarning("更新失败：请求 {RequestId} 不存在", dto.Id);
+                    return NotFound("请求不存在");
+                }
+                var ticket = request.CertificateTicket;
+
+                // 更新各属性
+                request.Status = dto.Status;
+                request.ProcessedTime = DateTime.Now;
+                request.ProcessDetails = dto.ProcessDetails;
+                request.Remarks = dto.Remarks;
+                request.CertificateTicket = dto.Status == RequestStatus.Pending ? dto.CertificateTicket : null;
+                // 保存更改
+                await applicationDbContext.SaveChangesAsync();
+
+                if (dto.Status != RequestStatus.Pending && ticket is not null)
+                {
+                    try
+                    {
+                        var tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
+                        if (!Directory.Exists(tempFolder))
+                        {
+                            Directory.CreateDirectory(tempFolder);
+                        }
+
+                        // 在 TempUploads 文件夹中查找以 ticket 为前缀的文件
+                        var files = Directory.GetFiles(tempFolder, ticket.ToString() + ".*");
+                        files?.ForEach(System.IO.File.Delete);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "根据 Ticket {Ticket} 获取文件失败", ticket);
+                    }
+
+                }
+                return Ok(new { message = "更新成功" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "更新请求 {RequestId} 出现异常", dto.Id);
+                return StatusCode(500, "更新请求时发生错误");
+            }
         }
     }
 }

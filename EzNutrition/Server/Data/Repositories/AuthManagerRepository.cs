@@ -72,7 +72,24 @@ namespace EzNutrition.Server.Data.Repositories
                     throw new Exception("failed to create Physician role");
                 }
             }
-
+            if (await roleManager.FindByNameAsync("Nutritionist") == default)
+            {
+                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Nutritionist" });
+                if (!x.Succeeded)
+                {
+                    logger.LogError("创建Nutritionist角色失败");
+                    throw new Exception("failed to create Nutritionist role");
+                }
+            }
+            if (await roleManager.FindByNameAsync("RD") == default)
+            {
+                var x = await roleManager.CreateAsync(new IdentityRole { Name = "RD" });
+                if (!x.Succeeded)
+                {
+                    logger.LogError("创建RD角色失败");
+                    throw new Exception("failed to create RD role");
+                }
+            }
             if (await roleManager.FindByNameAsync("Epiman") == default)
             {
                 var x = await roleManager.CreateAsync(new IdentityRole { Name = "Epiman" });

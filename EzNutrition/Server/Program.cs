@@ -48,6 +48,7 @@ namespace EzNutrition.Server
                 {
                     var auth = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
                     auth.Initialize().Wait();
+                    return;
                 }
             }
 
