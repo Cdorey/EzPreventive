@@ -1,11 +1,10 @@
-﻿using EzNutrition.Server.Data;
-using EzNutrition.Server.Data.Repositories;
+﻿using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Services;
 using EzNutrition.Shared.Data.DTO;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
@@ -113,39 +112,6 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 提交专业身份审核请求
-        /// </summary>
-        /// <param name="professionalIdentityDto"></param>
-        /// <returns></returns>
-        [Authorize]
-        [HttpPost]
-        public async Task<IActionResult> CreateProfessionalIdentity([FromBody] ProfessionalIdentityDto professionalIdentityDto)
-        {
-            if (!ModelState.IsValid)
-            {
-                logger.LogWarning("Invalid professional identity creation attempt with data: {@ProfessionalIdentityDto}", professionalIdentityDto);
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                logger.LogInformation("User {User} attempting to create professional identity.", User.Identity?.Name);
-                var result = await authManagerRepository.CreateProfessionalIdentityRequest(professionalIdentityDto, User);
-                logger.LogInformation("Professional identity created successfully for user {User}.", User.Identity?.Name);
-                return Ok(new
-                {
-                    UploadTicket = result,
-                    Message = "Professional identity request received successfully."
-                });
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Error occurred while creating professional identity for user {User}.", User.Identity?.Name);
-                return BadRequest(e.Message);
-            }
-        }
-
-        /// <summary>
         /// 根据 uploadTicket 上传证件照片
         /// </summary>
         [HttpPost("{uploadTicket}")]
@@ -196,14 +162,5 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest(e.Message);
             }
         }
-
-        [Authorize]
-        [HttpGet]
-        public IActionResult Profile()
-        {
-            logger.LogInformation("User {User} accessed profile.", User.Identity?.Name);
-            return Ok();
-        }
-
     }
 }

@@ -272,10 +272,17 @@ namespace EzNutrition.Server.Data.Repositories
         /// <exception cref="Exception"></exception>
         public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, ClaimsPrincipal user)
         {
-            var userIdentiy = await userManager.GetUserAsync(user);
-            return userIdentiy == null
-                ? throw new Exception("用户未找到")
-                : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
+            if (user.Identity?.IsAuthenticated is true && user.Identity.Name is not null)
+            {
+                var userIdentiy = await userManager.FindByNameAsync(user.Identity.Name);
+                return userIdentiy == null
+                    ? throw new Exception("用户未找到")
+                    : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
+            }
+            else
+            {
+                throw new Exception("用户未登录");
+            }
         }
 
         /// <summary>

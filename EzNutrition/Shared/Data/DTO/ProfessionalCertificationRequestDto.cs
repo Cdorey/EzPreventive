@@ -1,4 +1,6 @@
-﻿namespace EzNutrition.Shared.Data.DTO
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace EzNutrition.Shared.Data.DTO
 {
     /// <summary>
     /// 用户专业认证请求的 DTO 定义
@@ -22,8 +24,11 @@
     /// </summary>
     public enum RequestStatus
     {
+        [Display(Name = "待审核")]
         Pending,   // 待审核
+        [Display(Name = "已通过")]
         Approved,  // 已通过
+        [Display(Name = "拒绝")]
         Rejected   // 拒绝
     }
 }

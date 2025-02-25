@@ -12,23 +12,42 @@
         <span>首页</span>
     </MenuItem>
     <AuthorizeView>
-        <SubMenu Key="maintreatments" Title="门诊咨询">
-            <MenuItem OnClick="OpenArchive">新建</MenuItem>
-            <MenuItemGroup Title="已诊对象">
-                @foreach (var archive in ArchiveManager)
-                {
-                    <MenuItem RouterLink="@($"maintreatment/{archive.Key}")">@(string.IsNullOrWhiteSpace(archive.Value.Client.Name) ? archive.Key : archive.Value.Client.Name)</MenuItem>
-                }
-            </MenuItemGroup>
+        <SubMenu Key="maintreatments">
+            <TitleTemplate>
+                <Icon Type="schedule" Theme="IconThemeType.Outline" />
+                <span>门诊咨询</span>
+            </TitleTemplate>
+            <ChildContent>
+                <MenuItem OnClick="OpenArchive">新建</MenuItem>
+                <MenuItemGroup>
+                    <TitleTemplate>
+                        <Icon Type="read" Theme="IconThemeType.Outline" />
+                        <span>已诊对象</span>
+                    </TitleTemplate>
+                    <ChildContent>
+                        @foreach (var archive in ArchiveManager)
+                        {
+                            <MenuItem RouterLink="@($"maintreatment/{archive.Key}")">@(string.IsNullOrWhiteSpace(archive.Value.Client.Name) ? archive.Key : archive.Value.Client.Name)</MenuItem>
+                        }
+                    </ChildContent>
+                </MenuItemGroup>
+            </ChildContent>
         </SubMenu>
         <MenuItem RouterLink="drisinsights">
             <Icon Type="medicine-box" Theme="IconThemeType.Outline" />
             <span>DRIs见解</span>
         </MenuItem>
+        <MenuItem RouterLink="usercenter">
+            <Icon Type="user" Theme="IconThemeType.Outline" />
+            <span>用户中心</span>
+        </MenuItem>
     </AuthorizeView>
     <AuthorizeView Policy="@PolicyList.Admin">
         <Authorized>
-            <MenuItem RouterLink="administrators">站点管理</MenuItem>
+            <MenuItem RouterLink="administrators">
+                <Icon Type="key" Theme="IconThemeType.Outline" />
+                <span>站点管理</span>
+            </MenuItem>
         </Authorized>
     </AuthorizeView>
 </Menu>

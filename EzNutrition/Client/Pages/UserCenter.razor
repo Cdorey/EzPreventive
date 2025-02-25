@@ -1,0 +1,208 @@
+﻿@using EzNutrition.Client.Models;
+@using EzNutrition.Client.Services;
+@using EzNutrition.Shared.Data.DTO;
+@inject IHttpClientFactory HttpClientFactory
+@inject IMessageService Message
+@page "/usercenter"
+<Title Level="1">用户中心</Title>
+<AuthorizeView>
+    <Authorized>
+        @if (UserInfo is not null)
+        {
+            <GridRow Gutter="(16,16)">
+                <GridCol Xs="24" Lg="12">
+                    <Descriptions Title="@UserInfo.UserName" Bordered Column="2">
+                        <DescriptionsItem Title="邮箱">@UserInfo.Email</DescriptionsItem>
+                        <DescriptionsItem Title="手机号码">@UserInfo.PhoneNumber</DescriptionsItem>
+                        <DescriptionsItem Title="UID">@UserInfo.UserId</DescriptionsItem>
+                        <DescriptionsItem Title="有效角色">
+                            @foreach (var role in UserInfo.Roles)
+                            {
+                                @role <br />
+                            }
+                        </DescriptionsItem>
+                    </Descriptions>
+                    @* <Button OnClick="GetProfile">刷新</Button> *@
+                </GridCol>
+                @if (UserInfo.Claims.Count > 0)
+                {
+                    <GridCol Xs="24" Lg="12">
+                        <Descriptions Title="认证声明" Bordered Column="2">
+                            @foreach (var claim in UserInfo.Claims)
+                            {
+                                <DescriptionsItem Title="@($"有效声明（{claim.Type}）")">@claim.Value</DescriptionsItem>
+                            }
+                        </Descriptions>
+                    </GridCol>
+                }
+                <GridCol Xs="24">
+                    <Table DataSource="ProfessionalCertificationRequestDtos">
+                        <TitleTemplate>
+                            <Flex Justify="FlexJustify.SpaceBetween" Gap="@("10")">
+                                <Title Level="3">专业资质认证申请记录</Title>
+                                <Button Type="ButtonType.Primary" OnClick="@(()=> createCertificationRequestDialog = true)">提交新的申请</Button>
+                            </Flex>
+                        </TitleTemplate>
+                        <ChildContent Context="requests">
+                            <PropertyColumn Property="r=>r.RequestTime" Title="申请时间" />
+                            <PropertyColumn Property="r=>r.IdentityType" Title="申请类别" />
+                            <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间" />
+                            <PropertyColumn Property="r=>r.ProcessDetails" Title="审核备注" />
+                            <PropertyColumn Property="r=>r.Remarks" Title="认证备注" />
+                            <PropertyColumn Property="r=>r.Status" Title="审核结果">
+                                <EnumSelect TEnum="RequestStatus" Value="@requests.Status" Disabled />
+                            </PropertyColumn>
+                        </ChildContent>
+                    </Table>
+                </GridCol>
+            </GridRow>
+            <Modal Title="专业资质认证申请" @bind-Visible="@createCertificationRequestDialog" Width="1280" OnCancel="InitCertificationRequestDialog" OnOk="SubmitCertificationRequest" ConfirmLoading="@certificationRequestSending">
+                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
+            </Modal>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <Paragraph>尚未登录</Paragraph>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private bool createCertificationRequestDialog = false;
+    private UserInfoDto? UserInfo { get; set; }
+    private List<ProfessionalCertificationRequestDto> ProfessionalCertificationRequestDtos { get; set; } = [];
+
+    private ProfessionalIdentityDto professionalIdentityDto { get; set; } = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
+    private IBrowserFile? currentSelectedFile;
+    private bool certificationRequestSending = false;
+
+    private async Task SubmitCertificationRequest()
+    {
+        certificationRequestSending = true;
+        if (currentSelectedFile is null)
+        {
+            _ = Message.Error("请选择要上传的证明图片");
+            certificationRequestSending = false;
+            return;
+        }
+
+        _ = Message.Info("正在提交认证信息");
+        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        var response = await httpClient.PostAsJsonAsync("User/CreateProfessionalIdentity", professionalIdentityDto);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>();
+            if (result?.Success is not true)
+            {
+                _ = Message.Error(result?.Message ?? "认证信息提交失败");
+                certificationRequestSending = false;
+                return;
+            }
+
+            var upLoadTicket = result?.UploadTicket;
+            if (upLoadTicket is not null)
+            {
+                await UploadFile(upLoadTicket);
+                _ = Message.Success("认证信息提交成功");
+                InitCertificationRequestDialog();
+                await GetProfessionalIdentities();
+            }
+            else
+            {
+                _ = Message.Error("票据错误，图片上传失败，您的认证信息提交不完整");
+                InitCertificationRequestDialog();
+                await GetProfessionalIdentities();
+            }
+        }
+        else
+        {
+            var errorMsg = await response.Content.ReadAsStringAsync();
+            _ = Message.Error($"提交注册信息失败：{errorMsg}");
+            certificationRequestSending = false;
+        }
+    }
+
+    private async Task UploadFile(string uploadTicket)
+    {
+        if (currentSelectedFile is null)
+        {
+            _ = Message.Error("无法访问待上传的文件");
+            certificationRequestSending = false;
+            return;
+        }
+
+        // 限制文件大小（例如 45MB），以防止超出服务端限制
+        var maxAllowedSize = 45 * 1024 * 1024;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+
+            // 使用 StreamContent 包装文件流
+            var fileContent = new StreamContent(currentSelectedFile.OpenReadStream(maxAllowedSize));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(currentSelectedFile.ContentType);
+            // name 必须与后端 [FromForm] 的参数名称一致，这里为 certificateFile
+            content.Add(content: fileContent, name: "certificateFile", fileName: currentSelectedFile.Name);
+
+            // 发送 POST 请求到指定的 URL（将 uploadTicket 拼接到 URL 路径中）
+            using var httpClient = HttpClientFactory.CreateClient("Anonymous");
+            var uploadResponseMessage = await httpClient.PostAsync($"Auth/UploadCertificate/{uploadTicket}", content);
+            if (uploadResponseMessage.IsSuccessStatusCode)
+            {
+                _ = Message.Success("上传成功！");
+            }
+            else
+            {
+                var errorMsg = await uploadResponseMessage.Content.ReadAsStringAsync();
+                _ = Message.Error($"上传失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _ = Message.Error($"发生异常：{ex.Message}");
+            certificationRequestSending = false;
+        }
+
+    }
+
+    private void InitCertificationRequestDialog()
+    {
+        professionalIdentityDto = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
+        currentSelectedFile = null;
+        certificationRequestSending = false;
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        currentSelectedFile = e.File;
+    }
+
+    private async Task GetProfile()
+    {
+        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        UserInfo = await httpClient.GetFromJsonAsync<UserInfoDto>($"User/Profile");
+    }
+
+    private async Task GetProfessionalIdentities()
+    {
+        ProfessionalCertificationRequestDtos.Clear();
+        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        try
+        {
+            var x = await httpClient.GetFromJsonAsync<List<ProfessionalCertificationRequestDto>>($"User/ProfessionalIdentity");
+            if (x?.Count > 0)
+            {
+                ProfessionalCertificationRequestDtos.AddRange(x);
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfile();
+        await GetProfessionalIdentities();
+        await base.OnInitializedAsync();
+    }
+}
