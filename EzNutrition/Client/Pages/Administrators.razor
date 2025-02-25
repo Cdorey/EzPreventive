@@ -341,10 +341,17 @@
         if (userInfoExtension is null)
             return;
 
+        if (string.IsNullOrWhiteSpace(userInfoExtension.RealName))
+        {
+            Message.Equals("真实姓名不能为空");
+            return;
+        }
+
+
         //根据Require验证UserInfoExtension模型是否合法
         userInfoDto.Roles.Add(requestDto.IdentityType);
         userInfoDto.Claims.Add(new UserClaimDto { Type = "InstitutionName", Value = requestDto.InstitutionName });
-        userInfoDto.Claims.Add(new UserClaimDto { Type = "IdentityType", Value = userInfoExtension.RealName });
+        userInfoDto.Claims.Add(new UserClaimDto { Type = "RealName", Value = userInfoExtension.RealName });
 
         if (userInfoExtension.PracticingType is not null)
         {

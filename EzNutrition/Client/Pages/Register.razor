@@ -25,6 +25,10 @@ else
         </Indicator>
         <ChildContent>
             <Title Level="2">基本信息</Title>
+            @if (friendlyRegistError is not null)
+            {
+                <Alert Message=@friendlyRegistError Type="AlertType.Error" Closable AfterClose="@(()=>friendlyRegistError=null)" Style="margin-bottom:16px" />
+            }
             <Form Model="@registrationDto" ValidateOnChange>
                 <FormItem>
                     <Input @bind-Value="@context.UserName" />
@@ -53,6 +57,7 @@ else
 
 @code {
     string identityType = string.Empty;
+    string? friendlyRegistError = null;
 
     bool loading = false;
     bool finished = false;
@@ -76,7 +81,8 @@ else
         {
             if (currentSelectedFile is null)
             {
-                await Message.Error("请选择要上传的证明图片");
+                friendlyRegistError = "请选择要上传的证明图片";
+                _ = Message.Error("请选择要上传的证明图片");
                 loading = false;
                 return;
             }
@@ -86,7 +92,7 @@ else
             }
         }
 
-        await Message.Info("正在提交注册信息");
+        _ = Message.Info("正在提交注册信息");
         using var httpClient = HttpClientFactory.CreateClient("Anonymous");
         var response = await httpClient.PostAsJsonAsync("Auth/Register", registrationDto);
         if (response.IsSuccessStatusCode)
@@ -94,7 +100,8 @@ else
             var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>();
             if (result?.Success is not true)
             {
-                await Message.Error(result?.Message ?? "注册失败");
+                friendlyRegistError = result?.Message;
+                _ = Message.Error(result?.Message ?? "注册失败");
                 loading = false;
                 return;
             }
@@ -106,14 +113,15 @@ else
             }
             else
             {
-                await Message.Success("注册成功");
+                _ = Message.Success("注册成功");
                 finished = true;
             }
         }
         else
         {
             var errorMsg = await response.Content.ReadAsStringAsync();
-            await Message.Error($"提交注册信息失败：{errorMsg}");
+            friendlyRegistError = $"提交注册信息失败：{errorMsg}";
+            _ = Message.Error($"提交注册信息失败：{errorMsg}");
             loading = false;
         }
     }
@@ -122,7 +130,8 @@ else
     {
         if (currentSelectedFile is null)
         {
-            await Message.Error("待上传的文件丢失");
+            friendlyRegistError = "无法访问待上传的文件";
+            _ = Message.Error("无法访问待上传的文件");
             loading = false;
             return;
         }
@@ -144,19 +153,21 @@ else
             var uploadResponseMessage = await httpClient.PostAsync($"Auth/UploadCertificate/{uploadTicket}", content);
             if (uploadResponseMessage.IsSuccessStatusCode)
             {
-                await Message.Success("上传成功！");
-                await Message.Success("注册成功");
+                _ = Message.Success("上传成功！");
+                _ = Message.Success("注册成功");
                 finished = true;
             }
             else
             {
                 var errorMsg = await uploadResponseMessage.Content.ReadAsStringAsync();
-                await Message.Error($"上传失败：{errorMsg}");
+                friendlyRegistError = $"上传失败：{errorMsg}";
+                _ = Message.Error($"上传失败：{errorMsg}");
             }
         }
         catch (Exception ex)
         {
-            await Message.Error($"发生异常：{ex.Message}");
+            friendlyRegistError = $"发生异常：{ex.Message}";
+            _ = Message.Error($"发生异常：{ex.Message}");
             loading = false;
         }
 
