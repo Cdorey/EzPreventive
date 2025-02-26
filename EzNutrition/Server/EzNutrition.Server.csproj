@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\EzNutrition.AiAgency\EzNutrition.AiAgency.csproj" />
     <ProjectReference Include="..\Client\EzNutrition.Client.csproj" />
     <ProjectReference Include="..\Shared\EzNutrition.Shared.csproj" />
   </ItemGroup>

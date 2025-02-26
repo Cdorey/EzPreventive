@@ -14,6 +14,13 @@ namespace EzNutrition.DataInserter
     {
         static void Main(string[] args)
         {
+            AiAgency.Test.TestIt().Wait();
+            Console.ReadLine();
+        }
+
+
+        public static void InserterUsage()
+        {
             Console.WriteLine("ConnectionString:");
             var connectionString = Console.ReadLine();
             ////var optBuilder = new DbContextOptionsBuilder<EzNutritionDbContext>();
@@ -39,6 +46,7 @@ namespace EzNutrition.DataInserter
                 Description = notice,
             });
             db.SaveChanges();
+
         }
 
         static string coverLetter = @"# EzPreventive

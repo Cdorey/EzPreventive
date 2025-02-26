@@ -1,4 +1,6 @@
-﻿namespace EzNutrition.Shared.Data.DTO
+﻿using System.Globalization;
+
+namespace EzNutrition.Shared.Data.DTO
 {
     public class UserInfoDto
     {

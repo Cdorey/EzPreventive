@@ -14,6 +14,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzAttachedGUI", "EzAttachedGUI\EzAttachedGUI.csproj", "{2761653A-CD53-40ED-AFC0-DB5ABD03FFDE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.DataInserter", "EzNutrition.DataInserter\EzNutrition.DataInserter.csproj", "{00EAF052-1AB5-42FC-A6FD-5484548ADD01}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3} = {7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.AiAgency", "EzNutrition.AiAgency\EzNutrition.AiAgency.csproj", "{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{1312F350-6925-4B07-9C4B-8166AE318799} = {1312F350-6925-4B07-9C4B-8166AE318799}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +53,10 @@ Global
 		{00EAF052-1AB5-42FC-A6FD-5484548ADD01}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00EAF052-1AB5-42FC-A6FD-5484548ADD01}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00EAF052-1AB5-42FC-A6FD-5484548ADD01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
