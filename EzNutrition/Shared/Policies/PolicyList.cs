@@ -32,7 +32,7 @@ namespace EzNutrition.Shared.Policies
                             configurePolicy.RequireRole(policy.Name);
                             break;
                         case PolicyType.Permission:
-                            configurePolicy.RequireClaim(policy.GetCustomAttribute<PolicyDefinedAttribute>()?.PolicyType.ToString() ?? throw new NullReferenceException(), policy.Name);
+                            configurePolicy.RequireClaim(nameof(PolicyType.Permission), policy.Name);
                             break;
                         default:
                             break;

@@ -1,0 +1,92 @@
+﻿@page "/advice"
+@using System.Text
+@using System.Text.Json
+@using System.Net.Http.Headers
+@using EzNutrition.Shared.Data.DTO.PromptDto
+@inject IHttpClientFactory HttpClientFactory
+
+<h3>Advice</h3>
+<Button OnClick="GenerateAsync" AutoLoading>测试生成</Button>
+<Title>助理的思索</Title>
+@((MarkupString)Markdig.Markdown.ToHtml(reasoning))
+<Title>助理的膳食建议草稿</Title>
+@((MarkupString)Markdig.Markdown.ToHtml(content))
+@code {
+    private string reasoning = string.Empty;
+
+    private string content = string.Empty;
+
+    private async Task GenerateAsync()
+    {
+        var promptDto = new PromptDto
+            {
+                PatientInfo = new PatientInfo
+                {
+                    Age = 30,
+                    BMI = 29,
+                    Gender = "男",
+                    PAL = 1.4,
+                },
+                DialogConfiguration = new DialogConfiguration(),
+                DietaryRecallSurvey = new DietaryRecallSurvey
+                {
+                    DeficientNutrients = ["VitB", "VitC"],
+                    ExcessiveNutrients = ["VitA", "VitD"],
+                },
+                ClinicalInfo = new ClinicalInfo
+                {
+                    Subjective = "",
+                    Objective = "",
+                    Assessment = "急性胰腺炎康复期",
+                    Plan = ""
+                }
+            };
+        // 1. 构造 POST 请求
+        var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
+        request.SetBrowserResponseStreamingEnabled(true); // 启用流式
+
+        // 2. 将 promptDto 序列化为 JSON，放到 Body
+        var json = JsonSerializer.Serialize(promptDto);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        // 3. 通过 HttpClientFactory 获取客户端
+        var httpClient = HttpClientFactory.CreateClient("Authorize");
+
+        // 4. 发送请求并使用流模式读取响应
+        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode(); // 如果希望在出错时抛异常可用
+
+        using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        string? line;
+        // 5. 循环读取 SSE 流，直到读到 [DONE] 或结束
+        while ((line = await reader.ReadLineAsync()) is not null)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            if (line.StartsWith("data: "))
+            {
+                var jsonLine = line.Substring("data: ".Length).Trim();
+                if (jsonLine == "[DONE]")
+                    break;
+
+                var chunk = JsonSerializer.Deserialize<AiResultDto>(jsonLine);
+                if (chunk != null)
+                {
+                    if (chunk.IsReasoningContent)
+                    {
+                        reasoning += chunk.Content;
+                    }
+                    else
+                    {
+                        content += chunk.Content;
+                    }
+                    StateHasChanged();
+                }
+            }
+        }
+
+    }
+}

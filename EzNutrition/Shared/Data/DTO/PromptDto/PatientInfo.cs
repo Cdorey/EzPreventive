@@ -2,10 +2,12 @@
 {
     public class PatientInfo
     {
-        public string? Gender { get; set; }
+        public required string Gender { get; set; }
 
-        public long Age { get; set; }
+        public required long Age { get; set; }
 
-        public double BMI { get; set; }
+        public required double BMI { get; set; }
+
+        public required double PAL { get; set; }
     }
 }

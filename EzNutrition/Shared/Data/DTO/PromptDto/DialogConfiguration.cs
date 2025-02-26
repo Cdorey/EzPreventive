@@ -4,7 +4,7 @@
     {
         public SecurityNotes SecurityNotes { get; set; } = new SecurityNotes();
 
-        public string Purpose { get; set; } = "生成未来1个月内的饮食建议，使用自然语言生成答案";
+        public string Purpose { get; set; } = "生成未来1个月内的饮食建议，使用自然语言生成答案，并提醒AI生成的信息务必仔细检查";
 
         public string Role { get; set; } = "你是营养科的医生助理";
 

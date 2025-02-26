@@ -27,15 +27,15 @@ namespace EzNutrition.Server
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
             builder.Services.AddTransient<JwtService>();
-            builder.Services.AddTransient<DiseaseRepository>();
-            builder.Services.AddTransient<AdviceRepository>();
             builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
             builder.Services.AddTransient<AuthManagerRepository>();
             builder.Services.AddTransient<IEmailSender<IdentityUser>, SmtpEmailSender>();
             builder.Services.AddTransient<FoodNutritionValueRepository>();
             builder.Services.AddTransient<IGenerativeAiProvider, TencentAgency>();
+
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(nameof(EmailSettings)));
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));
+            builder.Services.Configure<TencentAgencyConfig>(builder.Configuration.GetSection(nameof(TencentAgencyConfig)));
 
 
             var app = builder.Build();

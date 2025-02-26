@@ -13,10 +13,10 @@ namespace EzNutrition.Server.Services
 {
     public class JwtService(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IOptions<JwtSettings> options)
     {
-        public async Task<string> GenerateJwtToken(string userName)
-        {
-            return await GenerateJwtToken(await userManager.FindByNameAsync(userName));
-        }
+        //public async Task<string> GenerateJwtToken(string userName)
+        //{
+        //    return await GenerateJwtToken(await userManager.FindByNameAsync(userName));
+        //}
 
         public async Task<string> GenerateJwtToken(IdentityUser user)
         {

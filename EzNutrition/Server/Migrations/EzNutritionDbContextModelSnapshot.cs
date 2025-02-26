@@ -22,40 +22,6 @@ namespace EzNutrition.Server.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("AdviceDisease", b =>
-                {
-                    b.Property<int>("AdvicesAdviceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DiseasesDiseaseId")
-                        .HasColumnType("int");
-
-                    b.HasKey("AdvicesAdviceId", "DiseasesDiseaseId");
-
-                    b.HasIndex("DiseasesDiseaseId");
-
-                    b.ToTable("AdviceDisease");
-                });
-
-            modelBuilder.Entity("EzNutrition.Shared.Data.Entities.Advice", b =>
-                {
-                    b.Property<int>("AdviceId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdviceId"));
-
-                    b.Property<string>("Content")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("int");
-
-                    b.HasKey("AdviceId");
-
-                    b.ToTable("Advices");
-                });
-
             modelBuilder.Entity("EzNutrition.Shared.Data.Entities.DietaryReferenceIntakeValue", b =>
                 {
                     b.Property<int>("DietaryReferenceIntakeValueId")
@@ -98,25 +64,6 @@ namespace EzNutrition.Server.Migrations
                     b.HasKey("DietaryReferenceIntakeValueId");
 
                     b.ToTable("DRIs");
-                });
-
-            modelBuilder.Entity("EzNutrition.Shared.Data.Entities.Disease", b =>
-                {
-                    b.Property<int>("DiseaseId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DiseaseId"));
-
-                    b.Property<string>("FriendlyName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ICD10")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("DiseaseId");
-
-                    b.ToTable("Diseases");
                 });
 
             modelBuilder.Entity("EzNutrition.Shared.Data.Entities.EER", b =>
@@ -243,21 +190,6 @@ namespace EzNutrition.Server.Migrations
                     b.HasKey("NutrientId");
 
                     b.ToTable("Nutrients");
-                });
-
-            modelBuilder.Entity("AdviceDisease", b =>
-                {
-                    b.HasOne("EzNutrition.Shared.Data.Entities.Advice", null)
-                        .WithMany()
-                        .HasForeignKey("AdvicesAdviceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("EzNutrition.Shared.Data.Entities.Disease", null)
-                        .WithMany()
-                        .HasForeignKey("DiseasesDiseaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("EzNutrition.Shared.Data.Entities.FoodNutrientValue", b =>

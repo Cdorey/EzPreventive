@@ -13,9 +13,9 @@ namespace EzNutrition.Server.Data
 
         //public DbSet<Person>? People { get; set; }
 
-        public DbSet<Advice>? Advices { get; set; }
+        //public DbSet<Advice>? Advices { get; set; }
 
-        public DbSet<Disease>? Diseases { get; set; }
+        //public DbSet<Disease>? Diseases { get; set; }
 
         #region DRIs
         public DbSet<EER>? EERs { get; set; }

@@ -2,10 +2,11 @@
 using TencentCloud.Lkeap.V20240522;
 using TencentCloud.Lkeap.V20240522.Models;
 using EzNutrition.Shared.Data.DTO.PromptDto;
+using Microsoft.Extensions.Options;
 
 namespace EzNutrition.AiAgency
 {
-    public class TencentAgency(TencentAgencyConfig config) : IGenerativeAiProvider
+    public class TencentAgency(IOptions<TencentAgencyConfig> options) : IGenerativeAiProvider
     {
         public string ProviderName => "Tencent Cloud LKEAP";
 
@@ -15,8 +16,8 @@ namespace EzNutrition.AiAgency
 
         private readonly LkeapClient client = new(new()
         {
-            SecretId = config.SecretId,
-            SecretKey = config.SecretKey
+            SecretId = options.Value.SecretId,
+            SecretKey = options.Value.SecretKey
         }, "ap-shanghai");
 
         private class AiResponseChunk
@@ -65,11 +66,7 @@ namespace EzNutrition.AiAgency
                     {
                         foreach (var choice in chunk.Choices)
                         {
-                            yield return new AiResultDto
-                            {
-                                IsReasoningContent = choice.Delta?.Content is null,
-                                Content = choice.Delta?.Content ?? choice.Delta?.ReasoningContent ?? string.Empty
-                            };
+                            yield return new AiResultDto(choice.Delta?.Content ?? choice.Delta?.ReasoningContent ?? string.Empty, choice.Delta?.Content is null);
                         }
                     }
                 }

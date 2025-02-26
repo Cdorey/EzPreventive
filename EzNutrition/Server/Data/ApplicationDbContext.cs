@@ -11,5 +11,7 @@ namespace EzNutrition.Server.Data
         public DbSet<Notice> Notices { get; set; }
 
         public DbSet<ProfessionalCertificationRequest> ProfessionalCertificationRequests { get; set; }
+
+        public DbSet<PrescriptionGenerateRequest> PrescriptionGenerateRequests { get; set; }
     }
 }
