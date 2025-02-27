@@ -41,11 +41,27 @@
                 </Table>
             </TabPane>
             <TabPane Tab="角色列表">
-                <AntList Bordered DataSource="RoleList">
+                <AntList Bordered DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical">
                     <Header>角色名称</Header>
                     <ChildContent Context="item">
                         <ListItem>
-                            @item
+                            <ChildContent>
+                                @($"角色: {item.RoleName}")
+                            </ChildContent>
+                            <Extra>
+                                @foreach (var claim in item.Claims)
+                                {
+                                    <div class="claim-row" style="display:flex; align-items:center; margin-bottom:8px;">
+                                        <Input placeholder="Claim Type" @bind-Value="claim.Type" Style="width:200px; margin-right:8px;" />
+                                        <Input placeholder="Claim Value" @bind-Value="claim.Value" Style="width:200px; margin-right:8px;" />
+                                        <Button Danger OnClick="@(x => RemoveRoleClaim(claim,item))" Type="ButtonType.Default">删除</Button>
+                                    </div>
+                                }
+                                <div style="margin-top:8px;">
+                                    <Button OnClick="@(x=>AddRoleClaim(item))" Type="ButtonType.Primary" Style="margin-right:8px;">添加 Claim</Button>
+                                    <Button OnClick="@(x=>SaveRoleClaims(item))" Type="ButtonType.Primary">保存修改</Button>
+                                </div>
+                            </Extra>
                         </ListItem>
                     </ChildContent>
                     <Footer>
@@ -84,7 +100,7 @@
                         <FormItem Label="角色">
                             @foreach (var role in RoleList)
                             {
-                                <Checkbox Value="@userDtoContext.Roles.Contains(role)" Label="@role" OnChange="@((e) => ToggleRole(e, role))" />
+                                <Checkbox Value="@userDtoContext.Roles.Contains(role.RoleName)" Label="@role.RoleName" OnChange="@((e) => ToggleRole(e, role.RoleName))" />
                             }
                         </FormItem>
 
@@ -178,7 +194,7 @@
 </AuthorizeView>
 @code {
     private List<UserDto> UserList { get; } = [];
-    private List<string> RoleList { get; } = [];
+    private List<RoleClaimsDto> RoleList { get; } = [];
     private string newRole = string.Empty;
     private UserInfoDto? userInfoDto;
     // 保存图片的 Base64 字符串
@@ -284,8 +300,18 @@
     {
         RoleList.Clear();
         using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var getRes = await httpClient.GetFromJsonAsync<List<string>>($"Admin/Roles");
-        RoleList.AddRange(getRes!);
+        var roleNames = await httpClient.GetFromJsonAsync<List<string>>($"Admin/Roles");
+        if (roleNames?.Count > 0)
+        {
+            foreach (var roleName in roleNames)
+            {
+                var roleClaims = await httpClient.GetFromJsonAsync<RoleClaimsDto>($"Admin/RoleClaims/{roleName}");
+                if (roleClaims is not null)
+                {
+                    RoleList.Add(roleClaims);
+                }
+            }
+        }
     }
 
     private async Task GetCertificationRequestList()
@@ -350,24 +376,24 @@
 
         //根据Require验证UserInfoExtension模型是否合法
         userInfoDto.Roles.Add(requestDto.IdentityType);
-        userInfoDto.Claims.Add(new UserClaimDto { Type = "InstitutionName", Value = requestDto.InstitutionName });
-        userInfoDto.Claims.Add(new UserClaimDto { Type = "RealName", Value = userInfoExtension.RealName });
+        userInfoDto.Claims.Add(new ClaimDto { Type = "InstitutionName", Value = requestDto.InstitutionName });
+        userInfoDto.Claims.Add(new ClaimDto { Type = "RealName", Value = userInfoExtension.RealName });
 
         if (userInfoExtension.PracticingType is not null)
         {
-            userInfoDto.Claims.Add(new UserClaimDto { Type = "PracticingType", Value = userInfoExtension.PracticingType });
+            userInfoDto.Claims.Add(new ClaimDto { Type = "PracticingType", Value = userInfoExtension.PracticingType });
         }
         if (userInfoExtension.PracticingScope is not null)
         {
-            userInfoDto.Claims.Add(new UserClaimDto { Type = "PracticingScope", Value = userInfoExtension.PracticingScope });
+            userInfoDto.Claims.Add(new ClaimDto { Type = "PracticingScope", Value = userInfoExtension.PracticingScope });
         }
         if (userInfoExtension.Major is not null)
         {
-            userInfoDto.Claims.Add(new UserClaimDto { Type = "Major", Value = userInfoExtension.Major });
+            userInfoDto.Claims.Add(new ClaimDto { Type = "Major", Value = userInfoExtension.Major });
         }
         if (userInfoExtension.PrimarySubject is not null)
         {
-            userInfoDto.Claims.Add(new UserClaimDto { Type = "PrimarySubject", Value = userInfoExtension.PrimarySubject });
+            userInfoDto.Claims.Add(new ClaimDto { Type = "PrimarySubject", Value = userInfoExtension.PrimarySubject });
         }
 
         requestDto.Status = RequestStatus.Approved;
@@ -478,7 +504,15 @@
     {
         if (userInfoDto is not null)
         {
-            userInfoDto.Claims.Add(new UserClaimDto { Type = string.Empty, Value = string.Empty });
+            userInfoDto.Claims.Add(new ClaimDto { Type = string.Empty, Value = string.Empty });
+        }
+    }
+
+    private void AddRoleClaim(RoleClaimsDto dto)
+    {
+        if (dto is not null)
+        {
+            dto.Claims.Add(new ClaimDto { Type = string.Empty, Value = string.Empty });
         }
     }
 
@@ -519,13 +553,55 @@
     /// 删除指定索引的 Claim
     /// </summary>
     /// <param name="claim"></param>
-    private void RemoveClaim(UserClaimDto claim)
+    private void RemoveClaim(ClaimDto claim)
     {
         if (userInfoDto is not null)
         {
             userInfoDto.Claims.Remove(claim);
         }
     }
+
+    private void RemoveRoleClaim(ClaimDto claim, RoleClaimsDto role)
+    {
+        role.Claims.Remove(claim);
+    }
+
+    /// <summary>
+    /// 将当前角色的 Claims 更新到后端
+    /// </summary>
+    private async Task SaveRoleClaims(RoleClaimsDto roleClaimsDto)
+    {
+        if (roleClaimsDto == null)
+        {
+            await Message.Error("没有加载角色Claims");
+            return;
+        }
+
+        try
+        {
+            using var httpClient = HttpClientFactory.CreateClient("Authorize");
+            // 调用后端 PUT 接口，传入角色名称和更新后的 Claim 列表
+            var response = await httpClient.PutAsJsonAsync($"Admin/UpdateRoleClaims/{roleClaimsDto.RoleName}", roleClaimsDto.Claims);
+            if (response.IsSuccessStatusCode)
+            {
+                await Message.Success("角色Claims更新成功！");
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                await Message.Error($"角色Claims更新失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Message.Error($"更新角色Claims异常：{ex.Message}");
+        }
+        finally
+        {
+            await GetRoleList();
+        }
+    }
+
 
     private class UserInfoExtension
     {

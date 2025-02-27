@@ -12,7 +12,7 @@
 <Space Direction="SpaceDirection.Vertical" style="width: 100%;">
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
-        <SpaceItem>
+        <SpaceItem Style="width:100%">
             <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择食材原料" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
                 <ItemTemplate>
                     <span>@((context as Food).FriendlyName)</span>
@@ -21,7 +21,7 @@
                 </ItemTemplate>
             </Select>
         </SpaceItem>
-        <SpaceItem>
+        <SpaceItem Style="width:100%">
             <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
                 <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
                     @(context.Food.FriendlyCode)
@@ -43,7 +43,7 @@
                 </ActionColumn>
             </Table>
         </SpaceItem>
-        <SpaceItem>
+        <SpaceItem Style="width:100%">
             <Button Type="ButtonType.Primary" Block OnClick="Calculate"><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查，计算结果</Button>
         </SpaceItem>
     }

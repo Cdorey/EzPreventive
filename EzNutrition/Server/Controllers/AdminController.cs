@@ -70,6 +70,80 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
+        /// 获取指定角色的 Claim 列表
+        /// </summary>
+        /// <param name="roleName">角色名称</param>
+        /// <returns>包含角色名称和对应 Claim 列表的 DTO</returns>
+        [HttpGet("{roleName}")]
+        public async Task<IActionResult> RoleClaims(string roleName)
+        {
+            // 通过角色名称查找角色对象
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role == null)
+            {
+                return NotFound("Role not found");
+            }
+
+            // 通过 RoleManager 获取该角色的 Claims
+            // 注意：此方法依赖于你的角色存储实现，如果使用默认 IdentityRole，
+            // 可能需要扩展以支持角色 Claims。这里假设你的 RoleManager 支持 GetClaimsAsync。
+            var claims = await roleManager.GetClaimsAsync(role);
+
+            // 将 Identity中的 Claim 转换为 UserClaimDto 列表
+            var roleClaimsDto = new RoleClaimsDto
+            {
+                RoleName = roleName,
+                Claims = claims.Select(c => new ClaimDto { Type = c.Type, Value = c.Value }).ToList()
+            };
+
+            return Ok(roleClaimsDto);
+        }
+
+        /// <summary>
+        /// 更新指定角色的 Claim 列表
+        /// </summary>
+        /// <param name="roleName">角色名称</param>
+        /// <param name="newClaims">新的 Claim 列表</param>
+        /// <returns>更新结果</returns>
+        [HttpPut("{roleName}")]
+        public async Task<IActionResult> UpdateRoleClaims([FromRoute] string roleName, [FromBody] List<ClaimDto> newClaims)
+        {
+            // 查找角色
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role == null)
+            {
+                return NotFound("Role not found");
+            }
+
+            // 获取现有的 Claim 列表
+            var existingClaims = await roleManager.GetClaimsAsync(role);
+
+            // 移除所有现有 Claim
+            foreach (var claim in existingClaims)
+            {
+                var removeResult = await roleManager.RemoveClaimAsync(role, claim);
+                if (!removeResult.Succeeded)
+                {
+                    return BadRequest("Failed to remove existing claims");
+                }
+            }
+
+            // 添加新传入的 Claim
+            foreach (var claimDto in newClaims)
+            {
+                var claim = new Claim(claimDto.Type, claimDto.Value);
+                var addResult = await roleManager.AddClaimAsync(role, claim);
+                if (!addResult.Succeeded)
+                {
+                    return BadRequest($"Failed to add claim: {claimDto.Type}");
+                }
+            }
+
+            return Ok(new { Message = "Role claims updated successfully" });
+        }
+
+
+        /// <summary>
         /// 发布通知
         /// </summary>
         /// <param name="noticeDescription"></param>
@@ -119,7 +193,7 @@ namespace EzNutrition.Server.Controllers
                 Email = user.Email ?? string.Empty,
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
                 Roles = [.. roles],
-                Claims = [.. claims.Select(c => new UserClaimDto { Type = c.Type, Value = c.Value })]
+                Claims = [.. claims.Select(c => new ClaimDto { Type = c.Type, Value = c.Value })]
             };
             return Ok(dto);
         }

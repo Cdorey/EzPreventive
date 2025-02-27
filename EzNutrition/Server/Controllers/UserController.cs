@@ -43,7 +43,7 @@ namespace EzNutrition.Server.Controllers
                 Email = user.Email ?? string.Empty,
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
                 Roles = [.. roles],
-                Claims = [.. claims.Select(c => new UserClaimDto { Type = c.Type, Value = c.Value })]
+                Claims = [.. claims.Select(c => new ClaimDto { Type = c.Type, Value = c.Value })]
             };
             return Ok(dto);
 
