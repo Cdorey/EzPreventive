@@ -147,6 +147,8 @@ namespace EzNutrition.Client.Models
     public class AiGeneratedAdvice
     {
         public bool IsReady { get; set; } = false;
+        
+        public bool Sending { get; set; } = false;
 
         public string ReasoningContent { get; set; } = string.Empty;
 

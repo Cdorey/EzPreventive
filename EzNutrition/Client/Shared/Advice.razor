@@ -5,6 +5,7 @@
 @using EzNutrition.Client.Models.DietarySurvey
 @using EzNutrition.Shared.Data.DTO.PromptDto
 @using EzNutrition.Shared.Policies
+@using Markdig
 @inject IHttpClientFactory HttpClientFactory
 <AuthorizeView Policy="@PolicyList.Prescription">
     <Authorized>
@@ -14,28 +15,46 @@
             {
                 <Result Status="ResultStatus.Warning" Title="数据发送至第三方警示">
                     <Extra>
-                        <Paragraph>请求AI见解必须将以下数据发送给EzNutrition后端的AI代理，这些数据不可避免地会被安全审查日志和AI模型的供应商记录，请确定您的操作符合您所在地区的卫生行政部门的规定，AI生成的内容必须经过营养专业的医务人员审核，不构成任何医疗建议，也不附带任何明示或暗示的保证。</Paragraph>
-                        <Title Level="4">当前提供AI见解的AI代理</Title>
+                        <Title Level="4">免责声明</Title>
                         <Paragraph>
-                            @if (Environment is not null)
-                            {
-                                <Paragraph>模型的提供者：@Environment.ProviderName</Paragraph>
-                                <Paragraph>模型调用选择：@Environment.PlatformDetails</Paragraph>
-                                <Paragraph>模型生成参数：@Environment.AdditionalInfo</Paragraph>
-                            }
+                            请求AI见解必须将以下数据发送给EzNutrition后端的AI代理，这些数据不可避免地会被安全审查日志和AI模型的供应商记录。<br />
+                            请确定您的操作符合您所在地区的卫生行政部门的规定。<br />
+                            AI生成的内容必须经过营养专业的医务人员审核，不构成任何医疗建议，也不附带任何明示或暗示的保证。
                         </Paragraph>
-                        <Title Level="4">需要发送的数据</Title>
+
+                        <Divider />
+
+                        <Title Level="4">当前 AI 代理信息</Title>
+                        @if (Environment is not null)
+                        {
+                            <Paragraph>模型的提供者：@Environment.ProviderName</Paragraph>
+                            <Paragraph>模型调用选择：@Environment.PlatformDetails</Paragraph>
+                            <Paragraph>模型生成参数：@Environment.AdditionalInfo</Paragraph>
+                        }
+                        else
+                        {
+                            <Paragraph>AI环境信息加载失败或尚未获取。</Paragraph>
+                        }
+
+                        <Divider />
+
+                        <Title Level="4">发送给AI代理的数据</Title>
                         <Paragraph>
-                            @((MarkupString)Markdig.Markdown.ToHtml(@$"```json{System.Environment.NewLine}{JsonSerializer.Serialize(CurrentArchive.AdvicePrompt)}{System.Environment.NewLine}```"))
+                            @((MarkupString)Markdig.Markdown.ToHtml(@$"```json{System.Environment.NewLine}{JsonSerializer.Serialize(CurrentArchive.AdvicePrompt)}{System.Environment.NewLine}```", pipeline))
                         </Paragraph>
-                        <Button OnClick="GenerateAsync" AutoLoading>同意并发送数据</Button>
+
+                        <Divider />
+
+                        <Button OnClick="GenerateAsync" AutoLoading Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">同意并发送数据</Button>
+                        <Button OnClick="CancelSend" Type="default" Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">取消</Button>
                     </Extra>
                 </Result>
+
             }
             <Title Level="4">助理的思考过程</Title>
             @CurrentArchive.AiGeneratedAdvice.ReasoningContent
             <Title Level="4">助理的膳食建议草稿</Title>
-            @((MarkupString)Markdig.Markdown.ToHtml(CurrentArchive.AiGeneratedAdvice.Content))
+            @((MarkupString)Markdig.Markdown.ToHtml(CurrentArchive.AiGeneratedAdvice.Content, pipeline))
         }
         else
         {
@@ -55,6 +74,7 @@
     </NotAuthorized>
 </AuthorizeView>
 @code {
+    MarkdownPipeline pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private EnvironmentDto? Environment { get; set; }
 
     [Parameter, EditorRequired]
@@ -67,6 +87,13 @@
             return;
         }
 
+        // if (CurrentArchive.AiGeneratedAdvice.Sending)
+        // {
+        //     StateHasChanged();
+        //     return;
+        // }
+
+        CurrentArchive.AiGeneratedAdvice.Sending = true;
         // 1. 构造 POST 请求
         var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
         request.SetBrowserResponseStreamingEnabled(true); // 启用流式
@@ -150,6 +177,12 @@
         }
 
         CurrentArchive.AdvicePrompt = prompt;
+        StateHasChanged();
+    }
+
+    private void CancelSend()
+    {
+        CurrentArchive.AdvicePrompt = null;
         StateHasChanged();
     }
 
