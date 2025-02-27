@@ -142,7 +142,6 @@ namespace EzNutrition.Server.Controllers
             return Ok(new { Message = "Role claims updated successfully" });
         }
 
-
         /// <summary>
         /// 发布通知
         /// </summary>
@@ -209,7 +208,7 @@ namespace EzNutrition.Server.Controllers
             var user = await userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound("用户不存在");
-
+            await applicationDbContext.ProfessionalCertificationRequests.Where(x => x.UserId == userId).ExecuteDeleteAsync();
             var result = await userManager.DeleteAsync(user);
             return result.Succeeded ? Ok(new { message = "用户删除成功" }) : BadRequest(result.Errors);
         }

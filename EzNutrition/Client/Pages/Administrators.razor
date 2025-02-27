@@ -15,8 +15,13 @@
                         <ActionColumn Title="Operate">
                             <Space>
                                 <SpaceItem>
-                                    <Button Danger OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
+                                    <Button Type="ButtonType.Primary" OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
                                         Edit
+                                    </Button>
+                                </SpaceItem>
+                                <SpaceItem>
+                                    <Button Danger OnClick="(x)=>DeleteUser(userListContext)" AutoLoading>
+                                        Delete
                                     </Button>
                                 </SpaceItem>
                             </Space>
@@ -284,6 +289,31 @@
             {
                 // 记录异常信息，并给用户提示
                 _ = Message.Error($"发生异常：{ex.Message}");
+            }
+        }
+    }
+
+    private async Task DeleteUser(UserDto user)
+    {
+        if (user is not null)
+        {
+            try
+            {
+                using var httpClient = HttpClientFactory.CreateClient("Authorize");
+                var delRes = await httpClient.DeleteAsync($"Admin/DeleteUser/{user.Id}");
+                if (delRes.IsSuccessStatusCode)
+                {
+                    _ = Message.Info("删除成功");
+                }
+                else
+                {
+                    _ = Message.Error("删除失败");
+                }
+            }
+            finally
+            {
+
+                await GetUserList();
             }
         }
     }
