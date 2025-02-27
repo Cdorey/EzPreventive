@@ -145,7 +145,7 @@
 
     private void MakePrompt()
     {
-        if (CurrentArchive.CurrentEnergyCalculator is null)
+        if (CurrentArchive.CurrentEnergyCalculator is null || CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is null)
         {
             return;
         }
@@ -164,6 +164,13 @@
                     TotalBalanceEnergyViaCalculationg = CurrentArchive.CurrentEnergyCalculator.Energy,
                     SpecialPhysiologicalPeriod = CurrentArchive.Client.SpecialPhysiologicalPeriod,
                 },
+                ClinicalInfo = new ClinicalInfo
+                {
+                    Subjective = CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation.Subjective,
+                    Objective = CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation.Objective,
+                    Assessment = CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation.Assessment,
+                    Plan = CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation.Plan,
+                }
             };
 
         if (CurrentArchive.DietaryRecallSurvey is not null && CurrentArchive.DietaryRecallSurvey.SummaryRows.Count > 0)

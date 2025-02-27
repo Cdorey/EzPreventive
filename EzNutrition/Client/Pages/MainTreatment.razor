@@ -92,7 +92,7 @@
                 @* ITreatments *@
                 @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
                 {
-                    <Segmented Block Size="SegmentedSize.Large" TValue="string" Labels=@(new[]{"能量评估", "参考摄入量", "膳食调查"}) Value=@currentTreatment OnChange=@setValue />
+                    <Segmented Block Size="SegmentedSize.Large" TValue="string" Labels=@(new[]{"能量评估", "参考摄入量", "膳食调查","门诊病史"}) Value=@currentTreatment OnChange=@setValue />
                 }
 
                 @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "能量评估") && CurrentArchive.CurrentEnergyCalculator is not null)
@@ -107,15 +107,9 @@
                 {
                     <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
                 }
-                @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史")
+                @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史") && CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
                 {
-                    <Paragraph>施工中</Paragraph>
-                    @* 主诉与症状 *@
-                    @* 现病史 *@
-                    @* 查体 *@
-                    @* 既往史 *@
-                    @* 辅助检查 *@
-                    @* 诊断 *@
+                    <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
                 }
             }
             @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl)

@@ -73,6 +73,7 @@ namespace EzNutrition.Client.Services
                 }
 
                 archive.DietaryTower = StandardTower.GetStandardTower(archive.Client.Age);
+                archive.SubjectiveObjectiveAssessmentPlanInformation = new SubjectiveObjectiveAssessmentPlanInformation();
                 archive.ClientInfoFormEnabled = false;
             }
             catch (HttpRequestException ex)
@@ -83,6 +84,7 @@ namespace EzNutrition.Client.Services
                 archive.DietaryRecallSurvey = null;
                 archive.DietaryTower = null;
                 archive.ClientInfoFormEnabled = true;
+                archive.SubjectiveObjectiveAssessmentPlanInformation = null;
             }
             finally
             {
