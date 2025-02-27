@@ -1,52 +1,78 @@
-﻿@page "/advice"
-@using System.Text
+﻿@using System.Text
 @using System.Text.Json
 @using System.Net.Http.Headers
+@using EzNutrition.Client.Models
+@using EzNutrition.Client.Models.DietarySurvey
 @using EzNutrition.Shared.Data.DTO.PromptDto
+@using EzNutrition.Shared.Policies
 @inject IHttpClientFactory HttpClientFactory
-
-<h3>Advice</h3>
-<Button OnClick="GenerateAsync" AutoLoading>测试生成</Button>
-<Title>助理的思索</Title>
-@((MarkupString)Markdig.Markdown.ToHtml(reasoning))
-<Title>助理的膳食建议草稿</Title>
-@((MarkupString)Markdig.Markdown.ToHtml(content))
+<AuthorizeView Policy="@PolicyList.Prescription">
+    <Authorized>
+        @if (CurrentArchive.AdvicePrompt is not null && CurrentArchive.AiGeneratedAdvice is not null)
+        {
+            @if (!CurrentArchive.AiGeneratedAdvice.IsReady)
+            {
+                <Result Status="ResultStatus.Warning" Title="数据发送至第三方警示">
+                    <Extra>
+                        <Paragraph>请求AI见解必须将以下数据发送给EzNutrition后端的AI代理，这些数据不可避免地会被安全审查日志和AI模型的供应商记录，请确定您的操作符合您所在地区的卫生行政部门的规定，AI生成的内容必须经过营养专业的医务人员审核，不构成任何医疗建议，也不附带任何明示或暗示的保证。</Paragraph>
+                        <Title Level="4">当前提供AI见解的AI代理</Title>
+                        <Paragraph>
+                            @if (Environment is not null)
+                            {
+                                <Paragraph>模型的提供者：@Environment.ProviderName</Paragraph>
+                                <Paragraph>模型调用选择：@Environment.PlatformDetails</Paragraph>
+                                <Paragraph>模型生成参数：@Environment.AdditionalInfo</Paragraph>
+                            }
+                        </Paragraph>
+                        <Title Level="4">需要发送的数据</Title>
+                        <Paragraph>
+                            @((MarkupString)Markdig.Markdown.ToHtml(@$"```json{System.Environment.NewLine}{JsonSerializer.Serialize(CurrentArchive.AdvicePrompt)}{System.Environment.NewLine}```"))
+                        </Paragraph>
+                        <Button OnClick="GenerateAsync" AutoLoading>同意并发送数据</Button>
+                    </Extra>
+                </Result>
+            }
+            <Title Level="4">助理的思考过程</Title>
+            @CurrentArchive.AiGeneratedAdvice.ReasoningContent
+            <Title Level="4">助理的膳食建议草稿</Title>
+            @((MarkupString)Markdig.Markdown.ToHtml(CurrentArchive.AiGeneratedAdvice.Content))
+        }
+        else
+        {
+            <Result Status="ResultStatus.Http404" Title="在完成能量分析、膳食调查和门诊病史后可以在这里请求AI生成见解">
+                <Extra>
+                    <Button OnClick="MakePrompt">荟萃并准备数据</Button>
+                </Extra>
+            </Result>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <Paragraph>生成饮食建议和健康教育处方功能仅限认证的营养相关专业人员调用</Paragraph>
+        <Paragraph>基于医学目的使用本功能限定已经取得卫生行政部门认可的资质，医师或营养师资格</Paragraph>
+        <Paragraph>基于教育教学目的使用本功能限定营养及营养相关专业的高校师生</Paragraph>
+        <Paragraph>详情内容参见用户中心→专业资质认证申请</Paragraph>
+        <Paragraph>请勿使用epiman测试账号提交申请</Paragraph>
+    </NotAuthorized>
+</AuthorizeView>
 @code {
-    private string reasoning = string.Empty;
+    private EnvironmentDto? Environment { get; set; }
 
-    private string content = string.Empty;
+    [Parameter, EditorRequired]
+    public required Archive CurrentArchive { get; set; }
 
     private async Task GenerateAsync()
     {
-        var promptDto = new PromptDto
-            {
-                PatientInfo = new PatientInfo
-                {
-                    Age = 30,
-                    BMI = 29,
-                    Gender = "男",
-                    PAL = 1.4,
-                },
-                DialogConfiguration = new DialogConfiguration(),
-                DietaryRecallSurvey = new DietaryRecallSurvey
-                {
-                    DeficientNutrients = ["VitB", "VitC"],
-                    ExcessiveNutrients = ["VitA", "VitD"],
-                },
-                ClinicalInfo = new ClinicalInfo
-                {
-                    Subjective = "",
-                    Objective = "",
-                    Assessment = "急性胰腺炎康复期",
-                    Plan = ""
-                }
-            };
+        if (CurrentArchive.AdvicePrompt is null || CurrentArchive.AiGeneratedAdvice is null)
+        {
+            return;
+        }
+
         // 1. 构造 POST 请求
         var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
         request.SetBrowserResponseStreamingEnabled(true); // 启用流式
 
         // 2. 将 promptDto 序列化为 JSON，放到 Body
-        var json = JsonSerializer.Serialize(promptDto);
+        var json = JsonSerializer.Serialize(CurrentArchive.AdvicePrompt);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // 3. 通过 HttpClientFactory 获取客户端
@@ -77,16 +103,71 @@
                 {
                     if (chunk.IsReasoningContent)
                     {
-                        reasoning += chunk.Content;
+                        CurrentArchive.AiGeneratedAdvice.ReasoningContent += chunk.Content;
                     }
                     else
                     {
-                        content += chunk.Content;
+                        CurrentArchive.AiGeneratedAdvice.Content += chunk.Content;
                     }
                     StateHasChanged();
                 }
             }
         }
+        CurrentArchive.AiGeneratedAdvice.IsReady = true;
+    }
 
+    private void MakePrompt()
+    {
+        if (CurrentArchive.CurrentEnergyCalculator is null)
+        {
+            return;
+        }
+
+
+        var prompt = new PromptDto
+            {
+                PatientInfo = new PatientInfo
+                {
+                    Gender = CurrentArchive.Client.Gender,
+                    Age = CurrentArchive.Client.Age,
+                    BMI = CurrentArchive.CurrentEnergyCalculator.BMI,
+                    PAL = CurrentArchive.CurrentEnergyCalculator.PAL,
+                    Height = CurrentArchive.Client.Height,
+                    Width = CurrentArchive.Client.Weight,
+                    TotalBalanceEnergyViaCalculationg = CurrentArchive.CurrentEnergyCalculator.Energy,
+                    SpecialPhysiologicalPeriod = CurrentArchive.Client.SpecialPhysiologicalPeriod,
+                },
+            };
+
+        if (CurrentArchive.DietaryRecallSurvey is not null && CurrentArchive.DietaryRecallSurvey.SummaryRows.Count > 0)
+        {
+            var dietaryRecallSurvery = new EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey
+                {
+                    DeficientNutrients = CurrentArchive.DietaryRecallSurvey.SummaryRows.Where(x => x.Flag == Flags.Lower).Select(x => x.FriendlyName).ToArray(),
+                    ExcessiveNutrients = CurrentArchive.DietaryRecallSurvey.SummaryRows.Where(x => x.Flag == Flags.Higher).Select(x => x.FriendlyName).ToArray(),
+                };
+            prompt.DietaryRecallSurvey = dietaryRecallSurvery;
+        }
+
+        CurrentArchive.AdvicePrompt = prompt;
+        StateHasChanged();
+    }
+
+    protected async override Task OnInitializedAsync()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("Authorize");
+            Environment = await httpClient.GetFromJsonAsync<EnvironmentDto>("Prescription/Environment");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            Console.WriteLine($"无法加载AI环境信息: {ex.Message}");
+        }
+        finally
+        {
+            CurrentArchive.AiGeneratedAdvice ??= new AiGeneratedAdvice();
+        }
+        await base.OnInitializedAsync();
     }
 }

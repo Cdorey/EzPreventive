@@ -16,5 +16,9 @@ namespace EzNutrition.Client.Models
         public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
         public DietaryTower? DietaryTower { get; set; }
+
+        public AiGeneratedAdvice? AiGeneratedAdvice { get; set; }
+
+        public EzNutrition.Shared.Data.DTO.PromptDto.PromptDto? AdvicePrompt { get; set; }
     }
 }

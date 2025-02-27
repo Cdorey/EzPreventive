@@ -25,7 +25,11 @@ namespace EzNutrition.Client.Models
 
         public decimal? PAL { get; set; }
 
+        public decimal? BMI { get; private set; }
+
         public string Summary { get; private set; } = string.Empty;
+
+        public int? Energy { get; private set; }
 
         public MacronutrientAllocation? Allocation { get; private set; }
 
@@ -84,7 +88,8 @@ namespace EzNutrition.Client.Models
 
                     if (height != 0 && Client.Weight != null && Client.Weight != 0)
                     {
-                        strBuild.Append($"BMI：{Math.Round((Client.Weight.Value / height / height), 2)}；");
+                        BMI = Math.Round((Client.Weight.Value / height / height), 2);
+                        strBuild.Append($"BMI：{BMI}；");
                     }
                 }
             }
@@ -112,6 +117,7 @@ namespace EzNutrition.Client.Models
 
             strBuild.Append($"自动推断总能量{energy}kCal，依据：{dependency}。");
             strBuild.Append("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
+            Energy = energy;
             Summary = strBuild.ToString();
             Allocation = new MacronutrientAllocation(energy);
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
@@ -127,6 +133,7 @@ namespace EzNutrition.Client.Models
                 {
                     strBuild.Append($"BMI:{Math.Round((Client.Weight.Value / height / height), 2)}，");
                 }
+                Energy = newEnergy;
                 strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
                 strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
                 Summary = strBuild.ToString();
@@ -135,5 +142,14 @@ namespace EzNutrition.Client.Models
                 message.Info($"核定总能量{newEnergy}kCal，依据营养师修正。");
             }
         }
+    }
+
+    public class AiGeneratedAdvice
+    {
+        public bool IsReady { get; set; } = false;
+
+        public string ReasoningContent { get; set; } = string.Empty;
+
+        public string Content { get; set; } = string.Empty;
     }
 }

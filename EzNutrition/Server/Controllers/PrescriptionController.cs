@@ -25,6 +25,9 @@ namespace EzNutrition.Server.Controllers
 
         public async Task<IActionResult> Generate([FromBody] PromptDto prompt)
         {
+            //覆盖用户参数
+            prompt.DialogConfiguration = new DialogConfiguration();
+
             var generateRequest = new PrescriptionGenerateRequest
             {
                 UserId = User.Claims.First(c => c.Type == ClaimTypes.Upn).Value,
