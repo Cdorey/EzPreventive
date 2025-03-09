@@ -66,7 +66,8 @@ namespace EzNutrition.AiAgency
                     {
                         foreach (var choice in chunk.Choices)
                         {
-                            yield return new AiResultDto(choice.Delta?.Content ?? choice.Delta?.ReasoningContent ?? string.Empty, choice.Delta?.Content is null);
+                            var isReasoningContent = string.IsNullOrEmpty(choice.Delta?.Content);
+                            yield return new AiResultDto((isReasoningContent ? choice.Delta?.ReasoningContent : choice.Delta?.Content) ?? string.Empty, isReasoningContent);
                         }
                     }
                 }

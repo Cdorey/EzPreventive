@@ -9,7 +9,7 @@
     <Authorized>
         <Tabs>
             <TabPane Tab="注册用户列表">
-                <Table TItem="UserDto" DataSource="UserList">
+                <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle">
                     <ChildContent Context="userListContext">
                         <GenerateColumns />
                         <ActionColumn Title="Operate">
@@ -30,7 +30,7 @@
                 </Table>
             </TabPane>
             <TabPane Tab="专业认证申请列表">
-                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList">
+                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle">
                     <ChildContent Context="requestListContext">
                         <GenerateColumns />
                         <ActionColumn Title="Operate">

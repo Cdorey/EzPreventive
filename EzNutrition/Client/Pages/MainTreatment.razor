@@ -14,10 +14,10 @@
 {
     <GridRow Gutter="(16,16)" OnBreakpoint="HandleBreakpoint">
         @* IClient Information *@
-        <GridCol Xl="10" Sm="24" Xs="24">
-            <Title Level="2">基本信息</Title>
-            @if (CurrentArchive.ClientInfoFormEnabled)
-            {
+        @if (CurrentArchive.ClientInfoFormEnabled)
+        {
+            <GridCol Xl="10" Sm="24" Xs="24">
+                <Title Level="2">基本信息</Title>
                 <Spin Spinning="ArchiveManager.Loading">
                     <Form Model="@CurrentArchive.Client" LabelAlign="AntLabelAlignType.Left">
                         <FormItem Label="姓名">
@@ -50,11 +50,13 @@
                         </FormItem>
                         <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
                     </Form>
-
                 </Spin>
-            }
-            else
-            {
+            </GridCol>
+        }
+        else
+        {
+            <GridCol Xl="10" Sm="24" Xs="24">
+                <Title Level="2">基本信息</Title>
                 <Descriptions Title="@CurrentArchive.Client.Name">
                     <DescriptionsItem Title="性别">@CurrentArchive.Client.Gender</DescriptionsItem>
                     <DescriptionsItem Title="年龄">@CurrentArchive.Client.Age</DescriptionsItem>
@@ -62,18 +64,15 @@
                     <DescriptionsItem Title="体重（kg）">@CurrentArchive.Client.Weight</DescriptionsItem>
                     <DescriptionsItem Title="特殊生理状况">@CurrentArchive.Client.SpecialPhysiologicalPeriod</DescriptionsItem>
                 </Descriptions>
-                @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
-                {
-                    <Summary Archive="@CurrentArchive" />
-                    @* Advices in pc is here *@
-                    <Title Level="3">膳食建议</Title>
-                    <Advice CurrentArchive="@CurrentArchive" />
-                }
-            }
-        </GridCol>
-        <GridCol Xl="14" Sm="24" Xs="24">
-            @if (CurrentArchive.ClientInfoFormEnabled)
-            {
+                <Summary Archive="@CurrentArchive" />
+                @* Advices in pc is here *@
+                <Title Level="3">膳食建议</Title>
+                <Advice CurrentArchive="@CurrentArchive" />
+            </GridCol>
+        }
+        @if (CurrentArchive.ClientInfoFormEnabled)
+        {
+            <GridCol Xl="14" Sm="24" Xs="24">
                 @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
                 {
                     @if (string.IsNullOrEmpty(UserSession.Notice))
@@ -86,40 +85,45 @@
                         @((MarkupString)Markdown.ToHtml(UserSession.Notice))
                     }
                 }
-            }
-            else
-            {
+            </GridCol>
+        }
+        @if (!CurrentArchive.ClientInfoFormEnabled)
+        {
+            <GridCol Xl="14" Sm="24" Xs="24">
                 @* ITreatments *@
-                @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
-                {
-                    <Segmented Block Size="SegmentedSize.Large" TValue="string" Labels=@(new[]{"能量评估", "参考摄入量", "膳食调查","门诊病史"}) Value=@currentTreatment OnChange=@setValue />
-                }
-
-                @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "能量评估") && CurrentArchive.CurrentEnergyCalculator is not null)
-                {
-                    <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
-                }
-                @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "参考摄入量") && CurrentArchive.DRIs is not null)
-                {
-                    <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
-                }
-                @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "膳食调查") && CurrentArchive.DietaryRecallSurvey is not null)
-                {
-                    <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
-                }
-                @if ((MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl || currentTreatment == "门诊病史") && CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
-                {
-                    <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
-                }
-            }
-            @if (MaintreatmentVM.CurrentBreakpoint < BreakpointType.Xl)
-            {
-                <Summary Archive="@CurrentArchive" />
-                @* Advices in pc is here *@
-                <Title Level="3">膳食建议</Title>
-                <Advice CurrentArchive="@CurrentArchive" />
-            }
-        </GridCol>
+                <Tabs>
+                    <TabBarExtraContent>
+                        <Button>Extra Action</Button>
+                    </TabBarExtraContent>
+                    <ChildContent>
+                        <TabPane Key="1" Tab="能量评估">
+                            @if (CurrentArchive.CurrentEnergyCalculator is not null)
+                            {
+                                <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
+                            }
+                        </TabPane>
+                        <TabPane Key="2" Tab="参考摄入量">
+                            @if (CurrentArchive.DRIs is not null)
+                            {
+                                <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
+                            }
+                        </TabPane>
+                        <TabPane Key="3" Tab="膳食调查">
+                            @if (CurrentArchive.DietaryRecallSurvey is not null)
+                            {
+                                <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
+                            }
+                        </TabPane>
+                        <TabPane Key="4" Tab="门诊病史">
+                            @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
+                            {
+                                <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
+                            }
+                        </TabPane>
+                    </ChildContent>
+                </Tabs>
+            </GridCol>
+        }
     </GridRow>
 }
 
