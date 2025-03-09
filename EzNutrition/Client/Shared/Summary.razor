@@ -5,7 +5,6 @@
 {
     <Title Level="4">膳食平衡宝塔</Title>
     @* Tower is here *@
-    <Alert Message="已知问题：在完成24小时膳食回顾调查后，调查问卷汇总的“奶及奶制品”的实际摄入重量计算错误。已定位到原因（按照蛋白质3g/100g进行奶制品的重量换算，错误把纯牛奶作为奶制品进行换算，导致蛋白质>3g的纯牛奶摄入量被高估），正在拆分数据库以修复该错误。" Type="AlertType.Info" />
     <Table TItem="TowerLayer" TreeChildren="x=>x.Children" DataSource="Archive.DietaryTower.RenderTower()" HidePagination Size="TableSize.Small" DefaultExpandAllRows>
         <PropertyColumn Title="类别" Property="r=>r.LayerName">
             @(context.LayerName)

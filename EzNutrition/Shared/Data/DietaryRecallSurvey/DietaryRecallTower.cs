@@ -11,7 +11,7 @@
 
         private static decimal ConvertedWeight(DietaryRecallEntry originalRecord)
         {
-            if (originalRecord.Food.FoodGroups == "奶及奶制品")
+            if (originalRecord.Food.FoodGroups == "奶制品")
             {
                 var edibleWeight = originalRecord.IsAllEdible ? originalRecord.Weight : (originalRecord.Weight * (originalRecord.Food.EdiblePortion ?? 100) / 100);
                 var atProtein = originalRecord.Food.FoodNutrientValues!.First(x => x.Nutrient?.FriendlyName == "蛋白质").Value / 100 * edibleWeight;
@@ -94,6 +94,10 @@
             foreach (DietaryRecallEntry entry in dietaryRecallEntries)
             {
                 var index = IndexOf(entry.Food.FoodGroups);
+                if (entry.Food.FoodGroups == "奶" || entry.Food.FoodGroups == "奶制品")
+                {
+                    index = IndexOf("奶及奶制品");
+                }
                 if (index > -1)
                 {
                     towerValues[index] += ConvertedWeight(entry);
