@@ -149,15 +149,20 @@ namespace EzNutrition.Server.Controllers
         /// <param name="noticeTitle"></param>
         /// <param name="isCoverLetter"></param>
         /// <returns></returns>
-        [HttpPost]
-        public async Task<IActionResult> Notification([FromForm][Required] string noticeDescription, [FromForm] string? noticeTitle, [FromForm] bool isCoverLetter = false)
+        [HttpPut]
+        public async Task<IActionResult> Notification([FromBody] NotificationDto notification)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             var x = new Notice
             {
-                Title = noticeTitle ?? string.Empty,
-                Description = noticeDescription,
+                Title = notification.NoticeTitle ?? string.Empty,
+                Description = notification.NoticeDescription,
                 CreateTime = DateTime.Now,
-                IsCoverLetter = isCoverLetter,
+                IsCoverLetter = notification.IsCoverLetter,
                 PublisherId = User.FindFirst(ClaimTypes.Upn)?.Value ?? string.Empty,
             };
             applicationDbContext.Add(x);

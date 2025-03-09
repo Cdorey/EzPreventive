@@ -92,9 +92,9 @@
             <GridCol Xl="14" Sm="24" Xs="24">
                 @* ITreatments *@
                 <Tabs>
-                    <TabBarExtraContent>
+                    @* <TabBarExtraContent>
                         <Button>Extra Action</Button>
-                    </TabBarExtraContent>
+                    </TabBarExtraContent> *@
                     <ChildContent>
                         <TabPane Key="1" Tab="能量评估">
                             @if (CurrentArchive.CurrentEnergyCalculator is not null)
@@ -128,8 +128,6 @@
 }
 
 @code {
-    string currentTreatment = "能量评估";
-
     [Parameter]
     public string? Id { get; set; }
 
@@ -147,11 +145,6 @@
                 return null;
             }
         }
-    }
-
-    void setValue(string value)
-    {
-        currentTreatment = value;
     }
 
     void HandleBreakpoint(BreakpointType breakpoint)

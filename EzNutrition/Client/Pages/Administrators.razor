@@ -9,7 +9,7 @@
     <Authorized>
         <Tabs>
             <TabPane Tab="注册用户列表">
-                <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle">
+                <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle" Style="width:100%">
                     <ChildContent Context="userListContext">
                         <GenerateColumns />
                         <ActionColumn Title="Operate">
@@ -30,7 +30,7 @@
                 </Table>
             </TabPane>
             <TabPane Tab="专业认证申请列表">
-                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle">
+                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle" Style="width:100%">
                     <ChildContent Context="requestListContext">
                         <GenerateColumns />
                         <ActionColumn Title="Operate">
@@ -46,7 +46,7 @@
                 </Table>
             </TabPane>
             <TabPane Tab="角色列表">
-                <AntList Bordered DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical">
+                <AntList Bordered DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical" Style="width:100%">
                     <Header>角色名称</Header>
                     <ChildContent Context="item">
                         <ListItem>
@@ -74,6 +74,24 @@
                         <Button Type="@ButtonType.Primary" OnClick="AddRole" AutoLoading>Add</Button>
                     </Footer>
                 </AntList>
+            </TabPane>
+            <TabPane Tab="通知">
+                <Form Model="NewNotification" Layout="FormLayout.Vertical">
+                    <ChildContent Context="notice">
+                        <FormItem>
+                            <Input @bind-Value="@notice.NoticeTitle" />
+                        </FormItem>
+                        <FormItem>
+                            <TextArea @bind-Value="@notice.NoticeDescription" Rows="20" />
+                        </FormItem>
+                        <FormItem>
+                            <Checkbox @bind-Value="@notice.IsCoverLetter" />
+                        </FormItem>
+                        <FormItem>
+                            <Button Type="ButtonType.Primary" OnClick="SubmitNotification">提交</Button>
+                        </FormItem>
+                    </ChildContent>
+                </Form>
             </TabPane>
         </Tabs>
         <Drawer Width="800" Closable="true" @bind-Visible="drawerVisible" Title="@("编辑用户信息")">
@@ -198,6 +216,7 @@
     </NotAuthorized>
 </AuthorizeView>
 @code {
+    private NotificationDto NewNotification { get; set; } = new NotificationDto();
     private List<UserDto> UserList { get; } = [];
     private List<RoleClaimsDto> RoleList { get; } = [];
     private string newRole = string.Empty;
@@ -632,6 +651,32 @@
         }
     }
 
+    private async Task SubmitNotification()
+    {
+        try
+        {
+            using var httpClient = HttpClientFactory.CreateClient("Authorize");
+            // 调用后端 PUT 接口，传入角色名称和更新后的 Claim 列表
+            var response = await httpClient.PutAsJsonAsync($"Admin/Notification", NewNotification);
+            if (response.IsSuccessStatusCode)
+            {
+                _ = Message.Success("通知更新成功！");
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                _ = Message.Error($"通知更新失败：{errorMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _ = Message.Error($"通知更新失败：{ex.Message}");
+        }
+        finally
+        {
+            NewNotification = new NotificationDto();
+        }
+    }
 
     private class UserInfoExtension
     {
