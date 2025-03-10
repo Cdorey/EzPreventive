@@ -1,13 +1,11 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Security.Claims;
+﻿using EzNutrition.Client.Models;
+using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
-using System.Net.Http;
+using System.ComponentModel;
 using System.Net.Http.Json;
-using EzNutrition.Client.Models;
-using EzNutrition.Shared.Data.Entities;
+using System.Runtime.CompilerServices;
+using System.Security.Claims;
 
 namespace EzNutrition.Client.Services
 {
@@ -63,14 +61,14 @@ namespace EzNutrition.Client.Services
 
             try
             {
-                var coverLetter = await _client.GetFromJsonAsync<Notice>("SystemInfo/CoverLetter/");
+                Notice? coverLetter = await _client.GetFromJsonAsync<Notice>("SystemInfo/CoverLetter/");
                 CoverLetter = coverLetter?.Description ?? string.Empty;
             }
             catch (HttpRequestException) { CoverLetter = string.Empty; }
 
             try
             {
-                var notice = await _client.GetFromJsonAsync<Notice>("SystemInfo/Notice/");
+                Notice? notice = await _client.GetFromJsonAsync<Notice>("SystemInfo/Notice/");
                 Notice = notice?.Description ?? string.Empty;
             }
             catch (HttpRequestException) { Notice = string.Empty; }
@@ -89,7 +87,7 @@ namespace EzNutrition.Client.Services
 
 
 
-            var expiresAt = UserInfo.ExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30); // 默认30分钟
+            DateTimeOffset expiresAt = UserInfo.ExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30); // 默认30分钟
 
             var token = new AccessToken
             {
@@ -110,7 +108,7 @@ namespace EzNutrition.Client.Services
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            var userPrincipal = UserInfo != null
+            ClaimsPrincipal userPrincipal = UserInfo != null
                 ? new ClaimsPrincipal(new ClaimsIdentity(UserInfo.Claims, "jwt"))
                 : new ClaimsPrincipal(new ClaimsIdentity());
             return new AuthenticationState(userPrincipal);
@@ -126,7 +124,7 @@ namespace EzNutrition.Client.Services
                 new KeyValuePair<string, string>(nameof(password), password)
             ]);
 
-            var res = await _client.PostAsync("Auth/Login", formContent);
+            HttpResponseMessage res = await _client.PostAsync("Auth/Login", formContent);
             if (!res.IsSuccessStatusCode)
             {
                 throw new Exception(await res.Content.ReadAsStringAsync());
@@ -146,7 +144,7 @@ namespace EzNutrition.Client.Services
             if (!(string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password)))
             {
                 var formContent = new FormUrlEncodedContent([new KeyValuePair<string, string>(nameof(userName), userName), new KeyValuePair<string, string>(nameof(password), password)]);
-                var res = await _client.PostAsync("Auth/Regist/Epiman", formContent);
+                HttpResponseMessage res = await _client.PostAsync("Auth/Regist/Epiman", formContent);
                 if (res.IsSuccessStatusCode)
                 {
                     await SignInAsync(userName, password);

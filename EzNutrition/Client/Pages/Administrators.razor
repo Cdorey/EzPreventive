@@ -9,10 +9,19 @@
     <Authorized>
         <Tabs>
             <TabPane Tab="注册用户列表">
-                <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle" Style="width:100%">
+                <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle" Style="width:100%" ScrollX="1366">
                     <ChildContent Context="userListContext">
-                        <GenerateColumns />
-                        <ActionColumn Title="Operate">
+                        <PropertyColumn Property="r=>r.Id" Title="ID"/>
+                        <PropertyColumn Property="r=>r.UserName" Title="用户名"/>
+                        <PropertyColumn Property="r=>r.NormalizedUserName" Title="标化用户名"/>
+                        <PropertyColumn Property="r=>r.Email" Title="邮箱地址"/>
+                        <PropertyColumn Property="r=>r.EmailConfirmed" Title="已确认邮箱" Filterable />
+                        <PropertyColumn Property="r=>r.PhoneNumber" Title="手机号码"/>
+                        <PropertyColumn Property="r=>r.PhoneNumberConfirmed" Title="已确认手机" Filterable />
+                        <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable />
+                        <PropertyColumn Property="r=>r.LockoutEnabled" Filterable />
+                        <PropertyColumn Property="r=>r.AccessFailedCount" />
+                        <ActionColumn Title="Operate" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
                                     <Button Type="ButtonType.Primary" OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
@@ -30,10 +39,19 @@
                 </Table>
             </TabPane>
             <TabPane Tab="专业认证申请列表">
-                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle" Style="width:100%">
+                <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle" Style="width:100%" ScrollX="1366">
                     <ChildContent Context="requestListContext">
-                        <GenerateColumns />
-                        <ActionColumn Title="Operate">
+                        <PropertyColumn Property="r=>r.Id" />
+                        <PropertyColumn Property="r=>r.UserId" />
+                        <PropertyColumn Property="r=>r.RequestTime" />
+                        <PropertyColumn Property="r=>r.IdentityType" Filterable />
+                        <PropertyColumn Property="r=>r.InstitutionName" />
+                        <PropertyColumn Property="r=>r.Status" Filterable />
+                        <PropertyColumn Property="r=>r.ProcessedTime" />
+                        <PropertyColumn Property="r=>r.ProcessDetails" />
+                        <PropertyColumn Property="r=>r.CertificateTicket" />
+                        <PropertyColumn Property="r=>r.Remarks" />
+                        <ActionColumn Title="Operate" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
                                     <Button Danger OnClick="(x)=>EditBtnClick(requestListContext)" AutoLoading>
@@ -45,7 +63,7 @@
                     </ChildContent>
                 </Table>
             </TabPane>
-            <TabPane Tab="角色列表">
+            <TabPane Tab="角色管理">
                 <AntList Bordered DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical" Style="width:100%">
                     <Header>角色名称</Header>
                     <ChildContent Context="item">
@@ -162,6 +180,10 @@
                         <FormItem Label="申请状态">
                             <Input @bind-Value="requestDtoContext.Status" Disabled="true" />
                         </FormItem>
+                        <!-- 申请图片 -->
+                        <FormItem Label="申请图片">
+                            <Image Src="@($"data:image/jpeg;base64,{ImageBase64}")" />
+                        </FormItem>
                         <!-- 申请内容 -->
                         <FormItem Label="申请内容">
                             <Input @bind-Value="requestDtoContext.IdentityType" Disabled="true" />
@@ -175,11 +197,6 @@
                         <FormItem Label="备注信息">
                             <Input @bind-Value="requestDtoContext.Remarks" />
                         </FormItem>
-                        <!-- 申请图片 -->
-                        <FormItem Label="申请图片">
-                            <Image Src="@($"data:image/jpeg;base64,{ImageBase64}")" />
-                        </FormItem>
-                        <!-- 通过/拒绝按钮 -->
                     </ChildContent>
                 </Form>
                 @if (userInfoExtension is not null)

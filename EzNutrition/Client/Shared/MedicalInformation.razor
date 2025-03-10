@@ -1,5 +1,6 @@
 ﻿@using EzNutrition.Client.Models
 <Title Level="2">门诊病史</Title>
+<Paragraph>如果您稍后使用AI助理生成见解，更详细的病史有助于提升结果的准确性</Paragraph>
 @* 主诉与症状 *@
 @* 现病史 *@
 @* 查体 *@
@@ -8,16 +9,16 @@
 @* 诊断 *@
 <Form Model="Information" Layout="FormLayout.Vertical">
     <FormItem Label="主观资料">
-        <TextArea @bind-Value="context.Subjective" Placeholder="主诉与症状；现病史；以及既往史等主观资料" />
+        <TextArea @bind-Value="context.Subjective" Placeholder="主诉与症状；现病史；以及既往史等主观资料" Rows="5" />
     </FormItem>
     <FormItem Label="客观资料">
-        <TextArea @bind-Value="context.Objective" Placeholder="体格检查；辅助检查；营养学评估量表结果等客观资料" />
+        <TextArea @bind-Value="context.Objective" Placeholder="体格检查；辅助检查；营养学评估量表结果等客观资料" Rows="5" />
     </FormItem>
     <FormItem Label="问题评估">
-        <TextArea @bind-Value="context.Assessment" Placeholder="诊断及诊断依据；鉴别诊断及鉴别诊断依据；" />
+        <TextArea @bind-Value="context.Assessment" Placeholder="诊断及诊断依据；鉴别诊断及鉴别诊断依据；" Rows="2" />
     </FormItem>
     <FormItem Label="处理计划">
-        <TextArea @bind-Value="context.Plan" Placeholder="问题处理计划；营养治疗计划等；" />
+        <TextArea @bind-Value="context.Plan" Placeholder="问题处理计划；营养治疗计划等；" Rows="5" />
     </FormItem>
 </Form>
 

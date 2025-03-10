@@ -13,11 +13,11 @@
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
         <SpaceItem Style="width:100%">
-            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择食材原料" DefaultActiveFirstOption="false" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler">
+            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择食材原料" DefaultActiveFirstOption="false" Mode="SelectMode.Default" Size="InputSize.Large" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" AutoClearSearchValue>
                 <ItemTemplate>
-                    <span>@((context as Food).FriendlyName)</span>
+                    <strong>@((context as Food).FriendlyName)</strong>
                     <span>@((context as Food).Details)</span>
-                    <span>@((context as Food).FoodGroups)</span>
+                    <em> (@((context as Food).FoodGroups))</em>
                 </ItemTemplate>
             </Select>
         </SpaceItem>
@@ -44,7 +44,7 @@
             </Table>
         </SpaceItem>
         <SpaceItem Style="width:100%">
-            <Button Type="ButtonType.Primary" Block OnClick="Calculate"><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查，计算结果</Button>
+            <Button Type="ButtonType.Primary" Block OnClick="Calculate" AutoLoading><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查，计算结果</Button>
         </SpaceItem>
     }
     else
@@ -127,6 +127,7 @@
 </Space>
 @code
 {
+
     [Parameter]
     public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
