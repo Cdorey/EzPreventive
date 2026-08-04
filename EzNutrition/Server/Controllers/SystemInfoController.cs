@@ -1,6 +1,7 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EzNutrition.Server.Controllers
 {
@@ -16,27 +17,27 @@ namespace EzNutrition.Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult CoverLetter()
+        public async Task<IActionResult> CoverLetter(CancellationToken cancellationToken)
         {
-            IOrderedQueryable<Notice> x = from notice in db.Notices
-                                          where notice.IsCoverLetter
-                                          orderby notice.CreateTime descending
-                                          select notice;
-            Notice? letter = x.FirstOrDefault();
+            var letter = await db.Notices
+                .AsNoTracking()
+                .Where(notice => notice.IsCoverLetter)
+                .OrderByDescending(notice => notice.CreateTime)
+                .FirstOrDefaultAsync(cancellationToken);
 
-            return letter is not null ? Ok(letter) : BadRequest();
+            return letter is not null ? Ok(letter) : NotFound();
         }
 
         [HttpGet]
-        public IActionResult Notice()
+        public async Task<IActionResult> Notice(CancellationToken cancellationToken)
         {
-            IOrderedQueryable<Notice> x = from notice in db.Notices
-                                          where !notice.IsCoverLetter
-                                          orderby notice.CreateTime descending
-                                          select notice;
-            Notice? letter = x.FirstOrDefault();
+            var notice = await db.Notices
+                .AsNoTracking()
+                .Where(item => !item.IsCoverLetter)
+                .OrderByDescending(item => item.CreateTime)
+                .FirstOrDefaultAsync(cancellationToken);
 
-            return letter is not null ? Ok(letter) : BadRequest();
+            return notice is not null ? Ok(notice) : NotFound();
         }
     }
 

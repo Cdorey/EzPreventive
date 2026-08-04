@@ -1,8 +1,10 @@
 ﻿using EzNutrition.Shared.Data.DTO.PromptDto;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TencentCloud.Lkeap.V20240522;
@@ -45,7 +47,9 @@ namespace EzNutrition.AiAgency
             public string? Role { get; set; }
         }
 
-        public async IAsyncEnumerable<AiResultDto> Generate(PromptDto prompt)
+        public async IAsyncEnumerable<AiResultDto> Generate(
+            PromptDto prompt,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var rep = new ChatCompletionsRequest
             {
@@ -61,6 +65,8 @@ namespace EzNutrition.AiAgency
             var x = await client.ChatCompletions(rep);
             foreach (var item in x)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (item.Data == "[DONE]")
                     yield break;
                 else
@@ -79,7 +85,10 @@ namespace EzNutrition.AiAgency
         }
     }
 
-    public class TencentAgencyDeepSeekV4Pro(IOptions<TencentAgencyConfig> options, HttpClient httpClient) : IGenerativeAiProvider
+    public class TencentAgencyDeepSeekV4Pro(
+        IOptions<TencentAgencyConfig> options,
+        HttpClient httpClient,
+        ILogger<TencentAgencyDeepSeekV4Pro> logger) : IGenerativeAiProvider
     {
         public string ProviderName => "Tencent Cloud TokenHub";
 
@@ -88,6 +97,11 @@ namespace EzNutrition.AiAgency
         public string AdditionalInfo => "Streaming mode, max tokens=384k";
 
         private readonly string apiKey = options.Value.SecretKey;
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         private class AiResponseChunk
         {
@@ -119,7 +133,9 @@ namespace EzNutrition.AiAgency
             public string? Role { get; set; }
         }
 
-        public async IAsyncEnumerable<AiResultDto> Generate(PromptDto prompt)
+        public async IAsyncEnumerable<AiResultDto> Generate(
+            PromptDto prompt,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             using var request = new HttpRequestMessage(
                 HttpMethod.Post,
@@ -169,30 +185,35 @@ namespace EzNutrition.AiAgency
 
             using var response = await httpClient.SendAsync(
                 request,
-                HttpCompletionOption.ResponseHeadersRead);
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                var logBody = error.Length <= 2048 ? error : error[..2048];
+                logger.LogError(
+                    "Tencent TokenHub returned HTTP {StatusCode}. Response: {ResponseBody}",
+                    (int)response.StatusCode,
+                    logBody);
 
-                yield return new AiResultDto(
-                    $"[Tencent TokenHub Error] HTTP {(int)response.StatusCode}: {error}",
-                    false);
-
-                yield break;
+                throw new HttpRequestException(
+                    "The AI provider rejected the request.",
+                    null,
+                    response.StatusCode);
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
 
-            var jsonOptions = new JsonSerializerOptions
+            while (true)
             {
-                PropertyNameCaseInsensitive = true
-            };
+                var line = await reader.ReadLineAsync(cancellationToken);
 
-            while (!reader.EndOfStream)
-            {
-                var line = await reader.ReadLineAsync();
+                if (line is null)
+                {
+                    throw new EndOfStreamException("Tencent TokenHub closed the stream without a completion marker.");
+                }
 
                 if (string.IsNullOrWhiteSpace(line))
                 {
@@ -215,10 +236,11 @@ namespace EzNutrition.AiAgency
 
                 try
                 {
-                    chunk = JsonSerializer.Deserialize<AiResponseChunk>(data, jsonOptions);
+                    chunk = JsonSerializer.Deserialize<AiResponseChunk>(data, JsonOptions);
                 }
                 catch (JsonException)
                 {
+                    logger.LogDebug("Tencent TokenHub returned a malformed SSE data chunk; the chunk was ignored.");
                     continue;
                 }
 
@@ -231,19 +253,17 @@ namespace EzNutrition.AiAgency
                 {
                     var delta = choice.Delta;
 
-                    if (delta is null)
+                    if (delta is not null)
                     {
-                        continue;
-                    }
+                        if (!string.IsNullOrEmpty(delta.ReasoningContent))
+                        {
+                            yield return new AiResultDto(delta.ReasoningContent, true);
+                        }
 
-                    if (!string.IsNullOrEmpty(delta.ReasoningContent))
-                    {
-                        yield return new AiResultDto(delta.ReasoningContent, true);
-                    }
-
-                    if (!string.IsNullOrEmpty(delta.Content))
-                    {
-                        yield return new AiResultDto(delta.Content, false);
+                        if (!string.IsNullOrEmpty(delta.Content))
+                        {
+                            yield return new AiResultDto(delta.Content, false);
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(choice.FinishReason))

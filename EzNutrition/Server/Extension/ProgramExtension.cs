@@ -16,9 +16,24 @@ namespace EzNutrition.Server.Extension
             builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
             builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
             JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
-            var publicKeyBytes = Convert.FromBase64String(builder.Configuration["JwtSettings:PublicKey"]!);
+            var publicKey = builder.Configuration[
+                $"{nameof(EzNutrition.Server.Services.Settings.JwtSettings)}:{nameof(EzNutrition.Server.Services.Settings.JwtSettings.PublicKey)}"];
+            if (string.IsNullOrWhiteSpace(publicKey))
+            {
+                throw new InvalidOperationException("JwtSettings:PublicKey is missing.");
+            }
+
             var rsa = RSA.Create();
-            rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            try
+            {
+                var publicKeyBytes = Convert.FromBase64String(publicKey);
+                rsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            }
+            catch (Exception ex) when (ex is FormatException or CryptographicException)
+            {
+                rsa.Dispose();
+                throw new InvalidOperationException("JwtSettings:PublicKey is not a valid Base64-encoded RSA public key.", ex);
+            }
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

@@ -20,7 +20,7 @@ namespace EzNutrition.Server.Data.Repositories
                                        UserManager<IdentityUser> userManager,
                                        RoleManager<IdentityRole> roleManager,
                                        SignInManager<IdentityUser> signInManager,
-                                       ILogger<AuthController> logger,
+                                       ILogger<AuthManagerRepository> logger,
                                        IOptions<EmailSettings> options,
                                        IEmailSender<IdentityUser> emailSender)
     {
@@ -32,104 +32,52 @@ namespace EzNutrition.Server.Data.Repositories
         {
             logger.LogInformation("初始化角色和管理员账号");
 
-            //创建Roles
-            if (await roleManager.FindByNameAsync("Admin") == default)
+            string[] requiredRoles = ["Admin", "Student", "Teacher", "Physician", "Nutritionist", "RD", "Epiman"];
+            foreach (var roleName in requiredRoles)
             {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Admin" });
-                if (!x.Succeeded)
+                if (await roleManager.FindByNameAsync(roleName) is not null)
                 {
-                    logger.LogError("创建Admin角色失败");
-                    throw new Exception("failed to create Admin role");
+                    continue;
+                }
+
+                var createRoleResult = await roleManager.CreateAsync(new IdentityRole { Name = roleName });
+                if (!createRoleResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createRoleResult.Errors.Select(error => error.Description));
+                    logger.LogError("创建角色 {RoleName} 失败：{Errors}", roleName, errors);
+                    throw new InvalidOperationException($"Failed to create required role '{roleName}'.");
                 }
             }
 
-            if (await roleManager.FindByNameAsync("Student") == default)
+            var admin = await userManager.FindByNameAsync("Admin");
+            if (admin is null)
             {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Student" });
-                if (!x.Succeeded)
+                var password = Guid.NewGuid().ToString();
+                var addUser = await userManager.CreateAsync(new IdentityUser { UserName = "Admin" }, password);
+                if (!addUser.Succeeded)
                 {
-                    logger.LogError("创建Student角色失败");
-                    throw new Exception("failed to create Student role");
+                    logger.LogError("创建Admin用户失败：{Errors}", addUser.Errors);
+                    throw new InvalidOperationException("Failed to create the Admin user.");
                 }
+
+                logger.LogInformation("Admin用户创建成功，临时密码为 {password}，请立即更改", password);
+                admin = await userManager.FindByNameAsync("Admin")
+                    ?? throw new InvalidOperationException("The Admin user could not be loaded after creation.");
             }
 
-            if (await roleManager.FindByNameAsync("Teacher") == default)
+            foreach (var roleName in new[] { "Admin", "Epiman" })
             {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Teacher" });
-                if (!x.Succeeded)
+                if (await userManager.IsInRoleAsync(admin, roleName))
                 {
-                    logger.LogError("创建Teacher角色失败");
-                    throw new Exception("failed to create Teacher role");
+                    continue;
                 }
-            }
 
-            if (await roleManager.FindByNameAsync("Physician") == default)
-            {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Physician" });
-                if (!x.Succeeded)
-                {
-                    logger.LogError("创建Physician角色失败");
-                    throw new Exception("failed to create Physician role");
-                }
-            }
-            if (await roleManager.FindByNameAsync("Nutritionist") == default)
-            {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Nutritionist" });
-                if (!x.Succeeded)
-                {
-                    logger.LogError("创建Nutritionist角色失败");
-                    throw new Exception("failed to create Nutritionist role");
-                }
-            }
-            if (await roleManager.FindByNameAsync("RD") == default)
-            {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "RD" });
-                if (!x.Succeeded)
-                {
-                    logger.LogError("创建RD角色失败");
-                    throw new Exception("failed to create RD role");
-                }
-            }
-            if (await roleManager.FindByNameAsync("Epiman") == default)
-            {
-                var x = await roleManager.CreateAsync(new IdentityRole { Name = "Epiman" });
-                if (!x.Succeeded)
-                {
-                    logger.LogError("创建Epiman角色失败");
-                    throw new Exception("failed to create Epiman role");
-                }
-            }
-
-            var adminRole = await roleManager.FindByNameAsync("Admin");
-            if (adminRole != default)
-            {
-                var admin = await userManager.FindByNameAsync("Admin");
-                if (admin == default)
-                {
-                    var password = Guid.NewGuid().ToString();
-                    var addUser = await userManager.CreateAsync(new IdentityUser { UserName = "Admin" }, password);
-                    if (!addUser.Succeeded)
-                    {
-                        logger.LogError("创建Admin用户失败");
-                        throw new Exception("failed to add Admin User");
-                    }
-                    else
-                    {
-                        logger.LogInformation("Admin用户创建成功，临时密码为 {password}，请立即更改", password);
-                    }
-                    admin = await userManager.FindByNameAsync("Admin");
-                }
-                var addToRole = await userManager.AddToRolesAsync(admin!, ["Admin", "Epiman"]);
+                var addToRole = await userManager.AddToRoleAsync(admin, roleName);
                 if (!addToRole.Succeeded)
                 {
-                    logger.LogError("为Admin用户添加角色失败");
-                    throw new Exception("failed to add Admin Role for Admin User");
+                    logger.LogError("为Admin用户添加角色 {RoleName} 失败：{Errors}", roleName, addToRole.Errors);
+                    throw new InvalidOperationException($"Failed to add the Admin user to role '{roleName}'.");
                 }
-            }
-            else
-            {
-                logger.LogError("未找到Admin角色");
-                throw new Exception("failed to Find Admin role");
             }
         }
 
@@ -141,25 +89,20 @@ namespace EzNutrition.Server.Data.Repositories
         /// <returns></returns>
         public async Task<string> Login(string username, string password)
         {
-            try
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
             {
-                var user = dbContext.Users.FirstOrDefault(x => x.UserName == username);
-                if (user != default && (await signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
-                {
-                    logger.LogInformation("用户登陆成功：{user.Id}/{user.NormalizedUserName}", user.Id, user.NormalizedUserName);
-                    return await jwtService.GenerateJwtToken(user);
-                }
-                else
-                {
-                    logger.LogWarning("用户登陆失败：{username}", username);
-                    throw new Exception("用户名/密码不正确");
-                }
+                throw new UnauthorizedAccessException("用户名/密码不正确");
             }
-            catch (Exception e)
+
+            var user = await userManager.FindByNameAsync(username.Trim());
+            if (user is not null && (await signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
             {
-                logger.LogError(e, "用户登陆失败：{username}", username);
-                throw;
+                logger.LogInformation("用户登陆成功：{UserId}/{NormalizedUserName}", user.Id, user.NormalizedUserName);
+                return await jwtService.GenerateJwtToken(user);
             }
+
+            logger.LogWarning("用户登陆失败：{Username}", username);
+            throw new UnauthorizedAccessException("用户名/密码不正确");
         }
 
         /// <summary>
@@ -220,28 +163,72 @@ namespace EzNutrition.Server.Data.Repositories
                 };
             }
 
-            if (registrationDto.ProfessionalIdentity != null)
+            try
             {
-                var certificateTicket = await CreateProfessionalIdentityRequest(registrationDto.ProfessionalIdentity, user);
+                string? certificateTicket = null;
+                if (registrationDto.ProfessionalIdentity is not null)
+                {
+                    certificateTicket = await CreateProfessionalIdentityRequest(registrationDto.ProfessionalIdentity, user);
+                }
 
-                logger.LogInformation("用户注册成功：{UserName}，上传票据：{UploadTicket}", registrationDto.UserName, certificateTicket);
                 await SendEmailConfirmationAsync(user);
+                logger.LogInformation(
+                    "用户注册成功：{UserName}，上传票据：{UploadTicket}",
+                    registrationDto.UserName,
+                    certificateTicket);
+
                 return new RegistrationResultDto
                 {
                     Success = true,
                     Message = "Registration successful",
-                    UploadTicket = certificateTicket.ToString()
+                    UploadTicket = certificateTicket
                 };
             }
-            else
+            catch (Exception ex)
             {
-                logger.LogInformation("用户注册成功：{UserName}", registrationDto.UserName);
-                await SendEmailConfirmationAsync(user);
-                return new RegistrationResultDto
+                logger.LogError(
+                    ex,
+                    "用户 {UserName} 注册后的初始化步骤失败，正在回滚新建账号。",
+                    registrationDto.UserName);
+                await RollbackFailedRegistrationAsync(user);
+                throw;
+            }
+        }
+
+        private async Task RollbackFailedRegistrationAsync(IdentityUser user)
+        {
+            try
+            {
+                foreach (var entry in dbContext.ChangeTracker
+                    .Entries<ProfessionalCertificationRequest>()
+                    .Where(entry => entry.Entity.UserId == user.Id))
                 {
-                    Success = true,
-                    Message = "Registration successful"
-                };
+                    entry.State = EntityState.Detached;
+                }
+
+                await dbContext.ProfessionalCertificationRequests
+                    .Where(request => request.UserId == user.Id)
+                    .ExecuteDeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogCritical(ex, "回滚用户 {UserId} 的专业认证请求失败。", user.Id);
+            }
+
+            try
+            {
+                var deleteResult = await userManager.DeleteAsync(user);
+                if (!deleteResult.Succeeded)
+                {
+                    logger.LogCritical(
+                        "回滚用户 {UserId} 失败：{Errors}",
+                        user.Id,
+                        string.Join(", ", deleteResult.Errors.Select(error => error.Description)));
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogCritical(ex, "回滚用户 {UserId} 时发生异常。", user.Id);
             }
         }
 
@@ -270,14 +257,17 @@ namespace EzNutrition.Server.Data.Repositories
         /// <param name="user"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, ClaimsPrincipal user)
+        public async Task<string> CreateProfessionalIdentityRequest(
+            ProfessionalIdentityDto professionalIdentityDto,
+            ClaimsPrincipal user,
+            CancellationToken cancellationToken = default)
         {
             if (user.Identity?.IsAuthenticated is true && user.Identity.Name is not null)
             {
                 var userIdentiy = await userManager.FindByNameAsync(user.Identity.Name);
                 return userIdentiy == null
                     ? throw new Exception("用户未找到")
-                    : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy);
+                    : await CreateProfessionalIdentityRequest(professionalIdentityDto, userIdentiy, cancellationToken);
             }
             else
             {
@@ -291,7 +281,10 @@ namespace EzNutrition.Server.Data.Repositories
         /// <param name="professionalIdentityDto"></param>
         /// <param name="user"></param>
         /// <returns></returns>
-        public async Task<string> CreateProfessionalIdentityRequest(ProfessionalIdentityDto professionalIdentityDto, IdentityUser user)
+        public async Task<string> CreateProfessionalIdentityRequest(
+            ProfessionalIdentityDto professionalIdentityDto,
+            IdentityUser user,
+            CancellationToken cancellationToken = default)
         {
             var certificateTicket = Guid.NewGuid();
             var professionalIdentity = new ProfessionalCertificationRequest
@@ -305,7 +298,7 @@ namespace EzNutrition.Server.Data.Repositories
                 CertificateTicket = certificateTicket
             };
             dbContext.ProfessionalCertificationRequests.Add(professionalIdentity);
-            await dbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync(cancellationToken);
             logger.LogInformation("创建专业身份认证请求：{UserId}，票据：{CertificateTicket}", user.Id, certificateTicket);
             return certificateTicket.ToString();
         }
@@ -315,9 +308,15 @@ namespace EzNutrition.Server.Data.Repositories
         /// </summary>
         /// <param name="uploadTicket"></param>
         /// <returns></returns>
-        public async Task<bool> ValidateUploadTicket(string uploadTicket)
+        public async Task<bool> ValidateUploadTicket(
+            Guid uploadTicket,
+            CancellationToken cancellationToken = default)
         {
-            var isValid = await dbContext.ProfessionalCertificationRequests.AnyAsync(x => x.CertificateTicket.ToString() == uploadTicket);
+            var isValid = await dbContext.ProfessionalCertificationRequests
+                .AsNoTracking()
+                .AnyAsync(
+                    request => request.CertificateTicket == uploadTicket && request.Status == RequestStatus.Pending,
+                    cancellationToken);
             logger.LogInformation("验证上传票据：{UploadTicket}，结果：{IsValid}", uploadTicket, isValid);
             return isValid;
         }

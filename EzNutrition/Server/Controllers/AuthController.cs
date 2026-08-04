@@ -13,7 +13,10 @@ namespace EzNutrition.Server.Controllers
 {
     [ApiController]
     [Route("[controller]/[Action]")]
-    public class AuthController(ILogger<AuthController> logger, AuthManagerRepository authManagerRepository) : ControllerBase
+    public class AuthController(
+        ILogger<AuthController> logger,
+        AuthManagerRepository authManagerRepository,
+        CertificateFileStore certificateFileStore) : ControllerBase
     {
         /// <summary>
         /// 登录，返回一个包含 token 的对象
@@ -24,6 +27,11 @@ namespace EzNutrition.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+            {
+                return BadRequest("用户名和密码不能为空。");
+            }
+
             try
             {
                 logger.LogInformation("User {Username} attempting to log in.", username);
@@ -31,10 +39,14 @@ namespace EzNutrition.Server.Controllers
                 logger.LogInformation("User {Username} logged in successfully.", username);
                 return Ok(result);
             }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized("用户名/密码不正确");
+            }
             catch (Exception e)
             {
                 logger.LogError(e, "Error occurred while logging in user {Username}.", username);
-                return BadRequest(e.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "登录服务暂时不可用，请稍后重试。");
             }
         }
 
@@ -45,10 +57,10 @@ namespace EzNutrition.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> CheckEmail([FromQuery] string email)
         {
-            if (string.IsNullOrWhiteSpace(email))
-                return BadRequest("Email is required.");
+            if (string.IsNullOrWhiteSpace(email) || !new EmailAddressAttribute().IsValid(email))
+                return BadRequest("A valid email address is required.");
 
-            var available = await authManagerRepository.CheckEmail(email);
+            var available = await authManagerRepository.CheckEmail(email.Trim());
             return Ok(available);
         }
 
@@ -61,7 +73,7 @@ namespace EzNutrition.Server.Controllers
         {
             if (!ModelState.IsValid)
             {
-                logger.LogWarning("Invalid registration attempt with data: {@RegistrationDto}", registrationDto);
+                logger.LogWarning("Invalid registration attempt for user {Username}.", registrationDto.UserName);
                 return BadRequest(ModelState);
             }
 
@@ -83,7 +95,7 @@ namespace EzNutrition.Server.Controllers
             catch (Exception e)
             {
                 logger.LogError(e, "Error occurred while registering user {Username}.", registrationDto.UserName);
-                return BadRequest(e.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "注册服务暂时不可用，请稍后重试。");
             }
         }
 
@@ -96,18 +108,29 @@ namespace EzNutrition.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> ConfirmEmail([FromQuery][Required] string userId, [FromQuery][Required] string token)
         {
-            if (userId == null || token == null)
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
             {
                 return BadRequest("确认链接不完整，请检查");
             }
-            var result = await authManagerRepository.ConfirmEmailAsync(userId, token);
-            if (result is not null && result.Succeeded)
+
+            try
             {
-                return Ok("Email地址已确认！");
-            }
-            else
-            {
+                var result = await authManagerRepository.ConfirmEmailAsync(userId, token);
+                if (result is not null && result.Succeeded)
+                {
+                    return Ok("Email地址已确认！");
+                }
+
                 return BadRequest("Email地址确认失败，请重试或重新请求确认邮件。");
+            }
+            catch (FormatException)
+            {
+                return BadRequest("Email确认链接格式不正确。");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while confirming email for user {UserId}.", userId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "Email确认服务暂时不可用。");
             }
         }
 
@@ -115,8 +138,12 @@ namespace EzNutrition.Server.Controllers
         /// 根据 uploadTicket 上传证件照片
         /// </summary>
         [HttpPost("{uploadTicket}")]
-        [RequestSizeLimit(50 * 1024 * 1024)]
-        public async Task<IActionResult> UploadCertificate([FromForm] IFormFile certificateFile, [FromRoute] string uploadTicket)
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(CertificateFileStore.MaxFileSize)]
+        public async Task<IActionResult> UploadCertificate(
+            [FromForm] IFormFile? certificateFile,
+            [FromRoute] string uploadTicket,
+            CancellationToken cancellationToken)
         {
             if (certificateFile == null || certificateFile.Length == 0)
             {
@@ -124,42 +151,33 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            if (!await authManagerRepository.ValidateUploadTicket(uploadTicket))
+            if (!Guid.TryParse(uploadTicket, out var ticket) ||
+                !await authManagerRepository.ValidateUploadTicket(ticket, cancellationToken))
             {
                 logger.LogWarning("Invalid upload ticket {UploadTicket}.", uploadTicket);
                 return BadRequest("Invalid upload ticket.");
             }
 
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
-            var extension = Path.GetExtension(certificateFile.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension) || certificateFile.Length > 50 * 1024 * 1024)
-            {
-                logger.LogWarning("Invalid file type or size for upload ticket {UploadTicket}.", uploadTicket);
-                return BadRequest("Invalid file type or size.");
-            }
-
-            var tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
-            if (!Directory.Exists(tempFolder))
-            {
-                Directory.CreateDirectory(tempFolder);
-            }
-
-            var fileName = $"{uploadTicket}{extension}";
-            var filePath = Path.Combine(tempFolder, fileName);
-
             try
             {
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await certificateFile.CopyToAsync(stream);
-                }
+                await certificateFileStore.SaveAsync(ticket, certificateFile, cancellationToken);
                 logger.LogInformation("File uploaded successfully for upload ticket {UploadTicket}.", uploadTicket);
                 return Ok();
+            }
+            catch (InvalidDataException ex)
+            {
+                logger.LogWarning(ex, "Invalid certificate image for upload ticket {UploadTicket}.", uploadTicket);
+                return BadRequest(ex.Message);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                logger.LogInformation("Certificate upload for ticket {UploadTicket} was cancelled.", uploadTicket);
+                throw;
             }
             catch (Exception e)
             {
                 logger.LogError(e, "Error occurred while uploading file for upload ticket {UploadTicket}.", uploadTicket);
-                return BadRequest(e.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "证件图片上传失败，请稍后重试。");
             }
         }
     }

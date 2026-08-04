@@ -9,22 +9,34 @@ namespace EzNutrition.Server.Controllers
     [Authorize]
     public class FoodCompositionController(FoodNutritionValueRepository foodNutritionValueRepository) : ControllerBase
     {
-        public IActionResult Foods()
+        [HttpGet]
+        public async Task<IActionResult> Foods(CancellationToken cancellationToken)
         {
-            return Ok(foodNutritionValueRepository.GetFoods());
+            return Ok(await foodNutritionValueRepository.GetFoodsAsync(cancellationToken));
         }
 
-        public IActionResult Nutrients()
+        [HttpGet]
+        public async Task<IActionResult> Nutrients(CancellationToken cancellationToken)
         {
-            return Ok(foodNutritionValueRepository.GetNutrients());
+            return Ok(await foodNutritionValueRepository.GetNutrientsAsync(cancellationToken));
         }
 
-        public IActionResult CompositionData([FromQuery] string friendlyCode)
+        [HttpGet]
+        public async Task<IActionResult> CompositionData(
+            [FromQuery] string friendlyCode,
+            CancellationToken cancellationToken)
         {
-            var res = foodNutritionValueRepository.FoodNutritionValueByFriendlyCode(friendlyCode);
+            if (string.IsNullOrWhiteSpace(friendlyCode))
+            {
+                return BadRequest("friendlyCode is required.");
+            }
+
+            var res = await foodNutritionValueRepository.FoodNutritionValueByFriendlyCodeAsync(
+                friendlyCode.Trim(),
+                cancellationToken);
             if (res == null)
             {
-                return BadRequest();
+                return NotFound();
             }
             else
             {

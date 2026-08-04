@@ -8,23 +8,21 @@ namespace EzNutrition.Server.Data.Repositories
     /// </summary>
     public class FoodNutritionValueRepository(EzNutritionDbContext dbContext)
     {
-        public Food? FoodNutritionValueByFriendlyCode(string friendlyCode)
+        public Task<Food?> FoodNutritionValueByFriendlyCodeAsync(
+            string friendlyCode,
+            CancellationToken cancellationToken)
         {
             return dbContext.Foods!
                 .AsNoTracking()
                 .Include(f => f.FoodNutrientValues)!
                 .ThenInclude(fnv => fnv.Nutrient)
-                .FirstOrDefault(x => x.FriendlyCode == friendlyCode);
+                .FirstOrDefaultAsync(x => x.FriendlyCode == friendlyCode, cancellationToken);
         }
 
-        public Food[] GetFoods()
-        {
-            return [.. dbContext.Foods!.AsNoTracking()];
-        }
+        public Task<Food[]> GetFoodsAsync(CancellationToken cancellationToken) =>
+            dbContext.Foods!.AsNoTracking().ToArrayAsync(cancellationToken);
 
-        public  Nutrient[] GetNutrients()
-        {
-            return [.. dbContext.Nutrients!.AsNoTracking()];
-        }
+        public Task<Nutrient[]> GetNutrientsAsync(CancellationToken cancellationToken) =>
+            dbContext.Nutrients!.AsNoTracking().ToArrayAsync(cancellationToken);
     }
 }

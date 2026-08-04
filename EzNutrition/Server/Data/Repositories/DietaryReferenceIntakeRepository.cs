@@ -1,8 +1,5 @@
 ﻿using EzNutrition.Shared.Data.Entities;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
 
 namespace EzNutrition.Server.Data.Repositories
 {
@@ -10,63 +7,72 @@ namespace EzNutrition.Server.Data.Repositories
     {
         private readonly EzNutritionDbContext dbContext;
 
-        public IEnumerable<EER> GetEERsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
+        public async Task<IReadOnlyList<EER>> GetEERsByPersonalInfoAsync(
+            decimal age,
+            string gender,
+            IEnumerable<string>? specialPhysiologicalPeriod,
+            CancellationToken cancellationToken)
         {
-            var eers = from eer in dbContext.EERs
-                       where (eer.Gender == gender || eer.Gender == null) && (eer.AgeStart <= age || eer.AgeStart == null) && (specialPhysiologicalPeriod.Contains(eer.SpecialPhysiologicalPeriod) || eer.SpecialPhysiologicalPeriod == null)
-                       select eer;
-            var maxAge = eers.Max(x => x.AgeStart);
+            var periods = NormalizePeriods(specialPhysiologicalPeriod);
+            var eers = await dbContext.EERs!
+                .AsNoTracking()
+                .Where(eer =>
+                    (eer.Gender == gender || eer.Gender == null) &&
+                    (eer.AgeStart <= age || eer.AgeStart == null) &&
+                    (eer.SpecialPhysiologicalPeriod == null || periods.Contains(eer.SpecialPhysiologicalPeriod)))
+                .ToListAsync(cancellationToken);
 
-            foreach (var eer in eers)
+            if (eers.Count == 0)
             {
-                if (eer.AgeStart != default && eer.AgeStart != maxAge)
-                {
-                    continue;
-                }
-                else
-                {
-                    yield return eer;
-                }
+                return [];
             }
+
+            var maxAge = eers.Max(eer => eer.AgeStart);
+            return eers
+                .Where(eer => eer.AgeStart == null || eer.AgeStart == maxAge)
+                .ToArray();
         }
 
-        public IEnumerable<DietaryReferenceIntakeValue> GetDRIsByPersonalInfo(decimal age, string gender, IEnumerable<string> specialPhysiologicalPeriod)
+        public async Task<IReadOnlyList<DietaryReferenceIntakeValue>> GetDRIsByPersonalInfoAsync(
+            decimal age,
+            string gender,
+            IEnumerable<string>? specialPhysiologicalPeriod,
+            CancellationToken cancellationToken)
         {
-            var query = from dri in (from dri in dbContext.DRIs
-                                     where (dri.Gender == gender || dri.Gender == null) && (dri.AgeStart <= age || dri.AgeStart == null) && (specialPhysiologicalPeriod.Contains(dri.SpecialPhysiologicalPeriod) || dri.SpecialPhysiologicalPeriod == null)
-                                     select dri).AsEnumerable()
-                        group dri by dri.Nutrient into records
-                        select new
-                        {
-                            Nutrient = records.Key,
-                            DRIs = from record in records
-                                   group record by (record.RecordType == DietaryReferenceIntakeType.AI ? "RNI" : record.RecordType.ToString())
-                        };
-            var nutrients = query.ToList();
+            var periods = NormalizePeriods(specialPhysiologicalPeriod);
+            var records = await dbContext.DRIs!
+                .AsNoTracking()
+                .Where(dri =>
+                    (dri.Gender == gender || dri.Gender == null) &&
+                    (dri.AgeStart <= age || dri.AgeStart == null) &&
+                    (dri.SpecialPhysiologicalPeriod == null || periods.Contains(dri.SpecialPhysiologicalPeriod)))
+                .ToListAsync(cancellationToken);
 
-            foreach (var nutrient in nutrients)
+            if (records.Count == 0)
             {
-                foreach (var dris in nutrient.DRIs)
-                {
-                    decimal? maxAge = null;
-
-                    if (dris.Any(x => x.AgeStart != null))
-                    {
-                        maxAge = dris.Max(x => x.AgeStart);
-                    }
-
-                    foreach (var dri in dris)
-                    {
-                        if (dri.AgeStart == null || dri.AgeStart == maxAge)
-                        {
-                            yield return dri;
-                            continue;
-                        }
-                    }
-
-                }
+                return [];
             }
+
+            return records
+                .GroupBy(record => record.Nutrient)
+                .SelectMany(nutrient => nutrient.GroupBy(record =>
+                    record.RecordType == DietaryReferenceIntakeType.AI
+                        ? "RNI"
+                        : record.RecordType.ToString()))
+                .SelectMany(group =>
+                {
+                    var maxAge = group.Max(record => record.AgeStart);
+                    return group.Where(record => record.AgeStart == null || record.AgeStart == maxAge);
+                })
+                .ToArray();
         }
+
+        private static string[] NormalizePeriods(IEnumerable<string>? periods) =>
+            periods?
+                .Where(period => !string.IsNullOrWhiteSpace(period))
+                .Select(period => period.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray() ?? [];
 
         public DietaryReferenceIntakeRepository(EzNutritionDbContext dbContext)
         {

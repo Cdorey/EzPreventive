@@ -6,50 +6,64 @@ using EzNutrition.Server.Services;
 using EzNutrition.Server.Services.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using System;
 
 namespace EzNutrition.Server
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            var nutritionConnectionString = builder.Configuration.GetConnectionString("EzNutritionDB")
+                ?? throw new InvalidOperationException("ConnectionStrings:EzNutritionDB is missing.");
+            var applicationConnectionString = builder.Configuration.GetConnectionString("ApplicationDb")
+                ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDb is missing.");
+
             // Add services to the container.
-            builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("EzNutritionDB")));
-            builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDb")));
+            builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(nutritionConnectionString));
+            builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(applicationConnectionString));
             builder.AuthorizeConfiguration();
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
-            builder.Services.AddTransient<JwtService>();
-            builder.Services.AddTransient<DietaryReferenceIntakeRepository>();
-            builder.Services.AddTransient<AuthManagerRepository>();
+            builder.Services.AddScoped<JwtService>();
+            builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
+            builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddTransient<IEmailSender<IdentityUser>, SmtpEmailSender>();
-            builder.Services.AddTransient<FoodNutritionValueRepository>();
-            builder.Services.AddHttpClient<IGenerativeAiProvider, TencentAgencyDeepSeekV4Pro>();
+            builder.Services.AddScoped<FoodNutritionValueRepository>();
+            builder.Services.AddSingleton<CertificateFileStore>();
+            builder.Services.AddHttpClient<IGenerativeAiProvider, TencentAgencyDeepSeekV4Pro>(client =>
+            {
+                // Streaming requests are bounded by the request cancellation token rather than HttpClient's default timeout.
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            });
 
-            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(nameof(EmailSettings)));
-            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));
-            builder.Services.Configure<TencentAgencyConfig>(builder.Configuration.GetSection(nameof(TencentAgencyConfig)));
+            builder.Services.AddOptions<EmailSettings>()
+                .Bind(builder.Configuration.GetSection(nameof(EmailSettings)))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            builder.Services.AddOptions<JwtSettings>()
+                .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            builder.Services.AddOptions<TencentAgencyConfig>()
+                .Bind(builder.Configuration.GetSection(nameof(TencentAgencyConfig)))
+                .Validate(config => !string.IsNullOrWhiteSpace(config.SecretKey), "TencentAgencyConfig:SecretKey is missing.")
+                .ValidateOnStart();
 
 
             var app = builder.Build();
 
-            using (var scope = app.Services.CreateScope())
+            await using (var scope = app.Services.CreateAsyncScope())
             {
                 var nutrDb = scope.ServiceProvider.GetRequiredService<EzNutritionDbContext>();
-                nutrDb.Database.Migrate();
+                await nutrDb.Database.MigrateAsync();
                 var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                appDb.Database.Migrate();
-                if (args.Any(x => x == "AuthInitialize"))
+                await appDb.Database.MigrateAsync();
+                if (args.Any(x => string.Equals(x, "AuthInitialize", StringComparison.OrdinalIgnoreCase)))
                 {
                     var auth = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
-                    auth.Initialize().Wait();
+                    await auth.Initialize();
                     return;
                 }
             }
@@ -75,7 +89,7 @@ namespace EzNutrition.Server
             app.MapControllers();
             app.MapFallbackToFile("index.html");
 
-            app.Run();
+            await app.RunAsync();
         }
     }
 }

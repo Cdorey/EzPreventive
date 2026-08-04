@@ -5,7 +5,7 @@ namespace EzNutrition.Shared.Data.DTO
     public class ConfirmAuthenticationDto
     {
         [Required]
-        public string UserId { get; set; }
+        public string UserId { get; set; } = string.Empty;
 
         /// <summary>
         /// 审核是否通过
@@ -15,6 +15,6 @@ namespace EzNutrition.Shared.Data.DTO
         /// <summary>
         /// 审核意见或备注
         /// </summary>
-        public string Comments { get; set; }
+        public string Comments { get; set; } = string.Empty;
     }
 }

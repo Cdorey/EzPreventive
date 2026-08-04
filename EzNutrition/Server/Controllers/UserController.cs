@@ -12,7 +12,7 @@ namespace EzNutrition.Server.Controllers
     [ApiController]
     [Route("[controller]/[Action]")]
     [Authorize]
-    public class UserController(ILogger<AuthController> logger, AuthManagerRepository authManagerRepository, UserManager<IdentityUser> userManager, ApplicationDbContext applicationDbContext) : ControllerBase
+    public class UserController(ILogger<UserController> logger, AuthManagerRepository authManagerRepository, UserManager<IdentityUser> userManager, ApplicationDbContext applicationDbContext) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> Profile()
@@ -55,7 +55,9 @@ namespace EzNutrition.Server.Controllers
         /// <param name="professionalIdentityDto"></param>
         /// <returns></returns>
         [HttpPost]
-        public async Task<IActionResult> CreateProfessionalIdentity([FromBody] ProfessionalIdentityDto professionalIdentityDto)
+        public async Task<IActionResult> CreateProfessionalIdentity(
+            [FromBody] ProfessionalIdentityDto professionalIdentityDto,
+            CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -66,7 +68,10 @@ namespace EzNutrition.Server.Controllers
             try
             {
                 logger.LogInformation("User {User} attempting to create professional identity.", User.Identity?.Name);
-                var result = await authManagerRepository.CreateProfessionalIdentityRequest(professionalIdentityDto, User);
+                var result = await authManagerRepository.CreateProfessionalIdentityRequest(
+                    professionalIdentityDto,
+                    User,
+                    cancellationToken);
                 logger.LogInformation("Professional identity created successfully for user {User}.", User.Identity?.Name);
                 return Ok(new RegistrationResultDto
                 {
@@ -78,12 +83,12 @@ namespace EzNutrition.Server.Controllers
             catch (Exception e)
             {
                 logger.LogError(e, "Error occurred while creating professional identity for user {User}.", User.Identity?.Name);
-                return BadRequest(e.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "专业身份认证服务暂时不可用，请稍后重试。");
             }
         }
 
         [HttpGet]
-        public async Task<IActionResult> ProfessionalIdentity()
+        public async Task<IActionResult> ProfessionalIdentity(CancellationToken cancellationToken)
         {
             var userName = User.Identity?.Name;
             if (userName is null)
@@ -97,10 +102,13 @@ namespace EzNutrition.Server.Controllers
                 logger.LogWarning("User {User} not found.", userName);
                 return NotFound("用户不存在");
             }
-            var professionalIdentity = await applicationDbContext.ProfessionalCertificationRequests.AsNoTracking()
-                                                                                .Where(x => x.UserId == user.Id)
-                                                                                .Select(x => x.ToDto())
-                                                                                .ToListAsync();
+            var professionalIdentityEntities = await applicationDbContext.ProfessionalCertificationRequests
+                .AsNoTracking()
+                .Where(x => x.UserId == user.Id)
+                .ToListAsync(cancellationToken);
+            var professionalIdentity = professionalIdentityEntities
+                .Select(request => request.ToDto())
+                .ToList();
             if (professionalIdentity.Count != 0)
             {
                 return Ok(professionalIdentity);

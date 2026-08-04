@@ -2,6 +2,7 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Extension;
+using EzNutrition.Server.Services;
 using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Data.Entities;
 using EzNutrition.Shared.Policies;
@@ -17,7 +18,12 @@ namespace EzNutrition.Server.Controllers
     [ApiController]
     [Route("[controller]/[action]")]
     [Authorize(Policy = PolicyList.Admin)]
-    public class AdminController(RoleManager<IdentityRole> roleManager, ILogger<AdminController> logger, UserManager<IdentityUser> userManager, ApplicationDbContext applicationDbContext) : ControllerBase
+    public class AdminController(
+        RoleManager<IdentityRole> roleManager,
+        ILogger<AdminController> logger,
+        UserManager<IdentityUser> userManager,
+        ApplicationDbContext applicationDbContext,
+        CertificateFileStore certificateFileStore) : ControllerBase
     {
         /// <summary>
         /// 添加角色
@@ -27,9 +33,20 @@ namespace EzNutrition.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> AddRole([FromForm][Required] string newRole)
         {
+            if (string.IsNullOrWhiteSpace(newRole))
+            {
+                return BadRequest("Role name is required.");
+            }
+
             try
             {
-                var result = await roleManager.CreateAsync(new IdentityRole { Name = newRole });
+                var normalizedRoleName = newRole.Trim();
+                if (await roleManager.RoleExistsAsync(normalizedRoleName))
+                {
+                    return Conflict("Role already exists.");
+                }
+
+                var result = await roleManager.CreateAsync(new IdentityRole { Name = normalizedRoleName });
                 return result.Succeeded ? Ok(new { message = "Role created successfully" }) : BadRequest(result.Errors);
             }
             catch (Exception ex)
@@ -45,17 +62,21 @@ namespace EzNutrition.Server.Controllers
         /// <param name="role"></param>
         /// <returns></returns>
         [HttpGet("{role?}")]
-        public async Task<IActionResult> Users(string? role = default)
+        public async Task<IActionResult> Users(string? role = default, CancellationToken cancellationToken = default)
         {
-            if (role != default)
+            if (!string.IsNullOrWhiteSpace(role))
             {
                 logger.LogInformation("获取角色为 {role} 的用户列表", role);
-                return Ok(await userManager.GetUsersInRoleAsync(role));
+                var usersInRole = await userManager.GetUsersInRoleAsync(role.Trim());
+                return Ok(usersInRole.Select(user => user.ToDto()).ToList());
             }
             else
             {
                 logger.LogInformation("获取所有用户列表");
-                return Ok(userManager.Users);
+                var users = await userManager.Users
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+                return Ok(users.Select(user => user.ToDto()).ToList());
             }
         }
 
@@ -106,8 +127,21 @@ namespace EzNutrition.Server.Controllers
         /// <param name="newClaims">新的 Claim 列表</param>
         /// <returns>更新结果</returns>
         [HttpPut("{roleName}")]
-        public async Task<IActionResult> UpdateRoleClaims([FromRoute] string roleName, [FromBody] List<ClaimDto> newClaims)
+        public async Task<IActionResult> UpdateRoleClaims(
+            [FromRoute] string roleName,
+            [FromBody] List<ClaimDto> newClaims,
+            CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(roleName) || newClaims is null ||
+                newClaims.Any(claim => string.IsNullOrWhiteSpace(claim.Type) || string.IsNullOrWhiteSpace(claim.Value)))
+            {
+                return BadRequest("Role name and non-empty claim type/value pairs are required.");
+            }
+
+            newClaims = newClaims
+                .DistinctBy(claim => (claim.Type, claim.Value))
+                .ToList();
+
             // 查找角色
             var role = await roleManager.FindByNameAsync(roleName);
             if (role == null)
@@ -117,6 +151,7 @@ namespace EzNutrition.Server.Controllers
 
             // 获取现有的 Claim 列表
             var existingClaims = await roleManager.GetClaimsAsync(role);
+            await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
             // 移除所有现有 Claim
             foreach (var claim in existingClaims)
@@ -139,6 +174,7 @@ namespace EzNutrition.Server.Controllers
                 }
             }
 
+            await transaction.CommitAsync(cancellationToken);
             return Ok(new { Message = "Role claims updated successfully" });
         }
 
@@ -150,11 +186,19 @@ namespace EzNutrition.Server.Controllers
         /// <param name="isCoverLetter"></param>
         /// <returns></returns>
         [HttpPut]
-        public async Task<IActionResult> Notification([FromBody] NotificationDto notification)
+        public async Task<IActionResult> Notification(
+            [FromBody] NotificationDto notification,
+            CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            var publisherId = User.FindFirstValue(ClaimTypes.Upn);
+            if (string.IsNullOrWhiteSpace(publisherId))
+            {
+                return Unauthorized();
             }
 
             var x = new Notice
@@ -163,10 +207,10 @@ namespace EzNutrition.Server.Controllers
                 Description = notification.NoticeDescription,
                 CreateTime = DateTime.Now,
                 IsCoverLetter = notification.IsCoverLetter,
-                PublisherId = User.FindFirst(ClaimTypes.Upn)?.Value ?? string.Empty,
+                PublisherId = publisherId,
             };
             applicationDbContext.Add(x);
-            await applicationDbContext.SaveChangesAsync();
+            await applicationDbContext.SaveChangesAsync(cancellationToken);
             return Ok();
         }
 
@@ -208,14 +252,43 @@ namespace EzNutrition.Server.Controllers
         /// <param name="userId"></param>
         /// <returns></returns>
         [HttpDelete("{userId}")]
-        public async Task<IActionResult> DeleteUser(string userId)
+        public async Task<IActionResult> DeleteUser(string userId, CancellationToken cancellationToken)
         {
             var user = await userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound("用户不存在");
-            await applicationDbContext.ProfessionalCertificationRequests.Where(x => x.UserId == userId).ExecuteDeleteAsync();
+
+            var certificateTickets = await applicationDbContext.ProfessionalCertificationRequests
+                .AsNoTracking()
+                .Where(request => request.UserId == userId && request.CertificateTicket != null)
+                .Select(request => request.CertificateTicket!.Value)
+                .ToListAsync(cancellationToken);
+
+            await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
+            await applicationDbContext.ProfessionalCertificationRequests
+                .Where(request => request.UserId == userId)
+                .ExecuteDeleteAsync(cancellationToken);
             var result = await userManager.DeleteAsync(user);
-            return result.Succeeded ? Ok(new { message = "用户删除成功" }) : BadRequest(result.Errors);
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            foreach (var ticket in certificateTickets)
+            {
+                try
+                {
+                    certificateFileStore.Delete(ticket);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "删除用户 {UserId} 后清理证件文件 {Ticket} 失败", userId, ticket);
+                }
+            }
+
+            return Ok(new { message = "用户删除成功" });
         }
 
         /// <summary>
@@ -224,12 +297,38 @@ namespace EzNutrition.Server.Controllers
         /// <param name="dto"></param>
         /// <returns></returns>
         [HttpPut]
-        public async Task<IActionResult> UpdateUser([FromBody] UserInfoDto dto)
+        public async Task<IActionResult> UpdateUser(
+            [FromBody] UserInfoDto dto,
+            CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
+
+            if (string.IsNullOrWhiteSpace(dto.UserId) || string.IsNullOrWhiteSpace(dto.UserName) ||
+                string.IsNullOrWhiteSpace(dto.Email) || dto.Roles is null || dto.Claims is null ||
+                dto.Claims.Any(claim => string.IsNullOrWhiteSpace(claim.Type) || string.IsNullOrWhiteSpace(claim.Value)))
+            {
+                return BadRequest("用户标识、用户名、邮箱、角色和有效的 Claim 均不能为空。");
+            }
+
+            var requestedRoles = dto.Roles
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Select(role => role.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            foreach (var role in requestedRoles)
+            {
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    return BadRequest($"角色不存在：{role}");
+                }
+            }
+
+            var requestedClaims = dto.Claims
+                .DistinctBy(claim => (claim.Type, claim.Value))
+                .ToList();
 
             // 根据 DTO 中的 userId 获取用户
             var user = await userManager.FindByIdAsync(dto.UserId);
@@ -238,6 +337,8 @@ namespace EzNutrition.Server.Controllers
                 logger.LogWarning("用户 {UserId} 不存在", dto.UserId);
                 return NotFound("用户不存在");
             }
+
+            await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
             // 更新用户基本属性
             user.UserName = dto.UserName;
@@ -254,9 +355,9 @@ namespace EzNutrition.Server.Controllers
             // 更新角色：同步 DTO 中的角色和当前用户角色
             var currentRoles = await userManager.GetRolesAsync(user);
             // 需要添加的角色：DTO 中存在，但当前用户没有
-            var rolesToAdd = dto.Roles.Except(currentRoles).ToList();
+            var rolesToAdd = requestedRoles.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToList();
             // 需要删除的角色：当前用户存在，但 DTO 中没有
-            var rolesToRemove = currentRoles.Except(dto.Roles).ToList();
+            var rolesToRemove = currentRoles.Except(requestedRoles, StringComparer.OrdinalIgnoreCase).ToList();
 
             if (rolesToRemove.Count != 0)
             {
@@ -280,7 +381,7 @@ namespace EzNutrition.Server.Controllers
             // 更新 Claims：同步 DTO 中的 Claims 和当前用户的 Claims
             var currentClaims = await userManager.GetClaimsAsync(user);
             // 将 DTO 中的 Claim 转换为 Claim 对象
-            var dtoClaims = dto.Claims.Select(c => new Claim(c.Type, c.Value)).ToList();
+            var dtoClaims = requestedClaims.Select(c => new Claim(c.Type, c.Value)).ToList();
 
             // 需要删除的 Claims：当前用户存在，但在 DTO 中不存在
             var claimsToRemove = currentClaims.Where(cc => !dtoClaims.Any(dc => dc.Type == cc.Type && dc.Value == cc.Value)).ToList();
@@ -307,14 +408,17 @@ namespace EzNutrition.Server.Controllers
                 }
             }
 
+            await transaction.CommitAsync(cancellationToken);
             return Ok(new { message = "用户更新成功" });
         }
 
         [HttpGet]
-        public async Task<IActionResult> ProfessionalCertificationRequests()
+        public async Task<IActionResult> ProfessionalCertificationRequests(CancellationToken cancellationToken)
         {
-            var x = await applicationDbContext.ProfessionalCertificationRequests.AsNoTracking().Select(x => x.ToDto()).ToListAsync();
-            return Ok(x);
+            var requests = await applicationDbContext.ProfessionalCertificationRequests
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+            return Ok(requests.Select(request => request.ToDto()).ToList());
         }
 
         /// <summary>
@@ -327,39 +431,19 @@ namespace EzNutrition.Server.Controllers
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(ticket))
+                if (!Guid.TryParse(ticket, out var parsedTicket))
                 {
-                    return BadRequest("Ticket 不能为空");
+                    return BadRequest("Ticket 格式不正确");
                 }
 
-                var tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
-                if (!Directory.Exists(tempFolder))
-                {
-                    Directory.CreateDirectory(tempFolder);
-                }
-
-                // 在 TempUploads 文件夹中查找以 ticket 为前缀的文件
-                var files = Directory.GetFiles(tempFolder, ticket + ".*");
-                if (files == null || files.Length == 0)
+                var certificateFile = certificateFileStore.OpenRead(parsedTicket);
+                if (certificateFile is null)
                 {
                     logger.LogWarning("未找到 Ticket {Ticket} 对应的文件", ticket);
                     return NotFound("未找到对应文件");
                 }
 
-                // 默认取第一个匹配的文件
-                var filePath = files[0];
-                var ext = Path.GetExtension(filePath).ToLowerInvariant();
-
-                // 根据扩展名设置 MIME 类型
-                string contentType = ext switch
-                {
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    ".png" => "image/png",
-                    _ => "application/octet-stream"
-                };
-
-                var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                return File(fileStream, contentType);
+                return File(certificateFile.Content, certificateFile.ContentType);
             }
             catch (Exception ex)
             {
@@ -374,17 +458,26 @@ namespace EzNutrition.Server.Controllers
         /// <param name="dto">专业认证请求 DTO</param>
         /// <returns></returns>
         [HttpPut]
-        public async Task<IActionResult> UpdateRequest([FromBody] ProfessionalCertificationRequestDto dto)
+        public async Task<IActionResult> UpdateRequest(
+            [FromBody] ProfessionalCertificationRequestDto dto,
+            CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
+            if (!Enum.IsDefined(dto.Status))
+            {
+                return BadRequest("认证请求状态无效。");
+            }
+
             try
             {
                 // 根据 DTO 中的 Id 查找数据库中的对象
-                var request = await applicationDbContext.ProfessionalCertificationRequests.FindAsync(dto.Id);
+                var request = await applicationDbContext.ProfessionalCertificationRequests.FindAsync(
+                    [dto.Id],
+                    cancellationToken);
                 if (request == null)
                 {
                     logger.LogWarning("更新失败：请求 {RequestId} 不存在", dto.Id);
@@ -399,21 +492,13 @@ namespace EzNutrition.Server.Controllers
                 request.Remarks = dto.Remarks;
                 request.CertificateTicket = dto.Status == RequestStatus.Pending ? dto.CertificateTicket : null;
                 // 保存更改
-                await applicationDbContext.SaveChangesAsync();
+                await applicationDbContext.SaveChangesAsync(cancellationToken);
 
                 if (dto.Status != RequestStatus.Pending && ticket is not null)
                 {
                     try
                     {
-                        var tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
-                        if (!Directory.Exists(tempFolder))
-                        {
-                            Directory.CreateDirectory(tempFolder);
-                        }
-
-                        // 在 TempUploads 文件夹中查找以 ticket 为前缀的文件
-                        var files = Directory.GetFiles(tempFolder, ticket.ToString() + ".*");
-                        files?.ForEach(System.IO.File.Delete);
+                        certificateFileStore.Delete(ticket.Value);
                     }
                     catch (Exception ex)
                     {

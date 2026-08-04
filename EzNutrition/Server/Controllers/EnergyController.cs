@@ -10,7 +10,11 @@ namespace EzNutrition.Server.Controllers
     public class EnergyController(DietaryReferenceIntakeRepository energyRepository, ILogger<EnergyController> logger) : ControllerBase
     {
         [HttpPost("EERs/{gender}/{age}")]
-        public IActionResult GetEERs(string gender, decimal age, [FromBody] IEnumerable<string> specialPhysiologicalPeriod)
+        public async Task<IActionResult> GetEERs(
+            string gender,
+            decimal age,
+            [FromBody] IEnumerable<string>? specialPhysiologicalPeriod,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
@@ -18,9 +22,13 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("Invalid gender or age.");
             }
 
-            var eerResults = energyRepository.GetEERsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
+            var eerResults = await energyRepository.GetEERsByPersonalInfoAsync(
+                age,
+                gender.Trim(),
+                specialPhysiologicalPeriod,
+                cancellationToken);
 
-            if (eerResults == null || !eerResults.Any())
+            if (eerResults.Count == 0)
             {
                 logger.LogWarning("无记录的EER参数：{gender}/{age}", gender, age);
                 return NotFound("No EER results found.");
@@ -30,16 +38,24 @@ namespace EzNutrition.Server.Controllers
         }
 
         [HttpPost("DRIs/{gender}/{age}")]
-        public IActionResult GetDRIs(string gender, decimal age, [FromBody] IEnumerable<string> specialPhysiologicalPeriod)
+        public async Task<IActionResult> GetDRIs(
+            string gender,
+            decimal age,
+            [FromBody] IEnumerable<string>? specialPhysiologicalPeriod,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(gender) || age < 0)
             {
                 logger.LogWarning("不正确的DRIs参数：{gender}/{age}", gender, age);
                 return BadRequest("Invalid gender or age.");
             }
-            var driResults = energyRepository.GetDRIsByPersonalInfo(age, gender, specialPhysiologicalPeriod);
+            var driResults = await energyRepository.GetDRIsByPersonalInfoAsync(
+                age,
+                gender.Trim(),
+                specialPhysiologicalPeriod,
+                cancellationToken);
 
-            if (driResults == null || !driResults.Any())
+            if (driResults.Count == 0)
             {
                 logger.LogWarning("无记录的DRIs参数：{gender}/{age}", gender, age);
                 return NotFound("No DRIs results found.");

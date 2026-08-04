@@ -11,7 +11,11 @@ using System.Text;
 
 namespace EzNutrition.Server.Services
 {
-    public class JwtService(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IOptions<JwtSettings> options)
+    public class JwtService(
+        UserManager<IdentityUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        IOptions<JwtSettings> options,
+        ILogger<JwtService> logger)
     {
         //public async Task<string> GenerateJwtToken(string userName)
         //{
@@ -20,9 +24,25 @@ namespace EzNutrition.Server.Services
 
         public async Task<string> GenerateJwtToken(IdentityUser user)
         {
-            var privateKeyBytes = Convert.FromBase64String(options.Value.PrivateKey);
-            var rsa = RSA.Create();
-            rsa.ImportPkcs8PrivateKey(privateKeyBytes, out _);
+            ArgumentNullException.ThrowIfNull(user);
+            if (string.IsNullOrWhiteSpace(user.UserName))
+            {
+                throw new InvalidOperationException("A JWT cannot be generated for a user without a username.");
+            }
+
+            using var rsa = RSA.Create();
+            try
+            {
+                var privateKeyBytes = Convert.FromBase64String(options.Value.PrivateKey);
+                rsa.ImportPkcs8PrivateKey(privateKeyBytes, out _);
+            }
+            catch (Exception ex) when (ex is FormatException or CryptographicException)
+            {
+                throw new InvalidOperationException(
+                    "JwtSettings:PrivateKey is not a valid Base64-encoded PKCS#8 RSA private key.",
+                    ex);
+            }
+
             var privateKey = new RsaSecurityKey(rsa);
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -33,7 +53,7 @@ namespace EzNutrition.Server.Services
 
             // 2. 加入 Upn、Name
             claimsList.Add(new Claim(ClaimTypes.Upn, user.Id));
-            claimsList.Add(new Claim(ClaimTypes.Name, user.UserName!));
+            claimsList.Add(new Claim(ClaimTypes.Name, user.UserName));
 
             // 3. 加入角色及其 Claims
             var roleNames = await userManager.GetRolesAsync(user);
@@ -44,9 +64,22 @@ namespace EzNutrition.Server.Services
 
                 // 3.2 如果你的角色本身在 RoleClaims 表中有额外声明，也加进来
                 var roleEntity = await roleManager.FindByNameAsync(roleName);
-                var extraRoleClaims = await roleManager.GetClaimsAsync(roleEntity!);
+                if (roleEntity is null)
+                {
+                    logger.LogWarning(
+                        "User {UserId} references role {RoleName}, but the role no longer exists.",
+                        user.Id,
+                        roleName);
+                    continue;
+                }
+
+                var extraRoleClaims = await roleManager.GetClaimsAsync(roleEntity);
                 claimsList.AddRange(extraRoleClaims);
             }
+
+            claimsList = claimsList
+                .DistinctBy(claim => (claim.Type, claim.Value))
+                .ToList();
 
             // 4. 构造 tokenDescriptor
             var tokenDescriptor = new SecurityTokenDescriptor
