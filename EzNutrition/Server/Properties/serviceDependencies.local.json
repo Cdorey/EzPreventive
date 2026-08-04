@@ -1,8 +1,5 @@
 {
   "dependencies": {
-    "secrets1": {
-      "type": "secrets.user"
-    },
     "mssql1": {
       "serviceConnectorResourceId": "",
       "secretStore": "LocalSecretsFile",
@@ -16,6 +13,12 @@
       "resourceId": null,
       "type": "mssql.onprem",
       "connectionId": "ConnectionStrings:ApplicationDb"
+    },
+    "secrets1": {
+      "secretStore": null,
+      "resourceId": null,
+      "type": "secrets.user",
+      "connectionId": null
     }
   }
 }

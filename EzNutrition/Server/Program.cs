@@ -31,7 +31,7 @@ namespace EzNutrition.Server
             builder.Services.AddTransient<AuthManagerRepository>();
             builder.Services.AddTransient<IEmailSender<IdentityUser>, SmtpEmailSender>();
             builder.Services.AddTransient<FoodNutritionValueRepository>();
-            builder.Services.AddTransient<IGenerativeAiProvider, TencentAgency>();
+            builder.Services.AddHttpClient<IGenerativeAiProvider, TencentAgencyDeepSeekV4Pro>();
 
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(nameof(EmailSettings)));
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));

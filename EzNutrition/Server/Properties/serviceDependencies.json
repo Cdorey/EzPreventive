@@ -1,8 +1,5 @@
 {
   "dependencies": {
-    "secrets1": {
-      "type": "secrets"
-    },
     "mssql1": {
       "type": "mssql",
       "connectionId": "ConnectionStrings:EzNutritionDB"
@@ -10,6 +7,10 @@
     "mssql2": {
       "type": "mssql",
       "connectionId": "ConnectionStrings:ApplicationDb"
+    },
+    "secrets1": {
+      "type": "secrets",
+      "connectionId": null
     }
   }
 }
