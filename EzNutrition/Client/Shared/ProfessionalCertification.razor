@@ -3,76 +3,76 @@
 <Form Model="@ProfessionalIdentityDto" ValidateOnChange>
     <FormItem>
         <RadioGroup @bind-Value="ProfessionalIdentityDto.IdentityType">
-            <Radio RadioButton Value="@("Physician")">ҽʦ</Radio>
-            <Radio RadioButton Value="@("Nutritionist")">Ӫ����ʦ</Radio>
-            <Radio RadioButton Value="@("RD")">ע��Ӫ��ʦ</Radio>
-            <Radio RadioButton Value="@("Teacher")">��У��ʦ</Radio>
-            <Radio RadioButton Value="@("Student")">��Уѧ��</Radio>
+            <Radio RadioButton Value="@("Physician")">医师</Radio>
+            <Radio RadioButton Value="@("Nutritionist")">营养技师</Radio>
+            <Radio RadioButton Value="@("RD")">注册营养师</Radio>
+            <Radio RadioButton Value="@("Teacher")">高校教师</Radio>
+            <Radio RadioButton Value="@("Student")">高校学生</Radio>
         </RadioGroup>
     </FormItem>
     <FormItem>
         <Input @bind-Value="ProfessionalIdentityDto.InstitutionName" />
     </FormItem>
 </Form>
-<Title Level="3">����רҵ������֤��˵��</Title>
-<Paragraph>Ϊ����EzNutrition�ӿڱ����ã����ֹ�������֤Ӫ��רҵ���ʺ󷽿�ʹ��</Paragraph>
-<Paragraph>Ӫ����Ӫ�����רҵ�Ľ綨���й�Ӫ��ѧ�ᣨע��Ӫ��ʦ������ض���һ�£�</Paragraph>
+<Title Level="3">关于专业资质认证的说明</Title>
+<Paragraph>为避免EzNutrition接口被滥用，部分功能需认证营养专业资质后方可使用</Paragraph>
+<Paragraph>营养及营养相关专业的界定与中国营养学会（注册营养师）的相关定义一致：</Paragraph>
 <Paragraph>
     <ul>
-        <li>Ӫ��רҵ����ѧ����ָ��ʳƷ������Ӫ��ѧ��Ԥ��ҽѧ��</li>
-        <li>Ӫ�����רҵ����ѧ����ָ������ҽѧ���ٴ�ҽѧ����ҽѧ������ҽ�ٴ�ҽѧ��ҩѧ���ٴ�ҩѧ����ҩѧ������ѧ��ʳƷ�����밲ȫ��ʳƷ��ѧ�빤�̡�ʳƷӪ�����������������Ӫ��������ʳƷӪ���뽡����</li>
-        <li>Ӫ��רҵר��ѧ����ָ��ҽѧӪ����ʳƷӪ���뽡����Ԥ��ҽѧ��</li>
-        <li>Ӫ�����רҵר��ѧ����ָ���ٴ�ҽѧ��������ҩѧ����ҽѧ����ҩѧ��Ӫ����͡�ʳƷ�����⼼�������������Ӫ��������ʳƷ���������������������ҽ�������������걣���������</li>
+        <li>营养专业本科学历是指：食品卫生与营养学、预防医学；</li>
+        <li>营养相关专业本科学历是指：基础医学、临床医学、中医学、中西医临床医学、药学、临床药学、中药学、护理学、食品质量与安全、食品科学与工程、食品营养与检验教育、烹饪与营养教育、食品营养与健康；</li>
+        <li>营养专业专科学历是指：医学营养、食品营养与健康、预防医学；</li>
+        <li>营养相关专业专科学历是指：临床医学、护理、药学、中医学、中药学、营养配餐、食品检验检测技术、烹调工艺与营养、保健食品质量与管理、健康管理中医养生保健、老年保健与管理；</li>
     </ul>
 </Paragraph>
-<Paragraph>�ƻ����ƵĹ��ܰ�����</Paragraph>
+<Paragraph>计划限制的功能包括：</Paragraph>
 <Paragraph>
     <ul>
-        <li>����ʵװ������deepseek api�����ⶨ������������ʳָ�������Ĳݸ�</li>
-        <li>�������У����浥�������ɺʹ�ӡ</li>
+        <li>（已实装）基于deepseek api辅助拟定健康教育和膳食指导方案的草稿</li>
+        <li>（开发中）报告单在线生成和打印</li>
     </ul>
 </Paragraph>
 <Paragraph>
-    ��ע�⣬EzNutritionû�����ñ������ϴ�����֤������Ƭ�ļƻ��������ɺ�������˽����Σ������ϴ�����Ƭ������ɾ����ϵͳ���ᱣ����רҵ������֤��صı�ҪժҪ��Ϣ����ִҵ������ִҵ���ִҵ��Χ��֤����뼰ѧ����Ԥ�Ʊ�ҵʱ��ȣ���������Ϊ����ͨ�����EzNutrition.Server��<a href="https://github.com/Cdorey/EzPreventive/tree/master/EzNutrition/Server/Controllers">Admin��Auth������</a>Դ����ȷ�ϡ�
+    请注意，EzNutrition没有永久保存您上传的认证材料照片的计划。审核完成后，无论审核结果如何，所有上传的照片均将被删除。系统仅会保留与专业资质认证相关的必要摘要信息（如执业机构、执业类别、执业范围、证书编码及学生的预计毕业时间等）。上述行为可以通过审查EzNutrition.Server的<a href="https://github.com/Cdorey/EzPreventive/tree/master/EzNutrition/Server/Controllers">Admin和Auth控制器</a>源代码确认。
 </Paragraph>
-<Title Level="3">���ڹ�������ҽʦ�͸�У��ʦ�Ĳ���˵��</Title>
+<Title Level="3">关于公共卫生医师和高校教师的补充说明</Title>
 <Paragraph>
-    ���ǵ���������ҽʦͨ�����Ŷ���ʽ��������չ���������Ŷ��в��ֳ�Ա���ܲ��߱�Ӫ����Ӫ�����רҵ��������������������������Ӫ����Ԥ����������أ�ͬʱ�����ڸ�У��ʦ��Ҫ�����ѧ��רҵָ����Ҫ�����Ǽƻ�Ϊ�����û�Ⱥ�忪������ġ����������顱���ܡ��ù��ܽ������������������ӣ�������������EzNutrition�û��������Ĺ����顣�ڹ������У������������Ƿ���ж�����רҵ������֤�����Ǿ��ɵ������޽ӿڣ������������Ϊ���мල��������ʱ�����乤�����ڵķ���Ȩ�ޡ���������߱����߱�רҵ��֤���˳������齫����Ӱ����ԭ������֤״̬��
+    考虑到公共卫生医师通常以团队形式在社区开展工作，而团队中部分成员可能不具备营养或营养相关专业背景，但社区公共卫生服务与营养干预工具密切相关；同时，由于高校教师需要满足教学和专业指导的要求，我们计划为上述用户群体开发额外的“创建工作组”功能。该功能将允许您生成邀请链接，自主邀请其他EzNutrition用户加入您的工作组。在工作组中，无论受邀者是否具有独立的专业资质认证，他们均可调用受限接口，但您需对其行为进行监督，并可随时撤销其工作组内的访问权限。如果受邀者本身具备专业认证，退出工作组将不会影响其原本的认证状态。
 </Paragraph>
-<Paragraph>������Σ�������Ӧ�����뻼�߼������Ĺ����顣</Paragraph>
+<Paragraph>无论如何，您都不应当邀请患者加入您的工作组。</Paragraph>
 
-<Title Level="3">�ϴ��ʸ�֤��</Title>
-<Paragraph>�������������֤���ͣ�����Ҫ�ϴ���</Paragraph>
+<Title Level="3">上传资格证明</Title>
+<Paragraph>基于您申请的认证类型，您需要上传：</Paragraph>
 @switch (ProfessionalIdentityDto.IdentityType)
 {
     case "Physician":
-        <Paragraph>ҽʦִҵ֤�飨�����ϴ��ʸ�֤�飩</Paragraph>
+        <Paragraph>医师执业证书（请勿上传资格证书）</Paragraph>
         break;
     case "Nutritionist":
-        <Paragraph>����������ί�����粿���ϰ䷢������רҵ�����ʸ�Ӫ����֤�飨�ⲻ���������䷢�Ĺ���Ӫ��ʦ֤�飩</Paragraph>
+        <Paragraph>由卫生健康委和人社部联合颁发的卫生专业技术资格（营养）证书（这不是社会机构颁发的公共营养师证书）</Paragraph>
         break;
     case "RD":
-        <Paragraph>ע��Ӫ��ʦ֤�飨ֽ�ʺͿ�Ƭ���ɣ�ֻ��Ҫ�ṩһ����</Paragraph>
+        <Paragraph>注册营养师证书（纸质和卡片均可，只需要提供一个）</Paragraph>
         break;
     case "Teacher":
-        <Paragraph>��ʦ�ʸ�֤�飨�����ϴ�ѧ��֤�飩���УƸ��</Paragraph>
+        <Paragraph>教师资格证书（请勿上传学历证书）或高校聘书</Paragraph>
         break;
     case "Student":
-        <Paragraph>ѧ��֤��֤�����������Ԥ�Ʊ�ҵ���ڣ���ѧ����ѧ��������֤���棨���ѱ�ҵ����ѡ��ѧ����֤��</Paragraph>
+        <Paragraph>学生证（证件需可以体现预计毕业日期）或学信网学籍在线验证报告（如已毕业请勿选择学生认证）</Paragraph>
         break;
     default:
-        <Paragraph>����ѡ����֤����</Paragraph>
+        <Paragraph>请先选择认证类型</Paragraph>
         break;
 }
-<InputFile id="fileInput" OnChange="OnFileSelected" hidden accept="image/*" />
+<InputFile id="fileInput" OnChange="OnFileSelected" hidden accept="image/jpeg,image/png,.jpg,.jpeg,.png" />
 <Upload Name="files">
     <label class="ant-btn" for="fileInput">
-        <Icon Type="upload" />�ϴ��ʸ�֤��
+        <Icon Type="upload" />上传资格证明
     </label>
 </Upload>
 @if (@Filename != string.Empty)
 {
-    <Paragraph>��ѡ����ļ�����@Filename</Paragraph>
+    <Paragraph>已选择的文件名：@Filename</Paragraph>
 }
 @code {
     [Parameter, EditorRequired]

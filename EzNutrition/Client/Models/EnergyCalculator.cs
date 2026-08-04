@@ -1,8 +1,5 @@
-﻿using AntDesign;
-using EzNutrition.Client.Services;
-using EzNutrition.Shared.Data.Entities;
+﻿using EzNutrition.Shared.Data.Entities;
 using EzNutrition.Shared.Utilities;
-using Microsoft.AspNetCore.Components;
 using System.Net.Http.Json;
 using System.Text;
 
@@ -35,42 +32,33 @@ namespace EzNutrition.Client.Models
 
         public FoodExchangeAllocation? FoodExchangeAllocation { get; private set; }
 
-        public async Task FetchEersAsync(IMessageService message,
-                                    HttpClient httpClient,
-                                    UserSessionService userSession,
-                                    NavigationManager navigationManager)
+        public async Task FetchEersAsync(HttpClient httpClient, CancellationToken cancellationToken = default)
         {
-            if (userSession.UserInfo == null)
+            if (string.IsNullOrWhiteSpace(Client.Gender) || Client.Age < 0)
             {
-                navigationManager.NavigateTo("/");
-                await message.Error("需要登录");
-                return;
+                throw new InvalidOperationException("性别和年龄信息无效。");
             }
 
-            if (!string.IsNullOrEmpty(Client.Gender) && Client.Age >= 0)
-            {
-                try
-                {
-                    var postRes = await httpClient.PostAsJsonAsync($"Energy/EERs/{Client.Gender}/{Client.Age}", new List<string> { Client.SpecialPhysiologicalPeriod });
+            using var response = await httpClient.PostAsJsonAsync(
+                $"Energy/EERs/{Uri.EscapeDataString(Client.Gender)}/{Client.Age}",
+                new[] { Client.SpecialPhysiologicalPeriod },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
 
-                    if (postRes.IsSuccessStatusCode)
-                    {
-                        AvailableEERs = await postRes.Content.ReadFromJsonAsync<List<EER>>() ?? AvailableEERs;
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    await message.Error(ex.Message);
-                }
+            var eers = await response.Content.ReadFromJsonAsync<List<EER>>(cancellationToken);
+            if (eers is null || eers.Count == 0)
+            {
+                throw new InvalidDataException("服务器没有返回可用的能量参考记录。");
             }
+
+            AvailableEERs = eers;
         }
 
-        public void Calculate(IMessageService message)
+        public bool Calculate()
         {
             if (PAL is null)
             {
-                message.Error("PAL（活动强度）不应为0，请正确输入咨询对象性别、年龄等信息，并选择一个PAL");
-                return;
+                return false;
             }
 
             var energy = 0;
@@ -121,33 +109,36 @@ namespace EzNutrition.Client.Models
             Summary = strBuild.ToString();
             Allocation = new MacronutrientAllocation(energy);
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
+            return true;
         }
 
-        public void CorrectEnergy(int newEnergy, IMessageService message)
+        public bool CorrectEnergy(int newEnergy)
         {
-            if (newEnergy > 0)
+            if (newEnergy <= 0)
             {
-                var height = (Client.Height ?? 0) / 100;
-                var strBuild = new StringBuilder();
-                if (height != 0 && Client.Weight != null && Client.Weight != 0)
-                {
-                    strBuild.Append($"BMI:{Math.Round((Client.Weight.Value / height / height), 2)}，");
-                }
-                Energy = newEnergy;
-                strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
-                strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
-                Summary = strBuild.ToString();
-                Allocation = new MacronutrientAllocation(newEnergy);
-                FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
-                message.Info($"核定总能量{newEnergy}kCal，依据营养师修正。");
+                return false;
             }
+
+            var height = (Client.Height ?? 0) / 100;
+            var strBuild = new StringBuilder();
+            if (height != 0 && Client.Weight != null && Client.Weight != 0)
+            {
+                strBuild.Append($"BMI:{Math.Round((Client.Weight.Value / height / height), 2)}，");
+            }
+            Energy = newEnergy;
+            strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
+            strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
+            Summary = strBuild.ToString();
+            Allocation = new MacronutrientAllocation(newEnergy);
+            FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
+            return true;
         }
     }
 
     public class AiGeneratedAdvice
     {
         public bool IsReady { get; set; } = false;
-        
+
         public bool Sending { get; set; } = false;
 
         public string ReasoningContent { get; set; } = string.Empty;

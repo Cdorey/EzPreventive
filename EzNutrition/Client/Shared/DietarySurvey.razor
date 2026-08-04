@@ -4,10 +4,10 @@
 @using EzNutrition.Shared.Data.DietaryRecallSurvey
 @using EzNutrition.Shared.Data.Entities
 @using System.Data
+@implements IDisposable
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
-@inject NavigationManager Navigator
-@inject ArchiveManageService ArchiveManager
+@inject ILogger<DietarySurvey> Logger
 <Title Level="3">24小时回顾法膳食调查</Title>
 <Space Direction="SpaceDirection.Vertical" style="width: 100%;">
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
@@ -136,18 +136,54 @@
 
     public List<DietaryRecallEntry>? Entries => DietaryRecallSurvey?.RecallEntries;
 
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+
     private void RemoveRecord(DietaryRecallEntry entry)
     {
         Entries?.Remove(entry);
     }
 
-    private async Task OnSelectedItemChangedHandler(Food food)
+    private async Task OnSelectedItemChangedHandler(Food? food)
     {
-        var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var foodDetails = await httpClient.GetFromJsonAsync<List<FoodNutrientValue>>($"FoodComposition/CompositionData?friendlyCode={food.FriendlyCode}").ConfigureAwait(true);
-        food.FoodNutrientValues = foodDetails;
-        Entries?.Add(new DietaryRecallEntry { Food = food, Weight = 100 });
-        StateHasChanged();
+        if (food is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(food.FriendlyCode))
+        {
+            await Message.Error("该食物缺少有效编码，无法加载营养成分。");
+            return;
+        }
+
+        try
+        {
+            if (food.FoodNutrientValues is null)
+            {
+                var httpClient = HttpClientFactory.CreateClient("Authorize");
+                var requestUri = $"FoodComposition/CompositionData?friendlyCode={Uri.EscapeDataString(food.FriendlyCode)}";
+                var foodDetails = await httpClient.GetFromJsonAsync<List<FoodNutrientValue>>(
+                    requestUri,
+                    lifetimeCancellation.Token);
+                if (foodDetails is null || foodDetails.Count == 0)
+                {
+                    await Message.Error("没有找到该食物的营养成分数据。");
+                    return;
+                }
+
+                food.FoodNutrientValues = foodDetails;
+            }
+
+            Entries?.Add(new DietaryRecallEntry { Food = food, Weight = 100 });
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "Unable to load food composition for {FoodCode}.", food.FriendlyCode);
+            await Message.Error("食物营养成分加载失败，请稍后重试。");
+        }
     }
 
     private async Task Calculate()
@@ -172,8 +208,23 @@
                 return;
             }
         }
-        await DietaryRecallSurvey.CalculateAsync();
-        StateHasChanged();
-        await OnCalculationCompleted.InvokeAsync();
+        try
+        {
+            await DietaryRecallSurvey.CalculateAsync();
+            await OnCalculationCompleted.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Dietary recall calculation failed.");
+            DietaryRecallSurvey.SummaryCalculationTable = null;
+            DietaryRecallSurvey.SummaryRows.Clear();
+            await Message.Error("膳食调查核算失败，请检查录入数据和食物成分资料。");
+        }
+    }
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }

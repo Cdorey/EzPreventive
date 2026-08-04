@@ -12,26 +12,29 @@ namespace EzNutrition.Client.Services
     public class ArchiveManageService(IMessageService message,
                                       IHttpClientFactory httpClientFactory,
                                       UserSessionService userSession,
-                                      NavigationManager navigationManager) : ConcurrentDictionary<Guid, Archive>()
+                                      NavigationManager navigationManager,
+                                      ILogger<ArchiveManageService> logger) : ConcurrentDictionary<Guid, Archive>()
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Authorize");
 
         public event EventHandler? ClientNameChanged;
 
-        public bool Loading { get; set; } = false;
-
-
         public Guid NewArchive()
         {
             var client = new ClientInfo();
             this[client.ClientId] = new Archive(client);
-            client.NameChanged += ClientNameChanged;
+            client.NameChanged += HandleClientNameChanged;
             return client.ClientId;
         }
 
-        public async Task ClientInfoConfirmed(Archive archive)
+        public async Task ClientInfoConfirmed(Archive archive, CancellationToken cancellationToken = default)
         {
-            if (userSession.UserInfo == null)
+            if (archive.IsLoading)
+            {
+                return;
+            }
+
+            if (userSession.UserInfo is null || userSession.UserInfo.IsExpired)
             {
                 navigationManager.NavigateTo("/");
                 await message.Error("需要登录");
@@ -52,33 +55,49 @@ namespace EzNutrition.Client.Services
 
             try
             {
-                Loading = true;
-                archive.CurrentEnergyCalculator = new EnergyCalculator(archive.Client);
-                archive.DRIs = new DRIs(archive.Client);
-                await archive.DRIs.FetchDRIsAsync(message, _httpClient, userSession, navigationManager);
-                List<Food>? foods = await _httpClient.GetFromJsonAsync<List<Food>>("FoodComposition/Foods");
-                List<Nutrient>? nutrients = await _httpClient.GetFromJsonAsync<List<Nutrient>>("FoodComposition/Nutrients");
+                archive.IsLoading = true;
+                var energyCalculator = new EnergyCalculator(archive.Client);
+                var dris = new DRIs(archive.Client);
+                await dris.FetchDRIsAsync(_httpClient, cancellationToken);
 
-                if (foods is not null && nutrients is not null)
+                var foodsTask = _httpClient.GetFromJsonAsync<List<Food>>(
+                    "FoodComposition/Foods",
+                    cancellationToken);
+                var nutrientsTask = _httpClient.GetFromJsonAsync<List<Nutrient>>(
+                    "FoodComposition/Nutrients",
+                    cancellationToken);
+                await Task.WhenAll(foodsTask, nutrientsTask);
+
+                var foods = await foodsTask;
+                var nutrients = await nutrientsTask;
+                if (foods is null || foods.Count == 0 || nutrients is null || nutrients.Count == 0)
                 {
-                    archive.DietaryRecallSurvey = new DietaryRecallSurvey(archive.Client, foods, nutrients, archive.DRIs);
-                    archive.DietaryRecallSurvey.OnCalculate += (sender, e) =>
-                    {
-                        var stdTower = StandardTower.GetStandardTower(archive.Client.Age);
-                        if (stdTower is not null)
-                        {
-                            archive.DietaryTower = new DietaryRecallTower(archive.DietaryRecallSurvey.RecallEntries, stdTower);
-                        }
-                    };
+                    throw new InvalidDataException("Food composition metadata is empty.");
                 }
 
+                var dietaryRecallSurvey = new DietaryRecallSurvey(archive.Client, foods, nutrients, dris);
+                dietaryRecallSurvey.OnCalculate += (sender, e) =>
+                {
+                    var standardTower = StandardTower.GetStandardTower(archive.Client.Age);
+                    archive.DietaryTower = standardTower is null
+                        ? null
+                        : new DietaryRecallTower(dietaryRecallSurvey.RecallEntries, standardTower);
+                };
+
+                archive.CurrentEnergyCalculator = energyCalculator;
+                archive.DRIs = dris;
+                archive.DietaryRecallSurvey = dietaryRecallSurvey;
                 archive.DietaryTower = StandardTower.GetStandardTower(archive.Client.Age);
-                archive.SubjectiveObjectiveAssessmentPlanInformation = new SubjectiveObjectiveAssessmentPlanInformation();
+                archive.SubjectiveObjectiveAssessmentPlanInformation = new();
                 archive.ClientInfoFormEnabled = false;
             }
-            catch (HttpRequestException ex)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                await message.Error(ex.Message);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException or InvalidDataException)
+            {
+                logger.LogWarning(ex, "Unable to initialize archive for nutrition assessment.");
+                await message.Error("初始化营养评估失败，请检查网络后重试。");
                 archive.CurrentEnergyCalculator = null;
                 archive.DRIs = null;
                 archive.DietaryRecallSurvey = null;
@@ -88,13 +107,21 @@ namespace EzNutrition.Client.Services
             }
             finally
             {
-                Loading = false;
+                archive.IsLoading = false;
             }
         }
 
-        public async Task ClientInfoConfirmed(Guid archiveId)
+        public async Task ClientInfoConfirmed(Guid archiveId, CancellationToken cancellationToken = default)
         {
-            await ClientInfoConfirmed(this[archiveId]);
+            if (!TryGetValue(archiveId, out var archive))
+            {
+                throw new KeyNotFoundException($"Archive {archiveId} does not exist.");
+            }
+
+            await ClientInfoConfirmed(archive, cancellationToken);
         }
+
+        private void HandleClientNameChanged(object? sender, EventArgs e) =>
+            ClientNameChanged?.Invoke(sender, e);
     }
 }

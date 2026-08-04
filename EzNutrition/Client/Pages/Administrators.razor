@@ -2,8 +2,11 @@
 @using EzNutrition.Shared.Data.DTO
 @using EzNutrition.Shared.Policies
 @using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Policy = PolicyList.Admin)]
+@implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
+@inject ILogger<Administrators> Logger
 <Title Level="1">Administrators</Title>
 <AuthorizeView Policy="@PolicyList.Admin">
     <Authorized>
@@ -182,7 +185,7 @@
                         </FormItem>
                         <!-- 申请图片 -->
                         <FormItem Label="申请图片">
-                            <Image Src="@($"data:image/jpeg;base64,{ImageBase64}")" />
+                            <Image Src="@ImageDataUrl" />
                         </FormItem>
                         <!-- 申请内容 -->
                         <FormItem Label="申请内容">
@@ -239,7 +242,7 @@
     private string newRole = string.Empty;
     private UserInfoDto? userInfoDto;
     // 保存图片的 Base64 字符串
-    private string ImageBase64 { get; set; } = string.Empty;
+    private string ImageDataUrl { get; set; } = string.Empty;
 
     private Guid currentRequestId = Guid.Empty;
     private List<ProfessionalCertificationRequestDto> ProfessionalCertificationRequestList { get; } = [];
@@ -248,20 +251,38 @@
 
     private bool drawerVisible = false;
 
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+
     private async Task EditBtnClick(object dataContext)
     {
-        ImageBase64 = string.Empty;
+        ImageDataUrl = string.Empty;
         userInfoDto = null;
         currentRequestId = Guid.Empty;
         userInfoExtension = null;
         if (dataContext is UserDto user)
         {
-            using var httpClient = HttpClientFactory.CreateClient("Authorize");
-            var getRes = await httpClient.GetFromJsonAsync<UserInfoDto>($"Admin/GetUserInfo/{user.Id}");
-            if (getRes is not null)
+            try
             {
+                using var httpClient = HttpClientFactory.CreateClient("Authorize");
+                var getRes = await httpClient.GetFromJsonAsync<UserInfoDto>(
+                    $"Admin/GetUserInfo/{user.Id}",
+                    lifetimeCancellation.Token);
+                if (getRes is null)
+                {
+                    await Message.Error("用户信息为空。");
+                    return;
+                }
+
                 userInfoDto = getRes;
                 drawerVisible = true;
+            }
+            catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Unable to open user {UserId} for editing.", user.Id);
+                await Message.Error("用户信息加载失败，请稍后重试。");
             }
         }
         else if (dataContext is ProfessionalCertificationRequestDto requestDto)
@@ -271,14 +292,16 @@
                 using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
                 // 获取用户信息
-                var userResponse = await httpClient.GetAsync($"Admin/GetUserInfo/{requestDto.UserId}");
+                using var userResponse = await httpClient.GetAsync(
+                    $"Admin/GetUserInfo/{requestDto.UserId}",
+                    lifetimeCancellation.Token);
                 if (!userResponse.IsSuccessStatusCode)
                 {
                     await Message.Error($"获取用户信息失败：{userResponse.ReasonPhrase}");
                     return;
                 }
 
-                var getRes = await userResponse.Content.ReadFromJsonAsync<UserInfoDto>();
+                var getRes = await userResponse.Content.ReadFromJsonAsync<UserInfoDto>(lifetimeCancellation.Token);
                 if (getRes is null)
                 {
                     await Message.Error("用户信息为空。");
@@ -291,26 +314,35 @@
                 // 判断 CertificateTicket 是否有效
                 if (requestDto.CertificateTicket is null)
                 {
-                    _ = Message.Error("证件图片标识为空。");
+                    await Message.Error("证件图片标识为空。");
                 }
                 else
                 {
-                    var imageResponse = await httpClient.GetAsync($"Admin/CertificateImage/{requestDto.CertificateTicket}");
+                    using var imageResponse = await httpClient.GetAsync(
+                        $"Admin/CertificateImage/{requestDto.CertificateTicket}",
+                        lifetimeCancellation.Token);
                     if (!imageResponse.IsSuccessStatusCode)
                     {
-                        _ = Message.Error($"获取证件图片失败：{imageResponse.ReasonPhrase}");
+                        await Message.Error("获取证件图片失败。");
                     }
                     else
                     {
-                        var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync();
-                        if (imageBytes is null || imageBytes.Length == 0)
+                        var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync(lifetimeCancellation.Token);
+                        if (imageBytes.Length == 0)
                         {
-                            _ = Message.Error("证件图片为空或加载失败。");
+                            await Message.Error("证件图片为空或加载失败。");
                         }
                         else
                         {
-                            // 转换为 Base64 字符串
-                            ImageBase64 = Convert.ToBase64String(imageBytes);
+                            var mediaType = imageResponse.Content.Headers.ContentType?.MediaType;
+                            if (mediaType is not ("image/jpeg" or "image/png"))
+                            {
+                                await Message.Error("服务器返回了不支持的证件图片格式。");
+                            }
+                            else
+                            {
+                                ImageDataUrl = $"data:{mediaType};base64,{Convert.ToBase64String(imageBytes)}";
+                            }
                         }
                     }
                 }
@@ -321,10 +353,13 @@
                 }
                 drawerVisible = true;
             }
+            catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+            {
+            }
             catch (Exception ex)
             {
-                // 记录异常信息，并给用户提示
-                _ = Message.Error($"发生异常：{ex.Message}");
+                Logger.LogError(ex, "Unable to open a professional certification request.");
+                await Message.Error("认证申请详情加载失败，请稍后重试。");
             }
         }
     }
@@ -336,20 +371,32 @@
             try
             {
                 using var httpClient = HttpClientFactory.CreateClient("Authorize");
-                var delRes = await httpClient.DeleteAsync($"Admin/DeleteUser/{user.Id}");
+                using var delRes = await httpClient.DeleteAsync(
+                    $"Admin/DeleteUser/{user.Id}",
+                    lifetimeCancellation.Token);
                 if (delRes.IsSuccessStatusCode)
                 {
-                    _ = Message.Info("删除成功");
+                    await Message.Info("删除成功");
                 }
                 else
                 {
-                    _ = Message.Error("删除失败");
+                    await Message.Error("删除失败");
                 }
+            }
+            catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Unable to delete user {UserId}.", user.Id);
+                await Message.Error("删除用户请求异常，请稍后重试。");
             }
             finally
             {
-
-                await GetUserList();
+                if (!lifetimeCancellation.IsCancellationRequested)
+                {
+                    await TryRefreshUserListAsync();
+                }
             }
         }
     }
@@ -358,20 +405,29 @@
     {
         UserList.Clear();
         using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var getRes = await httpClient.GetFromJsonAsync<List<UserDto>>($"Admin/Users");
-        UserList.AddRange(getRes!);
+        var getRes = await httpClient.GetFromJsonAsync<List<UserDto>>(
+            "Admin/Users",
+            lifetimeCancellation.Token);
+        if (getRes is not null)
+        {
+            UserList.AddRange(getRes);
+        }
     }
 
     private async Task GetRoleList()
     {
         RoleList.Clear();
         using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var roleNames = await httpClient.GetFromJsonAsync<List<string>>($"Admin/Roles");
+        var roleNames = await httpClient.GetFromJsonAsync<List<string>>(
+            "Admin/Roles",
+            lifetimeCancellation.Token);
         if (roleNames?.Count > 0)
         {
             foreach (var roleName in roleNames)
             {
-                var roleClaims = await httpClient.GetFromJsonAsync<RoleClaimsDto>($"Admin/RoleClaims/{roleName}");
+                var roleClaims = await httpClient.GetFromJsonAsync<RoleClaimsDto>(
+                    $"Admin/RoleClaims/{Uri.EscapeDataString(roleName)}",
+                    lifetimeCancellation.Token);
                 if (roleClaims is not null)
                 {
                     RoleList.Add(roleClaims);
@@ -384,42 +440,61 @@
     {
         ProfessionalCertificationRequestList.Clear();
         using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var getRes = await httpClient.GetFromJsonAsync<List<ProfessionalCertificationRequestDto>>($"Admin/ProfessionalCertificationRequests");
-        ProfessionalCertificationRequestList.AddRange(getRes!);
+        var getRes = await httpClient.GetFromJsonAsync<List<ProfessionalCertificationRequestDto>>(
+            "Admin/ProfessionalCertificationRequests",
+            lifetimeCancellation.Token);
+        if (getRes is not null)
+        {
+            ProfessionalCertificationRequestList.AddRange(getRes);
+        }
     }
 
-    private async Task UpdateUserAsync()
+    private async Task<bool> UpdateUserAsync()
     {
+        if (userInfoDto is null)
+        {
+            await Message.Error("没有可更新的用户信息。");
+            return false;
+        }
+
         try
         {
             // 获取带授权的 HttpClient
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
-            var response = await httpClient.PutAsJsonAsync("Admin/UpdateUser", userInfoDto);
+            using var response = await httpClient.PutAsJsonAsync(
+                "Admin/UpdateUser",
+                userInfoDto,
+                lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
+                await Message.Success("用户更新成功！");
+                await TryRefreshUserListAsync();
+                return true;
+            }
 
-                _ = Message.Success("用户更新成功！");
-                await GetUserList();
-                userInfoDto = null;
-            }
-            else
-            {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                await Message.Error($"更新失败：{errorMsg}");
-            }
+            await Message.Error("用户更新失败，请检查提交内容。");
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            await Message.Error($"请求异常：{ex.Message}");
+            Logger.LogError(ex, "Unable to update user {UserId}.", userInfoDto.UserId);
+            await Message.Error("用户更新请求异常，请稍后重试。");
         }
+
+        return false;
     }
 
     private async Task UpdateUserBtnClick()
     {
-        await UpdateUserAsync();
-        drawerVisible = false;
+        if (await UpdateUserAsync())
+        {
+            userInfoDto = null;
+            drawerVisible = false;
+        }
     }
 
     private async Task ApproveBtnClick()
@@ -435,65 +510,77 @@
 
         if (string.IsNullOrWhiteSpace(userInfoExtension.RealName))
         {
-            Message.Equals("真实姓名不能为空");
+            await Message.Error("真实姓名不能为空");
             return;
         }
 
 
         //根据Require验证UserInfoExtension模型是否合法
-        userInfoDto.Roles.Add(requestDto.IdentityType);
-        userInfoDto.Claims.Add(new ClaimDto { Type = "InstitutionName", Value = requestDto.InstitutionName });
-        userInfoDto.Claims.Add(new ClaimDto { Type = "RealName", Value = userInfoExtension.RealName });
+        if (!userInfoDto.Roles.Contains(requestDto.IdentityType, StringComparer.Ordinal))
+        {
+            userInfoDto.Roles.Add(requestDto.IdentityType);
+        }
+        AddClaimIfMissing(userInfoDto, "InstitutionName", requestDto.InstitutionName);
+        AddClaimIfMissing(userInfoDto, "RealName", userInfoExtension.RealName);
 
         if (userInfoExtension.PracticingType is not null)
         {
-            userInfoDto.Claims.Add(new ClaimDto { Type = "PracticingType", Value = userInfoExtension.PracticingType });
+            AddClaimIfMissing(userInfoDto, "PracticingType", userInfoExtension.PracticingType);
         }
         if (userInfoExtension.PracticingScope is not null)
         {
-            userInfoDto.Claims.Add(new ClaimDto { Type = "PracticingScope", Value = userInfoExtension.PracticingScope });
+            AddClaimIfMissing(userInfoDto, "PracticingScope", userInfoExtension.PracticingScope);
         }
         if (userInfoExtension.Major is not null)
         {
-            userInfoDto.Claims.Add(new ClaimDto { Type = "Major", Value = userInfoExtension.Major });
+            AddClaimIfMissing(userInfoDto, "Major", userInfoExtension.Major);
         }
         if (userInfoExtension.PrimarySubject is not null)
         {
-            userInfoDto.Claims.Add(new ClaimDto { Type = "PrimarySubject", Value = userInfoExtension.PrimarySubject });
+            AddClaimIfMissing(userInfoDto, "PrimarySubject", userInfoExtension.PrimarySubject);
         }
 
-        requestDto.Status = RequestStatus.Approved;
-
-        await UpdateUserAsync();
+        if (!await UpdateUserAsync())
+        {
+            return;
+        }
 
         try
         {
+            requestDto.Status = RequestStatus.Approved;
             // 获取带授权的 HttpClient
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
-            var response = await httpClient.PutAsJsonAsync("Admin/UpdateRequest", requestDto);
+            using var response = await httpClient.PutAsJsonAsync(
+                "Admin/UpdateRequest",
+                requestDto,
+                lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-
-                _ = Message.Success("审核列表更新成功！");
-                await GetCertificationRequestList();
-                ImageBase64 = string.Empty;
+                await Message.Success("审核列表更新成功！");
+                ImageDataUrl = string.Empty;
                 currentRequestId = Guid.Empty;
+                userInfoDto = null;
                 userInfoExtension = null;
+                drawerVisible = false;
+                await TryRefreshCertificationRequestsAsync();
             }
             else
             {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                await Message.Error($"审核列表更新失败：{errorMsg}");
+                requestDto.Status = RequestStatus.Pending;
+                await Message.Error("用户权限已更新，但审核记录更新失败，请立即重试。");
             }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            await Message.Error($"请求异常：{ex.Message}");
+            requestDto.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to approve certification request {RequestId}.", requestDto.Id);
+            await Message.Error("用户权限已更新，但审核记录更新异常，请立即重试。");
         }
-
-        drawerVisible = false;
     }
 
     private async Task RejectBtnClick()
@@ -508,38 +595,54 @@
             // 获取带授权的 HttpClient
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
-            var response = await httpClient.PutAsJsonAsync("Admin/UpdateRequest", requestDto);
+            using var response = await httpClient.PutAsJsonAsync(
+                "Admin/UpdateRequest",
+                requestDto,
+                lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-
-                _ = Message.Success("审核列表更新成功！");
-                await GetCertificationRequestList();
-                ImageBase64 = string.Empty;
+                await Message.Success("审核列表更新成功！");
+                ImageDataUrl = string.Empty;
                 currentRequestId = Guid.Empty;
                 userInfoDto = null;
                 userInfoExtension = null;
+                drawerVisible = false;
+                await TryRefreshCertificationRequestsAsync();
             }
             else
             {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                await Message.Error($"审核列表更新失败：{errorMsg}");
+                requestDto.Status = RequestStatus.Pending;
+                await Message.Error("审核记录更新失败，请检查提交内容后重试。");
             }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            await Message.Error($"请求异常：{ex.Message}");
+            requestDto.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to reject certification request {RequestId}.", requestDto.Id);
+            await Message.Error("审核记录更新异常，请稍后重试。");
         }
-
-        drawerVisible = false;
     }
 
 
     protected override async Task OnInitializedAsync()
     {
-        await GetUserList();
-        await GetRoleList();
-        await GetCertificationRequestList();
-        await base.OnInitializedAsync();
+        try
+        {
+            await GetUserList();
+            await GetRoleList();
+            await GetCertificationRequestList();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogError(ex, "Unable to initialize the administration page.");
+            await Message.Error("管理数据加载失败，请稍后重试。");
+        }
     }
 
     /// <summary>
@@ -574,6 +677,16 @@
         }
     }
 
+    private static void AddClaimIfMissing(UserInfoDto user, string type, string value)
+    {
+        if (!user.Claims.Any(claim =>
+                string.Equals(claim.Type, type, StringComparison.Ordinal)
+                && string.Equals(claim.Value, value, StringComparison.Ordinal)))
+        {
+            user.Claims.Add(new ClaimDto { Type = type, Value = value });
+        }
+    }
+
     private void AddRoleClaim(RoleClaimsDto dto)
     {
         if (dto is not null)
@@ -591,12 +704,19 @@
                 using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
 
-                var formContent = new FormUrlEncodedContent([new KeyValuePair<string, string>(nameof(newRole), newRole)]);
+                using var formContent = new FormUrlEncodedContent([new KeyValuePair<string, string>(nameof(newRole), newRole.Trim())]);
 
-                var res = await httpClient.PostAsync("Admin/AddRole", formContent);
+                using var res = await httpClient.PostAsync(
+                    "Admin/AddRole",
+                    formContent,
+                    lifetimeCancellation.Token);
                 if (!res.IsSuccessStatusCode)
                 {
-                    throw new Exception(await res.Content.ReadAsStringAsync());
+                    await Message.Error("角色添加失败，请确认名称没有重复。");
+                }
+                else
+                {
+                    await Message.Success("角色添加成功。");
                 }
             }
             else
@@ -604,14 +724,21 @@
                 await Message.Error("role name不可为空");
             }
         }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
         catch (Exception ex)
         {
-            await Message.Error(ex.Message);
+            Logger.LogError(ex, "Unable to add role {RoleName}.", newRole);
+            await Message.Error("角色添加请求异常，请稍后重试。");
         }
         finally
         {
             newRole = string.Empty;
-            await GetRoleList();
+            if (!lifetimeCancellation.IsCancellationRequested)
+            {
+                await TryRefreshRoleListAsync();
+            }
         }
     }
 
@@ -647,24 +774,33 @@
         {
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
             // 调用后端 PUT 接口，传入角色名称和更新后的 Claim 列表
-            var response = await httpClient.PutAsJsonAsync($"Admin/UpdateRoleClaims/{roleClaimsDto.RoleName}", roleClaimsDto.Claims);
+            using var response = await httpClient.PutAsJsonAsync(
+                $"Admin/UpdateRoleClaims/{Uri.EscapeDataString(roleClaimsDto.RoleName)}",
+                roleClaimsDto.Claims,
+                lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
                 await Message.Success("角色Claims更新成功！");
             }
             else
             {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                await Message.Error($"角色Claims更新失败：{errorMsg}");
+                await Message.Error("角色 Claims 更新失败，请检查提交内容。");
             }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            await Message.Error($"更新角色Claims异常：{ex.Message}");
+            Logger.LogError(ex, "Unable to update claims for role {RoleName}.", roleClaimsDto.RoleName);
+            await Message.Error("角色 Claims 更新异常，请稍后重试。");
         }
         finally
         {
-            await GetRoleList();
+            if (!lifetimeCancellation.IsCancellationRequested)
+            {
+                await TryRefreshRoleListAsync();
+            }
         }
     }
 
@@ -674,24 +810,78 @@
         {
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
             // 调用后端 PUT 接口，传入角色名称和更新后的 Claim 列表
-            var response = await httpClient.PutAsJsonAsync($"Admin/Notification", NewNotification);
+            using var response = await httpClient.PutAsJsonAsync(
+                "Admin/Notification",
+                NewNotification,
+                lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                _ = Message.Success("通知更新成功！");
+                await Message.Success("通知更新成功！");
             }
             else
             {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                _ = Message.Error($"通知更新失败：{errorMsg}");
+                await Message.Error("通知更新失败，请检查提交内容。");
             }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            _ = Message.Error($"通知更新失败：{ex.Message}");
+            Logger.LogError(ex, "Unable to update site notification.");
+            await Message.Error("通知更新异常，请稍后重试。");
         }
         finally
         {
             NewNotification = new NotificationDto();
+        }
+    }
+
+    private async Task TryRefreshUserListAsync()
+    {
+        try
+        {
+            await GetUserList();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to refresh the user list.");
+            await Message.Warning("用户操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+        }
+    }
+
+    private async Task TryRefreshRoleListAsync()
+    {
+        try
+        {
+            await GetRoleList();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to refresh the role list.");
+            await Message.Warning("角色操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+        }
+    }
+
+    private async Task TryRefreshCertificationRequestsAsync()
+    {
+        try
+        {
+            await GetCertificationRequestList();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to refresh the certification request list.");
+            await Message.Warning("审核操作已提交，但列表刷新失败；请重新打开页面确认结果。");
         }
     }
 
@@ -711,5 +901,11 @@
 
         [Display(Name = "所教专业")]
         public string? PrimarySubject { get; set; }
+    }
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }

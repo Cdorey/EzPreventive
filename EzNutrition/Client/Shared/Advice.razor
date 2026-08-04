@@ -3,10 +3,13 @@
 @using System.Net.Http.Headers
 @using EzNutrition.Client.Models
 @using EzNutrition.Client.Models.DietarySurvey
+@using EzNutrition.Client.Services
 @using EzNutrition.Shared.Data.DTO.PromptDto
 @using EzNutrition.Shared.Policies
-@using Markdig
+@implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
+@inject IMessageService Message
+@inject ILogger<Advice> Logger
 <AuthorizeView Policy="@PolicyList.Prescription">
     <Authorized>
         @if (CurrentArchive.AdvicePrompt is not null && CurrentArchive.AiGeneratedAdvice is not null)
@@ -40,7 +43,7 @@
 
                         <Title Level="4">发送给AI代理的数据</Title>
                         <Paragraph>
-                            @((MarkupString)Markdig.Markdown.ToHtml(@$"```json{System.Environment.NewLine}{JsonSerializer.Serialize(CurrentArchive.AdvicePrompt)}{System.Environment.NewLine}```", pipeline))
+                            <pre><code>@SerializedPrompt</code></pre>
                         </Paragraph>
 
                         <Divider />
@@ -54,7 +57,7 @@
             <Title Level="4">助理的思考过程</Title>
             @CurrentArchive.AiGeneratedAdvice.ReasoningContent
             <Title Level="4">助理的膳食建议草稿</Title>
-            @((MarkupString)Markdig.Markdown.ToHtml(CurrentArchive.AiGeneratedAdvice.Content, pipeline))
+            @SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)
         }
         else
         {
@@ -74,73 +77,124 @@
     </NotAuthorized>
 </AuthorizeView>
 @code {
-    MarkdownPipeline pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private EnvironmentDto? Environment { get; set; }
+
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+
+    private CancellationTokenSource? generationCancellation;
+
+    private Archive? activeArchive;
+
+    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    private string SerializedPrompt => JsonSerializer.Serialize(CurrentArchive.AdvicePrompt, PromptJsonOptions);
 
     [Parameter, EditorRequired]
     public required Archive CurrentArchive { get; set; }
 
     private async Task GenerateAsync()
     {
-        if (CurrentArchive.AdvicePrompt is null || CurrentArchive.AiGeneratedAdvice is null)
+        var advice = CurrentArchive.AiGeneratedAdvice;
+        if (CurrentArchive.AdvicePrompt is null || advice is null || advice.Sending)
         {
             return;
         }
 
-        // if (CurrentArchive.AiGeneratedAdvice.Sending)
-        // {
-        //     StateHasChanged();
-        //     return;
-        // }
+        generationCancellation?.Cancel();
+        generationCancellation?.Dispose();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeCancellation.Token);
+        generationCancellation = cancellation;
 
-        CurrentArchive.AiGeneratedAdvice.Sending = true;
-        // 1. 构造 POST 请求
-        var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
-        request.SetBrowserResponseStreamingEnabled(true); // 启用流式
+        advice.Sending = true;
+        advice.IsReady = false;
+        advice.ReasoningContent = string.Empty;
+        advice.Content = string.Empty;
 
-        // 2. 将 promptDto 序列化为 JSON，放到 Body
-        var json = JsonSerializer.Serialize(CurrentArchive.AdvicePrompt);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        // 3. 通过 HttpClientFactory 获取客户端
-        var httpClient = HttpClientFactory.CreateClient("Authorize");
-
-        // 4. 发送请求并使用流模式读取响应
-        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode(); // 如果希望在出错时抛异常可用
-
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(stream);
-
-        string? line;
-        // 5. 循环读取 SSE 流，直到读到 [DONE] 或结束
-        while ((line = await reader.ReadLineAsync()) is not null)
+        try
         {
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
+            using var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
+            request.SetBrowserResponseStreamingEnabled(true);
+            var json = JsonSerializer.Serialize(CurrentArchive.AdvicePrompt);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            if (line.StartsWith("data: "))
+            var httpClient = HttpClientFactory.CreateClient("Authorize");
+            using var response = await httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellation.Token);
+            if (!response.IsSuccessStatusCode)
             {
-                var jsonLine = line.Substring("data: ".Length).Trim();
-                if (jsonLine == "[DONE]")
-                    break;
+                Logger.LogWarning(
+                    "AI generation request failed with HTTP {StatusCode}.",
+                    (int)response.StatusCode);
+                await Message.Error("AI 请求失败，请稍后重试。");
+                return;
+            }
 
-                var chunk = JsonSerializer.Deserialize<AiResultDto>(jsonLine);
-                if (chunk != null)
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellation.Token);
+            using var reader = new StreamReader(stream);
+            var completed = false;
+
+            while (true)
+            {
+                var line = await reader.ReadLineAsync(cancellation.Token);
+                if (line is null)
                 {
-                    if (chunk.IsReasoningContent)
-                    {
-                        CurrentArchive.AiGeneratedAdvice.ReasoningContent += chunk.Content;
-                    }
-                    else
-                    {
-                        CurrentArchive.AiGeneratedAdvice.Content += chunk.Content;
-                    }
-                    StateHasChanged();
+                    break;
                 }
+
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var jsonLine = line["data:".Length..].Trim();
+                if (jsonLine == "[DONE]")
+                {
+                    completed = true;
+                    break;
+                }
+
+                var chunk = JsonSerializer.Deserialize<AiResultDto>(jsonLine)
+                    ?? throw new InvalidDataException("AI stream contained an empty data chunk.");
+                if (chunk.IsReasoningContent)
+                {
+                    advice.ReasoningContent += chunk.Content;
+                }
+                else
+                {
+                    advice.Content += chunk.Content;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+
+            if (!completed)
+            {
+                throw new EndOfStreamException("AI stream ended without a completion marker.");
+            }
+
+            advice.IsReady = true;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AI generation failed in the browser client.");
+            await Message.Error("AI 生成过程中发生错误，请稍后重试。");
+        }
+        finally
+        {
+            advice.Sending = false;
+            if (!lifetimeCancellation.IsCancellationRequested)
+            {
+                await InvokeAsync(StateHasChanged);
             }
         }
-        CurrentArchive.AiGeneratedAdvice.IsReady = true;
     }
 
     private void MakePrompt()
@@ -189,25 +243,48 @@
 
     private void CancelSend()
     {
+        generationCancellation?.Cancel();
         CurrentArchive.AdvicePrompt = null;
-        StateHasChanged();
     }
 
-    protected async override Task OnInitializedAsync()
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(activeArchive, CurrentArchive))
+        {
+            generationCancellation?.Cancel();
+            activeArchive = CurrentArchive;
+        }
+
+        CurrentArchive.AiGeneratedAdvice ??= new AiGeneratedAdvice();
+    }
+
+    protected override async Task OnInitializedAsync()
     {
         try
         {
             var httpClient = HttpClientFactory.CreateClient("Authorize");
-            Environment = await httpClient.GetFromJsonAsync<EnvironmentDto>("Prescription/Environment");
+            Environment = await httpClient.GetFromJsonAsync<EnvironmentDto>(
+                "Prescription/Environment",
+                lifetimeCancellation.Token);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {
-            Console.WriteLine($"无法加载AI环境信息: {ex.Message}");
+            Logger.LogInformation("The current user cannot access AI environment information.");
         }
-        finally
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
-            CurrentArchive.AiGeneratedAdvice ??= new AiGeneratedAdvice();
         }
-        await base.OnInitializedAsync();
+        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException)
+        {
+            Logger.LogWarning(ex, "Unable to load AI environment information.");
+        }
+    }
+
+    public void Dispose()
+    {
+        generationCancellation?.Cancel();
+        generationCancellation?.Dispose();
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }

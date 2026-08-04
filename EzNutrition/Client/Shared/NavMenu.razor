@@ -2,8 +2,8 @@
 @using EzNutrition.Client.Pages
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Policies
+@implements IDisposable
 @inject UserSessionService UserSession
-@inject MainTreatmentViewModel MaintreatmentVM
 @inject ArchiveManageService ArchiveManager
 @inject NavigationManager Navigator
 <Menu OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode=@MenuMode.Inline>
@@ -55,21 +55,25 @@
 @code {
     protected override void OnInitialized()
     {
-        UserSession.AuthenticationStateChanged += (e) =>
-        {
-            StateHasChanged();
-        };
-
-        ArchiveManager.ClientNameChanged += (sender, e) =>
-        {
-            StateHasChanged();
-        };
-
+        UserSession.AuthenticationStateChanged += HandleAuthenticationStateChanged;
+        ArchiveManager.ClientNameChanged += HandleClientNameChanged;
         base.OnInitialized();
     }
+
+    private void HandleAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    private void HandleClientNameChanged(object? sender, EventArgs e) =>
+        _ = InvokeAsync(StateHasChanged);
 
     private void OpenArchive()
     {
         Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");
+    }
+
+    public void Dispose()
+    {
+        UserSession.AuthenticationStateChanged -= HandleAuthenticationStateChanged;
+        ArchiveManager.ClientNameChanged -= HandleClientNameChanged;
     }
 }

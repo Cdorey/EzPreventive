@@ -1,8 +1,13 @@
 ﻿@using EzNutrition.Client.Models;
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Data.DTO;
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize]
+@implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
+@inject CertificateUploadService CertificateUpload
+@inject ILogger<UserCenter> Logger
 @page "/usercenter"
 <Title Level="1">用户中心</Title>
 <AuthorizeView>
@@ -74,99 +79,99 @@
     private ProfessionalIdentityDto professionalIdentityDto { get; set; } = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
     private IBrowserFile? currentSelectedFile;
     private bool certificationRequestSending = false;
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+    private string? pendingUploadTicket;
 
     private async Task SubmitCertificationRequest()
     {
-        certificationRequestSending = true;
-        if (currentSelectedFile is null)
+        if (certificationRequestSending)
         {
-            _ = Message.Error("请选择要上传的证明图片");
-            certificationRequestSending = false;
             return;
         }
 
-        _ = Message.Info("正在提交认证信息");
-        using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        var response = await httpClient.PostAsJsonAsync("User/CreateProfessionalIdentity", professionalIdentityDto);
-        if (response.IsSuccessStatusCode)
+        certificationRequestSending = true;
+        try
         {
-            var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>();
-            if (result?.Success is not true)
+            if (!TryValidate(professionalIdentityDto, out var validationMessage))
             {
-                _ = Message.Error(result?.Message ?? "认证信息提交失败");
-                certificationRequestSending = false;
+                await Message.Error(validationMessage);
                 return;
             }
 
-            var upLoadTicket = result?.UploadTicket;
-            if (upLoadTicket is not null)
+            if (currentSelectedFile is null)
             {
-                await UploadFile(upLoadTicket);
-                _ = Message.Success("认证信息提交成功");
-                InitCertificationRequestDialog();
-                await GetProfessionalIdentities();
+                await Message.Error("请选择要上传的证明图片。");
+                return;
             }
-            else
+
+            await Message.Info("正在提交认证信息");
+            if (pendingUploadTicket is null)
             {
-                _ = Message.Error("票据错误，图片上传失败，您的认证信息提交不完整");
-                InitCertificationRequestDialog();
-                await GetProfessionalIdentities();
+                var httpClient = HttpClientFactory.CreateClient("Authorize");
+                using var response = await httpClient.PostAsJsonAsync(
+                    "User/CreateProfessionalIdentity",
+                    professionalIdentityDto,
+                    lifetimeCancellation.Token);
+                if (!response.IsSuccessStatusCode)
+                {
+                    await Message.Error("认证信息提交失败，请检查填写内容后重试。");
+                    return;
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>(
+                    lifetimeCancellation.Token);
+                if (result?.Success is not true)
+                {
+                    await Message.Error(result?.Message ?? "认证信息提交失败。");
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(result.UploadTicket))
+                {
+                    throw new InvalidOperationException("服务器没有返回有效的证明图片上传票据。");
+                }
+
+                pendingUploadTicket = result.UploadTicket;
             }
+
+            await CertificateUpload.UploadAsync(
+                pendingUploadTicket,
+                currentSelectedFile,
+                lifetimeCancellation.Token);
+            pendingUploadTicket = null;
+            await Message.Success("认证信息提交成功");
+            InitCertificationRequestDialog();
+            await TryRefreshProfessionalIdentitiesAsync();
         }
-        else
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
-            var errorMsg = await response.Content.ReadAsStringAsync();
-            _ = Message.Error($"提交注册信息失败：{errorMsg}");
-            certificationRequestSending = false;
         }
-    }
-
-    private async Task UploadFile(string uploadTicket)
-    {
-        if (currentSelectedFile is null)
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException or NotSupportedException or System.Text.Json.JsonException)
         {
-            _ = Message.Error("无法访问待上传的文件");
-            certificationRequestSending = false;
-            return;
-        }
-
-        // 限制文件大小（例如 45MB），以防止超出服务端限制
-        var maxAllowedSize = 45 * 1024 * 1024;
-        try
-        {
-            using var content = new MultipartFormDataContent();
-
-            // 使用 StreamContent 包装文件流
-            var fileContent = new StreamContent(currentSelectedFile.OpenReadStream(maxAllowedSize));
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(currentSelectedFile.ContentType);
-            // name 必须与后端 [FromForm] 的参数名称一致，这里为 certificateFile
-            content.Add(content: fileContent, name: "certificateFile", fileName: currentSelectedFile.Name);
-
-            // 发送 POST 请求到指定的 URL（将 uploadTicket 拼接到 URL 路径中）
-            using var httpClient = HttpClientFactory.CreateClient("Anonymous");
-            var uploadResponseMessage = await httpClient.PostAsync($"Auth/UploadCertificate/{uploadTicket}", content);
-            if (uploadResponseMessage.IsSuccessStatusCode)
-            {
-                _ = Message.Success("上传成功！");
-            }
-            else
-            {
-                var errorMsg = await uploadResponseMessage.Content.ReadAsStringAsync();
-                _ = Message.Error($"上传失败：{errorMsg}");
-            }
+            Logger.LogWarning(ex, "Professional certification submission failed.");
+            await Message.Error(
+                pendingUploadTicket is not null
+                    ? "申请记录已创建，但图片上传失败；请保留当前窗口并再次点击提交重试上传。"
+                    : ex is InvalidOperationException
+                    ? ex.Message
+                    : "认证信息或证明图片提交失败，请稍后重试。");
         }
         catch (Exception ex)
         {
-            _ = Message.Error($"发生异常：{ex.Message}");
+            Logger.LogError(ex, "Unexpected professional certification submission error.");
+            await Message.Error("认证信息提交过程中发生异常，请稍后重试。");
+        }
+        finally
+        {
             certificationRequestSending = false;
         }
-
     }
 
     private void InitCertificationRequestDialog()
     {
         professionalIdentityDto = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
         currentSelectedFile = null;
+        pendingUploadTicket = null;
         certificationRequestSending = false;
     }
 
@@ -177,17 +182,21 @@
 
     private async Task GetProfile()
     {
-        using var httpClient = HttpClientFactory.CreateClient("Authorize");
-        UserInfo = await httpClient.GetFromJsonAsync<UserInfoDto>($"User/Profile");
+        var httpClient = HttpClientFactory.CreateClient("Authorize");
+        UserInfo = await httpClient.GetFromJsonAsync<UserInfoDto>(
+            "User/Profile",
+            lifetimeCancellation.Token);
     }
 
     private async Task GetProfessionalIdentities()
     {
         ProfessionalCertificationRequestDtos.Clear();
-        using var httpClient = HttpClientFactory.CreateClient("Authorize");
+        var httpClient = HttpClientFactory.CreateClient("Authorize");
         try
         {
-            var x = await httpClient.GetFromJsonAsync<List<ProfessionalCertificationRequestDto>>($"User/ProfessionalIdentity");
+            var x = await httpClient.GetFromJsonAsync<List<ProfessionalCertificationRequestDto>>(
+                "User/ProfessionalIdentity",
+                lifetimeCancellation.Token);
             if (x?.Count > 0)
             {
                 ProfessionalCertificationRequestDtos.AddRange(x);
@@ -199,10 +208,54 @@
         }
     }
 
+    private async Task TryRefreshProfessionalIdentitiesAsync()
+    {
+        try
+        {
+            await GetProfessionalIdentities();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to refresh professional certification requests.");
+            await Message.Warning("认证信息已提交，但列表刷新失败；请重新打开用户中心确认结果。");
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        await GetProfile();
-        await GetProfessionalIdentities();
-        await base.OnInitializedAsync();
+        try
+        {
+            await GetProfile();
+            await GetProfessionalIdentities();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "Unable to initialize the user center.");
+            await Message.Error("用户信息加载失败，请稍后重试。");
+        }
+    }
+
+    private static bool TryValidate(object value, out string validationMessage)
+    {
+        var validationResults = new List<ValidationResult>();
+        var isValid = Validator.TryValidateObject(
+            value,
+            new ValidationContext(value),
+            validationResults,
+            validateAllProperties: true);
+        validationMessage = string.Join("；", validationResults.Select(result => result.ErrorMessage));
+        return isValid;
+    }
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }

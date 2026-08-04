@@ -1,7 +1,6 @@
 ﻿@using EzNutrition.Client.Services;
 @inherits LayoutComponentBase
 @inject UserSessionService UserSession
-@inject NavigationManager Navigation
 
 <Layout Style="min-height: 100vh; " >
     <Sider Breakpoint="BreakpointType.Md" CollapsedWidth="0">
@@ -24,7 +23,7 @@
         <Footer Style="text-align: center;">
             @if (!string.IsNullOrEmpty(@UserSession.CaseNumber))
             {
-                <p><a href="http://www.miit.gov.cn/" target="_blank">@UserSession.CaseNumber</a></p>
+                <p><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">@UserSession.CaseNumber</a></p>
             }
         </Footer>
     </Layout>
@@ -40,33 +39,16 @@
 </style>
 
 @code {
-    private BreakpointType currentBreakpoint;
-
     private void DetectTouch(TouchEventArgs e)
     {
-        UserSession.IsTouchDetected = true;
-        StateHasChanged();
-    }
-
-    private void HandleBreakpoint(BreakpointType breakpoint)
-    {
-        currentBreakpoint = breakpoint;
-    }
-
-    private async void SignOut()
-    {
-        await UserSession.SignOutAsync();
-
-        Navigation.NavigateTo("/");
+        if (!UserSession.IsTouchDetected)
+        {
+            UserSession.IsTouchDetected = true;
+        }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        UserSession.AuthenticationStateChanged += (e) =>
-        {
-            StateHasChanged();
-        };
         await UserSession.GetSystemInfoAsync();
-        await base.OnInitializedAsync();
     }
 }

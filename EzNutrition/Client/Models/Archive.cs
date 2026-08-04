@@ -7,6 +7,8 @@ namespace EzNutrition.Client.Models
     {
         public bool ClientInfoFormEnabled { get; set; } = true;
 
+        public bool IsLoading { get; set; }
+
         public IClient Client => client;
 
         public EnergyCalculator? CurrentEnergyCalculator { get; set; }

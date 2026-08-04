@@ -23,9 +23,10 @@ namespace EzNutrition.Client
             //builder.Services.AddScoped<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
             builder.Services.AddScoped<MainTreatmentViewModel>();
             //builder.Services.AddScoped<AuthenticationStateProvider, UserSessionService>();
-            builder.Services.AddSingleton<UserSessionService>();
+            builder.Services.AddScoped<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
             builder.Services.AddScoped<ArchiveManageService>();
+            builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
             await builder.Build().RunAsync();

@@ -29,27 +29,24 @@ namespace EzNutrition.Shared.Data.DietaryRecallSurvey
             }
         }
 
-        public async Task<DataTable> ToCalculateDataTableAsync()
+        public Task<DataTable> ToCalculateDataTableAsync()
         {
             var table = new DataTable();
-            await Task.Run(() =>
+            table.Columns.Add("原料名称");
+            table.Columns.Add("原料原始重量");
+            table.Columns.Add("均为可食部");
+            foreach (var nutrient in nutrients)
             {
-                table.Columns.Add("原料名称");
-                table.Columns.Add("原料原始重量");
-                table.Columns.Add("均为可食部");
-                foreach (var nutrient in nutrients)
-                {
-                    table.Columns.Add(nutrient.FriendlyName ?? string.Empty, typeof(string));
-                }
-                foreach (var entry in dietaryRecallEntries)
-                {
-                    var x = ToFoodNutrientValue(entry);
-                    var values = from nutrient in nutrients
-                                 select (x.FirstOrDefault(f => f.NutrientId == nutrient.NutrientId)?.Value ?? 0).ToString();
-                    table.Rows.Add([entry.Food.FriendlyName ?? string.Empty, entry.Weight, entry.IsAllEdible, .. values]);
-                }
-            });
-            return table;
+                table.Columns.Add(nutrient.FriendlyName ?? string.Empty, typeof(string));
+            }
+            foreach (var entry in dietaryRecallEntries)
+            {
+                var calculatedValues = ToFoodNutrientValue(entry);
+                var values = from nutrient in nutrients
+                             select (calculatedValues.FirstOrDefault(value => value.NutrientId == nutrient.NutrientId)?.Value ?? 0).ToString();
+                table.Rows.Add([entry.Food.FriendlyName ?? string.Empty, entry.Weight, entry.IsAllEdible, .. values]);
+            }
+            return Task.FromResult(table);
         }
 
         /// <summary>

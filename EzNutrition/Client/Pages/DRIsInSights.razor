@@ -4,10 +4,11 @@
 @using EzNutrition.Shared.Utilities;
 @using EzNutrition.Shared.Data.Entities;
 @using System.Text;
-@inject UserSessionService UserSession
-@inject NavigationManager Navigation
+@attribute [Authorize]
+@implements IDisposable
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
+@inject ILogger<DRIsInSights> Logger
 <Title>DRIs见解浏览器</Title>
 <p>这里允许你快速检索DRIs见解，自变量为性别、年龄、是否具有特殊生理状态</p>
 <Form Model="@Info" LabelAlign="AntLabelAlignType.Left">
@@ -46,16 +47,42 @@
 
     private bool IsLoading { get; set; } = false;
 
+    private CancellationTokenSource? requestCancellation;
+
     private async Task OnEERsChanged()
     {
+        requestCancellation?.Cancel();
+        requestCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        requestCancellation = cancellation;
+
         try
         {
             IsLoading = true;
-            await Dris.FetchDRIsAsync(Message, HttpClientFactory.CreateClient("Authorize"), UserSession, Navigation);
+            await Dris.FetchDRIsAsync(
+                HttpClientFactory.CreateClient("Authorize"),
+                cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or InvalidOperationException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "Unable to load DRI records.");
+            await Message.Error("膳食参考摄入量加载失败，请稍后重试。");
         }
         finally
         {
-            IsLoading = false;
+            if (ReferenceEquals(requestCancellation, cancellation))
+            {
+                IsLoading = false;
+            }
         }
+    }
+
+    public void Dispose()
+    {
+        requestCancellation?.Cancel();
+        requestCancellation?.Dispose();
     }
 }

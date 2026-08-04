@@ -1,10 +1,10 @@
 ﻿@using EzNutrition.Client.Models
 @using EzNutrition.Client.Services
+@implements IDisposable
 @inject UserSessionService UserSession
-@inject NavigationManager Navigation
-@inject MainTreatmentViewModel MaintreatmentVM
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
+@inject ILogger<EnergyCalculatorTreatment> Logger
 @if (EnergyCalculator != null)
 {
     <Title Level="3">概要</Title>
@@ -229,6 +229,10 @@
 
     private bool IsEerLoading { get; set; } = true;
 
+    private EnergyCalculator? loadedCalculator;
+
+    private CancellationTokenSource? fetchCancellation;
+
     private double ProteinPercentage
     {
         get => Math.Round((EnergyCalculator?.Allocation?.ProteinPercentage * 100 ?? 0));
@@ -266,15 +270,20 @@
         }
     }
 
-    private void OnCalculateBtnClick()
+    private async Task OnCalculateBtnClick()
     {
-        EnergyCalculator?.Calculate(Message);
-
+        if (EnergyCalculator is not null && !EnergyCalculator.Calculate())
+        {
+            await Message.Error("请先选择一个有效的 PAL（身体活动水平）。");
+        }
     }
 
-    private void OnCorrectEnergyChanged(int newEnergy)
+    private async Task OnCorrectEnergyChanged(int newEnergy)
     {
-        EnergyCalculator?.CorrectEnergy(newEnergy, Message);
+        if (EnergyCalculator?.CorrectEnergy(newEnergy) is true)
+        {
+            await Message.Info($"核定总能量{newEnergy}kCal，依据营养师修正。");
+        }
     }
 
     private string TipFormatter(double currentValue)
@@ -296,11 +305,50 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (EnergyCalculator != null)
+        if (ReferenceEquals(loadedCalculator, EnergyCalculator))
         {
-            await EnergyCalculator.FetchEersAsync(Message, HttpClientFactory.CreateClient("Authorize"), UserSession, Navigation);
-            IsEerLoading = false;
+            return;
         }
-        await base.OnParametersSetAsync();
+
+        fetchCancellation?.Cancel();
+        fetchCancellation?.Dispose();
+        loadedCalculator = EnergyCalculator;
+
+        if (EnergyCalculator is null)
+        {
+            IsEerLoading = false;
+            return;
+        }
+
+        IsEerLoading = true;
+        var cancellation = new CancellationTokenSource();
+        fetchCancellation = cancellation;
+        try
+        {
+            await EnergyCalculator.FetchEersAsync(
+                HttpClientFactory.CreateClient("Authorize"),
+                cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or InvalidOperationException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "Unable to load EER records.");
+            await Message.Error("能量参考数据加载失败，请稍后重试。");
+        }
+        finally
+        {
+            if (ReferenceEquals(fetchCancellation, cancellation))
+            {
+                IsEerLoading = false;
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        fetchCancellation?.Cancel();
+        fetchCancellation?.Dispose();
     }
 }

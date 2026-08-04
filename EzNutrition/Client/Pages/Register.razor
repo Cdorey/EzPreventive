@@ -2,10 +2,14 @@
 @using EzNutrition.Shared.Data.DTO
 @using EzNutrition.Shared.Policies
 @using EzNutrition.Client.Services
+@using System.ComponentModel.DataAnnotations
+@implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
 @inject UserSessionService UserSession
 @inject NavigationManager Navigator
+@inject CertificateUploadService CertificateUpload
+@inject ILogger<Register> Logger
 <Title Level="1">注册</Title>
 @if (finished)
 {
@@ -65,6 +69,11 @@ else
     bool professionalIdentity = true;
     IBrowserFile? currentSelectedFile;
 
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+    private bool registrationCreated;
+    private bool certificateUploadRequired;
+    private string? pendingUploadTicket;
+
     private readonly RegistrationDto registrationDto = new RegistrationDto { Email = string.Empty, Password = string.Empty, UserName = string.Empty };
 
     private readonly ProfessionalIdentityDto professionalIdentityDto = new ProfessionalIdentityDto { IdentityType = string.Empty, InstitutionName = string.Empty };
@@ -76,113 +85,161 @@ else
 
     private async Task RegistAsync()
     {
-        loading = true;
-        if (professionalIdentity)
+        if (loading)
         {
-            if (currentSelectedFile is null)
-            {
-                friendlyRegistError = "请选择要上传的证明图片";
-                _ = Message.Error("请选择要上传的证明图片");
-                loading = false;
-                return;
-            }
-            else
-            {
-                registrationDto.ProfessionalIdentity = professionalIdentityDto;
-            }
-        }
-
-        _ = Message.Info("正在提交注册信息");
-        using var httpClient = HttpClientFactory.CreateClient("Anonymous");
-        var response = await httpClient.PostAsJsonAsync("Auth/Register", registrationDto);
-        if (response.IsSuccessStatusCode)
-        {
-            var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>();
-            if (result?.Success is not true)
-            {
-                friendlyRegistError = result?.Message;
-                _ = Message.Error(result?.Message ?? "注册失败");
-                loading = false;
-                return;
-            }
-
-            var upLoadTicket = result?.UploadTicket;
-            if (professionalIdentity && upLoadTicket is not null)
-            {
-                await UploadFile(upLoadTicket);
-            }
-            else
-            {
-                _ = Message.Success("注册成功");
-                finished = true;
-            }
-        }
-        else
-        {
-            var errorMsg = await response.Content.ReadAsStringAsync();
-            friendlyRegistError = $"提交注册信息失败：{errorMsg}";
-            _ = Message.Error($"提交注册信息失败：{errorMsg}");
-            loading = false;
-        }
-    }
-
-    private async Task UploadFile(string uploadTicket)
-    {
-        if (currentSelectedFile is null)
-        {
-            friendlyRegistError = "无法访问待上传的文件";
-            _ = Message.Error("无法访问待上传的文件");
-            loading = false;
             return;
         }
 
-        // 限制文件大小（例如 45MB），以防止超出服务端限制
-        var maxAllowedSize = 45 * 1024 * 1024;
+        friendlyRegistError = null;
+        loading = true;
         try
         {
-            using var content = new MultipartFormDataContent();
-
-            // 使用 StreamContent 包装文件流
-            var fileContent = new StreamContent(currentSelectedFile.OpenReadStream(maxAllowedSize));
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(currentSelectedFile.ContentType);
-            // name 必须与后端 [FromForm] 的参数名称一致，这里为 certificateFile
-            content.Add(content: fileContent, name: "certificateFile", fileName: currentSelectedFile.Name);
-
-            // 发送 POST 请求到指定的 URL（将 uploadTicket 拼接到 URL 路径中）
-            using var httpClient = HttpClientFactory.CreateClient("Anonymous");
-            var uploadResponseMessage = await httpClient.PostAsync($"Auth/UploadCertificate/{uploadTicket}", content);
-            if (uploadResponseMessage.IsSuccessStatusCode)
+            if (!registrationCreated)
             {
-                _ = Message.Success("上传成功！");
-                _ = Message.Success("注册成功");
-                finished = true;
+                if (!TryValidate(registrationDto, out var validationMessage))
+                {
+                    await ShowErrorAsync(validationMessage);
+                    return;
+                }
+
+                if (professionalIdentity)
+                {
+                    if (!TryValidate(professionalIdentityDto, out validationMessage))
+                    {
+                        await ShowErrorAsync(validationMessage);
+                        return;
+                    }
+
+                    if (currentSelectedFile is null)
+                    {
+                        await ShowErrorAsync("请选择要上传的证明图片。");
+                        return;
+                    }
+
+                    registrationDto.ProfessionalIdentity = professionalIdentityDto;
+                }
+                else
+                {
+                    registrationDto.ProfessionalIdentity = null;
+                }
+
+                await Message.Info("正在提交注册信息");
+                var httpClient = HttpClientFactory.CreateClient("Anonymous");
+                using var response = await httpClient.PostAsJsonAsync(
+                    "Auth/Register",
+                    registrationDto,
+                    lifetimeCancellation.Token);
+                if (!response.IsSuccessStatusCode)
+                {
+                    await ShowErrorAsync("提交注册信息失败，请检查填写内容后重试。");
+                    return;
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>(
+                    lifetimeCancellation.Token);
+                if (result?.Success is not true)
+                {
+                    await ShowErrorAsync(result?.Message ?? "注册失败。");
+                    return;
+                }
+
+                registrationCreated = true;
+                certificateUploadRequired = professionalIdentity;
+                pendingUploadTicket = result.UploadTicket;
             }
-            else
+
+            if (certificateUploadRequired)
             {
-                var errorMsg = await uploadResponseMessage.Content.ReadAsStringAsync();
-                friendlyRegistError = $"上传失败：{errorMsg}";
-                _ = Message.Error($"上传失败：{errorMsg}");
+                if (string.IsNullOrWhiteSpace(pendingUploadTicket))
+                {
+                    throw new InvalidOperationException("账号已注册，但服务器没有返回有效的证明图片上传票据。");
+                }
+
+                if (currentSelectedFile is null)
+                {
+                    await ShowErrorAsync("请选择要上传的证明图片。");
+                    return;
+                }
+
+                await CertificateUpload.UploadAsync(
+                    pendingUploadTicket,
+                    currentSelectedFile,
+                    lifetimeCancellation.Token);
+                pendingUploadTicket = null;
             }
+
+            finished = true;
+            await Message.Success("注册成功");
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException or NotSupportedException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "Registration request failed in the browser client.");
+            var message = registrationCreated
+                ? pendingUploadTicket is not null
+                    ? "账号已注册，但证明图片上传失败；请保留当前页面并再次点击注册重试上传。"
+                    : "账号已注册，但无法上传证明图片；请激活并登录账号后在用户中心重新提交认证。"
+                : ex is InvalidOperationException ? ex.Message : "注册请求失败，请稍后重试。";
+            await ShowErrorAsync(message);
         }
         catch (Exception ex)
         {
-            friendlyRegistError = $"发生异常：{ex.Message}";
-            _ = Message.Error($"发生异常：{ex.Message}");
+            Logger.LogError(ex, "Unexpected registration error in the browser client.");
+            await ShowErrorAsync("注册过程中发生异常，请稍后重试。");
+        }
+        finally
+        {
             loading = false;
         }
-
     }
 
     private async Task Login()
     {
         try
         {
-            await UserSession.SignInAsync(registrationDto.UserName ?? string.Empty, registrationDto.Password ?? string.Empty);
+            await UserSession.SignInAsync(
+                registrationDto.UserName,
+                registrationDto.Password,
+                lifetimeCancellation.Token);
             Navigator.NavigateTo("");
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
         {
             await Message.Error(ex.Message);
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error while signing in after registration.");
+            await Message.Error("登录时发生异常，请稍后重试。");
+        }
+    }
+
+    private static bool TryValidate(object value, out string validationMessage)
+    {
+        var validationResults = new List<ValidationResult>();
+        var isValid = Validator.TryValidateObject(
+            value,
+            new ValidationContext(value),
+            validationResults,
+            validateAllProperties: true);
+        validationMessage = string.Join("；", validationResults.Select(result => result.ErrorMessage));
+        return isValid;
+    }
+
+    private async Task ShowErrorAsync(string message)
+    {
+        friendlyRegistError = message;
+        await Message.Error(message);
+    }
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }

@@ -1,12 +1,14 @@
-﻿using EzNutrition.Shared.Identities;
+using EzNutrition.Shared.Identities;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace EzNutrition.Client.Models
 {
-    public class UserInfo : RemoteUserAccount, IUserInfo
+    public sealed class UserInfo : RemoteUserAccount, IUserInfo
     {
+        private readonly IReadOnlyList<Claim> claims;
+
         public string Token { get; }
 
         public string UserName { get; }
@@ -14,52 +16,43 @@ namespace EzNutrition.Client.Models
         public string[] Roles { get; }
 
         public string Email { get; }
-        public DateTimeOffset? ExpiresAt
-        {
-            get
-            {
-                var expClaim = Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
-                if (expClaim == null)
-                {
-                    return null;
-                }
 
-                // 将 Unix 时间戳字符串转换为 long
-                if (!long.TryParse(expClaim, out var expSeconds))
-                {
-                    return null;
-                }
+        public DateTimeOffset? ExpiresAt { get; }
 
-                // Unix 时间戳通常以秒为单位，转换为 DateTimeOffset
-                return DateTimeOffset.FromUnixTimeSeconds(expSeconds);
-            }
-        }
+        public bool IsExpired => ExpiresAt is null || ExpiresAt <= DateTimeOffset.UtcNow;
 
-        public IEnumerable<Claim> Claims => ParseToken();
-
-        private IEnumerable<Claim> ParseToken()
-        {
-            if (!string.IsNullOrEmpty(Token))
-            {
-                // 使用令牌解析用户信息
-                var tokenHandler = new JwtSecurityTokenHandler();
-                JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
-                var jwtToken = tokenHandler.ReadJwtToken(Token);
-                return jwtToken.Claims;
-            }
-            else
-            {
-                throw new InvalidOperationException("Token is null or empty.");
-            }
-        }
-
+        public IEnumerable<Claim> Claims => claims;
 
         public UserInfo(string token)
         {
-            Token = token;
-            UserName = Claims.FirstOrDefault(x => x.Type == "unique_name")?.Value ?? string.Empty;
-            Roles = Claims.Where(x => x.Type == "role")?.Select(x => x.Value)?.ToArray() ?? [];
-            Email = Claims.FirstOrDefault(x => x.Type == "email")?.Value ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new ArgumentException("Token cannot be empty.", nameof(token));
+            }
+
+            Token = token.Trim();
+            var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(Token);
+            claims = jwtToken.Claims.ToArray();
+
+            UserName = FindClaimValue(JwtRegisteredClaimNames.UniqueName, ClaimTypes.Name);
+            Roles = claims
+                .Where(claim => claim.Type is "role" || claim.Type == ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            Email = FindClaimValue(JwtRegisteredClaimNames.Email, ClaimTypes.Email);
+            ExpiresAt = jwtToken.ValidTo == DateTime.MinValue
+                ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(jwtToken.ValidTo, DateTimeKind.Utc));
+
+            if (string.IsNullOrWhiteSpace(UserName) || ExpiresAt is null)
+            {
+                throw new ArgumentException("Token is missing required identity claims.", nameof(token));
+            }
         }
+
+        private string FindClaimValue(params string[] claimTypes) =>
+            claims.FirstOrDefault(claim => claimTypes.Contains(claim.Type, StringComparer.Ordinal))?.Value
+            ?? string.Empty;
     }
 }

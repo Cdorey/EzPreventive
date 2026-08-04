@@ -253,13 +253,10 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
         public async Task CalculateAsync()
         {
-            await Task.Run(async () =>
-            {
-                SummaryCalculationTable = new SummaryCalculationTable(RecallEntries, Nutrients.ToList());
-                GenerateSummaryRows();
-                CalculateProgress = await SummaryCalculationTable.ToCalculateDataTableAsync();
-                OnCalculate?.Invoke(this, EventArgs.Empty);
-            });
+            SummaryCalculationTable = new SummaryCalculationTable(RecallEntries, Nutrients.ToList());
+            GenerateSummaryRows();
+            CalculateProgress = await SummaryCalculationTable.ToCalculateDataTableAsync();
+            OnCalculate?.Invoke(this, EventArgs.Empty);
         }
 
         public DataTable? CalculateProgress { get; private set; }

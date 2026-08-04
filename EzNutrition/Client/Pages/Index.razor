@@ -3,18 +3,18 @@
 @using EzNutrition.Client.Services;
 @using System.ComponentModel.DataAnnotations;
 @using System.ComponentModel
-@using Markdig
-@inject IHttpClientFactory HttpClientFactory
+@implements IDisposable
 @inject UserSessionService UserSession
 @inject ArchiveManageService ArchiveManager
 @inject NavigationManager Navigator
+@inject ILogger<Index> Logger
 <PageTitle>首页</PageTitle>
 <AuthorizeView>
     <Authorized>
         <GridRow Justify="RowJustify.SpaceAround" Align="RowAlign.Middle" Gutter="(16,16)">
             <GridCol Lg="18" Md="24">
                 <article>
-                    @((MarkupString)Markdown.ToHtml(UserSession.Notice))
+                    @SafeMarkdown.Render(UserSession.Notice)
                 </article>
             </GridCol>
             <GridCol Lg="6" Md="24">
@@ -55,7 +55,7 @@
                     }
                     else
                     {
-                        @((MarkupString)Markdown.ToHtml(UserSession.CoverLetter))
+                        @SafeMarkdown.Render(UserSession.CoverLetter)
                     }
                 </article>
             </GridCol>
@@ -73,40 +73,61 @@
         public string? Password { get; set; }
     }
 
-    private Model innerModel = new Model();
+    private readonly Model innerModel = new();
+
+    private readonly CancellationTokenSource lifetimeCancellation = new();
 
     private string? errorInfo;
 
-    protected override async Task OnInitializedAsync()
-    {
-        UserSession.AuthenticationStateChanged += (e) =>
-        {
-            StateHasChanged();
-        };
-        await base.OnInitializedAsync();
-    }
+    private bool loginInProgress;
 
     private async Task Login()
     {
+        if (loginInProgress)
+        {
+            return;
+        }
+
+        errorInfo = null;
+        loginInProgress = true;
         try
         {
-            await UserSession.SignInAsync(innerModel.Username ?? string.Empty, innerModel.Password ?? string.Empty);
+            await UserSession.SignInAsync(
+                innerModel.Username ?? string.Empty,
+                innerModel.Password ?? string.Empty,
+                lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            errorInfo = ex.Message;
         }
         catch (Exception ex)
         {
-            errorInfo = ex.Message;
+            Logger.LogError(ex, "Unexpected error while signing in.");
+            errorInfo = "登录时发生异常，请稍后重试。";
+        }
+        finally
+        {
+            loginInProgress = false;
         }
     }
 
     protected override void OnInitialized()
     {
-        UserSession.OnStateChanged += StateHasChanged;
+        UserSession.StateChanged += HandleSessionStateChanged;
         base.OnInitialized();
     }
 
+    private void HandleSessionStateChanged() => _ = InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
-        UserSession.OnStateChanged -= StateHasChanged;
+        UserSession.StateChanged -= HandleSessionStateChanged;
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
     }
 }
 

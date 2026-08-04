@@ -1,7 +1,4 @@
-﻿using AntDesign;
-using EzNutrition.Client.Services;
-using EzNutrition.Shared.Data.Entities;
-using Microsoft.AspNetCore.Components;
+﻿using EzNutrition.Shared.Data.Entities;
 using System.Net.Http.Json;
 
 namespace EzNutrition.Client.Models
@@ -48,34 +45,26 @@ namespace EzNutrition.Client.Models
 
         public string[] Requirements { get; } = [nameof(IClient.Gender), nameof(IClient.Age), nameof(IClient.SpecialPhysiologicalPeriod)];
 
-        public async Task FetchDRIsAsync(IMessageService message,
-                                    HttpClient httpClient,
-                                    UserSessionService userSession,
-                                    NavigationManager navigationManager)
+        public async Task FetchDRIsAsync(HttpClient httpClient, CancellationToken cancellationToken = default)
         {
-            if (userSession.UserInfo == null)
+            if (string.IsNullOrWhiteSpace(Client.Gender) || Client.Age < 0)
             {
-                navigationManager.NavigateTo("/");
-                await message.Error("需要登录");
-                return;
+                throw new InvalidOperationException("性别和年龄信息无效。");
             }
 
-            if (!string.IsNullOrEmpty(Client.Gender) && Client.Age >= 0)
-            {
-                try
-                {
-                    var postRes = await httpClient.PostAsJsonAsync($"Energy/DRIs/{Client.Gender}/{Client.Age}", new List<string> { Client.SpecialPhysiologicalPeriod });
+            using var response = await httpClient.PostAsJsonAsync(
+                $"Energy/DRIs/{Uri.EscapeDataString(Client.Gender)}/{Client.Age}",
+                new[] { Client.SpecialPhysiologicalPeriod },
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
 
-                    if (postRes.IsSuccessStatusCode)
-                    {
-                        AvailableDRIs = await postRes.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>() ?? AvailableDRIs;
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    await message.Error(ex.Message);
-                }
+            var dris = await response.Content.ReadFromJsonAsync<List<DietaryReferenceIntakeValue>>(cancellationToken);
+            if (dris is null || dris.Count == 0)
+            {
+                throw new InvalidDataException("服务器没有返回可用的膳食参考摄入量记录。");
             }
+
+            AvailableDRIs = dris;
         }
     }
 }

@@ -1,164 +1,192 @@
-﻿using EzNutrition.Client.Models;
+using EzNutrition.Client.Models;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
-using System.ComponentModel;
 using System.Net.Http.Json;
-using System.Runtime.CompilerServices;
 using System.Security.Claims;
 
 namespace EzNutrition.Client.Services
 {
-    public class UserSessionService(IHttpClientFactory httpClientFactory) : AuthenticationStateProvider, IAccessTokenProvider, INotifyPropertyChanged
+    public sealed class UserSessionService(
+        IHttpClientFactory httpClientFactory,
+        ILogger<UserSessionService> logger) : AuthenticationStateProvider, IAccessTokenProvider
     {
-        private readonly HttpClient _client = httpClientFactory.CreateClient("Anonymous");
+        private readonly HttpClient client = httpClientFactory.CreateClient("Anonymous");
         private UserInfo? userInfo;
 
-        public event PropertyChangedEventHandler? PropertyChanged;
-        public event Action? OnStateChanged;
+        public event Action? StateChanged;
 
         public UserInfo? UserInfo
         {
             get => userInfo;
             private set
             {
-                if (userInfo != value)
+                if (!ReferenceEquals(userInfo, value))
                 {
                     userInfo = value;
-                    OnPropertyChanged();
                     NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-                    OnStateChanged?.Invoke();
+                    StateChanged?.Invoke();
                 }
             }
         }
 
-        private string caseNumber = string.Empty;
-        public string CaseNumber
+        public string CaseNumber { get; private set; } = string.Empty;
+
+        public string CoverLetter { get; private set; } = string.Empty;
+
+        public string Notice { get; private set; } = string.Empty;
+
+        public bool IsTouchDetected { get; set; }
+
+        public async Task GetSystemInfoAsync(CancellationToken cancellationToken = default)
         {
-            get => caseNumber;
-            private set { caseNumber = value; OnPropertyChanged(); }
+            var caseNumberTask = TryGetStringAsync("SystemInfo/CaseNumber/", cancellationToken);
+            var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
+            var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
+
+            await Task.WhenAll(caseNumberTask, coverLetterTask, noticeTask);
+
+            CaseNumber = await caseNumberTask;
+            CoverLetter = await coverLetterTask;
+            Notice = await noticeTask;
+            StateChanged?.Invoke();
         }
 
-        private string coverLetter = string.Empty;
-        public string CoverLetter
+        public ValueTask<AccessTokenResult> RequestAccessToken()
         {
-            get => coverLetter;
-            private set { coverLetter = value; OnPropertyChanged(); }
-        }
-
-        private string notice = string.Empty;
-        public string Notice
-        {
-            get => notice;
-            private set { notice = value; OnPropertyChanged(); }
-        }
-
-        public bool IsTouchDetected { get; set; } = false;
-
-        public async Task GetSystemInfoAsync()
-        {
-            CaseNumber = await _client.GetStringAsync("SystemInfo/CaseNumber/");
-
-            try
+            if (UserInfo is null || UserInfo.IsExpired)
             {
-                Notice? coverLetter = await _client.GetFromJsonAsync<Notice>("SystemInfo/CoverLetter/");
-                CoverLetter = coverLetter?.Description ?? string.Empty;
+                UserInfo = null;
+                return ValueTask.FromResult(CreateSignInRequiredResult());
             }
-            catch (HttpRequestException) { CoverLetter = string.Empty; }
-
-            try
-            {
-                Notice? notice = await _client.GetFromJsonAsync<Notice>("SystemInfo/Notice/");
-                Notice = notice?.Description ?? string.Empty;
-            }
-            catch (HttpRequestException) { Notice = string.Empty; }
-            OnStateChanged?.Invoke();
-        }
-
-        public async ValueTask<AccessTokenResult> RequestAccessToken()
-        {
-            if (UserInfo == null || string.IsNullOrEmpty(UserInfo.Token))
-            {
-                return new AccessTokenResult(AccessTokenResultStatus.RequiresRedirect,
-                                             new AccessToken(),
-                                             "/Index",
-                                             new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/Index" });
-            }
-
-
-
-            DateTimeOffset expiresAt = UserInfo.ExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30); // 默认30分钟
 
             var token = new AccessToken
             {
                 Value = UserInfo.Token,
-                Expires = expiresAt
+                Expires = UserInfo.ExpiresAt!.Value
             };
 
-            return new AccessTokenResult(AccessTokenResultStatus.Success,
-                                         token,
-                                         "/Index",
-                                         new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/Index" });
+            return ValueTask.FromResult(new AccessTokenResult(
+                AccessTokenResultStatus.Success,
+                token,
+                "/",
+                new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/" }));
         }
 
-        public async ValueTask<AccessTokenResult> RequestAccessToken(AccessTokenRequestOptions options)
-        {
-            return await RequestAccessToken();
-        }
+        public ValueTask<AccessTokenResult> RequestAccessToken(AccessTokenRequestOptions options) => RequestAccessToken();
 
-        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+        public override Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            ClaimsPrincipal userPrincipal = UserInfo != null
-                ? new ClaimsPrincipal(new ClaimsIdentity(UserInfo.Claims, "jwt"))
+            var currentUser = UserInfo;
+            ClaimsPrincipal userPrincipal = currentUser is not null && !currentUser.IsExpired
+                ? new ClaimsPrincipal(new ClaimsIdentity(currentUser.Claims, "jwt", "unique_name", "role"))
                 : new ClaimsPrincipal(new ClaimsIdentity());
-            return new AuthenticationState(userPrincipal);
+            return Task.FromResult(new AuthenticationState(userPrincipal));
         }
 
-        public async Task SignInAsync(string userName, string password)
+        public async Task SignInAsync(
+            string userName,
+            string password,
+            CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password)) return;
+            if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrEmpty(password))
+            {
+                throw new InvalidOperationException("请输入用户名和密码。");
+            }
 
-            var formContent = new FormUrlEncodedContent(
+            using var formContent = new FormUrlEncodedContent(
             [
-                new KeyValuePair<string, string>(nameof(userName), userName),
+                new KeyValuePair<string, string>(nameof(userName), userName.Trim()),
                 new KeyValuePair<string, string>(nameof(password), password)
             ]);
 
-            HttpResponseMessage res = await _client.PostAsync("Auth/Login", formContent);
-            if (!res.IsSuccessStatusCode)
+            using var response = await PostLoginAsync(formContent, cancellationToken);
+            if (!response.IsSuccessStatusCode)
             {
-                throw new Exception(await res.Content.ReadAsStringAsync());
+                throw new InvalidOperationException(
+                    response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                        ? "用户名或密码错误。"
+                        : "登录失败，请稍后重试。");
             }
 
-            var token = await res.Content.ReadAsStringAsync();
-            UserInfo = new UserInfo(token);
+            var token = await response.Content.ReadAsStringAsync(cancellationToken);
+            try
+            {
+                var signedInUser = new UserInfo(token);
+                if (signedInUser.IsExpired)
+                {
+                    throw new InvalidOperationException("服务器返回的登录凭据已经过期。");
+                }
+
+                UserInfo = signedInUser;
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "The login endpoint returned an invalid JWT.");
+                throw new InvalidOperationException("服务器返回了无效的登录凭据，请稍后重试。", ex);
+            }
         }
 
-        public async Task SignOutAsync()
+        public Task SignOutAsync()
         {
             UserInfo = null;
+            return Task.CompletedTask;
         }
 
-        public async Task RegistAsync(string? userName, string? password)
+        private static AccessTokenResult CreateSignInRequiredResult()
         {
-            if (!(string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password)))
+            return new AccessTokenResult(
+                AccessTokenResultStatus.RequiresRedirect,
+                new AccessToken(),
+                "/",
+                new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/" });
+        }
+
+        private async Task<HttpResponseMessage> PostLoginAsync(
+            HttpContent content,
+            CancellationToken cancellationToken)
+        {
+            try
             {
-                var formContent = new FormUrlEncodedContent([new KeyValuePair<string, string>(nameof(userName), userName), new KeyValuePair<string, string>(nameof(password), password)]);
-                HttpResponseMessage res = await _client.PostAsync("Auth/Regist/Epiman", formContent);
-                if (res.IsSuccessStatusCode)
-                {
-                    await SignInAsync(userName, password);
-                }
-                else
-                {
-                    throw new Exception(await res.Content.ReadAsStringAsync());
-                }
+                return await client.PostAsync("Auth/Login", content, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Unable to reach the login endpoint.");
+                throw new InvalidOperationException("无法连接服务器，请检查网络后重试。", ex);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "The login request timed out.");
+                throw new InvalidOperationException("登录请求超时，请稍后重试。", ex);
             }
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        private async Task<string> TryGetStringAsync(string requestUri, CancellationToken cancellationToken)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            try
+            {
+                return await client.GetStringAsync(requestUri, cancellationToken);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or NotSupportedException)
+            {
+                logger.LogWarning(ex, "Unable to load system information from {RequestUri}.", requestUri);
+                return string.Empty;
+            }
+        }
+
+        private async Task<string> TryGetNoticeAsync(string requestUri, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var notice = await client.GetFromJsonAsync<Notice>(requestUri, cancellationToken);
+                return notice?.Description ?? string.Empty;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+            {
+                logger.LogWarning(ex, "Unable to load notice from {RequestUri}.", requestUri);
+                return string.Empty;
+            }
         }
     }
 }
