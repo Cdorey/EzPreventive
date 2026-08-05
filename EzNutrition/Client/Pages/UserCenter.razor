@@ -94,17 +94,17 @@
         {
             if (!TryValidate(professionalIdentityDto, out var validationMessage))
             {
-                await Message.Error(validationMessage);
+                await Message.ErrorAsync(validationMessage);
                 return;
             }
 
             if (currentSelectedFile is null)
             {
-                await Message.Error("请选择要上传的证明图片。");
+                await Message.ErrorAsync("请选择要上传的证明图片。");
                 return;
             }
 
-            await Message.Info("正在提交认证信息");
+            await Message.InfoAsync("正在提交认证信息");
             if (pendingUploadTicket is null)
             {
                 var httpClient = HttpClientFactory.CreateClient("Authorize");
@@ -114,7 +114,7 @@
                     lifetimeCancellation.Token);
                 if (!response.IsSuccessStatusCode)
                 {
-                    await Message.Error("认证信息提交失败，请检查填写内容后重试。");
+                    await Message.ErrorAsync("认证信息提交失败，请检查填写内容后重试。");
                     return;
                 }
 
@@ -122,7 +122,7 @@
                     lifetimeCancellation.Token);
                 if (result?.Success is not true)
                 {
-                    await Message.Error(result?.Message ?? "认证信息提交失败。");
+                    await Message.ErrorAsync(result?.Message ?? "认证信息提交失败。");
                     return;
                 }
 
@@ -139,7 +139,7 @@
                 currentSelectedFile,
                 lifetimeCancellation.Token);
             pendingUploadTicket = null;
-            await Message.Success("认证信息提交成功");
+            await Message.SuccessAsync("认证信息提交成功");
             InitCertificationRequestDialog();
             await TryRefreshProfessionalIdentitiesAsync();
         }
@@ -149,7 +149,7 @@
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException or NotSupportedException or System.Text.Json.JsonException)
         {
             Logger.LogWarning(ex, "Professional certification submission failed.");
-            await Message.Error(
+            await Message.ErrorAsync(
                 pendingUploadTicket is not null
                     ? "申请记录已创建，但图片上传失败；请保留当前窗口并再次点击提交重试上传。"
                     : ex is InvalidOperationException
@@ -159,7 +159,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unexpected professional certification submission error.");
-            await Message.Error("认证信息提交过程中发生异常，请稍后重试。");
+            await Message.ErrorAsync("认证信息提交过程中发生异常，请稍后重试。");
         }
         finally
         {
@@ -220,7 +220,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh professional certification requests.");
-            await Message.Warning("认证信息已提交，但列表刷新失败；请重新打开用户中心确认结果。");
+            await Message.WarningAsync("认证信息已提交，但列表刷新失败；请重新打开用户中心确认结果。");
         }
     }
 
@@ -237,7 +237,7 @@
         catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
         {
             Logger.LogWarning(ex, "Unable to initialize the user center.");
-            await Message.Error("用户信息加载失败，请稍后重试。");
+            await Message.ErrorAsync("用户信息加载失败，请稍后重试。");
         }
     }
 

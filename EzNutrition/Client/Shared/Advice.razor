@@ -130,7 +130,7 @@
                 Logger.LogWarning(
                     "AI generation request failed with HTTP {StatusCode}.",
                     (int)response.StatusCode);
-                await Message.Error("AI 请求失败，请稍后重试。");
+                await Message.ErrorAsync("AI 请求失败，请稍后重试。");
                 return;
             }
 
@@ -185,7 +185,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "AI generation failed in the browser client.");
-            await Message.Error("AI 生成过程中发生错误，请稍后重试。");
+            await Message.ErrorAsync("AI 生成过程中发生错误，请稍后重试。");
         }
         finally
         {

@@ -37,19 +37,19 @@ namespace EzNutrition.Client.Services
             if (userSession.UserInfo is null || userSession.UserInfo.IsExpired)
             {
                 navigationManager.NavigateTo("/");
-                await message.Error("需要登录");
+                await message.ErrorAsync("需要登录");
                 return;
             }
 
             if (string.IsNullOrEmpty(archive.Client.Gender))
             {
-                await message.Error("性别不能为空");
+                await message.ErrorAsync("性别不能为空");
                 return;
             }
 
             if (archive.Client.Age < 0)
             {
-                await message.Error("年龄不符合逻辑");
+                await message.ErrorAsync("年龄不符合逻辑");
                 return;
             }
 
@@ -97,7 +97,7 @@ namespace EzNutrition.Client.Services
             catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException or InvalidDataException)
             {
                 logger.LogWarning(ex, "Unable to initialize archive for nutrition assessment.");
-                await message.Error("初始化营养评估失败，请检查网络后重试。");
+                await message.ErrorAsync("初始化营养评估失败，请检查网络后重试。");
                 archive.CurrentEnergyCalculator = null;
                 archive.DRIs = null;
                 archive.DietaryRecallSurvey = null;

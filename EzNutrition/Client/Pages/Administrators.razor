@@ -18,11 +18,11 @@
                         <PropertyColumn Property="r=>r.UserName" Title="用户名"/>
                         <PropertyColumn Property="r=>r.NormalizedUserName" Title="标化用户名"/>
                         <PropertyColumn Property="r=>r.Email" Title="邮箱地址"/>
-                        <PropertyColumn Property="r=>r.EmailConfirmed" Title="已确认邮箱" Filterable />
+                        <PropertyColumn Property="r=>r.EmailConfirmed" Title="已确认邮箱" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.PhoneNumber" Title="手机号码"/>
-                        <PropertyColumn Property="r=>r.PhoneNumberConfirmed" Title="已确认手机" Filterable />
-                        <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable />
-                        <PropertyColumn Property="r=>r.LockoutEnabled" Filterable />
+                        <PropertyColumn Property="r=>r.PhoneNumberConfirmed" Title="已确认手机" Filterable FilterMultiple />
+                        <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable FilterMultiple />
+                        <PropertyColumn Property="r=>r.LockoutEnabled" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.AccessFailedCount" />
                         <ActionColumn Title="Operate" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
@@ -47,9 +47,9 @@
                         <PropertyColumn Property="r=>r.Id" />
                         <PropertyColumn Property="r=>r.UserId" />
                         <PropertyColumn Property="r=>r.RequestTime" />
-                        <PropertyColumn Property="r=>r.IdentityType" Filterable />
+                        <PropertyColumn Property="r=>r.IdentityType" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.InstitutionName" />
-                        <PropertyColumn Property="r=>r.Status" Filterable />
+                        <PropertyColumn Property="r=>r.Status" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.ProcessedTime" />
                         <PropertyColumn Property="r=>r.ProcessDetails" />
                         <PropertyColumn Property="r=>r.CertificateTicket" />
@@ -269,7 +269,7 @@
                     lifetimeCancellation.Token);
                 if (getRes is null)
                 {
-                    await Message.Error("用户信息为空。");
+                    await Message.ErrorAsync("用户信息为空。");
                     return;
                 }
 
@@ -282,7 +282,7 @@
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Unable to open user {UserId} for editing.", user.Id);
-                await Message.Error("用户信息加载失败，请稍后重试。");
+                await Message.ErrorAsync("用户信息加载失败，请稍后重试。");
             }
         }
         else if (dataContext is ProfessionalCertificationRequestDto requestDto)
@@ -297,14 +297,14 @@
                     lifetimeCancellation.Token);
                 if (!userResponse.IsSuccessStatusCode)
                 {
-                    await Message.Error($"获取用户信息失败：{userResponse.ReasonPhrase}");
+                    await Message.ErrorAsync($"获取用户信息失败：{userResponse.ReasonPhrase}");
                     return;
                 }
 
                 var getRes = await userResponse.Content.ReadFromJsonAsync<UserInfoDto>(lifetimeCancellation.Token);
                 if (getRes is null)
                 {
-                    await Message.Error("用户信息为空。");
+                    await Message.ErrorAsync("用户信息为空。");
                     return;
                 }
 
@@ -314,7 +314,7 @@
                 // 判断 CertificateTicket 是否有效
                 if (requestDto.CertificateTicket is null)
                 {
-                    await Message.Error("证件图片标识为空。");
+                    await Message.ErrorAsync("证件图片标识为空。");
                 }
                 else
                 {
@@ -323,21 +323,21 @@
                         lifetimeCancellation.Token);
                     if (!imageResponse.IsSuccessStatusCode)
                     {
-                        await Message.Error("获取证件图片失败。");
+                        await Message.ErrorAsync("获取证件图片失败。");
                     }
                     else
                     {
                         var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync(lifetimeCancellation.Token);
                         if (imageBytes.Length == 0)
                         {
-                            await Message.Error("证件图片为空或加载失败。");
+                            await Message.ErrorAsync("证件图片为空或加载失败。");
                         }
                         else
                         {
                             var mediaType = imageResponse.Content.Headers.ContentType?.MediaType;
                             if (mediaType is not ("image/jpeg" or "image/png"))
                             {
-                                await Message.Error("服务器返回了不支持的证件图片格式。");
+                                await Message.ErrorAsync("服务器返回了不支持的证件图片格式。");
                             }
                             else
                             {
@@ -359,7 +359,7 @@
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Unable to open a professional certification request.");
-                await Message.Error("认证申请详情加载失败，请稍后重试。");
+                await Message.ErrorAsync("认证申请详情加载失败，请稍后重试。");
             }
         }
     }
@@ -376,11 +376,11 @@
                     lifetimeCancellation.Token);
                 if (delRes.IsSuccessStatusCode)
                 {
-                    await Message.Info("删除成功");
+                    await Message.InfoAsync("删除成功");
                 }
                 else
                 {
-                    await Message.Error("删除失败");
+                    await Message.ErrorAsync("删除失败");
                 }
             }
             catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -389,7 +389,7 @@
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Unable to delete user {UserId}.", user.Id);
-                await Message.Error("删除用户请求异常，请稍后重试。");
+                await Message.ErrorAsync("删除用户请求异常，请稍后重试。");
             }
             finally
             {
@@ -453,7 +453,7 @@
     {
         if (userInfoDto is null)
         {
-            await Message.Error("没有可更新的用户信息。");
+            await Message.ErrorAsync("没有可更新的用户信息。");
             return false;
         }
 
@@ -469,12 +469,12 @@
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                await Message.Success("用户更新成功！");
+                await Message.SuccessAsync("用户更新成功！");
                 await TryRefreshUserListAsync();
                 return true;
             }
 
-            await Message.Error("用户更新失败，请检查提交内容。");
+            await Message.ErrorAsync("用户更新失败，请检查提交内容。");
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -482,7 +482,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unable to update user {UserId}.", userInfoDto.UserId);
-            await Message.Error("用户更新请求异常，请稍后重试。");
+            await Message.ErrorAsync("用户更新请求异常，请稍后重试。");
         }
 
         return false;
@@ -510,7 +510,7 @@
 
         if (string.IsNullOrWhiteSpace(userInfoExtension.RealName))
         {
-            await Message.Error("真实姓名不能为空");
+            await Message.ErrorAsync("真实姓名不能为空");
             return;
         }
 
@@ -558,7 +558,7 @@
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                await Message.Success("审核列表更新成功！");
+                await Message.SuccessAsync("审核列表更新成功！");
                 ImageDataUrl = string.Empty;
                 currentRequestId = Guid.Empty;
                 userInfoDto = null;
@@ -569,7 +569,7 @@
             else
             {
                 requestDto.Status = RequestStatus.Pending;
-                await Message.Error("用户权限已更新，但审核记录更新失败，请立即重试。");
+                await Message.ErrorAsync("用户权限已更新，但审核记录更新失败，请立即重试。");
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -579,7 +579,7 @@
         {
             requestDto.Status = RequestStatus.Pending;
             Logger.LogError(ex, "Unable to approve certification request {RequestId}.", requestDto.Id);
-            await Message.Error("用户权限已更新，但审核记录更新异常，请立即重试。");
+            await Message.ErrorAsync("用户权限已更新，但审核记录更新异常，请立即重试。");
         }
     }
 
@@ -601,7 +601,7 @@
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                await Message.Success("审核列表更新成功！");
+                await Message.SuccessAsync("审核列表更新成功！");
                 ImageDataUrl = string.Empty;
                 currentRequestId = Guid.Empty;
                 userInfoDto = null;
@@ -612,7 +612,7 @@
             else
             {
                 requestDto.Status = RequestStatus.Pending;
-                await Message.Error("审核记录更新失败，请检查提交内容后重试。");
+                await Message.ErrorAsync("审核记录更新失败，请检查提交内容后重试。");
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -622,7 +622,7 @@
         {
             requestDto.Status = RequestStatus.Pending;
             Logger.LogError(ex, "Unable to reject certification request {RequestId}.", requestDto.Id);
-            await Message.Error("审核记录更新异常，请稍后重试。");
+            await Message.ErrorAsync("审核记录更新异常，请稍后重试。");
         }
     }
 
@@ -641,7 +641,7 @@
         catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
         {
             Logger.LogError(ex, "Unable to initialize the administration page.");
-            await Message.Error("管理数据加载失败，请稍后重试。");
+            await Message.ErrorAsync("管理数据加载失败，请稍后重试。");
         }
     }
 
@@ -712,16 +712,16 @@
                     lifetimeCancellation.Token);
                 if (!res.IsSuccessStatusCode)
                 {
-                    await Message.Error("角色添加失败，请确认名称没有重复。");
+                    await Message.ErrorAsync("角色添加失败，请确认名称没有重复。");
                 }
                 else
                 {
-                    await Message.Success("角色添加成功。");
+                    await Message.SuccessAsync("角色添加成功。");
                 }
             }
             else
             {
-                await Message.Error("role name不可为空");
+                await Message.ErrorAsync("role name不可为空");
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -730,7 +730,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unable to add role {RoleName}.", newRole);
-            await Message.Error("角色添加请求异常，请稍后重试。");
+            await Message.ErrorAsync("角色添加请求异常，请稍后重试。");
         }
         finally
         {
@@ -766,7 +766,7 @@
     {
         if (roleClaimsDto == null)
         {
-            await Message.Error("没有加载角色Claims");
+            await Message.ErrorAsync("没有加载角色Claims");
             return;
         }
 
@@ -780,11 +780,11 @@
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                await Message.Success("角色Claims更新成功！");
+                await Message.SuccessAsync("角色Claims更新成功！");
             }
             else
             {
-                await Message.Error("角色 Claims 更新失败，请检查提交内容。");
+                await Message.ErrorAsync("角色 Claims 更新失败，请检查提交内容。");
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -793,7 +793,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unable to update claims for role {RoleName}.", roleClaimsDto.RoleName);
-            await Message.Error("角色 Claims 更新异常，请稍后重试。");
+            await Message.ErrorAsync("角色 Claims 更新异常，请稍后重试。");
         }
         finally
         {
@@ -816,11 +816,11 @@
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
-                await Message.Success("通知更新成功！");
+                await Message.SuccessAsync("通知更新成功！");
             }
             else
             {
-                await Message.Error("通知更新失败，请检查提交内容。");
+                await Message.ErrorAsync("通知更新失败，请检查提交内容。");
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -829,7 +829,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unable to update site notification.");
-            await Message.Error("通知更新异常，请稍后重试。");
+            await Message.ErrorAsync("通知更新异常，请稍后重试。");
         }
         finally
         {
@@ -849,7 +849,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh the user list.");
-            await Message.Warning("用户操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+            await Message.WarningAsync("用户操作已提交，但列表刷新失败；请重新打开页面确认结果。");
         }
     }
 
@@ -865,7 +865,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh the role list.");
-            await Message.Warning("角色操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+            await Message.WarningAsync("角色操作已提交，但列表刷新失败；请重新打开页面确认结果。");
         }
     }
 
@@ -881,7 +881,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh the certification request list.");
-            await Message.Warning("审核操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+            await Message.WarningAsync("审核操作已提交，但列表刷新失败；请重新打开页面确认结果。");
         }
     }
 

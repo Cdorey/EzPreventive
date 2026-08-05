@@ -123,7 +123,7 @@ else
                     registrationDto.ProfessionalIdentity = null;
                 }
 
-                await Message.Info("正在提交注册信息");
+                await Message.InfoAsync("正在提交注册信息");
                 var httpClient = HttpClientFactory.CreateClient("Anonymous");
                 using var response = await httpClient.PostAsJsonAsync(
                     "Auth/Register",
@@ -169,7 +169,7 @@ else
             }
 
             finished = true;
-            await Message.Success("注册成功");
+            await Message.SuccessAsync("注册成功");
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -210,12 +210,12 @@ else
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
         {
-            await Message.Error(ex.Message);
+            await Message.ErrorAsync(ex.Message);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unexpected error while signing in after registration.");
-            await Message.Error("登录时发生异常，请稍后重试。");
+            await Message.ErrorAsync("登录时发生异常，请稍后重试。");
         }
     }
 
@@ -234,7 +234,7 @@ else
     private async Task ShowErrorAsync(string message)
     {
         friendlyRegistError = message;
-        await Message.Error(message);
+        await Message.ErrorAsync(message);
     }
 
     public void Dispose()

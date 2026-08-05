@@ -274,7 +274,7 @@
     {
         if (EnergyCalculator is not null && !EnergyCalculator.Calculate())
         {
-            await Message.Error("请先选择一个有效的 PAL（身体活动水平）。");
+            await Message.ErrorAsync("请先选择一个有效的 PAL（身体活动水平）。");
         }
     }
 
@@ -282,7 +282,7 @@
     {
         if (EnergyCalculator?.CorrectEnergy(newEnergy) is true)
         {
-            await Message.Info($"核定总能量{newEnergy}kCal，依据营养师修正。");
+            await Message.InfoAsync($"核定总能量{newEnergy}kCal，依据营养师修正。");
         }
     }
 
@@ -335,7 +335,7 @@
         catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or InvalidOperationException or NotSupportedException or System.Text.Json.JsonException)
         {
             Logger.LogWarning(ex, "Unable to load EER records.");
-            await Message.Error("能量参考数据加载失败，请稍后重试。");
+            await Message.ErrorAsync("能量参考数据加载失败，请稍后重试。");
         }
         finally
         {
