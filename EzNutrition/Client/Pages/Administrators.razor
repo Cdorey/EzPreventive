@@ -7,7 +7,12 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
 @inject ILogger<Administrators> Logger
-<Title Level="1">Administrators</Title>
+<PageTitle>站点管理</PageTitle>
+<header class="admin-page-heading">
+    <span>系统管理</span>
+    <h1>站点管理</h1>
+    <p>管理账户、专业认证、角色权限与站内通知。复杂表格建议在桌面端操作。</p>
+</header>
 <AuthorizeView Policy="@PolicyList.Admin">
     <Authorized>
         <Tabs>
@@ -24,16 +29,16 @@
                         <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.LockoutEnabled" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.AccessFailedCount" />
-                        <ActionColumn Title="Operate" Width="150" Fixed="ColumnFixPlacement.Right">
+                        <ActionColumn Title="操作" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
                                     <Button Type="ButtonType.Primary" OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
-                                        Edit
+                                        编辑
                                     </Button>
                                 </SpaceItem>
                                 <SpaceItem>
                                     <Button Danger OnClick="(x)=>DeleteUser(userListContext)" AutoLoading>
-                                        Delete
+                                        删除
                                     </Button>
                                 </SpaceItem>
                             </Space>
@@ -54,11 +59,11 @@
                         <PropertyColumn Property="r=>r.ProcessDetails" />
                         <PropertyColumn Property="r=>r.CertificateTicket" />
                         <PropertyColumn Property="r=>r.Remarks" />
-                        <ActionColumn Title="Operate" Width="150" Fixed="ColumnFixPlacement.Right">
+                        <ActionColumn Title="操作" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
                                     <Button Danger OnClick="(x)=>EditBtnClick(requestListContext)" AutoLoading>
-                                        Edit
+                                    审核
                                     </Button>
                                 </SpaceItem>
                             </Space>
@@ -77,36 +82,38 @@
                             <Extra>
                                 @foreach (var claim in item.Claims)
                                 {
-                                    <div class="claim-row" style="display:flex; align-items:center; margin-bottom:8px;">
-                                        <Input placeholder="Claim Type" @bind-Value="claim.Type" Style="width:200px; margin-right:8px;" />
-                                        <Input placeholder="Claim Value" @bind-Value="claim.Value" Style="width:200px; margin-right:8px;" />
+                                    <div class="claim-row">
+                                        <Input placeholder="权限声明类型" @bind-Value="claim.Type" />
+                                        <Input placeholder="权限声明值" @bind-Value="claim.Value" />
                                         <Button Danger OnClick="@(x => RemoveRoleClaim(claim,item))" Type="ButtonType.Default">删除</Button>
                                     </div>
                                 }
-                                <div style="margin-top:8px;">
-                                    <Button OnClick="@(x=>AddRoleClaim(item))" Type="ButtonType.Primary" Style="margin-right:8px;">添加 Claim</Button>
+                                <div class="claim-actions">
+                                    <Button OnClick="@(x=>AddRoleClaim(item))" Type="ButtonType.Primary">添加权限声明</Button>
                                     <Button OnClick="@(x=>SaveRoleClaims(item))" Type="ButtonType.Primary">保存修改</Button>
                                 </div>
                             </Extra>
                         </ListItem>
                     </ChildContent>
                     <Footer>
-                        <Input Type="@InputType.Text" @bind-value="@newRole" />
-                        <Button Type="@ButtonType.Primary" OnClick="AddRole" AutoLoading>Add</Button>
+                        <div class="role-create-row">
+                            <Input Type="@InputType.Text" Placeholder="新角色名称" @bind-value="@newRole" />
+                            <Button Type="@ButtonType.Primary" OnClick="AddRole" AutoLoading>添加角色</Button>
+                        </div>
                     </Footer>
                 </AntList>
             </TabPane>
             <TabPane Tab="通知">
                 <Form Model="NewNotification" Layout="FormLayout.Vertical">
                     <ChildContent Context="notice">
-                        <FormItem>
+                        <FormItem Label="通知标题">
                             <Input @bind-Value="@notice.NoticeTitle" />
                         </FormItem>
-                        <FormItem>
+                        <FormItem Label="通知内容">
                             <TextArea @bind-Value="@notice.NoticeDescription" Rows="20" />
                         </FormItem>
-                        <FormItem>
-                            <Checkbox @bind-Value="@notice.IsCoverLetter" />
+                        <FormItem Label="展示方式">
+                            <Checkbox @bind-Value="@notice.IsCoverLetter">设为覆盖式通知</Checkbox>
                         </FormItem>
                         <FormItem>
                             <Button Type="ButtonType.Primary" OnClick="SubmitNotification">提交</Button>

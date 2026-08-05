@@ -9,45 +9,77 @@
 @inject CertificateUploadService CertificateUpload
 @inject ILogger<UserCenter> Logger
 @page "/usercenter"
-<Title Level="1">用户中心</Title>
-<AuthorizeView>
-    <Authorized>
-        @if (UserInfo is not null)
-        {
-            <GridRow Gutter="(16,16)">
-                <GridCol Xs="24" Lg="12">
-                    <Descriptions Title="@UserInfo.UserName" Bordered Column="2">
-                        <DescriptionsItem Title="邮箱">@UserInfo.Email</DescriptionsItem>
-                        <DescriptionsItem Title="手机号码">@UserInfo.PhoneNumber</DescriptionsItem>
-                        <DescriptionsItem Title="UID">@UserInfo.UserId</DescriptionsItem>
-                        <DescriptionsItem Title="有效角色">
-                            @foreach (var role in UserInfo.Roles)
-                            {
-                                @role <br />
-                            }
-                        </DescriptionsItem>
-                    </Descriptions>
-                    @* <Button OnClick="GetProfile">刷新</Button> *@
-                </GridCol>
-                @if (UserInfo.Claims.Count > 0)
-                {
-                    <GridCol Xs="24" Lg="12">
-                        <Descriptions Title="认证声明" Bordered Column="2">
-                            @foreach (var claim in UserInfo.Claims)
-                            {
-                                <DescriptionsItem Title="@($"有效声明（{claim.Type}）")">@claim.Value</DescriptionsItem>
-                            }
+<PageTitle>用户中心</PageTitle>
+
+<section class="user-center-page">
+    <header class="page-heading">
+        <span>账户与权限</span>
+        <h1>用户中心</h1>
+        <p>查看账户资料、有效权限及专业资质认证进度。</p>
+    </header>
+
+    <AuthorizeView>
+        <Authorized>
+            @if (UserInfo is not null)
+            {
+                <div class="profile-grid">
+                    <section class="surface-card">
+                        <div class="card-heading">
+                            <div>
+                                <span>账户资料</span>
+                                <h2>@UserInfo.UserName</h2>
+                            </div>
+                            <Icon Type="user" Theme="IconThemeType.Outline" />
+                        </div>
+                        <Descriptions Bordered Column="@(new Dictionary<string,int>{{ "xs", 1}, {"md", 2}})">
+                            <DescriptionsItem Title="邮箱"><span class="breakable">@UserInfo.Email</span></DescriptionsItem>
+                            <DescriptionsItem Title="手机号码">@UserInfo.PhoneNumber</DescriptionsItem>
+                            <DescriptionsItem Title="UID"><span class="breakable">@UserInfo.UserId</span></DescriptionsItem>
+                            <DescriptionsItem Title="有效角色">
+                                <div class="tag-list">
+                                    @foreach (var role in UserInfo.Roles)
+                                    {
+                                        <Tag Color="@("blue")">@role</Tag>
+                                    }
+                                </div>
+                            </DescriptionsItem>
                         </Descriptions>
-                    </GridCol>
-                }
-                <GridCol Xs="24">
-                    <Table DataSource="ProfessionalCertificationRequestDtos">
-                        <TitleTemplate>
-                            <Flex Justify="FlexJustify.SpaceBetween" Gap="@("10")">
-                                <Title Level="3">专业资质认证申请记录</Title>
-                                <Button Type="ButtonType.Primary" OnClick="@(()=> createCertificationRequestDialog = true)">提交新的申请</Button>
-                            </Flex>
-                        </TitleTemplate>
+                    </section>
+
+                    @if (UserInfo.Claims.Count > 0)
+                    {
+                        <section class="surface-card">
+                            <div class="card-heading">
+                                <div>
+                                    <span>专业权限</span>
+                                    <h2>有效认证声明</h2>
+                                </div>
+                                <Icon Type="safety-certificate" Theme="IconThemeType.Outline" />
+                            </div>
+                            <Descriptions Bordered Column="1">
+                                @foreach (var claim in UserInfo.Claims)
+                                {
+                                    <DescriptionsItem Title="@claim.Type"><span class="breakable">@claim.Value</span></DescriptionsItem>
+                                }
+                            </Descriptions>
+                        </section>
+                    }
+                </div>
+
+                <section class="surface-card certification-records">
+                    <div class="section-toolbar">
+                        <div>
+                            <span>认证记录</span>
+                            <h2>专业资质认证申请</h2>
+                            <p>历史申请和当前审核状态均保留在此处。</p>
+                        </div>
+                        <Button Type="ButtonType.Primary" OnClick="@(()=> createCertificationRequestDialog = true)">
+                            <Icon Type="plus" Theme="IconThemeType.Outline" />
+                            提交新申请
+                        </Button>
+                    </div>
+
+                    <Table DataSource="ProfessionalCertificationRequestDtos" Size="TableSize.Small" ScrollX="960">
                         <ChildContent Context="requests">
                             <PropertyColumn Property="r=>r.RequestTime" Title="申请时间" />
                             <PropertyColumn Property="r=>r.IdentityType" Title="申请类别" />
@@ -59,17 +91,24 @@
                             </PropertyColumn>
                         </ChildContent>
                     </Table>
-                </GridCol>
-            </GridRow>
-            <Modal Title="专业资质认证申请" @bind-Visible="@createCertificationRequestDialog" Width="1280" OnCancel="InitCertificationRequestDialog" OnOk="SubmitCertificationRequest" ConfirmLoading="@certificationRequestSending">
-                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
-            </Modal>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <Paragraph>尚未登录</Paragraph>
-    </NotAuthorized>
-</AuthorizeView>
+                </section>
+
+                <Modal Title="@("专业资质认证申请")"
+                       @bind-Visible="@createCertificationRequestDialog"
+                       Width="1000"
+                       BodyStyle="max-height: calc(100vh - 180px); overflow: auto;"
+                       OnCancel="InitCertificationRequestDialog"
+                       OnOk="SubmitCertificationRequest"
+                       ConfirmLoading="@certificationRequestSending">
+                    <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
+                </Modal>
+            }
+        </Authorized>
+        <NotAuthorized>
+            <Result Status="ResultStatus.Warning" Title="尚未登录" SubTitle="登录后才能查看账户与专业认证信息。" />
+        </NotAuthorized>
+    </AuthorizeView>
+</section>
 
 @code {
     private bool createCertificationRequestDialog = false;

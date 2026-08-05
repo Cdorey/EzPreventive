@@ -1,0 +1,172 @@
+.home-page {
+    width: 100%;
+}
+
+.page-heading {
+    max-width: 820px;
+    margin-bottom: 28px;
+}
+
+.page-heading h1 {
+    margin: 4px 0 8px;
+    color: var(--ez-navy);
+    font-size: clamp(1.75rem, 2.4vw, 2.5rem);
+    line-height: 1.22;
+    letter-spacing: -0.025em;
+}
+
+.page-heading p {
+    margin: 0;
+    color: var(--ez-text-secondary);
+    font-size: 1rem;
+}
+
+.eyebrow,
+.panel-kicker {
+    color: var(--ez-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.authorized-grid,
+.guest-grid {
+    display: grid;
+    gap: 20px;
+    align-items: start;
+}
+
+.authorized-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+}
+
+.guest-grid {
+    grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+}
+
+.surface-panel {
+    min-width: 0;
+    padding: 24px;
+    background: #fff;
+    border: 1px solid var(--ez-border);
+    border-radius: 10px;
+}
+
+.panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.panel-heading h2,
+.quick-actions h2 {
+    margin: 2px 0 0;
+    color: var(--ez-navy);
+    font-size: 1.25rem;
+    line-height: 1.35;
+}
+
+.panel-heading ::deep .anticon {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    color: var(--ez-primary);
+    font-size: 1.4rem;
+}
+
+.quick-actions {
+    display: grid;
+    gap: 12px;
+}
+
+.quick-actions h2 {
+    margin-bottom: 8px;
+}
+
+.quick-actions ::deep .ant-btn {
+    min-height: 44px;
+    text-align: left;
+}
+
+.account-notice {
+    margin-bottom: 20px;
+}
+
+.login-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.login-actions ::deep .ant-btn {
+    min-width: 112px;
+}
+
+.login-actions ::deep .login-button {
+    min-width: 140px;
+}
+
+.introduction-panel ::deep h1,
+.introduction-panel ::deep h2,
+.introduction-panel ::deep h3,
+.notice-panel ::deep h1,
+.notice-panel ::deep h2,
+.notice-panel ::deep h3 {
+    color: var(--ez-navy);
+}
+
+@media (max-width: 1199.98px) {
+    .guest-grid {
+        grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr);
+    }
+}
+
+@media (max-width: 899.98px) {
+    .authorized-grid,
+    .guest-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .quick-actions .panel-kicker,
+    .quick-actions h2 {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .page-heading {
+        margin-bottom: 20px;
+    }
+
+    .page-heading h1 {
+        font-size: 1.65rem;
+    }
+
+    .surface-panel {
+        padding: 18px;
+    }
+
+    .quick-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-actions .panel-kicker,
+    .quick-actions h2 {
+        grid-column: auto;
+    }
+
+    .login-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .login-actions ::deep .ant-btn {
+        width: 100%;
+    }
+}

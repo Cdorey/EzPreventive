@@ -1,131 +1,197 @@
 ﻿@page "/maintreatment/{id?}"
-@using EzNutrition.Client.Models;
-@using EzNutrition.Client.Services;
-@using EzNutrition.Shared.Utilities;
-@using EzNutrition.Shared.Data.Entities;
-@using System.Text;
+@using EzNutrition.Client.Models
+@using EzNutrition.Client.Services
+@using EzNutrition.Shared.Utilities
+@using EzNutrition.Shared.Data.Entities
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
-@inject MainTreatmentViewModel MaintreatmentVM
-@inject IMessageService Message
 @inject ArchiveManageService ArchiveManager
+
+<PageTitle>营养咨询</PageTitle>
+
 @if (CurrentArchive is not null)
 {
-    <GridRow Gutter="(16,16)" OnBreakpoint="HandleBreakpoint">
-        @* IClient Information *@
+    <section class="treatment-page">
+        <header class="page-heading">
+            <span>门诊咨询</span>
+            <h1>@(CurrentArchive.ClientInfoFormEnabled ? "新建营养咨询" : string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "营养评估工作区" : $"{CurrentArchive.Client.Name}的营养评估")</h1>
+            <p>@(CurrentArchive.ClientInfoFormEnabled ? "先录入必要的人体测量与生理信息，再进入各项专业核算。" : "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。")</p>
+        </header>
+
         @if (CurrentArchive.ClientInfoFormEnabled)
         {
-            <GridCol Xl="10" Sm="24" Xs="24">
-                <Title Level="2">基本信息</Title>
-                <Spin Spinning="CurrentArchive.IsLoading">
-                    <Form Model="@CurrentArchive.Client" LabelAlign="AntLabelAlignType.Left">
-                        <FormItem Label="姓名">
-                            <Input Placeholder="其实输不输都行，反正服务器不会存档和记录" id="name" class="form-control" @bind-Value="context.Name" />
-                        </FormItem>
-                        <FormItem Label="性别">
-                            <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
-                                <Radio RadioButton Value="@("男")">男</Radio>
-                                <Radio RadioButton Value="@("女")">女</Radio>
-                            </RadioGroup>
-                        </FormItem>
-                        <FormItem Label="年龄">
-                            <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" Min="0" />
-                        </FormItem>
-                        <FormItem Label="身高（cm）">
-                            <Input @bind-Value="context.Height" type="InputType.Number" min="0" />
-                        </FormItem>
-                        <FormItem Label="体重（kg）">
-                            <Input @bind-Value="context.Weight" type="InputType.Number" min="0" />
-                        </FormItem>
-                        <FormItem Label="特殊生理状况">
-                            <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">
-                                <Radio RadioButton Value="@string.Empty">无</Radio>
-                                <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-                                <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-                                <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-                                <Radio RadioButton Value="@("乳母")">乳母</Radio>
-                                <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
-                            </RadioGroup>
-                        </FormItem>
-                        <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
-                    </Form>
-                </Spin>
-            </GridCol>
-        }
-        else
-        {
-            <GridCol Xl="10" Sm="24" Xs="24">
-                <Title Level="2">基本信息</Title>
-                <Descriptions Title="@CurrentArchive.Client.Name">
-                    <DescriptionsItem Title="性别">@CurrentArchive.Client.Gender</DescriptionsItem>
-                    <DescriptionsItem Title="年龄">@CurrentArchive.Client.Age</DescriptionsItem>
-                    <DescriptionsItem Title="身高（cm）">@CurrentArchive.Client.Height</DescriptionsItem>
-                    <DescriptionsItem Title="体重（kg）">@CurrentArchive.Client.Weight</DescriptionsItem>
-                    <DescriptionsItem Title="特殊生理状况">@CurrentArchive.Client.SpecialPhysiologicalPeriod</DescriptionsItem>
-                </Descriptions>
-                <Summary Archive="@CurrentArchive" />
-                @* Advices in pc is here *@
-                <Title Level="3">膳食建议</Title>
-                <Advice CurrentArchive="@CurrentArchive" />
-            </GridCol>
-        }
-        @if (CurrentArchive.ClientInfoFormEnabled)
-        {
-            <GridCol Xl="14" Sm="24" Xs="24">
-                @if (MaintreatmentVM.CurrentBreakpoint >= BreakpointType.Xl)
-                {
-                    @if (string.IsNullOrEmpty(UserSession.Notice))
+            <div class="setup-grid">
+                <section class="surface-card patient-form-card" aria-labelledby="patient-info-title">
+                    <div class="section-heading">
+                        <div>
+                            <span>步骤 1</span>
+                            <h2 id="patient-info-title">基本信息</h2>
+                        </div>
+                        <Icon Type="idcard" Theme="IconThemeType.Outline" />
+                    </div>
+
+                    <Spin Spinning="CurrentArchive.IsLoading">
+                        <Form Model="@CurrentArchive.Client" Layout="FormLayout.Vertical">
+                            <GridRow Gutter="(16,0)">
+                                <GridCol Xs="24">
+                                    <FormItem Label="姓名（选填）">
+                                        <Input Placeholder="仅用于区分当前浏览器中的咨询对象，服务器不保存" id="name" @bind-Value="context.Name" />
+                                    </FormItem>
+                                </GridCol>
+                                <GridCol Xs="24" Sm="12">
+                                    <FormItem Label="性别">
+                                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
+                                            <Radio RadioButton Value="@("男")">男</Radio>
+                                            <Radio RadioButton Value="@("女")">女</Radio>
+                                        </RadioGroup>
+                                    </FormItem>
+                                </GridCol>
+                                <GridCol Xs="24" Sm="12">
+                                    <FormItem Label="年龄（岁）">
+                                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" Min="0" />
+                                    </FormItem>
+                                </GridCol>
+                                <GridCol Xs="24" Sm="12">
+                                    <FormItem Label="身高（cm）">
+                                        <Input @bind-Value="context.Height" type="InputType.Number" min="0" />
+                                    </FormItem>
+                                </GridCol>
+                                <GridCol Xs="24" Sm="12">
+                                    <FormItem Label="体重（kg）">
+                                        <Input @bind-Value="context.Weight" type="InputType.Number" min="0" />
+                                    </FormItem>
+                                </GridCol>
+                                <GridCol Xs="24">
+                                    <FormItem Label="特殊生理状况">
+                                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod">
+                                            <Radio RadioButton Value="@string.Empty">无</Radio>
+                                            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+                                            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+                                            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+                                            <Radio RadioButton Value="@("乳母")">乳母</Radio>
+                                            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                                        </RadioGroup>
+                                    </FormItem>
+                                </GridCol>
+                            </GridRow>
+                            <div class="form-actions">
+                                <Button Type="@ButtonType.Primary" OnClick="OnCalculateBtnClick" AutoLoading>
+                                    确认并进入核算
+                                    <Icon Type="arrow-right" Theme="IconThemeType.Outline" />
+                                </Button>
+                            </div>
+                        </Form>
+                    </Spin>
+                </section>
+
+                <aside class="surface-card notice-card" aria-labelledby="consultation-notice-title">
+                    <div class="section-heading">
+                        <div>
+                            <span>工作提示</span>
+                            <h2 id="consultation-notice-title">注意事项</h2>
+                        </div>
+                        <Icon Type="notification" Theme="IconThemeType.Outline" />
+                    </div>
+                    @if (!UserSession.IsSystemInfoLoaded)
                     {
                         <Skeleton Active />
                     }
+                    else if (string.IsNullOrEmpty(UserSession.Notice))
+                    {
+                        <Alert Type="AlertType.Info" Message="工作提示暂时不可用" Description="服务端内容未能加载；可以继续进行本地核算。" ShowIcon="true" />
+                    }
                     else
                     {
-                        <Title Level="2">注意事项</Title>
                         @SafeMarkdown.Render(UserSession.Notice)
                     }
-                }
-            </GridCol>
+                </aside>
+            </div>
         }
-        @if (!CurrentArchive.ClientInfoFormEnabled)
+        else
         {
-            <GridCol Xl="14" Sm="24" Xs="24">
-                @* ITreatments *@
-                <Tabs>
-                    @* <TabBarExtraContent>
-                        <Button>Extra Action</Button>
-                    </TabBarExtraContent> *@
-                    <ChildContent>
-                        <TabPane Key="1" Tab="能量评估">
-                            @if (CurrentArchive.CurrentEnergyCalculator is not null)
-                            {
-                                <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
-                            }
-                        </TabPane>
-                        <TabPane Key="2" Tab="参考摄入量">
-                            @if (CurrentArchive.DRIs is not null)
-                            {
-                                <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
-                            }
-                        </TabPane>
-                        <TabPane Key="3" Tab="膳食调查">
-                            @if (CurrentArchive.DietaryRecallSurvey is not null)
-                            {
-                                <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
-                            }
-                        </TabPane>
-                        <TabPane Key="4" Tab="门诊病史">
-                            @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
-                            {
-                                <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
-                            }
-                        </TabPane>
-                    </ChildContent>
-                </Tabs>
-            </GridCol>
+            <div class="active-treatment-grid">
+                <aside class="context-column">
+                    <section class="surface-card client-card">
+                        <div class="section-heading compact-heading">
+                            <div>
+                                <span>咨询对象</span>
+                                <h2>@(string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "未命名对象" : CurrentArchive.Client.Name)</h2>
+                            </div>
+                            <Icon Type="user" Theme="IconThemeType.Outline" />
+                        </div>
+                        <Descriptions Column="@(new Dictionary<string,int>{{ "xs", 1}, {"sm", 2}})" Size="DescriptionsSize.Small">
+                            <DescriptionsItem Title="性别">@CurrentArchive.Client.Gender</DescriptionsItem>
+                            <DescriptionsItem Title="年龄">@CurrentArchive.Client.Age 岁</DescriptionsItem>
+                            <DescriptionsItem Title="身高">@CurrentArchive.Client.Height cm</DescriptionsItem>
+                            <DescriptionsItem Title="体重">@CurrentArchive.Client.Weight kg</DescriptionsItem>
+                            <DescriptionsItem Title="生理状况">@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</DescriptionsItem>
+                        </Descriptions>
+                    </section>
+
+                    <section class="surface-card summary-card">
+                        <Summary Archive="@CurrentArchive" />
+                    </section>
+
+                    <section class="surface-card advice-card">
+                        <div class="section-heading compact-heading">
+                            <div>
+                                <span>综合输出</span>
+                                <h2>膳食建议</h2>
+                            </div>
+                            <Icon Type="solution" Theme="IconThemeType.Outline" />
+                        </div>
+                        <Advice CurrentArchive="@CurrentArchive" />
+                    </section>
+                </aside>
+
+                <section class="workspace-column" aria-label="营养核算工作区">
+                    <div class="mobile-client-strip">
+                        <div>
+                            <span>@(string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "当前咨询对象" : CurrentArchive.Client.Name)</span>
+                            <strong>@CurrentArchive.Client.Gender · @CurrentArchive.Client.Age 岁</strong>
+                        </div>
+                        @if (CurrentArchive.CurrentEnergyCalculator?.BMI is not null)
+                        {
+                            <Tag Color="@("blue")">BMI @CurrentArchive.CurrentEnergyCalculator.BMI</Tag>
+                        }
+                    </div>
+
+                    <section class="surface-card workspace-card">
+                        <Tabs Class="treatment-tabs">
+                            <ChildContent>
+                                <TabPane Key="1" Tab="能量评估">
+                                    @if (CurrentArchive.CurrentEnergyCalculator is not null)
+                                    {
+                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
+                                    }
+                                </TabPane>
+                                <TabPane Key="2" Tab="参考摄入量">
+                                    @if (CurrentArchive.DRIs is not null)
+                                    {
+                                        <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
+                                    }
+                                </TabPane>
+                                <TabPane Key="3" Tab="膳食调查">
+                                    @if (CurrentArchive.DietaryRecallSurvey is not null)
+                                    {
+                                        <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
+                                    }
+                                </TabPane>
+                                <TabPane Key="4" Tab="SOAP 病史">
+                                    @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
+                                    {
+                                        <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
+                                    }
+                                </TabPane>
+                            </ChildContent>
+                        </Tabs>
+                    </section>
+                </section>
+            </div>
         }
-    </GridRow>
+    </section>
 }
 
 @code {
@@ -146,11 +212,6 @@
 
         CurrentArchive = null;
         Navigation.NavigateTo("/");
-    }
-
-    void HandleBreakpoint(BreakpointType breakpoint)
-    {
-        MaintreatmentVM.CurrentBreakpoint = breakpoint;
     }
 
     private async Task OnCalculateBtnClick()

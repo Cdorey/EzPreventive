@@ -1,81 +1,246 @@
-.page {
-    position: relative;
-    display: flex;
-    flex-direction: column;
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 3000;
+    padding: 8px 12px;
+    color: #fff;
+    background: #0958d9;
+    border-radius: 6px;
+    transform: translateY(-150%);
+    transition: transform 0.15s ease;
 }
 
-main {
-    flex: 1;
+.skip-link:focus {
+    transform: translateY(0);
 }
 
-.sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+.app-shell-root {
+    min-height: 100vh;
 }
 
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
+.app-shell-root ::deep .app-shell {
+    min-height: 100vh;
+    background: var(--ez-page);
+}
+
+.app-shell-root ::deep .desktop-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden auto;
+    background: var(--ez-navy);
+    box-shadow: 2px 0 12px rgba(6, 29, 51, 0.14);
+}
+
+.brand-block {
+    min-height: 88px;
     display: flex;
     align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
+.brand-logo {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+}
+
+.brand-block strong,
+.brand-block span,
+.mobile-brand strong,
+.mobile-brand span {
+    display: block;
+}
+
+.brand-block strong {
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+}
+
+.brand-block span {
+    color: rgba(255, 255, 255, 0.66);
+    font-size: 0.75rem;
+}
+
+.app-shell-root ::deep .app-main-layout {
+    min-width: 0;
+    background: var(--ez-page);
+}
+
+.app-shell-root ::deep .mobile-header {
+    display: none;
+}
+
+.app-shell-root ::deep .app-content {
+    min-width: 0;
+    padding: 24px;
+    background: var(--ez-page);
+}
+
+.page-surface {
+    width: 100%;
+    min-height: calc(100vh - 128px);
+    margin-inline: auto;
+    padding: 28px;
+    background: var(--ez-surface);
+    border: 1px solid var(--ez-border);
+    border-radius: var(--ez-radius);
+    box-shadow: var(--ez-shadow);
+    overflow: hidden;
+}
+
+.page-surface:focus {
+    outline: none;
+}
+
+.app-shell-root ::deep .app-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 12px 24px 20px;
+    color: var(--ez-text-secondary);
+    background: var(--ez-page);
+    font-size: 0.78rem;
+    text-align: center;
+}
+
+.mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mobile-brand img {
+    width: 32px;
+    height: 32px;
+}
+
+.mobile-brand strong {
+    color: var(--ez-navy);
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+
+.mobile-navigation-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: none;
+    background: rgba(6, 29, 51, 0.52);
+}
+
+.mobile-navigation-panel {
+    width: min(88vw, 320px);
+    height: 100%;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    background: var(--ez-navy);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.22);
+}
+
+.mobile-navigation-heading {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid var(--ez-border);
+}
+
+.mobile-navigation-close {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    padding: 0;
+    color: var(--ez-text-secondary);
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.mobile-navigation-close:hover {
+    color: var(--ez-navy);
+    background: #f0f3f7;
+}
+
+.mobile-brand span {
+    color: var(--ez-text-secondary);
+    font-size: 0.68rem;
+    line-height: 1.25;
+}
+
+@media (max-width: 991.98px) {
+    .mobile-navigation-overlay {
+        display: block;
     }
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
-
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-@media (max-width: 640.98px) {
-    .top-row:not(.auth) {
+    .app-shell-root ::deep .desktop-sidebar {
         display: none;
     }
 
-    .top-row.auth {
-        justify-content: space-between;
+    .app-shell-root ::deep .mobile-header {
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid var(--ez-border);
+        box-shadow: 0 2px 12px rgba(15, 35, 60, 0.06);
+        backdrop-filter: blur(8px);
     }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
+    .app-shell-root ::deep .mobile-menu-button {
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        padding: 0;
+        flex: 0 0 auto;
+    }
+
+    .app-shell-root ::deep .app-content {
+        padding: 16px;
+    }
+
+    .page-surface {
+        min-height: calc(100vh - 128px);
+        padding: 22px;
     }
 }
 
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
+@media (max-width: 575.98px) {
+    .app-shell-root ::deep .mobile-header {
+        min-height: 60px;
+        padding-inline: 12px;
     }
 
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
+    .app-shell-root ::deep .app-content {
+        padding: 0;
     }
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    .page-surface {
+        min-height: calc(100vh - 60px);
+        padding: 18px 14px 24px;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+    .app-shell-root ::deep .app-footer {
+        padding: 12px 16px 16px;
     }
 }

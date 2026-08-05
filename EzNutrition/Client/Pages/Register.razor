@@ -10,54 +10,98 @@
 @inject NavigationManager Navigator
 @inject CertificateUploadService CertificateUpload
 @inject ILogger<Register> Logger
-<Title Level="1">注册</Title>
-@if (finished)
-{
-    <Result Status="ResultStatus.Success"
-            Title="信息提交成功"
-            SubTitle="一封确认邮件已发送到您的邮箱，请尽快激活您的账号。">
-        <Extra>
-            <Button Type="ButtonType.Primary" OnClick="Login">登录</Button>
-        </Extra>
-    </Result>
-}
-else
-{
-    <Spin Spinning="@loading">
-        <Indicator>
-            <Icon Type="@IconType.Outline.Loading" Style="font-size: 72px" Spin />
-        </Indicator>
-        <ChildContent>
-            <Title Level="2">基本信息</Title>
-            @if (friendlyRegistError is not null)
-            {
-                <Alert Message=@friendlyRegistError Type="AlertType.Error" Closable AfterClose="@(()=>friendlyRegistError=null)" Style="margin-bottom:16px" />
-            }
-            <Form Model="@registrationDto" ValidateOnChange>
-                <FormItem>
-                    <Input @bind-Value="@context.UserName" />
-                </FormItem>
-                <FormItem Label="Password">
-                    <InputPassword @bind-Value="@context.Password" />
-                </FormItem>
-                <FormItem>
-                    <Input @bind-Value="@context.Email" />
-                </FormItem>
-                <FormItem>
-                    <Input @bind-Value="@context.PhoneNumber" />
-                </FormItem>
-            </Form>
-            <Title Level="2">专业认证</Title>
-            <Switch @bind-Value="professionalIdentity" CheckedChildren="专业认证" UnCheckedChildren="暂时跳过" />
-            @if (professionalIdentity)
-            {
-                <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
-            }
+<PageTitle>注册</PageTitle>
 
-            <Button Type="@ButtonType.Primary" Style="margin-top: 16px;" OnClick="RegistAsync">提交注册信息</Button>
-        </ChildContent>
-    </Spin>
-}
+<section class="registration-page">
+    <header class="registration-heading">
+        <span>账户与资质</span>
+        <h1>创建 EzNutrition 账户</h1>
+        <p>账户信息用于登录；专业资质认证用于控制受限的专业功能访问。</p>
+    </header>
+
+    @if (finished)
+    {
+        <div class="registration-card result-card">
+            <Result Status="ResultStatus.Success"
+                    Title="信息提交成功"
+                    SubTitle="一封确认邮件已发送到您的邮箱，请尽快激活您的账号。">
+                <Extra>
+                    <Button Type="ButtonType.Primary" OnClick="Login">登录</Button>
+                </Extra>
+            </Result>
+        </div>
+    }
+    else
+    {
+        <Spin Spinning="@loading">
+            <Indicator>
+                <Icon Type="@IconType.Outline.Loading" Style="font-size: 72px" Spin />
+            </Indicator>
+            <ChildContent>
+                <div class="registration-card">
+                    <div class="section-heading">
+                        <div class="step-index">1</div>
+                        <div>
+                            <h2>基本信息</h2>
+                            <p>请填写可用于接收账户确认信息的邮箱。</p>
+                        </div>
+                    </div>
+
+                    @if (friendlyRegistError is not null)
+                    {
+                        <Alert Class="registration-error" Message="@friendlyRegistError" Type="AlertType.Error" Closable AfterClose="@(()=>friendlyRegistError=null)" ShowIcon="true" />
+                    }
+
+                    <Form Model="@registrationDto" ValidateOnChange Layout="FormLayout.Vertical">
+                        <GridRow Gutter="(16,0)">
+                            <GridCol Xs="24" Md="12">
+                                <FormItem Label="用户名">
+                                    <Input Placeholder="请输入用户名" @bind-Value="@context.UserName" />
+                                </FormItem>
+                            </GridCol>
+                            <GridCol Xs="24" Md="12">
+                                <FormItem Label="密码">
+                                    <InputPassword Placeholder="请输入密码" @bind-Value="@context.Password" />
+                                </FormItem>
+                            </GridCol>
+                            <GridCol Xs="24" Md="12">
+                                <FormItem Label="电子邮箱">
+                                    <Input Placeholder="name@example.com" @bind-Value="@context.Email" />
+                                </FormItem>
+                            </GridCol>
+                            <GridCol Xs="24" Md="12">
+                                <FormItem Label="手机号码（选填）">
+                                    <Input Placeholder="用于必要的账户联系" @bind-Value="@context.PhoneNumber" />
+                                </FormItem>
+                            </GridCol>
+                        </GridRow>
+                    </Form>
+
+                    <Divider />
+
+                    <div class="section-heading certification-heading">
+                        <div class="step-index">2</div>
+                        <div>
+                            <h2>专业认证</h2>
+                            <p>可以暂时跳过，注册后仍可在用户中心提交申请。</p>
+                        </div>
+                        <Switch @bind-Value="professionalIdentity" CheckedChildren="本次认证" UnCheckedChildren="暂时跳过" />
+                    </div>
+
+                    @if (professionalIdentity)
+                    {
+                        <ProfessionalCertification ProfessionalIdentityDto="@professionalIdentityDto" OnFileSelected="HandleFileSelected" Filename="@(currentSelectedFile?.Name??string.Empty)" />
+                    }
+
+                    <div class="registration-actions">
+                        <Button Type="@ButtonType.Primary" OnClick="RegistAsync">提交注册信息</Button>
+                        <span>提交即表示您确认所填信息真实有效。</span>
+                    </div>
+                </div>
+            </ChildContent>
+        </Spin>
+    }
+</section>
 
 @code {
     string identityType = string.Empty;

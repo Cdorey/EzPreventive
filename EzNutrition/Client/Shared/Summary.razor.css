@@ -1,0 +1,31 @@
+.summary-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.summary-heading span {
+    color: var(--ez-primary-strong);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.summary-heading h2 {
+    margin: 2px 0 0;
+    color: var(--ez-navy);
+    font-size: 1.2rem;
+}
+
+.summary-heading ::deep .anticon {
+    color: var(--ez-primary);
+    font-size: 1.25rem;
+}
+
+.tower-title {
+    margin: 0 0 10px;
+    color: var(--ez-navy);
+    font-size: 1rem;
+}

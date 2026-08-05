@@ -1,0 +1,125 @@
+.registration-page {
+    width: min(100%, 1040px);
+    margin-inline: auto;
+}
+
+.registration-heading {
+    margin-bottom: 24px;
+}
+
+.registration-heading > span {
+    color: var(--ez-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.registration-heading h1 {
+    margin: 4px 0 6px;
+    color: var(--ez-navy);
+    font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+    line-height: 1.25;
+}
+
+.registration-heading p,
+.section-heading p {
+    margin: 0;
+    color: var(--ez-text-secondary);
+}
+
+.registration-card {
+    padding: 28px;
+    border: 1px solid var(--ez-border);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.result-card {
+    min-height: 360px;
+}
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.section-heading h2 {
+    margin: 0 0 3px;
+    color: var(--ez-navy);
+    font-size: 1.25rem;
+}
+
+.step-index {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: #fff;
+    background: var(--ez-primary);
+    border-radius: 50%;
+    font-weight: 700;
+}
+
+.registration-error {
+    margin-bottom: 20px;
+}
+
+.certification-heading {
+    align-items: center;
+}
+
+.certification-heading > div:nth-child(2) {
+    flex: 1;
+}
+
+.registration-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--ez-border);
+}
+
+.registration-actions ::deep .ant-btn {
+    min-width: 156px;
+}
+
+.registration-actions span {
+    color: var(--ez-text-secondary);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 575.98px) {
+    .registration-heading {
+        margin-bottom: 18px;
+    }
+
+    .registration-card {
+        padding: 18px 16px;
+        border-radius: 10px;
+    }
+
+    .certification-heading {
+        display: grid;
+        grid-template-columns: auto 1fr;
+    }
+
+    .certification-heading ::deep .ant-switch {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: 4px;
+    }
+
+    .registration-actions {
+        display: grid;
+    }
+
+    .registration-actions ::deep .ant-btn {
+        width: 100%;
+    }
+}

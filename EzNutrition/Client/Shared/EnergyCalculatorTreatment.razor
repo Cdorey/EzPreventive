@@ -7,186 +7,197 @@
 @inject ILogger<EnergyCalculatorTreatment> Logger
 @if (EnergyCalculator != null)
 {
-    <Title Level="3">概要</Title>
-    @if (string.IsNullOrEmpty(EnergyCalculator.Summary))
-    {
-        <Paragraph>确认身体活动强度</Paragraph>
-        @if (IsEerLoading)
-        {
-            <Spin Size="SpinSize.Large">
-                <Indicator>
-                    <Icon Type="loading" Spin />
-                </Indicator>
-            </Spin>
-        }
-        else
-        {
-            <RadioGroup id="pal" @bind-Value="EnergyCalculator.PAL">
-                @foreach (var eer in EnergyCalculator.AvailableEERs)
-                {
-                    @if (eer.PAL != null)
+    <div class="energy-calculator">
+        <section class="energy-section overview-section">
+            <div class="section-heading">
+                <div>
+                    <span>能量评估</span>
+                    <h3>概要</h3>
+                </div>
+                <Icon Type="dashboard" Theme="IconThemeType.Outline" />
+            </div>
+
+            @if (string.IsNullOrEmpty(EnergyCalculator.Summary))
+            {
+                <Paragraph>请选择适用的 PAL（身体活动水平），再计算推荐能量。</Paragraph>
+                <div class="pal-controls">
+                    @if (IsEerLoading)
                     {
-                        <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                        <Spin Size="SpinSize.Large">
+                            <Indicator>
+                                <Icon Type="loading" Spin />
+                            </Indicator>
+                        </Spin>
                     }
+                    else
+                    {
+                        <RadioGroup id="pal" @bind-Value="EnergyCalculator.PAL">
+                            @foreach (var eer in EnergyCalculator.AvailableEERs)
+                            {
+                                @if (eer.PAL != null)
+                                {
+                                    <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                                }
+                            }
+                        </RadioGroup>
+                    }
+                    <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算推荐能量</Button>
+                </div>
+            }
+            else
+            {
+                <div class="energy-summary">@EnergyCalculator.Summary</div>
+                @if (EnergyCalculator.Allocation != null)
+                {
+                    <div class="energy-correction">
+                        <label for="corEnergy">营养师核定总能量（kcal）</label>
+                        <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
+                    </div>
                 }
-            </RadioGroup>
-        }
-        <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">确定</Button>
-    }
-    else
-    {
-        <Paragraph>@EnergyCalculator.Summary</Paragraph>
+            }
+        </section>
+
         @if (EnergyCalculator.Allocation != null)
         {
-            <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
-        }
-    }
-
-    @if (EnergyCalculator.Allocation != null)
-    {
-        <GridCol Span="24">
-            <Title Level="3">能量模型</Title>
-            <GridRow Justify="RowJustify.SpaceAround">
-                <GridCol Flex=@("none")>
+            <section class="energy-section macro-section">
+                <div class="section-heading">
+                    <div>
+                        <span>宏量营养素</span>
+                        <h3>能量模型</h3>
+                    </div>
+                    <Icon Type="pie-chart" Theme="IconThemeType.Outline" />
+                </div>
+                <div class="macro-dashboard-grid">
+                    <div>
                     <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'P'.ToString()" Percent=@ProteinPercentage />
-                </GridCol>
-                <GridCol Flex=@("none")>
+                        <span>蛋白质</span>
+                    </div>
+                    <div>
                     <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'C'.ToString()" Percent=@CarbohydratePercentage />
-                </GridCol>
-                <GridCol Flex=@("none")>
+                        <span>碳水化合物</span>
+                    </div>
+                    <div>
                     <Progress Type=ProgressType.Dashboard Format="(d) => d+'%'.ToString()+'F'.ToString()" Percent=@FatPercentage />
-                </GridCol>
-            </GridRow>
-        </GridCol>
+                        <span>脂肪</span>
+                    </div>
+                </div>
         @if (UserSession.IsTouchDetected)
         {
-            <GridCol Span="24">
-                <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请输入</Paragraph>
-                <Text>蛋白质</Text>
-                <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@ProteinPercentage" Min="0" Max="100" />
-                <Text>脂肪</Text>
-                <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@FatPercentage" Min="0" Max="100" />
-            </GridCol>
+                    <div class="touch-macro-controls">
+                        <Paragraph>输入蛋白质和脂肪的供能百分比，碳水化合物比例将自动平衡。</Paragraph>
+                        <label>
+                            <span>蛋白质</span>
+                            <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@ProteinPercentage" Min="0" Max="100" />
+                        </label>
+                        <label>
+                            <span>脂肪</span>
+                            <AntDesign.InputNumber Formatter="@((value)=>value.ToString() + "%")" Parser="@((value)=>value.Replace("%", ""))" @bind-Value="@FatPercentage" Min="0" Max="100" />
+                        </label>
+                    </div>
         }
         else
         {
-            <GridCol Span="24">
-                <Paragraph>如需调整宏量营养素比值(kcal/total kcal)，请拖动双向滑动块</Paragraph>
+                    <div class="slider-macro-controls">
+                <Paragraph>拖动双向滑块调整蛋白质与脂肪供能比例。</Paragraph>
                 <Slider TValue="(double, double)" @bind-Value="@macroPercentage" TipFormatter="(d) => TipFormatter(d)" OnAfterChange="OnMacroPercentageChanged" />
-            </GridCol>
+                    </div>
         }
-        <GridCol Span="24">
-            <Title Level="3">三餐能量分配</Title>
-            <GridRow>
-                <GridCol Span="6">
-                    <Paragraph>餐次</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>蛋白质(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>碳水化合物(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>脂肪(g)</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>早餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastFatContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>午餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchFatContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>晚餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerProteinContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerCarbohydrateContent</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerFatContent</Paragraph>
-                </GridCol>
-            </GridRow>
-        </GridCol>
-        <GridCol Span="24">
-            <Title Level="3">食物交换份</Title>
-            <GridRow>
-                <GridCol Span="6">
-                    <Paragraph>餐次</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>蛋白质</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>碳水化合物</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>脂肪</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>早餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.BreakfastFatPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>午餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.LunchFatPortionst</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>晚餐</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerProteinPortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerCarbohydratePortions</Paragraph>
-                </GridCol>
-                <GridCol Span="6">
-                    <Paragraph>@EnergyCalculator.Allocation.DinnerFatPortions</Paragraph>
-                </GridCol>
-            </GridRow>
-        </GridCol>
-    }
-    @if (@EnergyCalculator.FoodExchangeAllocation != null)
-    {
-        <GridCol Span="24">
-            <Title Level="3">食物交换份品类及修正</Title>
-            <Form Model="@EnergyCalculator.FoodExchangeAllocation" LabelColSpan="24">
+            </section>
+            <section class="energy-section allocation-section">
+                <div class="section-heading">
+                    <div>
+                        <span>餐次分配</span>
+                        <h3>三餐宏量营养素</h3>
+                    </div>
+                    <Icon Type="table" Theme="IconThemeType.Outline" />
+                </div>
+                <div class="data-table-scroll" role="region" aria-label="三餐能量分配表" tabindex="0">
+                    <table class="allocation-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">餐次</th>
+                                <th scope="col">蛋白质（g）</th>
+                                <th scope="col">碳水化合物（g）</th>
+                                <th scope="col">脂肪（g）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">早餐</th>
+                                <td>@EnergyCalculator.Allocation.BreakfastProteinContent</td>
+                                <td>@EnergyCalculator.Allocation.BreakfastCarbohydrateContent</td>
+                                <td>@EnergyCalculator.Allocation.BreakfastFatContent</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">午餐</th>
+                                <td>@EnergyCalculator.Allocation.LunchProteinContent</td>
+                                <td>@EnergyCalculator.Allocation.LunchCarbohydrateContent</td>
+                                <td>@EnergyCalculator.Allocation.LunchFatContent</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">晚餐</th>
+                                <td>@EnergyCalculator.Allocation.DinnerProteinContent</td>
+                                <td>@EnergyCalculator.Allocation.DinnerCarbohydrateContent</td>
+                                <td>@EnergyCalculator.Allocation.DinnerFatContent</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="energy-section allocation-section">
+                <div class="section-heading">
+                    <div>
+                        <span>交换份</span>
+                        <h3>三餐食物交换份</h3>
+                    </div>
+                    <Icon Type="appstore" Theme="IconThemeType.Outline" />
+                </div>
+                <div class="data-table-scroll" role="region" aria-label="三餐食物交换份表" tabindex="0">
+                    <table class="allocation-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">餐次</th>
+                                <th scope="col">蛋白质</th>
+                                <th scope="col">碳水化合物</th>
+                                <th scope="col">脂肪</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">早餐</th>
+                                <td>@EnergyCalculator.Allocation.BreakfastProteinPortions</td>
+                                <td>@EnergyCalculator.Allocation.BreakfastCarbohydratePortions</td>
+                                <td>@EnergyCalculator.Allocation.BreakfastFatPortions</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">午餐</th>
+                                <td>@EnergyCalculator.Allocation.LunchProteinPortions</td>
+                                <td>@EnergyCalculator.Allocation.LunchCarbohydratePortions</td>
+                                <td>@EnergyCalculator.Allocation.LunchFatPortionst</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">晚餐</th>
+                                <td>@EnergyCalculator.Allocation.DinnerProteinPortions</td>
+                                <td>@EnergyCalculator.Allocation.DinnerCarbohydratePortions</td>
+                                <td>@EnergyCalculator.Allocation.DinnerFatPortions</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+        @if (EnergyCalculator.FoodExchangeAllocation != null)
+        {
+            <section class="energy-section exchange-adjustment-section">
+                <div class="section-heading">
+                    <div>
+                        <span>食物类别</span>
+                        <h3>交换份品类及修正</h3>
+                    </div>
+                    <Icon Type="edit" Theme="IconThemeType.Outline" />
+                </div>
+            <Form Model="@EnergyCalculator.FoodExchangeAllocation" Layout="FormLayout.Vertical">
                 <GridRow Gutter="(16,16)">
                     <GridCol Xl="8" Lg="8" Md="12" Sm="12" Xs="24">
                         <FormItem Label="谷薯类（自动计算）">
@@ -220,8 +231,9 @@
                     </GridCol>
                 </GridRow>
             </Form>
-        </GridCol>
-    }
+            </section>
+        }
+    </div>
 }
 
 @code {

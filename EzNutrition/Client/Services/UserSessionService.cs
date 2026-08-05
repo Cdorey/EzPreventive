@@ -36,20 +36,29 @@ namespace EzNutrition.Client.Services
 
         public string Notice { get; private set; } = string.Empty;
 
+        public bool IsSystemInfoLoaded { get; private set; }
+
         public bool IsTouchDetected { get; set; }
 
         public async Task GetSystemInfoAsync(CancellationToken cancellationToken = default)
         {
-            var caseNumberTask = TryGetStringAsync("SystemInfo/CaseNumber/", cancellationToken);
-            var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
-            var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
+            try
+            {
+                var caseNumberTask = TryGetStringAsync("SystemInfo/CaseNumber/", cancellationToken);
+                var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
+                var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
 
-            await Task.WhenAll(caseNumberTask, coverLetterTask, noticeTask);
+                await Task.WhenAll(caseNumberTask, coverLetterTask, noticeTask);
 
-            CaseNumber = await caseNumberTask;
-            CoverLetter = await coverLetterTask;
-            Notice = await noticeTask;
-            StateChanged?.Invoke();
+                CaseNumber = await caseNumberTask;
+                CoverLetter = await coverLetterTask;
+                Notice = await noticeTask;
+            }
+            finally
+            {
+                IsSystemInfoLoaded = true;
+                StateChanged?.Invoke();
+            }
         }
 
         public ValueTask<AccessTokenResult> RequestAccessToken()
@@ -173,6 +182,11 @@ namespace EzNutrition.Client.Services
                 logger.LogWarning(ex, "Unable to load system information from {RequestUri}.", requestUri);
                 return string.Empty;
             }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Loading system information from {RequestUri} timed out.", requestUri);
+                return string.Empty;
+            }
         }
 
         private async Task<string> TryGetNoticeAsync(string requestUri, CancellationToken cancellationToken)
@@ -185,6 +199,11 @@ namespace EzNutrition.Client.Services
             catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
             {
                 logger.LogWarning(ex, "Unable to load notice from {RequestUri}.", requestUri);
+                return string.Empty;
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Loading notice from {RequestUri} timed out.", requestUri);
                 return string.Empty;
             }
         }

@@ -10,72 +10,86 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
 @inject ILogger<Advice> Logger
-<AuthorizeView Policy="@PolicyList.Prescription">
-    <Authorized>
-        @if (CurrentArchive.AdvicePrompt is not null && CurrentArchive.AiGeneratedAdvice is not null)
-        {
-            @if (!CurrentArchive.AiGeneratedAdvice.IsReady)
+<div class="advice-panel">
+    <AuthorizeView Policy="@PolicyList.Prescription">
+        <Authorized>
+            @if (CurrentArchive.AdvicePrompt is not null && CurrentArchive.AiGeneratedAdvice is not null)
             {
-                <Result Status="ResultStatus.Warning" Title="数据发送至第三方警示">
+                @if (!CurrentArchive.AiGeneratedAdvice.IsReady)
+                {
+                    <Result Status="ResultStatus.Warning" Title="确认向 AI 代理发送数据">
+                        <Extra>
+                            <div class="advice-consent-content">
+                                <section>
+                                    <h3>使用前确认</h3>
+                                    <p>
+                                        请求 AI 见解必须将以下数据发送给 EzNutrition 后端的 AI 代理，这些数据不可避免地会被安全审查日志和 AI 模型的供应商记录。
+                                        请确认操作符合您所在地区卫生行政部门的规定。AI 生成内容须由营养专业医务人员审核，不构成医疗建议。
+                                    </p>
+                                </section>
+
+                                <section>
+                                    <h3>当前 AI 代理</h3>
+                                    @if (Environment is not null)
+                                    {
+                                        <dl class="agent-metadata">
+                                            <div><dt>提供者</dt><dd>@Environment.ProviderName</dd></div>
+                                            <div><dt>调用方式</dt><dd>@Environment.PlatformDetails</dd></div>
+                                            <div><dt>生成参数</dt><dd>@Environment.AdditionalInfo</dd></div>
+                                        </dl>
+                                    }
+                                    else
+                                    {
+                                        <p>AI 环境信息加载失败或尚未获取。</p>
+                                    }
+                                </section>
+
+                                <section>
+                                    <h3>拟发送的数据</h3>
+                                    <pre class="prompt-preview"><code>@SerializedPrompt</code></pre>
+                                </section>
+
+                                <div class="advice-actions">
+                                    <Button Type="ButtonType.Primary" OnClick="GenerateAsync" AutoLoading Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">同意并发送</Button>
+                                    <Button OnClick="CancelSend" Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">取消</Button>
+                                </div>
+                            </div>
+                        </Extra>
+                    </Result>
+                }
+
+                @if (CurrentArchive.AiGeneratedAdvice.IsReady)
+                {
+                    <section class="advice-output-section reasoning-output">
+                        <span class="section-eyebrow">供专业人员复核</span>
+                        <h2>助理的分析过程</h2>
+                        <div class="output-content">@CurrentArchive.AiGeneratedAdvice.ReasoningContent</div>
+                    </section>
+                    <section class="advice-output-section recommendation-output">
+                        <span class="section-eyebrow">草稿</span>
+                        <h2>膳食建议与健康教育</h2>
+                        <div class="output-content markdown-output">@SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)</div>
+                    </section>
+                }
+            }
+            else
+            {
+                <Result Status="ResultStatus.Info" Title="准备 AI 辅助建议" SubTitle="完成能量分析、膳食调查和 SOAP 信息后，可在这里汇总并核对拟发送的数据。">
                     <Extra>
-                        <Title Level="4">免责声明</Title>
-                        <Paragraph>
-                            请求AI见解必须将以下数据发送给EzNutrition后端的AI代理，这些数据不可避免地会被安全审查日志和AI模型的供应商记录。<br />
-                            请确定您的操作符合您所在地区的卫生行政部门的规定。<br />
-                            AI生成的内容必须经过营养专业的医务人员审核，不构成任何医疗建议，也不附带任何明示或暗示的保证。
-                        </Paragraph>
-
-                        <Divider />
-
-                        <Title Level="4">当前 AI 代理信息</Title>
-                        @if (Environment is not null)
-                        {
-                            <Paragraph>模型的提供者：@Environment.ProviderName</Paragraph>
-                            <Paragraph>模型调用选择：@Environment.PlatformDetails</Paragraph>
-                            <Paragraph>模型生成参数：@Environment.AdditionalInfo</Paragraph>
-                        }
-                        else
-                        {
-                            <Paragraph>AI环境信息加载失败或尚未获取。</Paragraph>
-                        }
-
-                        <Divider />
-
-                        <Title Level="4">发送给AI代理的数据</Title>
-                        <Paragraph>
-                            <pre><code>@SerializedPrompt</code></pre>
-                        </Paragraph>
-
-                        <Divider />
-
-                        <Button OnClick="GenerateAsync" AutoLoading Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">同意并发送数据</Button>
-                        <Button OnClick="CancelSend" Type="default" Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">取消</Button>
+                        <Button Type="ButtonType.Primary" OnClick="MakePrompt">汇总并预览数据</Button>
                     </Extra>
                 </Result>
-
             }
-            <Title Level="4">助理的思考过程</Title>
-            @CurrentArchive.AiGeneratedAdvice.ReasoningContent
-            <Title Level="4">助理的膳食建议草稿</Title>
-            @SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)
-        }
-        else
-        {
-            <Result Status="ResultStatus.Http404" Title="在完成能量分析、膳食调查和门诊病史后可以在这里请求AI生成见解">
+        </Authorized>
+        <NotAuthorized>
+            <Result Status="ResultStatus.Http403" Title="此功能需要专业资质认证" SubTitle="医学用途限具备卫生行政部门认可资质的医师或营养师；教学用途限营养及相关专业的高校师生。">
                 <Extra>
-                    <Button OnClick="MakePrompt">荟萃并准备数据</Button>
+                    <p class="authorization-note">认证入口位于“用户中心 → 专业资质认证申请”。请勿使用 epiman 测试账户提交申请。</p>
                 </Extra>
             </Result>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <Paragraph>生成饮食建议和健康教育处方功能仅限认证的营养相关专业人员调用</Paragraph>
-        <Paragraph>基于医学目的使用本功能限定已经取得卫生行政部门认可的资质，医师或营养师资格</Paragraph>
-        <Paragraph>基于教育教学目的使用本功能限定营养及营养相关专业的高校师生</Paragraph>
-        <Paragraph>详情内容参见用户中心→专业资质认证申请</Paragraph>
-        <Paragraph>请勿使用epiman测试账号提交申请</Paragraph>
-    </NotAuthorized>
-</AuthorizeView>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
 @code {
     private EnvironmentDto? Environment { get; set; }
 

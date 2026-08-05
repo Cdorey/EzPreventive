@@ -1,4 +1,3 @@
-using EzNutrition.Client.Models;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -21,7 +20,6 @@ namespace EzNutrition.Client
             builder.Services.AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)).AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
             builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
             //builder.Services.AddScoped<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
-            builder.Services.AddScoped<MainTreatmentViewModel>();
             //builder.Services.AddScoped<AuthenticationStateProvider, UserSessionService>();
             builder.Services.AddScoped<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
