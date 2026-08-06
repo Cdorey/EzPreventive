@@ -1,7 +1,6 @@
 using EzNutrition.Client.Models;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using System.Net.Http.Json;
 using System.Security.Claims;
 
@@ -9,8 +8,10 @@ namespace EzNutrition.Client.Services
 {
     public sealed class UserSessionService(
         IHttpClientFactory httpClientFactory,
-        ILogger<UserSessionService> logger) : AuthenticationStateProvider, IAccessTokenProvider
+        ILogger<UserSessionService> logger) : AuthenticationStateProvider
     {
+        private static readonly TimeSpan LoginRetryDelay = TimeSpan.FromMilliseconds(250);
+
         private readonly HttpClient client = httpClientFactory.CreateClient("Anonymous");
         private UserInfo? userInfo;
 
@@ -61,34 +62,35 @@ namespace EzNutrition.Client.Services
             }
         }
 
-        public ValueTask<AccessTokenResult> RequestAccessToken()
+        public bool TryGetAccessToken(out string token)
         {
-            if (UserInfo is null || UserInfo.IsExpired)
+            var currentUser = UserInfo;
+            if (currentUser is null)
             {
-                UserInfo = null;
-                return ValueTask.FromResult(CreateSignInRequiredResult());
+                token = string.Empty;
+                return false;
             }
 
-            var token = new AccessToken
+            if (currentUser.IsExpired)
             {
-                Value = UserInfo.Token,
-                Expires = UserInfo.ExpiresAt!.Value
-            };
+                UserInfo = null;
+                token = string.Empty;
+                return false;
+            }
 
-            return ValueTask.FromResult(new AccessTokenResult(
-                AccessTokenResultStatus.Success,
-                token,
-                "/",
-                new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/" }));
+            token = currentUser.Token;
+            return !string.IsNullOrWhiteSpace(token);
         }
-
-        public ValueTask<AccessTokenResult> RequestAccessToken(AccessTokenRequestOptions options) => RequestAccessToken();
 
         public override Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             var currentUser = UserInfo;
             ClaimsPrincipal userPrincipal = currentUser is not null && !currentUser.IsExpired
-                ? new ClaimsPrincipal(new ClaimsIdentity(currentUser.Claims, "jwt", "unique_name", "role"))
+                ? new ClaimsPrincipal(new ClaimsIdentity(
+                    currentUser.Claims,
+                    "jwt",
+                    ClaimTypes.Name,
+                    ClaimTypes.Role))
                 : new ClaimsPrincipal(new ClaimsIdentity());
             return Task.FromResult(new AuthenticationState(userPrincipal));
         }
@@ -103,13 +105,7 @@ namespace EzNutrition.Client.Services
                 throw new InvalidOperationException("请输入用户名和密码。");
             }
 
-            using var formContent = new FormUrlEncodedContent(
-            [
-                new KeyValuePair<string, string>(nameof(userName), userName.Trim()),
-                new KeyValuePair<string, string>(nameof(password), password)
-            ]);
-
-            using var response = await PostLoginAsync(formContent, cancellationToken);
+            using var response = await PostLoginAsync(userName.Trim(), password, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(
@@ -142,22 +138,25 @@ namespace EzNutrition.Client.Services
             return Task.CompletedTask;
         }
 
-        private static AccessTokenResult CreateSignInRequiredResult()
-        {
-            return new AccessTokenResult(
-                AccessTokenResultStatus.RequiresRedirect,
-                new AccessToken(),
-                "/",
-                new InteractiveRequestOptions { Interaction = InteractionType.SignIn, ReturnUrl = "/" });
-        }
-
         private async Task<HttpResponseMessage> PostLoginAsync(
-            HttpContent content,
+            string userName,
+            string password,
             CancellationToken cancellationToken)
         {
             try
             {
-                return await client.PostAsync("Auth/Login", content, cancellationToken);
+                var response = await SendLoginRequestAsync(userName, password, cancellationToken);
+                if (!IsTransientServerFailure(response.StatusCode))
+                {
+                    return response;
+                }
+
+                logger.LogWarning(
+                    "Login endpoint returned transient HTTP status {StatusCode}; retrying once.",
+                    (int)response.StatusCode);
+                response.Dispose();
+                await Task.Delay(LoginRetryDelay, cancellationToken);
+                return await SendLoginRequestAsync(userName, password, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -170,6 +169,23 @@ namespace EzNutrition.Client.Services
                 throw new InvalidOperationException("登录请求超时，请稍后重试。", ex);
             }
         }
+
+        private async Task<HttpResponseMessage> SendLoginRequestAsync(
+            string userName,
+            string password,
+            CancellationToken cancellationToken)
+        {
+            using var content = new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>(nameof(userName), userName),
+                new KeyValuePair<string, string>(nameof(password), password)
+            ]);
+
+            return await client.PostAsync("Auth/Login", content, cancellationToken);
+        }
+
+        private static bool IsTransientServerFailure(System.Net.HttpStatusCode statusCode) =>
+            (int)statusCode is 500 or 502 or 503 or 504;
 
         private async Task<string> TryGetStringAsync(string requestUri, CancellationToken cancellationToken)
         {

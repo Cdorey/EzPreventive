@@ -64,6 +64,7 @@ namespace EzNutrition.Client.Models
                 throw new InvalidDataException("服务器没有返回可用的膳食参考摄入量记录。");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             AvailableDRIs = dris;
         }
     }

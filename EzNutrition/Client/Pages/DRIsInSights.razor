@@ -76,6 +76,8 @@
     </section>
 </section>
 @code {
+    private const int RequestDebounceMilliseconds = 150;
+
     private IClient Info => Dris.Client;
 
     private DRIs Dris { get; set; } = new(new ClientInfo());
@@ -86,14 +88,23 @@
 
     private async Task OnEERsChanged()
     {
-        requestCancellation?.Cancel();
-        requestCancellation?.Dispose();
+        var previousCancellation = requestCancellation;
+        requestCancellation = null;
+        previousCancellation?.Cancel();
+
+        if (string.IsNullOrWhiteSpace(Info.Gender) || Info.Age < 0)
+        {
+            IsLoading = false;
+            return;
+        }
+
         var cancellation = new CancellationTokenSource();
         requestCancellation = cancellation;
 
         try
         {
             IsLoading = true;
+            await Task.Delay(RequestDebounceMilliseconds, cancellation.Token);
             await Dris.FetchDRIsAsync(
                 HttpClientFactory.CreateClient("Authorize"),
                 cancellation.Token);
@@ -110,14 +121,18 @@
         {
             if (ReferenceEquals(requestCancellation, cancellation))
             {
+                requestCancellation = null;
                 IsLoading = false;
             }
+
+            cancellation.Dispose();
         }
     }
 
     public void Dispose()
     {
-        requestCancellation?.Cancel();
-        requestCancellation?.Dispose();
+        var cancellation = requestCancellation;
+        requestCancellation = null;
+        cancellation?.Cancel();
     }
 }
