@@ -96,7 +96,7 @@
                 <Modal Title="@("专业资质认证申请")"
                        @bind-Visible="@createCertificationRequestDialog"
                        Width="1000"
-                       BodyStyle="max-height: calc(100vh - 180px); overflow: auto;"
+                       MaxBodyHeight="calc(100dvh - 180px)"
                        OnCancel="InitCertificationRequestDialog"
                        OnOk="SubmitCertificationRequest"
                        ConfirmLoading="@certificationRequestSending">

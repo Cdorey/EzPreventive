@@ -111,54 +111,45 @@
         }
         else
         {
-            <div class="active-treatment-grid">
-                <aside class="context-column">
+            <div class="active-treatment-layout">
+                <aside class="client-context-rail" aria-label="当前咨询对象与页面导航">
                     <section class="surface-card client-card">
                         <div class="section-heading compact-heading">
                             <div>
-                                <span>咨询对象</span>
+                                <span>当前咨询对象</span>
                                 <h2>@(string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "未命名对象" : CurrentArchive.Client.Name)</h2>
                             </div>
                             <Icon Type="user" Theme="IconThemeType.Outline" />
                         </div>
-                        <Descriptions Column="@(new Dictionary<string,int>{{ "xs", 1}, {"sm", 2}})" Size="DescriptionsSize.Small">
-                            <DescriptionsItem Title="性别">@CurrentArchive.Client.Gender</DescriptionsItem>
-                            <DescriptionsItem Title="年龄">@CurrentArchive.Client.Age 岁</DescriptionsItem>
-                            <DescriptionsItem Title="身高">@CurrentArchive.Client.Height cm</DescriptionsItem>
-                            <DescriptionsItem Title="体重">@CurrentArchive.Client.Weight kg</DescriptionsItem>
-                            <DescriptionsItem Title="生理状况">@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</DescriptionsItem>
-                        </Descriptions>
-                    </section>
 
-                    <section class="surface-card summary-card">
-                        <Summary Archive="@CurrentArchive" />
-                    </section>
+                        <dl class="client-facts">
+                            <div><dt>性别</dt><dd>@CurrentArchive.Client.Gender</dd></div>
+                            <div><dt>年龄</dt><dd>@CurrentArchive.Client.Age 岁</dd></div>
+                            <div><dt>身高</dt><dd>@CurrentArchive.Client.Height cm</dd></div>
+                            <div><dt>体重</dt><dd>@CurrentArchive.Client.Weight kg</dd></div>
+                            <div class="wide-fact"><dt>生理状况</dt><dd>@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</dd></div>
+                        </dl>
 
-                    <section class="surface-card advice-card">
-                        <div class="section-heading compact-heading">
-                            <div>
-                                <span>综合输出</span>
-                                <h2>膳食建议</h2>
-                            </div>
-                            <Icon Type="solution" Theme="IconThemeType.Outline" />
-                        </div>
-                        <Advice CurrentArchive="@CurrentArchive" />
-                    </section>
-                </aside>
-
-                <section class="workspace-column" aria-label="营养核算工作区">
-                    <div class="mobile-client-strip">
-                        <div>
-                            <span>@(string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "当前咨询对象" : CurrentArchive.Client.Name)</span>
-                            <strong>@CurrentArchive.Client.Gender · @CurrentArchive.Client.Age 岁</strong>
-                        </div>
                         @if (CurrentArchive.CurrentEnergyCalculator?.BMI is not null)
                         {
-                            <Tag Color="@("blue")">BMI @CurrentArchive.CurrentEnergyCalculator.BMI</Tag>
+                            <div class="client-indicators">
+                                <Tag Color="@("blue")">BMI @CurrentArchive.CurrentEnergyCalculator.BMI</Tag>
+                            </div>
                         }
-                    </div>
+                    </section>
 
-                    <section class="surface-card workspace-card">
+                    <nav class="section-navigation" aria-label="本次咨询区段">
+                        <span>本次咨询</span>
+                        <Anchor Affix="false" Bounds="16" TargetOffset="24">
+                            <AnchorLink Href="#nutrition-workspace" Title="专业核算" />
+                            <AnchorLink Href="#nutrition-summary" Title="综合结果" />
+                            <AnchorLink Href="#nutrition-advice" Title="膳食建议" />
+                        </Anchor>
+                    </nav>
+                </aside>
+
+                <div class="treatment-content-flow">
+                    <section id="nutrition-workspace" class="surface-card workspace-card" aria-label="营养核算工作区">
                         <Tabs Class="treatment-tabs">
                             <ChildContent>
                                 <TabPane Key="1" Tab="能量评估">
@@ -188,7 +179,22 @@
                             </ChildContent>
                         </Tabs>
                     </section>
-                </section>
+
+                    <section id="nutrition-summary" class="surface-card summary-card">
+                        <Summary Archive="@CurrentArchive" />
+                    </section>
+
+                    <section id="nutrition-advice" class="surface-card advice-card">
+                        <div class="section-heading compact-heading">
+                            <div>
+                                <span>综合输出</span>
+                                <h2>膳食建议</h2>
+                            </div>
+                            <Icon Type="solution" Theme="IconThemeType.Outline" />
+                        </div>
+                        <Advice CurrentArchive="@CurrentArchive" />
+                    </section>
+                </div>
             </div>
         }
     </section>

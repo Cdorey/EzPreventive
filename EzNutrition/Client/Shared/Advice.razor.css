@@ -67,6 +67,14 @@
     overflow-wrap: anywhere;
 }
 
+.prompt-disclosure {
+    margin-top: 10px;
+}
+
+.prompt-disclosure ::deep .ant-collapse-content-box {
+    padding: 12px;
+}
+
 .advice-actions {
     display: flex;
     flex-wrap: wrap;

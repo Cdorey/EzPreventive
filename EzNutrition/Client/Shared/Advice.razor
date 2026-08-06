@@ -47,7 +47,11 @@
 
                                 <section>
                                     <h3>拟发送的数据</h3>
-                                    <pre class="prompt-preview"><code>@SerializedPrompt</code></pre>
+                                    <Collapse Class="prompt-disclosure">
+                                        <Panel Header="查看将发送的完整数据" Key="prompt-payload">
+                                            <pre class="prompt-preview"><code>@SerializedPrompt</code></pre>
+                                        </Panel>
+                                    </Collapse>
                                 </section>
 
                                 <div class="advice-actions">
