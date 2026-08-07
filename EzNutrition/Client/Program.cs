@@ -1,4 +1,3 @@
-using EzNutrition.Client.Models;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -18,12 +17,21 @@ namespace EzNutrition.Client
             builder.Services.AddAuthorizationCore(PolicyList.RegisterPolicies);
 
             builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
-            builder.Services.AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)).AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
-            builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
+            builder.Services
+                .AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress))
+                .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
+            builder.Services
+                .AddHttpClient("AiAuthorize", client =>
+                {
+                    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+                    // AI generation has its own explicit timeout and user cancellation source.
+                    client.Timeout = Timeout.InfiniteTimeSpan;
+                })
+                .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
+            builder.Services.AddTransient<CustomAuthorizationMessageHandler>();
             //builder.Services.AddScoped<AuthenticationStateProvider, RemoteAuthenticationService<RemoteAuthenticationState,UserInfo,ServiceProviderOptions>>();
-            builder.Services.AddScoped<MainTreatmentViewModel>();
             //builder.Services.AddScoped<AuthenticationStateProvider, UserSessionService>();
-            builder.Services.AddScoped<UserSessionService>();
+            builder.Services.AddSingleton<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
             builder.Services.AddScoped<ArchiveManageService>();
             builder.Services.AddScoped<CertificateUploadService>();

@@ -11,9 +11,9 @@
                     <FocusOnNavigate RouteData="@routeData" Selector="h1" />
                 </ChildContent>
                 <ErrorContent>
-                    <LayoutView Layout="@typeof(MainLayout)">
-                        <Result Status="ResultStatus.Error" Title="页面运行时发生错误，请刷新后重试。" />
-                    </LayoutView>
+                    <main class="route-error-page">
+                        <Result Status="ResultStatus.Error" Title="页面运行时发生错误，请刷新后重试。" SubTitle="错误已被隔离，不会继续影响其他任务页面。" />
+                    </main>
                 </ErrorContent>
             </ErrorBoundary>
         </Found>

@@ -8,12 +8,20 @@
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<DietarySurvey> Logger
-<Title Level="3">24小时回顾法膳食调查</Title>
-<Space Direction="SpaceDirection.Vertical" style="width: 100%;">
+<div class="dietary-survey">
+<div class="component-heading">
+    <div>
+        <span>膳食摄入</span>
+        <h3>24 小时回顾法膳食调查</h3>
+    </div>
+    <Icon Type="profile" Theme="IconThemeType.Outline" />
+</div>
+<Paragraph>逐项添加食物原料、生重、可食部与餐次；完成后统一核算营养素摄入。</Paragraph>
+<Space Direction="SpaceDirection.Vertical" Style="width: 100%;">
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
         <SpaceItem Style="width:100%">
-            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="请选择食材原料" DefaultActiveFirstOption="false" Mode="SelectMode.Default" Size="InputSize.Large" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" AutoClearSearchValue>
+            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" Style="width:100%" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="搜索并选择食物原料" DefaultActiveFirstOption="false" Mode="SelectMode.Default" Size="InputSize.Large" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" AutoClearSearchValue>
                 <ItemTemplate>
                     <strong>@((context as Food).FriendlyName)</strong>
                     <span>@((context as Food).Details)</span>
@@ -22,7 +30,7 @@
             </Select>
         </SpaceItem>
         <SpaceItem Style="width:100%">
-            <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true>
+            <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Size="TableSize.Small" ScrollX="760">
                 <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
                     @(context.Food.FriendlyCode)
                 </PropertyColumn>
@@ -38,13 +46,13 @@
                 <PropertyColumn Title="餐次" Property="r=>r.Weight">
                     <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" />
                 </PropertyColumn>
-                <ActionColumn>
+                <ActionColumn Title="操作">
                     <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete" />
                 </ActionColumn>
             </Table>
         </SpaceItem>
         <SpaceItem Style="width:100%">
-            <Button Type="ButtonType.Primary" Block OnClick="Calculate" AutoLoading><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查，计算结果</Button>
+            <Button Class="calculate-button" Type="ButtonType.Primary" Block OnClick="Calculate" AutoLoading><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查并计算结果</Button>
         </SpaceItem>
     }
     else
@@ -53,7 +61,7 @@
             @* Summary is here *@
             <Collapse DefaultActiveKey="@(["Summary"])" Accordion>
                 <Panel Header="原始信息" Key="Original Data">
-                    <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Responsive>
+                    <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Responsive Size="TableSize.Small" ScrollX="720">
                         <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
                             @(context.Food.FriendlyCode)
                         </PropertyColumn>
@@ -93,7 +101,7 @@
                 <Panel Header="调查结果" Key="Summary">
                     @if (DietaryRecallSurvey.SummaryRows.Any())
                     {
-                        <Table TItem="DietarySurveySummaryRow" DataSource="@DietaryRecallSurvey.SummaryRows" HidePagination=true RowExpandable="@((record)=>record.Data.Expandable)">
+                        <Table TItem="DietarySurveySummaryRow" DataSource="@DietaryRecallSurvey.SummaryRows" HidePagination=true Size="TableSize.Small" ScrollX="760" RowExpandable="@((record)=>record.Data.Expandable)">
                             <ColumnDefinitions>
                                 <Column TData="string" Title="缩写" DataIndex="Abbreviation" />
                                 <Column TData="string" Title="项目名称" DataIndex="FriendlyName" />
@@ -125,6 +133,7 @@
         </SpaceItem>
     }
 </Space>
+</div>
 @code
 {
 
@@ -196,7 +205,7 @@
 
         if (Entries is null || Entries.Count == 0)
         {
-            await Message.ErrorAsync("一条记录都没有怎么算？");
+            await Message.ErrorAsync("请至少添加一条膳食记录后再计算。");
             return;
         }
 

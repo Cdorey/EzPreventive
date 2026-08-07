@@ -62,6 +62,12 @@ namespace EzNutrition.Server.Controllers
 
             try
             {
+                // Commit the SSE response immediately so the browser can distinguish a request
+                // accepted by EzNutrition from time spent waiting for the upstream model.
+                await Response.StartAsync(cancellationToken);
+                await Response.WriteAsync(": connected\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
                 await foreach (var result in generator.Generate(prompt, cancellationToken))
                 {
                     if (result.IsReasoningContent)
@@ -99,7 +105,7 @@ namespace EzNutrition.Server.Controllers
                     generateRequest.Id,
                     userId);
 
-                var errorResult = new AiResultDto("AI 生成器调用异常，请稍后重试。", false);
+                var errorResult = new AiResultDto("AI 生成器调用异常，请稍后重试。", false, true);
                 contentSB.Append(errorResult.Content);
                 if (!cancellationToken.IsCancellationRequested)
                 {

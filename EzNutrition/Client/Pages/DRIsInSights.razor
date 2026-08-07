@@ -9,38 +9,75 @@
 @inject IMessageService Message
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<DRIsInSights> Logger
-<Title>DRIs见解浏览器</Title>
-<p>这里允许你快速检索DRIs见解，自变量为性别、年龄、是否具有特殊生理状态</p>
-<Form Model="@Info" LabelAlign="AntLabelAlignType.Left">
-    <FormItem Label="性别">
-        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
-            <Radio RadioButton Value="@("男")">男</Radio>
-            <Radio RadioButton Value="@("女")">女</Radio>
-        </RadioGroup>
-    </FormItem>
-    <FormItem Label="年龄">
-        <AntDesign.InputNumber TValue="int" id="age" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
-    </FormItem>
-    <FormItem Label="特殊生理状况">
-        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
-            <Radio RadioButton Value="@string.Empty">无</Radio>
-            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-            <Radio RadioButton Value="@("乳母")">乳母</Radio>
-            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
-        </RadioGroup>
-    </FormItem>
-</Form>
-<Spin Spinning="@IsLoading">
-    <Indicator>
-        <Icon Type="loading" Style="font-size: 5rem" Theme="IconThemeType.Outline" Spin />
-    </Indicator>
-    <ChildContent>
-        <DRIsInSightTable NutrientRanges="@Dris.NutrientRanges" />
-    </ChildContent>
-</Spin>
+<PageTitle>DRIs 速查</PageTitle>
+
+<section class="dris-page">
+    <header class="page-heading">
+        <span>参考摄入量工具</span>
+        <h1>DRIs 速查</h1>
+        <p>根据性别、年龄和特殊生理状态，快速检索当前适用的膳食参考摄入量。</p>
+    </header>
+
+    <section class="filter-card" aria-labelledby="dris-filter-title">
+        <div class="section-heading">
+            <div>
+                <span>检索条件</span>
+                <h2 id="dris-filter-title">咨询对象特征</h2>
+            </div>
+            <Icon Type="filter" Theme="IconThemeType.Outline" />
+        </div>
+        <Form Model="@Info" Layout="FormLayout.Vertical">
+            <GridRow Gutter="(16,0)">
+                <GridCol Xs="24" Md="8">
+                    <FormItem Label="性别">
+                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
+                            <Radio RadioButton Value="@("男")">男</Radio>
+                            <Radio RadioButton Value="@("女")">女</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                </GridCol>
+                <GridCol Xs="24" Md="6">
+                    <FormItem Label="年龄">
+                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
+                    </FormItem>
+                </GridCol>
+                <GridCol Xs="24" Md="10">
+                    <FormItem Label="特殊生理状况">
+                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
+                            <Radio RadioButton Value="@string.Empty">无</Radio>
+                            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
+                            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
+                            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
+                            <Radio RadioButton Value="@("乳母")">乳母</Radio>
+                            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                        </RadioGroup>
+                    </FormItem>
+                </GridCol>
+            </GridRow>
+        </Form>
+    </section>
+
+    <section class="results-card" aria-labelledby="dris-results-title">
+        <div class="section-heading results-heading">
+            <div>
+                <span>检索结果</span>
+                <h2 id="dris-results-title">适用参考摄入量</h2>
+            </div>
+            <small>点击或悬停数值可查看核算明细</small>
+        </div>
+        <Spin Spinning="@IsLoading">
+            <Indicator>
+                <Icon Type="loading" Style="font-size: 5rem" Theme="IconThemeType.Outline" Spin />
+            </Indicator>
+            <ChildContent>
+                <DRIsInSightTable NutrientRanges="@Dris.NutrientRanges" />
+            </ChildContent>
+        </Spin>
+    </section>
+</section>
 @code {
+    private const int RequestDebounceMilliseconds = 150;
+
     private IClient Info => Dris.Client;
 
     private DRIs Dris { get; set; } = new(new ClientInfo());
@@ -51,14 +88,23 @@
 
     private async Task OnEERsChanged()
     {
-        requestCancellation?.Cancel();
-        requestCancellation?.Dispose();
+        var previousCancellation = requestCancellation;
+        requestCancellation = null;
+        previousCancellation?.Cancel();
+
+        if (string.IsNullOrWhiteSpace(Info.Gender) || Info.Age < 0)
+        {
+            IsLoading = false;
+            return;
+        }
+
         var cancellation = new CancellationTokenSource();
         requestCancellation = cancellation;
 
         try
         {
             IsLoading = true;
+            await Task.Delay(RequestDebounceMilliseconds, cancellation.Token);
             await Dris.FetchDRIsAsync(
                 HttpClientFactory.CreateClient("Authorize"),
                 cancellation.Token);
@@ -75,14 +121,18 @@
         {
             if (ReferenceEquals(requestCancellation, cancellation))
             {
+                requestCancellation = null;
                 IsLoading = false;
             }
+
+            cancellation.Dispose();
         }
     }
 
     public void Dispose()
     {
-        requestCancellation?.Cancel();
-        requestCancellation?.Dispose();
+        var cancellation = requestCancellation;
+        requestCancellation = null;
+        cancellation?.Cancel();
     }
 }

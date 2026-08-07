@@ -43,7 +43,15 @@ namespace EzNutrition.Server.Services
                     ex);
             }
 
-            var privateKey = new RsaSecurityKey(rsa);
+            var privateKey = new RsaSecurityKey(rsa)
+            {
+                // The RSA instance is scoped to this method. Prevent the shared crypto factory from
+                // caching a signature provider that would retain the disposed RSA instance.
+                CryptoProviderFactory = new CryptoProviderFactory
+                {
+                    CacheSignatureProviders = false
+                }
+            };
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var claimsList = new List<Claim>();

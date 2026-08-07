@@ -1,0 +1,77 @@
+.admin-page-heading {
+    margin-bottom: 24px;
+}
+
+.admin-page-heading > span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--ez-blue);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.admin-page-heading h1 {
+    margin: 0;
+    color: var(--ez-navy);
+    font-size: clamp(1.65rem, 2.4vw, 2.15rem);
+    line-height: 1.2;
+}
+
+.admin-page-heading p {
+    max-width: 720px;
+    margin: 9px 0 0;
+    color: var(--ez-text-secondary);
+    line-height: 1.65;
+}
+
+.claim-row,
+.claim-actions,
+.role-create-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.claim-row {
+    margin-bottom: 8px;
+}
+
+.claim-row ::deep .ant-input-affix-wrapper,
+.claim-row ::deep .ant-input,
+.role-create-row ::deep .ant-input-affix-wrapper,
+.role-create-row ::deep .ant-input {
+    width: min(240px, 100%);
+}
+
+.claim-actions {
+    margin-top: 8px;
+}
+
+.role-create-row {
+    align-items: stretch;
+}
+
+@media (max-width: 575.98px) {
+    .admin-page-heading {
+        margin-bottom: 18px;
+    }
+
+    .claim-row,
+    .claim-actions,
+    .role-create-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .claim-row ::deep .ant-input-affix-wrapper,
+    .claim-row ::deep .ant-input,
+    .role-create-row ::deep .ant-input-affix-wrapper,
+    .role-create-row ::deep .ant-input,
+    .claim-row ::deep .ant-btn,
+    .claim-actions ::deep .ant-btn,
+    .role-create-row ::deep .ant-btn {
+        width: 100%;
+    }
+}

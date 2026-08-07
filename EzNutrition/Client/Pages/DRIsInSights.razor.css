@@ -1,0 +1,75 @@
+.dris-page {
+    min-width: 0;
+}
+
+.page-heading {
+    margin-bottom: 24px;
+}
+
+.page-heading > span,
+.section-heading span {
+    color: var(--ez-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.page-heading h1 {
+    margin: 4px 0 5px;
+    color: var(--ez-navy);
+    font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+}
+
+.page-heading p,
+.results-heading small {
+    margin: 0;
+    color: var(--ez-text-secondary);
+}
+
+.filter-card,
+.results-card {
+    min-width: 0;
+    padding: 22px;
+    background: #fff;
+    border: 1px solid var(--ez-border);
+    border-radius: 10px;
+}
+
+.filter-card {
+    margin-bottom: 18px;
+    background: #f8fafc;
+}
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.section-heading h2 {
+    margin: 2px 0 0;
+    color: var(--ez-navy);
+    font-size: 1.2rem;
+}
+
+.section-heading ::deep .anticon {
+    color: var(--ez-primary);
+    font-size: 1.35rem;
+}
+
+.results-heading {
+    align-items: end;
+}
+
+@media (max-width: 575.98px) {
+    .filter-card,
+    .results-card {
+        padding: 16px;
+    }
+
+    .results-heading {
+        display: grid;
+    }
+}
