@@ -12,9 +12,9 @@
 
         public required decimal? Height { get; set; }
 
-        public required decimal? Width { get; set; }
+        public required decimal? Weight { get; set; }
 
-        public required int? TotalBalanceEnergyViaCalculationg { get; set; }
+        public required int? TotalBalanceEnergyViaCalculation { get; set; }
 
         public required string? SpecialPhysiologicalPeriod { get; set; }
     }
