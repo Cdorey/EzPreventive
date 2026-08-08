@@ -24,6 +24,7 @@ internal static class ArchiveSamples
 
     private static readonly ActorReference SampleClinician = new()
     {
+        Kind = Code("actor-kind", "practitioner", "医师"),
         Identifier = new BusinessIdentifier(
             new Uri(SampleRoot, "identifiers/test-clinicians"),
             "SYNTHETIC-CLINICIAN-001"),
@@ -106,7 +107,11 @@ internal static class ArchiveSamples
             },
             BirthDate = new PartialDate(1988, 5, 12),
             AdministrativeSex = Code("administrative-sex", "female", "女"),
-            ManagingOrganization = new ActorReference { Display = "虚构社区卫生服务中心" }
+            ManagingOrganization = new ActorReference
+            {
+                Kind = Code("actor-kind", "organization", "机构"),
+                Display = "虚构社区卫生服务中心"
+            }
         };
 
         var consultationReference = ExactReference(202, 202, ArchiveResourceTypes.Consultation);

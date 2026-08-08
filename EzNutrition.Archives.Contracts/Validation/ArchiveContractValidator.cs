@@ -217,6 +217,17 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 break;
         }
 
+        ValidateActorReference(
+            metadata.FinalizedBy,
+            Path(prefix, "/Metadata/FinalizedBy"),
+            resource,
+            issues);
+        ValidateActorReference(
+            metadata.EnteredInErrorBy,
+            Path(prefix, "/Metadata/EnteredInErrorBy"),
+            resource,
+            issues);
+
         if (metadata.Status is ResourceLifecycleStatus.Final or ResourceLifecycleStatus.Amended &&
             metadata.FinalizedAt is { } finalizedAt &&
             metadata.LastModifiedAt > finalizedAt)
@@ -272,6 +283,12 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         string prefix,
         ICollection<ArchiveValidationIssue> issues)
     {
+        ValidateActorReference(
+            patient.ManagingOrganization,
+            Path(prefix, "/ManagingOrganization"),
+            patient,
+            issues);
+
         if (patient.IdentityMode == PatientIdentityMode.Identified &&
             patient.Names.Count == 0 &&
             patient.BusinessIdentifiers.Count == 0)
@@ -304,6 +321,12 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         string prefix,
         ICollection<ArchiveValidationIssue> issues)
     {
+        ValidateActorReference(
+            consultation.ServiceProvider,
+            Path(prefix, "/ServiceProvider"),
+            consultation,
+            issues);
+
         if (consultation.SubjectReference.ExpectedResourceType is { } expectedType &&
             expectedType != ArchiveResourceTypes.Patient)
         {
@@ -1721,6 +1744,46 @@ public sealed class ArchiveContractValidator : IArchiveValidator
          actor.Identifier is not null ||
          !string.IsNullOrWhiteSpace(actor.Display) ||
          actor.AbsentReason is not null);
+
+    private static void ValidateActorReference(
+        ActorReference? actor,
+        string path,
+        IArchiveResource resource,
+        ICollection<ArchiveValidationIssue> issues)
+    {
+        if (actor is null)
+        {
+            return;
+        }
+
+        var hasIdentity = actor.ResourceReference is not null ||
+            actor.Identifier is not null ||
+            !string.IsNullOrWhiteSpace(actor.Display);
+
+        if (!hasIdentity && actor.AbsentReason is null)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.RequiredSemanticValueMissing,
+                ArchiveValidationSeverity.Error,
+                ArchiveValidationCategory.Integrity,
+                "主体引用缺少身份或明确的缺失原因。",
+                path,
+                resource);
+        }
+
+        if (hasIdentity && actor.AbsentReason is not null)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.ValueAndAbsentReasonConflict,
+                ArchiveValidationSeverity.Error,
+                ArchiveValidationCategory.Integrity,
+                "主体身份与缺失原因不能同时存在。",
+                path,
+                resource);
+        }
+    }
 
     private static bool HasEnteredInErrorFields(ResourceMetadata metadata) =>
         metadata.EnteredInErrorReason is not null ||

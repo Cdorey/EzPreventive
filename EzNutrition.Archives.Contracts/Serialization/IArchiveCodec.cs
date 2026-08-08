@@ -4,7 +4,7 @@ namespace EzNutrition.Archives.Contracts.Serialization;
 /// 定义类型化档案与外部编码格式之间的转换边界。
 /// </summary>
 /// <remarks>
-/// 实现可以使用 XML、FHIR 或其他格式；接口不负责文档最终存放位置。
+/// 实现可以使用 XML、JSON 或其他格式；接口不负责文档最终存放位置。
 /// </remarks>
 public interface IArchiveCodec
 {

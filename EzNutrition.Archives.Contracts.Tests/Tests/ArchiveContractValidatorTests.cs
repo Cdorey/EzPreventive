@@ -223,6 +223,46 @@ public sealed class ArchiveContractValidatorTests
             issue.Message.Contains(sensitiveMarker, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// 验证已建立但不含身份或缺失原因的主体引用会被拒绝。
+    /// </summary>
+    [Fact]
+    public void Empty_actor_reference_is_an_error()
+    {
+        var sample = ArchiveSamples.GetRequired("comprehensive-adult");
+        var consultation = sample.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var changed = consultation with { ServiceProvider = new ActorReference() };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/ServiceProvider", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证主体身份不能与其缺失原因同时存在。
+    /// </summary>
+    [Fact]
+    public void Actor_identity_and_absent_reason_are_mutually_exclusive()
+    {
+        var sample = ArchiveSamples.GetRequired("comprehensive-adult");
+        var consultation = sample.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var provider = Assert.IsType<ActorReference>(consultation.ServiceProvider);
+        var changed = consultation with
+        {
+            ServiceProvider = provider with { AbsentReason = DataAbsentReasonCode.Unknown }
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.ValueAndAbsentReasonConflict &&
+            issue.Path?.Value.EndsWith("/ServiceProvider", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
     private static ArchiveBundle Replace<TResource>(
         ArchiveBundle bundle,
         TResource original,

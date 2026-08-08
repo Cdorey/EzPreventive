@@ -50,6 +50,11 @@ public sealed record ApplicationIdentity
 public sealed record ActorReference
 {
     /// <summary>
+    /// 获取主体种类编码，例如医师、机构或设备；来源未区分主体种类时为空。
+    /// </summary>
+    public Coding? Kind { get; init; }
+
+    /// <summary>
     /// 获取可选的档案内逻辑资源引用。
     /// </summary>
     public LogicalResourceReference? ResourceReference { get; init; }

@@ -7,7 +7,7 @@ namespace EzNutrition.Archives.Contracts.Abstractions;
 /// 表示可以独立识别、保存、引用或交换的档案资源。
 /// </summary>
 /// <remarks>
-/// 此接口只描述档案语义，不约束资源使用 XML、FHIR、数据库或其他形式持久化。
+/// 此接口只描述档案语义，不约束资源使用 XML、JSON、数据库或其他形式持久化。
 /// </remarks>
 public interface IArchiveResource
 {

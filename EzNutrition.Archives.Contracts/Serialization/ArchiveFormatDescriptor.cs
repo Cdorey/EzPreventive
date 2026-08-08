@@ -4,7 +4,7 @@ namespace EzNutrition.Archives.Contracts.Serialization;
 /// 表示一种档案编码格式及其精确版本。
 /// </summary>
 /// <remarks>
-/// 该类型不假设格式为 XML；FHIR、JSON 或其他适配器可以使用同一描述方式。
+/// 该类型不假设格式为 XML；JSON、二进制或其他适配器可以使用同一描述方式。
 /// </remarks>
 public sealed record ArchiveFormatDescriptor
 {
