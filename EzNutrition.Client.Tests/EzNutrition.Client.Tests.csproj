@@ -23,6 +23,7 @@
     <ProjectReference Include="..\EzNutrition\Client\EzNutrition.Client.csproj" />
     <ProjectReference Include="..\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj" />
     <ProjectReference Include="..\EzNutrition.Domain\EzNutrition.Domain.csproj" />
+    <ProjectReference Include="..\EzNutrition.UI\EzNutrition.UI.csproj" />
     <ProjectReference Include="..\EzNutrition\Shared\EzNutrition.Shared.csproj" />
   </ItemGroup>
 

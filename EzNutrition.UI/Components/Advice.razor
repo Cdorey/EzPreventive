@@ -1,16 +1,19 @@
 ﻿@using System.Text
 @using System.Text.Json
+@namespace EzNutrition.UI.Components
 @using System.Net.Http.Headers
 @using System.Diagnostics
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Domain.Dietary
-@using EzNutrition.Client.Services
+@using EzNutrition.UI.Services
+@using EzNutrition.UI.Http
 @using EzNutrition.Shared.Data.DTO.PromptDto
 @using EzNutrition.Shared.Policies
 @implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
 @inject ILogger<Advice> Logger
+@inject IStreamingHttpRequestConfigurator StreamingHttpRequestConfigurator
 <div class="advice-panel">
     <AuthorizeView Policy="@PolicyList.Prescription">
         <Authorized>
@@ -219,7 +222,7 @@
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "Prescription/Generate");
-            request.SetBrowserResponseStreamingEnabled(true);
+            StreamingHttpRequestConfigurator.EnableResponseStreaming(request);
             var json = JsonSerializer.Serialize(prompt);
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 

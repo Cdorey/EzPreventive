@@ -3,7 +3,7 @@ using Markdig.Renderers;
 using Microsoft.AspNetCore.Components;
 using System.Globalization;
 
-namespace EzNutrition.Client.Services
+namespace EzNutrition.UI.Services
 {
     public static class SafeMarkdown
     {

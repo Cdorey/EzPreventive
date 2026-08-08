@@ -9,6 +9,7 @@
       "EzNutrition.Archives.Contracts.Tests\\EzNutrition.Archives.Contracts.Tests.csproj",
       "EzNutrition.Client.Tests\\EzNutrition.Client.Tests.csproj",
       "EzNutrition.Domain\\EzNutrition.Domain.csproj",
+      "EzNutrition.UI\\EzNutrition.UI.csproj",
       "EzNutrition\\Client\\EzNutrition.Client.csproj",
       "EzNutrition\\Server\\EzNutrition.Server.csproj",
       "EzNutrition\\Shared\\EzNutrition.Shared.csproj"

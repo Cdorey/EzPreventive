@@ -155,7 +155,7 @@
                                 <TabPane Key="1" Tab="能量评估">
                                     @if (CurrentArchive.CurrentEnergyCalculator is not null)
                                     {
-                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" />
+                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" IsTouchDetected="@UserSession.IsTouchDetected" />
                                     }
                                 </TabPane>
                                 <TabPane Key="2" Tab="参考摄入量">

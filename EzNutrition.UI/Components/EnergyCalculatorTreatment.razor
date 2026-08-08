@@ -1,9 +1,8 @@
 ﻿@using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Ports
+@namespace EzNutrition.UI.Components
 @using EzNutrition.Domain.Assessments
-@using EzNutrition.Client.Services
 @implements IDisposable
-@inject UserSessionService UserSession
 @inject IMessageService Message
 @inject ConsultationApplicationService ConsultationService
 @inject ILogger<EnergyCalculatorTreatment> Logger
@@ -83,7 +82,7 @@
                         <span>脂肪</span>
                     </div>
                 </div>
-        @if (UserSession.IsTouchDetected)
+        @if (IsTouchDetected)
         {
                     <div class="touch-macro-controls">
                         <Paragraph>输入蛋白质和脂肪的供能百分比，碳水化合物比例将自动平衡。</Paragraph>
@@ -310,6 +309,9 @@
         ProteinPercentage = args.Item1;
         FatPercentage = 100 - args.Item2;
     }
+
+    [Parameter]
+    public bool IsTouchDetected { get; set; }
 
     [Parameter]
     public EnergyCalculator? EnergyCalculator { get; set; }

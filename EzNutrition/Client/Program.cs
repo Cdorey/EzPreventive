@@ -6,6 +6,7 @@ using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Client.Infrastructure;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
+using EzNutrition.UI.Http;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -41,6 +42,7 @@ namespace EzNutrition.Client
             builder.Services.AddSingleton<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
             builder.Services.AddScoped<HttpNutritionDataSource>();
+            builder.Services.AddSingleton<IStreamingHttpRequestConfigurator, BrowserStreamingHttpRequestConfigurator>();
             builder.Services.AddScoped<IEnergyReferenceDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
             builder.Services.AddScoped<IDietaryReferenceIntakeDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
             builder.Services.AddScoped<IFoodCompositionDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
