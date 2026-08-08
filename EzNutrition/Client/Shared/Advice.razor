@@ -208,6 +208,10 @@
         advice.IsReady = false;
         advice.ReasoningContent = string.Empty;
         advice.Content = string.Empty;
+        advice.GenerationStatus = AiAdviceGenerationStatus.Generating;
+        advice.RequestedAt = DateTimeOffset.UtcNow;
+        advice.CompletedAt = null;
+        advice.Environment = Environment;
         generationState = GenerationState.Connecting;
         generationStatusMessage = string.Empty;
         receivedCharacterCount = 0;
@@ -315,6 +319,8 @@
             }
 
             advice.IsReady = true;
+            advice.GenerationStatus = AiAdviceGenerationStatus.Completed;
+            advice.CompletedAt = DateTimeOffset.UtcNow;
             if (IsActiveGeneration(archive, userCancellation))
             {
                 generationState = GenerationState.Completed;
@@ -396,6 +402,13 @@
 
         generationState = state;
         generationStatusMessage = message.Trim();
+        if (archive.AiGeneratedAdvice is { } advice)
+        {
+            advice.GenerationStatus = state == GenerationState.Failed
+                ? AiAdviceGenerationStatus.Failed
+                : AiAdviceGenerationStatus.Incomplete;
+            advice.CompletedAt = DateTimeOffset.UtcNow;
+        }
     }
 
     private void MakePrompt()
@@ -446,6 +459,12 @@
     {
         generationCancellation?.Cancel();
         CurrentArchive.AdvicePrompt = null;
+        if (CurrentArchive.AiGeneratedAdvice is { } advice)
+        {
+            advice.GenerationStatus = AiAdviceGenerationStatus.Prepared;
+            advice.RequestedAt = null;
+            advice.CompletedAt = null;
+        }
         generationState = GenerationState.ReadyToSend;
         generationStatusMessage = string.Empty;
         receivedCharacterCount = 0;
@@ -466,6 +485,9 @@
         advice.IsReady = false;
         advice.ReasoningContent = string.Empty;
         advice.Content = string.Empty;
+        advice.GenerationStatus = AiAdviceGenerationStatus.Prepared;
+        advice.RequestedAt = null;
+        advice.CompletedAt = null;
         generationState = GenerationState.ReadyToSend;
         generationStatusMessage = string.Empty;
         receivedCharacterCount = 0;
@@ -474,6 +496,7 @@
     protected override void OnParametersSet()
     {
         var advice = CurrentArchive.AiGeneratedAdvice ??= new AiGeneratedAdvice();
+        advice.Environment ??= Environment;
 
         if (!ReferenceEquals(activeArchive, CurrentArchive))
         {
@@ -497,6 +520,10 @@
             Environment = await httpClient.GetFromJsonAsync<EnvironmentDto>(
                 "Prescription/Environment",
                 lifetimeCancellation.Token);
+            if (CurrentArchive.AiGeneratedAdvice is { } advice)
+            {
+                advice.Environment = Environment;
+            }
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {

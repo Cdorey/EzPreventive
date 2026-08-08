@@ -130,7 +130,8 @@ internal static class ArchiveSamples
                 ExactReference(203, 203, ArchiveResourceTypes.EnergyAssessment),
                 ExactReference(204, 204, ArchiveResourceTypes.DriAssessment),
                 ExactReference(205, 205, ArchiveResourceTypes.DietaryRecall),
-                ExactReference(206, 206, ArchiveResourceTypes.SoapNote)
+                ExactReference(206, 206, ArchiveResourceTypes.SoapNote),
+                ExactReference(207, 207, ArchiveResourceTypes.NutritionAdvice)
             },
             Title = "虚构成人综合营养咨询",
             Reasons = new[] { Code("consultation-reason", "routine-assessment", "常规营养评估") },
@@ -226,10 +227,37 @@ internal static class ArchiveSamples
             Assessment = "虚构评估：当前资料可用于演示档案结构。",
             Plan = "虚构计划：按约定时间复核。"
         };
+        var advice = new NutritionAdviceResource
+        {
+            Metadata = Metadata(207, 207, 2),
+            SubjectReference = PatientReference(201),
+            ConsultationReference = consultationReference,
+            GenerationStatus = NutritionAdviceGenerationStatus.Completed,
+            RequestedAt = At(2, 9),
+            CompletedAt = At(2, 9),
+            Generator = Algorithm("synthetic-advice-generator", "1.0", "虚构营养建议生成器"),
+            InputResourceReferences = new[]
+            {
+                ExactReference(203, 203, ArchiveResourceTypes.EnergyAssessment),
+                ExactReference(204, 204, ArchiveResourceTypes.DriAssessment),
+                ExactReference(205, 205, ArchiveResourceTypes.DietaryRecall),
+                ExactReference(206, 206, ArchiveResourceTypes.SoapNote)
+            },
+            InputSummary = new[]
+            {
+                new NamedArchiveValue
+                {
+                    Name = Code("advice-input", "adopted-energy", "核定能量"),
+                    Value = new QuantityArchiveValue(Quantity(1800, "kcal/d", "千卡/日"))
+                }
+            },
+            ReasoningContent = "虚构分析摘要。",
+            NarrativeContent = "虚构营养建议正文。"
+        };
 
         return Sample(
             "comprehensive-adult",
-            "包含咨询、能量、DRIs、三餐膳食回忆和 SOAP 的完整成人档案。",
+            "包含咨询、能量、DRIs、三餐膳食回忆、SOAP 和营养建议的完整成人档案。",
             2,
             ArchiveBundleType.ConsultationDocument,
             2,
@@ -238,7 +266,8 @@ internal static class ArchiveSamples
             energyAssessment,
             driAssessment,
             recall,
-            soap);
+            soap,
+            advice);
     }
 
     private static ArchiveSample CreatePseudonymousPartialDateSample()

@@ -9,6 +9,11 @@ namespace EzNutrition.Shared.Data.DietaryRecallSurvey
 {
     public class DietaryRecallEntry()
     {
+        /// <summary>
+        /// 获取条目在当前膳食回忆中的稳定标识。
+        /// </summary>
+        public Guid EntryId { get; init; } = Guid.NewGuid();
+
         public required Food Food { get; set; }
 
         public required decimal Weight { get; set; }

@@ -73,6 +73,7 @@ public sealed class ArchiveSampleTests
                 DriAssessmentResource => ArchiveResourceTypes.DriAssessment,
                 DietaryRecallResource => ArchiveResourceTypes.DietaryRecall,
                 SoapNoteResource => ArchiveResourceTypes.SoapNote,
+                NutritionAdviceResource => ArchiveResourceTypes.NutritionAdvice,
                 _ => throw new Xunit.Sdk.XunitException($"未识别的样本资源类型：{resource.GetType().FullName}")
             };
 
@@ -119,7 +120,7 @@ public sealed class ArchiveSampleTests
     }
 
     /// <summary>
-    /// 验证完整成人样本覆盖首期定义的全部六类资源。
+    /// 验证完整成人样本覆盖首期定义的全部七类资源。
     /// </summary>
     [Fact]
     public void Comprehensive_sample_contains_every_initial_resource_type()
@@ -132,6 +133,7 @@ public sealed class ArchiveSampleTests
         Assert.Single(resources.OfType<DriAssessmentResource>());
         Assert.Single(resources.OfType<DietaryRecallResource>());
         Assert.Single(resources.OfType<SoapNoteResource>());
+        Assert.Single(resources.OfType<NutritionAdviceResource>());
     }
 
     /// <summary>
@@ -179,6 +181,7 @@ public sealed class ArchiveSampleTests
         var recall = ArchiveSamples.GetRequired("multi-meal-recall")
             .Bundle.Entries.OfType<DietaryRecallResource>().Single();
         var consistency = Assert.IsType<DietaryEnergyConsistency>(recall.EnergyConsistency);
+        var allowedDifference = Assert.IsType<Quantity>(consistency.AllowedDifference);
 
         var protein = NutrientValue(recall, "protein");
         var fat = NutrientValue(recall, "fat");
@@ -187,10 +190,10 @@ public sealed class ArchiveSampleTests
 
         Assert.Equal(calculatedEnergy, consistency.MacronutrientDerivedEnergy.Value);
         Assert.True(consistency.RecordedTotalEnergy.Unit.HasSameIdentity(consistency.MacronutrientDerivedEnergy.Unit));
-        Assert.True(consistency.RecordedTotalEnergy.Unit.HasSameIdentity(consistency.AllowedDifference.Unit));
+        Assert.True(consistency.RecordedTotalEnergy.Unit.HasSameIdentity(allowedDifference.Unit));
         Assert.True(
             Math.Abs(consistency.RecordedTotalEnergy.Value - consistency.MacronutrientDerivedEnergy.Value) <=
-            consistency.AllowedDifference.Value);
+            allowedDifference.Value);
     }
 
     /// <summary>
@@ -285,6 +288,9 @@ public sealed class ArchiveSampleTests
             case SoapNoteResource soapNote:
                 yield return soapNote.SubjectReference;
                 break;
+            case NutritionAdviceResource advice:
+                yield return advice.SubjectReference;
+                break;
         }
     }
 
@@ -320,6 +326,18 @@ public sealed class ArchiveSampleTests
                 break;
             case SoapNoteResource { ConsultationReference: { } reference }:
                 yield return reference;
+                break;
+            case NutritionAdviceResource advice:
+                if (advice.ConsultationReference is { } consultationReference)
+                {
+                    yield return consultationReference;
+                }
+
+                foreach (var inputReference in advice.InputResourceReferences)
+                {
+                    yield return inputReference;
+                }
+
                 break;
         }
     }

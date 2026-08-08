@@ -23,6 +23,70 @@ public enum DietaryRecallStatus
 }
 
 /// <summary>
+/// 表示膳食指南分类的观察结果和参考建议。
+/// </summary>
+public sealed record DietaryGuidanceItem
+{
+    private IReadOnlyList<DietaryGuidanceItem> _children = Array.Empty<DietaryGuidanceItem>();
+
+    /// <summary>
+    /// 获取膳食分类编码。
+    /// </summary>
+    public required Coding Category { get; init; }
+
+    /// <summary>
+    /// 获取本次膳食调查的观察结果。
+    /// </summary>
+    public ArchiveValue? ObservedValue { get; init; }
+
+    /// <summary>
+    /// 获取指南中的参考建议文本。
+    /// </summary>
+    public string? Recommendation { get; init; }
+
+    /// <summary>
+    /// 获取下级膳食分类。
+    /// </summary>
+    public IReadOnlyList<DietaryGuidanceItem> Children
+    {
+        get => _children;
+        init => _children = ArchiveCollections.Freeze(value);
+    }
+}
+
+/// <summary>
+/// 表示膳食调查与膳食指南比较的历史快照。
+/// </summary>
+public sealed record DietaryGuidanceSnapshot
+{
+    private IReadOnlyList<DietaryGuidanceItem> _items = Array.Empty<DietaryGuidanceItem>();
+
+    /// <summary>
+    /// 获取比较方法和实现身份。
+    /// </summary>
+    public required AlgorithmIdentity Method { get; init; }
+
+    /// <summary>
+    /// 获取比较所采用的膳食指南身份。
+    /// </summary>
+    public ReferenceDataIdentity? Guideline { get; init; }
+
+    /// <summary>
+    /// 获取膳食指南身份缺失时的明确原因。
+    /// </summary>
+    public DataAbsentReasonCode? GuidelineAbsentReason { get; init; }
+
+    /// <summary>
+    /// 获取膳食分类比较结果。
+    /// </summary>
+    public IReadOnlyList<DietaryGuidanceItem> Items
+    {
+        get => _items;
+        init => _items = ArchiveCollections.Freeze(value);
+    }
+}
+
+/// <summary>
 /// 表示某个营养素的数量结果。
 /// </summary>
 public sealed record NutrientAmount
@@ -163,9 +227,14 @@ public sealed record DietaryEnergyConsistency
     public required Quantity MacronutrientDerivedEnergy { get; init; }
 
     /// <summary>
-    /// 获取允许的绝对差异；单位必须与能量结果一致。
+    /// 获取允许的绝对差异；尚未确定容差策略时为空。
     /// </summary>
-    public required Quantity AllowedDifference { get; init; }
+    public Quantity? AllowedDifference { get; init; }
+
+    /// <summary>
+    /// 获取容差缺失时的明确原因。
+    /// </summary>
+    public DataAbsentReasonCode? AllowedDifferenceAbsentReason { get; init; }
 
     /// <summary>
     /// 获取超出容差时的专业解释。
@@ -198,9 +267,14 @@ public sealed record DietaryRecallResource : IArchiveResource
     public VersionedResourceReference? ConsultationReference { get; init; }
 
     /// <summary>
-    /// 获取膳食回忆覆盖的时间段。
+    /// 获取膳食回忆覆盖的时间段；来源资料未记录时为空。
     /// </summary>
-    public required Period RecallPeriod { get; init; }
+    public Period? RecallPeriod { get; init; }
+
+    /// <summary>
+    /// 获取回忆时间段缺失时的明确原因。
+    /// </summary>
+    public DataAbsentReasonCode? RecallPeriodAbsentReason { get; init; }
 
     /// <summary>
     /// 获取膳食调查方法编码，例如 24 小时膳食回顾法。
@@ -208,9 +282,9 @@ public sealed record DietaryRecallResource : IArchiveResource
     public required Coding RecallMethod { get; init; }
 
     /// <summary>
-    /// 获取回忆状态。
+    /// 获取回忆状态；草稿尚未记录摄入或未摄入结论时为空。
     /// </summary>
-    public required DietaryRecallStatus Status { get; init; }
+    public DietaryRecallStatus? Status { get; init; }
 
     /// <summary>
     /// 获取明确未摄入时的原因编码。
@@ -239,4 +313,9 @@ public sealed record DietaryRecallResource : IArchiveResource
     /// 获取宏量营养素能量一致性快照。
     /// </summary>
     public DietaryEnergyConsistency? EnergyConsistency { get; init; }
+
+    /// <summary>
+    /// 获取膳食调查与膳食指南比较的历史快照。
+    /// </summary>
+    public DietaryGuidanceSnapshot? GuidanceSnapshot { get; init; }
 }

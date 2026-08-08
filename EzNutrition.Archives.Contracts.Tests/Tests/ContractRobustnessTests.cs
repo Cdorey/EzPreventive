@@ -24,11 +24,12 @@ public sealed class ContractRobustnessTests
     {
         var sourceBundle = ArchiveSamples.GetRequired("comprehensive-adult").Bundle;
         var sourceEntries = sourceBundle.Entries.ToList();
+        var expectedCount = sourceEntries.Count;
         var snapshot = sourceBundle with { Entries = sourceEntries };
 
         sourceEntries.Clear();
 
-        Assert.Equal(6, snapshot.Entries.Count);
+        Assert.Equal(expectedCount, snapshot.Entries.Count);
         Assert.Throws<NotSupportedException>(() =>
             ((IList<IArchiveResource>)snapshot.Entries).Clear());
     }

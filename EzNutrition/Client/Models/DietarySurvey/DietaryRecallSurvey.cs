@@ -25,22 +25,22 @@ namespace EzNutrition.Client.Models.DietarySurvey
             };
 
             var breakFastEnergy = SummaryCalculationTable[MealOccasion.Breakfast].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var breakFastPercentage = Math.Round(((breakFastEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var breakFastPercentage = PercentageOfTotalEnergy(breakFastEnergy).ToString("0");
 
             var morningSnackEnergy = SummaryCalculationTable[MealOccasion.MorningSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var morningSnackPercentage = Math.Round(((morningSnackEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var morningSnackPercentage = PercentageOfTotalEnergy(morningSnackEnergy).ToString("0");
 
             var lunchEnergy = SummaryCalculationTable[MealOccasion.Lunch].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var lunchPercentage = Math.Round(((lunchEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var lunchPercentage = PercentageOfTotalEnergy(lunchEnergy).ToString("0");
 
             var afternoonSnackEnergy = SummaryCalculationTable[MealOccasion.AfternoonSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var afternoonSnackPercentage = Math.Round(((afternoonSnackEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var afternoonSnackPercentage = PercentageOfTotalEnergy(afternoonSnackEnergy).ToString("0");
 
             var dinnerEnergy = SummaryCalculationTable[MealOccasion.Dinner].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var dinnerPercentage = Math.Round(((dinnerEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var dinnerPercentage = PercentageOfTotalEnergy(dinnerEnergy).ToString("0");
 
             var lateNightSnackEnergy = SummaryCalculationTable[MealOccasion.LateNightSnack].FirstOrDefault(x => x.Nutrient?.FriendlyName == "能量")?.Value ?? 0;
-            var lateNightSnackPercentage = Math.Round(((lateNightSnackEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0).ToString("0");
+            var lateNightSnackPercentage = PercentageOfTotalEnergy(lateNightSnackEnergy).ToString("0");
 
 
             energy.ExpendDescriptions = [("早餐供能", $"{breakFastEnergy}kCal，{breakFastPercentage}%E"), ("上午供能", $"{morningSnackEnergy}kCal，{morningSnackPercentage}%E"), ("午餐供能", $"{lunchEnergy}kCal，{lunchPercentage}%E"), ("下午供能", $"{afternoonSnackEnergy}kCal，{afternoonSnackPercentage}%E"), ("晚餐供能", $"{dinnerEnergy}kCal，{dinnerPercentage}%E"), ("宵夜供能", $"{lateNightSnackEnergy}kCal，{lateNightSnackPercentage}%E")];
@@ -63,7 +63,7 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
             SummaryRows.Add(protein);
 
-            var proteinPercentage = Math.Round(((SummaryCalculationTable.ProteinEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0);
+            var proteinPercentage = PercentageOfTotalEnergy(SummaryCalculationTable.ProteinEnergy);
             var proteinAmdrL = proteinDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
             var proteinAmdrH = proteinDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
             SummaryRows.Add(new DietarySurveySummaryRow
@@ -92,7 +92,7 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
             SummaryRows.Add(fat);
 
-            var fatPercentage = Math.Round(((SummaryCalculationTable.FatEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0);
+            var fatPercentage = PercentageOfTotalEnergy(SummaryCalculationTable.FatEnergy);
             var fatAmdrL = fatDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
             var fatAmdrH = fatDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
             SummaryRows.Add(new DietarySurveySummaryRow
@@ -121,7 +121,7 @@ namespace EzNutrition.Client.Models.DietarySurvey
 
             SummaryRows.Add(carbohydrate);
 
-            var carbohydratePercentage = Math.Round(((SummaryCalculationTable.CarbohydrateEnergy / SummaryCalculationTable.TotalEnergy * 100)), 0);
+            var carbohydratePercentage = PercentageOfTotalEnergy(SummaryCalculationTable.CarbohydrateEnergy);
             var carbohydrateAmdrL = carbohydrateDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_L);
             var carbohydrateAmdrH = carbohydrateDris?.OtherRecords.FirstOrDefault(x => x.RecordType == DietaryReferenceIntakeType.AMDR_H);
             SummaryRows.Add(new DietarySurveySummaryRow
@@ -178,6 +178,14 @@ namespace EzNutrition.Client.Models.DietarySurvey
             SummaryRows.Add(niacin);
             SummaryRows.Add(GenerateSummaryRow("维生素C", "VitC", null, "VitC"));
             SummaryRows.Add(GenerateSummaryRow("总维生素E", "VitE", null, "VitE"));
+        }
+
+        private decimal PercentageOfTotalEnergy(decimal componentEnergy)
+        {
+            var totalEnergy = SummaryCalculationTable?.TotalEnergy ?? 0m;
+            return totalEnergy == 0m
+                ? 0m
+                : Math.Round(componentEnergy / totalEnergy * 100m, 0);
         }
 
         private static string? CompareWithDris(decimal actualValue,

@@ -1,3 +1,5 @@
+using EzNutrition.Archives.Contracts.Validation;
+using EzNutrition.Client.Archives;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -34,6 +36,8 @@ namespace EzNutrition.Client
             builder.Services.AddSingleton<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
             builder.Services.AddScoped<ArchiveManageService>();
+            builder.Services.AddSingleton(ArchiveContractAssembler.CreateDefault());
+            builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
             builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();

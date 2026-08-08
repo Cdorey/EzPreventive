@@ -3,26 +3,60 @@ using System.Net.Http.Json;
 
 namespace EzNutrition.Client.Models
 {
+    /// <summary>
+    /// 表示一组 DRIs 记录无法形成单一聚合值的问题。
+    /// </summary>
+    public sealed record DriAggregationIssue
+    {
+        /// <summary>
+        /// 获取相关营养素名称。
+        /// </summary>
+        public required string Nutrient { get; init; }
+
+        /// <summary>
+        /// 获取不包含原始病史内容的错误说明。
+        /// </summary>
+        public required string Message { get; init; }
+    }
+
     public class DRIs(IClient client) : ITreatment
     {
         private List<DietaryReferenceIntakeValue> availableDRIs = [];
 
-        private IEnumerable<NutrientRange> RangeCastForDRIs()
+        private void RebuildNutrientRanges()
         {
+            var ranges = new List<NutrientRange>();
+            var issues = new List<DriAggregationIssue>();
             foreach (var rangeInfo in AvailableDRIs.GroupBy(x => x.Nutrient ?? string.Empty))
             {
-                NutrientRange result;
                 try
                 {
-                    result = new NutrientRange(rangeInfo);
+                    var range = new NutrientRange(rangeInfo);
+                    ranges.Add(range);
+                    foreach (var value in new[] { range.EAR, range.RNI, range.UL }.Where(value => value is not null))
+                    {
+                        if (value!.InnerRecords.Count(record => !record.IsOffset) != 1)
+                        {
+                            issues.Add(new DriAggregationIssue
+                            {
+                                Nutrient = rangeInfo.Key,
+                                Message = "参考值包含无法自动确定的基础记录。"
+                            });
+                        }
+                    }
                 }
-                catch (ArgumentException)
+                catch (ArgumentException ex)
                 {
-#warning 这里直接丢弃不能解析的值，缺少正确的处理逻辑
-                    continue;
+                    issues.Add(new DriAggregationIssue
+                    {
+                        Nutrient = rangeInfo.Key,
+                        Message = ex.Message
+                    });
                 }
-                yield return result;
             }
+
+            NutrientRanges = ranges;
+            AggregationIssues = issues;
         }
 
         public IClient Client => client;
@@ -36,12 +70,17 @@ namespace EzNutrition.Client.Models
 
             set
             {
-                availableDRIs = value;
-                NutrientRanges = RangeCastForDRIs().ToList();
+                availableDRIs = value ?? [];
+                RebuildNutrientRanges();
             }
         }
 
         public List<NutrientRange> NutrientRanges { get; private set; } = [];
+
+        /// <summary>
+        /// 获取 DRIs 聚合过程中识别到的问题。
+        /// </summary>
+        public IReadOnlyList<DriAggregationIssue> AggregationIssues { get; private set; } = [];
 
         public string[] Requirements { get; } = [nameof(IClient.Gender), nameof(IClient.Age), nameof(IClient.SpecialPhysiologicalPeriod)];
 

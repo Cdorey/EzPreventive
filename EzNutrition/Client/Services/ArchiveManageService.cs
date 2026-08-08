@@ -1,5 +1,8 @@
 ﻿using AntDesign;
 using EzNutrition.Client.Models;
+using EzNutrition.Archives.Contracts.Identity;
+using EzNutrition.Archives.Contracts.Serialization;
+using EzNutrition.Client.Archives;
 using EzNutrition.Client.Models.DietarySurvey;
 using EzNutrition.Shared.Data.DietaryRecallSurvey;
 using EzNutrition.Shared.Data.Entities;
@@ -13,7 +16,8 @@ namespace EzNutrition.Client.Services
                                       IHttpClientFactory httpClientFactory,
                                       UserSessionService userSession,
                                       NavigationManager navigationManager,
-                                      ILogger<ArchiveManageService> logger) : ConcurrentDictionary<Guid, Archive>()
+                                      ILogger<ArchiveManageService> logger,
+                                      ArchiveContractAssembler contractAssembler) : ConcurrentDictionary<Guid, Archive>()
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("Authorize");
 
@@ -119,6 +123,27 @@ namespace EzNutrition.Client.Services
             }
 
             await ClientInfoConfirmed(archive, cancellationToken);
+        }
+
+        /// <summary>
+        /// 建立指定运行态咨询的格式无关档案文档快照。
+        /// </summary>
+        /// <param name="archiveId">运行态咨询标识。</param>
+        /// <param name="capturedAt">快照时间。</param>
+        /// <param name="bundleId">可选资源包标识。</param>
+        /// <returns>档案文档快照。</returns>
+        /// <exception cref="KeyNotFoundException">运行态咨询不存在。</exception>
+        public ArchiveDocument CreateContractDocument(
+            Guid archiveId,
+            DateTimeOffset? capturedAt = null,
+            ArchiveBundleId? bundleId = null)
+        {
+            if (!TryGetValue(archiveId, out var archive))
+            {
+                throw new KeyNotFoundException($"Archive {archiveId} does not exist.");
+            }
+
+            return contractAssembler.CreateDocument(archive, capturedAt, bundleId);
         }
 
         private void HandleClientNameChanged(object? sender, EventArgs e) =>

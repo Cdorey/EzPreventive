@@ -66,4 +66,9 @@ public static class ArchiveResourceTypes
     /// 获取 SOAP 病史资源类型。
     /// </summary>
     public static ResourceTypeCode SoapNote { get; } = new("SoapNote");
+
+    /// <summary>
+    /// 获取营养建议资源类型。
+    /// </summary>
+    public static ResourceTypeCode NutritionAdvice { get; } = new("NutritionAdvice");
 }

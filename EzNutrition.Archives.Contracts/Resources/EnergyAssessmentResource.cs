@@ -90,6 +90,108 @@ public sealed record ProfessionalEnergyDecision
 }
 
 /// <summary>
+/// 表示某种宏量营养素在一个餐次中的目标量。
+/// </summary>
+public sealed record MealNutrientAllocation
+{
+    /// <summary>
+    /// 获取餐次编码。
+    /// </summary>
+    public required Coding MealOccasion { get; init; }
+
+    /// <summary>
+    /// 获取该餐次的营养素目标量。
+    /// </summary>
+    public required Quantity Amount { get; init; }
+}
+
+/// <summary>
+/// 表示一种宏量营养素的供能比例、每日目标量和餐次分配。
+/// </summary>
+public sealed record MacronutrientAllocationTarget
+{
+    private IReadOnlyList<MealNutrientAllocation> _mealAllocations = Array.Empty<MealNutrientAllocation>();
+
+    /// <summary>
+    /// 获取营养素编码。
+    /// </summary>
+    public required Coding Nutrient { get; init; }
+
+    /// <summary>
+    /// 获取供能比例，以 0 至 1 的十进制数表示。
+    /// </summary>
+    public required decimal EnergyFraction { get; init; }
+
+    /// <summary>
+    /// 获取每日目标量。
+    /// </summary>
+    public required Quantity DailyAmount { get; init; }
+
+    /// <summary>
+    /// 获取各餐次目标量快照。
+    /// </summary>
+    public IReadOnlyList<MealNutrientAllocation> MealAllocations
+    {
+        get => _mealAllocations;
+        init => _mealAllocations = ArchiveCollections.Freeze(value);
+    }
+}
+
+/// <summary>
+/// 表示一种食物交换类别的每日目标份数。
+/// </summary>
+public sealed record FoodExchangeTarget
+{
+    /// <summary>
+    /// 获取食物交换类别编码。
+    /// </summary>
+    public required Coding FoodGroup { get; init; }
+
+    /// <summary>
+    /// 获取每日交换份数。
+    /// </summary>
+    public required Quantity DailyExchanges { get; init; }
+}
+
+/// <summary>
+/// 表示基于最终能量目标形成的宏量营养素和食物交换分配方案。
+/// </summary>
+public sealed record EnergyAllocationPlan
+{
+    private IReadOnlyList<MacronutrientAllocationTarget> _macronutrientTargets =
+        Array.Empty<MacronutrientAllocationTarget>();
+    private IReadOnlyList<FoodExchangeTarget> _foodExchangeTargets = Array.Empty<FoodExchangeTarget>();
+
+    /// <summary>
+    /// 获取分配方法及其实现身份。
+    /// </summary>
+    public required AlgorithmIdentity Method { get; init; }
+
+    /// <summary>
+    /// 获取本方案采用的每日能量目标。
+    /// </summary>
+    public required Quantity EnergyTarget { get; init; }
+
+    /// <summary>
+    /// 获取宏量营养素分配目标。
+    /// </summary>
+    public IReadOnlyList<MacronutrientAllocationTarget> MacronutrientTargets
+    {
+        get => _macronutrientTargets;
+        init => _macronutrientTargets = ArchiveCollections.Freeze(value);
+    }
+
+    /// <summary>
+    /// 获取食物交换分配目标。
+    /// </summary>
+    public IReadOnlyList<FoodExchangeTarget> FoodExchangeTargets
+    {
+        get => _foodExchangeTargets;
+        init => _foodExchangeTargets = ArchiveCollections.Freeze(value);
+    }
+}
+
+/// <summary>
 /// 表示能量需求候选计算和医师最终采用值。
 /// </summary>
 public sealed record EnergyAssessmentResource : IArchiveResource
@@ -136,4 +238,9 @@ public sealed record EnergyAssessmentResource : IArchiveResource
     /// 获取正式记录缺少专业决定时的明确原因。
     /// </summary>
     public DataAbsentReasonCode? ProfessionalDecisionAbsentReason { get; init; }
+
+    /// <summary>
+    /// 获取基于最终能量目标形成的分配方案。
+    /// </summary>
+    public EnergyAllocationPlan? AllocationPlan { get; init; }
 }

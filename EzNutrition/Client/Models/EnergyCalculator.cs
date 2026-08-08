@@ -5,6 +5,22 @@ using System.Text;
 
 namespace EzNutrition.Client.Models
 {
+    /// <summary>
+    /// 指定当前自动能量结果采用的计算路径。
+    /// </summary>
+    public enum EnergyCalculationMethod
+    {
+        /// <summary>
+        /// 使用身高推导理想体重，再结合 BEE 与 PAL 计算。
+        /// </summary>
+        IdealBodyWeightBeePal = 0,
+
+        /// <summary>
+        /// 使用参考人群平均体重对应的 EER。
+        /// </summary>
+        PopulationAverage = 1
+    }
+
     public class EnergyCalculator(IClient client) : ITreatment
     {
         public IClient Client => client;
@@ -19,6 +35,31 @@ namespace EzNutrition.Client.Models
         ];
 
         public List<EER> AvailableEERs { get; set; } = [];
+
+        /// <summary>
+        /// 获取最近一次自动计算得到的每日能量。
+        /// </summary>
+        public int? CalculatedEnergy { get; private set; }
+
+        /// <summary>
+        /// 获取最近一次自动计算采用的路径。
+        /// </summary>
+        public EnergyCalculationMethod? CalculationMethod { get; private set; }
+
+        /// <summary>
+        /// 获取自动计算采用的主要 EER 记录。
+        /// </summary>
+        public EER? SelectedEer { get; private set; }
+
+        /// <summary>
+        /// 获取自动计算中叠加的特殊生理状态能量偏移。
+        /// </summary>
+        public int AppliedOffsetEnergy { get; private set; }
+
+        /// <summary>
+        /// 获取当前采用能量是否经过专业人员手工核定。
+        /// </summary>
+        public bool IsEnergyManuallyAdjusted { get; private set; }
 
         public decimal? PAL { get; set; }
 
@@ -62,6 +103,8 @@ namespace EzNutrition.Client.Models
             }
 
             var energy = 0;
+            EER? selectedEer = null;
+            EnergyCalculationMethod? calculationMethod = null;
             var strBuild = new StringBuilder();
             strBuild.Append($"咨询对象的PAL：{PAL}，");
 
@@ -71,6 +114,12 @@ namespace EzNutrition.Client.Models
                 if (eerWithBEE?.BEE is not null)
                 {
                     energy = EzNutrition.Shared.Utilities.EnergyCalculator.GetEnergy(Client.Height.Value, eerWithBEE.BEE.Value, PAL.Value);
+
+                    if (energy != 0)
+                    {
+                        selectedEer = eerWithBEE;
+                        calculationMethod = EnergyCalculationMethod.IdealBodyWeightBeePal;
+                    }
 
                     var height = Client.Height.Value / 100;
 
@@ -91,6 +140,8 @@ namespace EzNutrition.Client.Models
             {
                 var eerWithPAL = AvailableEERs.FirstOrDefault(x => x.PAL == PAL);
                 energy = eerWithPAL?.AvgBwEER ?? 0;
+                selectedEer = eerWithPAL;
+                calculationMethod = EnergyCalculationMethod.PopulationAverage;
                 dependency = "基于人群平均体重和PAL的建议值";
             }
 
@@ -105,6 +156,11 @@ namespace EzNutrition.Client.Models
 
             strBuild.Append($"自动推断总能量{energy}kCal，依据：{dependency}。");
             strBuild.Append("如有需要请根据咨询者实际情况修正总能量，如无需修正请留空：");
+            CalculatedEnergy = energy;
+            CalculationMethod = calculationMethod;
+            SelectedEer = selectedEer;
+            AppliedOffsetEnergy = offsetEnergy > 0 ? (int)offsetEnergy : 0;
+            IsEnergyManuallyAdjusted = false;
             Energy = energy;
             Summary = strBuild.ToString();
             Allocation = new MacronutrientAllocation(energy);
@@ -126,6 +182,7 @@ namespace EzNutrition.Client.Models
                 strBuild.Append($"BMI:{Math.Round((Client.Weight.Value / height / height), 2)}，");
             }
             Energy = newEnergy;
+            IsEnergyManuallyAdjusted = true;
             strBuild.AppendLine($"核定总能量{newEnergy}kCal，依据营养师修正。");
             strBuild.AppendLine("如有需要，可再次修正总能量，或点击上方计算按钮自动推断：");
             Summary = strBuild.ToString();
@@ -133,6 +190,27 @@ namespace EzNutrition.Client.Models
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
             return true;
         }
+    }
+
+    /// <summary>
+    /// 指定当前 AI 营养建议的运行态生成状态。
+    /// </summary>
+    public enum AiAdviceGenerationStatus
+    {
+        /// <summary>已准备输入。</summary>
+        Prepared = 0,
+
+        /// <summary>正在生成。</summary>
+        Generating = 1,
+
+        /// <summary>已获得完整建议。</summary>
+        Completed = 2,
+
+        /// <summary>生成已中断。</summary>
+        Incomplete = 3,
+
+        /// <summary>生成失败。</summary>
+        Failed = 4
     }
 
     public class AiGeneratedAdvice
@@ -144,5 +222,25 @@ namespace EzNutrition.Client.Models
         public string ReasoningContent { get; set; } = string.Empty;
 
         public string Content { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 获取或设置结构化生成状态。
+        /// </summary>
+        public AiAdviceGenerationStatus GenerationStatus { get; set; } = AiAdviceGenerationStatus.Prepared;
+
+        /// <summary>
+        /// 获取或设置请求开始时间。
+        /// </summary>
+        public DateTimeOffset? RequestedAt { get; set; }
+
+        /// <summary>
+        /// 获取或设置生成完成或中断时间。
+        /// </summary>
+        public DateTimeOffset? CompletedAt { get; set; }
+
+        /// <summary>
+        /// 获取或设置生成环境信息。
+        /// </summary>
+        public EzNutrition.Shared.Data.DTO.PromptDto.EnvironmentDto? Environment { get; set; }
     }
 }

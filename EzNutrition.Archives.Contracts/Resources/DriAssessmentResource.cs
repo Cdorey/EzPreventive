@@ -32,13 +32,15 @@ public sealed record PopulationGroupSelection
 /// </summary>
 public sealed record DriReferenceValue
 {
+    private IReadOnlyList<DriReferenceComponent> _components = Array.Empty<DriReferenceComponent>();
+
     /// <summary>
     /// 获取参考值类型编码，例如 EAR、RNI、AI、UL 或 AMDR。
     /// </summary>
     public required Coding ReferenceType { get; init; }
 
     /// <summary>
-    /// 获取数据集原始提供的数量或范围。
+    /// 获取根据数据集原始分量自动形成的基础数量或范围。
     /// </summary>
     public ArchiveValue? BasisValue { get; init; }
 
@@ -56,6 +58,51 @@ public sealed record DriReferenceValue
     /// 获取原始值与采用值存在实质差异时的专业理由。
     /// </summary>
     public string? AdjustmentReason { get; init; }
+
+    /// <summary>
+    /// 获取形成参考值的基础值和偏移分量快照。
+    /// </summary>
+    public IReadOnlyList<DriReferenceComponent> Components
+    {
+        get => _components;
+        init => _components = ArchiveCollections.Freeze(value);
+    }
+}
+
+/// <summary>
+/// 表示 DRIs 参考值计算中的一个基础值或生理状态偏移分量。
+/// </summary>
+public sealed record DriReferenceComponent
+{
+    /// <summary>
+    /// 获取分量数值。
+    /// </summary>
+    public required Quantity Value { get; init; }
+
+    /// <summary>
+    /// 获取该分量是否为叠加到基础值的偏移量。
+    /// </summary>
+    public required bool IsOffset { get; init; }
+
+    /// <summary>
+    /// 获取来源记录适用的最低年龄。
+    /// </summary>
+    public Quantity? MinimumAge { get; init; }
+
+    /// <summary>
+    /// 获取来源记录适用的性别或生理分类。
+    /// </summary>
+    public Coding? PopulationSex { get; init; }
+
+    /// <summary>
+    /// 获取来源记录适用的特殊生理状态。
+    /// </summary>
+    public Coding? PhysiologicalState { get; init; }
+
+    /// <summary>
+    /// 获取来源记录的补充说明。
+    /// </summary>
+    public string? Detail { get; init; }
 }
 
 /// <summary>
