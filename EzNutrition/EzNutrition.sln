@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Server", "Serve
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Shared", "Shared\EzNutrition.Shared.csproj", "{D58945C0-6AA0-ADF8-A5E6-A8D1966C8CAC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.AiAgency", "..\EzNutrition.AiAgency\EzNutrition.AiAgency.csproj", "{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts", "..\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj", "{A027F069-B43A-453B-9787-7765739B1FF7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts.Tests", "..\EzNutrition.Archives.Contracts.Tests\EzNutrition.Archives.Contracts.Tests.csproj", "{0EBA5707-65EA-4DB9-B65B-3B0E58AA41AF}"
@@ -61,6 +63,18 @@ Global
 		{D58945C0-6AA0-ADF8-A5E6-A8D1966C8CAC}.Release|x64.Build.0 = Release|Any CPU
 		{D58945C0-6AA0-ADF8-A5E6-A8D1966C8CAC}.Release|x86.ActiveCfg = Release|Any CPU
 		{D58945C0-6AA0-ADF8-A5E6-A8D1966C8CAC}.Release|x86.Build.0 = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|x64.Build.0 = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Debug|x86.Build.0 = Debug|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|x64.ActiveCfg = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|x64.Build.0 = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|x86.ActiveCfg = Release|Any CPU
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}.Release|x86.Build.0 = Release|Any CPU
 		{A027F069-B43A-453B-9787-7765739B1FF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A027F069-B43A-453B-9787-7765739B1FF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A027F069-B43A-453B-9787-7765739B1FF7}.Debug|x64.ActiveCfg = Debug|Any CPU
