@@ -4,10 +4,12 @@ using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
-using EzNutrition.Client.Archives;
-using EzNutrition.Client.Models;
+using EzNutrition.Application.Archives;
+using EzNutrition.Application.Consultations;
+using EzNutrition.Domain.Assessments;
+using EzNutrition.Domain.Consultations;
+using EzNutrition.Domain.Dietary;
 using EzNutrition.Client.Tests.Fixtures;
-using EzNutrition.Shared.Data.DietaryRecallSurvey;
 using EzNutrition.Shared.Data.Entities;
 
 namespace EzNutrition.Client.Tests.Tests;
@@ -86,7 +88,7 @@ public sealed class ConsultationScenarioTests
     }
 
     private static void AssertPatientAndSnapshot(
-        EzNutrition.Client.Models.Archive archive,
+        ConsultationWorkspace archive,
         ArchiveDocument document)
     {
         var client = Assert.IsType<ClientInfo>(archive.Client);
@@ -119,7 +121,7 @@ public sealed class ConsultationScenarioTests
     }
 
     private static void AssertEnergy(
-        EzNutrition.Client.Models.Archive archive,
+        ConsultationWorkspace archive,
         ArchiveDocument document)
     {
         if (archive.CurrentEnergyCalculator is not { } calculator)
@@ -298,7 +300,7 @@ public sealed class ConsultationScenarioTests
     }
 
     private static void AssertSoap(
-        EzNutrition.Client.Models.Archive archive,
+        ConsultationWorkspace archive,
         ArchiveDocument document)
     {
         if (archive.SubjectiveObjectiveAssessmentPlanInformation is not { } source)

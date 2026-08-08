@@ -1,9 +1,11 @@
-﻿@using EzNutrition.Client.Models
+﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Ports
+@using EzNutrition.Domain.Assessments
 @using EzNutrition.Client.Services
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject IMessageService Message
-@inject IHttpClientFactory HttpClientFactory
+@inject ConsultationApplicationService ConsultationService
 @inject ILogger<EnergyCalculatorTreatment> Logger
 @if (EnergyCalculator != null)
 {
@@ -337,14 +339,14 @@
         fetchCancellation = cancellation;
         try
         {
-            await EnergyCalculator.FetchEersAsync(
-                HttpClientFactory.CreateClient("Authorize"),
+            await ConsultationService.LoadEnergyReferencesAsync(
+                EnergyCalculator,
                 cancellation.Token);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or InvalidOperationException or NotSupportedException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
         {
             Logger.LogWarning(ex, "Unable to load EER records.");
             await Message.ErrorAsync("能量参考数据加载失败，请稍后重试。");

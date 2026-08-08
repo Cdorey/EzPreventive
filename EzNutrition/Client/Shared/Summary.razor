@@ -1,5 +1,5 @@
-﻿@using EzNutrition.Client.Models
-@using EzNutrition.Shared.Data.DietaryRecallSurvey
+﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Dietary
 <div class="summary-heading">
     <div>
         <span>综合结果</span>
@@ -32,5 +32,5 @@ else
 }
 @code {
     [Parameter]
-    public Archive? Archive { get; set; }
+    public ConsultationWorkspace? Archive { get; set; }
 }

@@ -1,12 +1,12 @@
-﻿@using EzNutrition.Client.Models
-@using EzNutrition.Client.Models.DietarySurvey
+﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Ports
+@using EzNutrition.Domain.Dietary
 @using EzNutrition.Client.Services
-@using EzNutrition.Shared.Data.DietaryRecallSurvey
 @using EzNutrition.Shared.Data.Entities
 @using System.Data
 @implements IDisposable
 @inject IMessageService Message
-@inject IHttpClientFactory HttpClientFactory
+@inject ConsultationApplicationService ConsultationService
 @inject ILogger<DietarySurvey> Logger
 <div class="dietary-survey">
 <div class="component-heading">
@@ -169,18 +169,9 @@
         {
             if (food.FoodNutrientValues is null)
             {
-                var httpClient = HttpClientFactory.CreateClient("Authorize");
-                var requestUri = $"FoodComposition/CompositionData?friendlyCode={Uri.EscapeDataString(food.FriendlyCode)}";
-                var foodDetails = await httpClient.GetFromJsonAsync<List<FoodNutrientValue>>(
-                    requestUri,
+                await ConsultationService.LoadFoodCompositionAsync(
+                    food,
                     lifetimeCancellation.Token);
-                if (foodDetails is null || foodDetails.Count == 0)
-                {
-                    await Message.ErrorAsync("没有找到该食物的营养成分数据。");
-                    return;
-                }
-
-                food.FoodNutrientValues = foodDetails;
             }
 
             Entries?.Add(new DietaryRecallEntry { Food = food, Weight = 100 });
@@ -188,10 +179,10 @@
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+        catch (NutritionDataAccessException ex)
         {
             Logger.LogWarning(ex, "Unable to load food composition for {FoodCode}.", food.FriendlyCode);
-            await Message.ErrorAsync("食物营养成分加载失败，请稍后重试。");
+            await Message.ErrorAsync(ex.Message);
         }
     }
 

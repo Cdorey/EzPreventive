@@ -1,0 +1,115 @@
+﻿using AntDesign;
+using EzNutrition.Application.Archives;
+using EzNutrition.Application.Consultations;
+using EzNutrition.Application.Ports;
+using EzNutrition.Archives.Contracts.Identity;
+using EzNutrition.Archives.Contracts.Serialization;
+using EzNutrition.Domain.Consultations;
+using Microsoft.AspNetCore.Components;
+using System.Collections.Concurrent;
+
+namespace EzNutrition.Client.Services
+{
+    public class ConsultationWorkspaceManager(IMessageService message,
+                                      UserSessionService userSession,
+                                      NavigationManager navigationManager,
+                                      ILogger<ConsultationWorkspaceManager> logger,
+                                      ArchiveContractAssembler contractAssembler,
+                                      ConsultationApplicationService consultationService) : ConcurrentDictionary<Guid, ConsultationWorkspace>()
+    {
+        public event EventHandler? ClientNameChanged;
+
+        public Guid NewWorkspace()
+        {
+            var client = new ClientInfo();
+            this[client.ClientId] = new ConsultationWorkspace(client);
+            client.NameChanged += HandleClientNameChanged;
+            return client.ClientId;
+        }
+
+        public async Task ClientInfoConfirmed(ConsultationWorkspace archive, CancellationToken cancellationToken = default)
+        {
+            if (archive.IsLoading)
+            {
+                return;
+            }
+
+            if (userSession.UserInfo is null || userSession.UserInfo.IsExpired)
+            {
+                navigationManager.NavigateTo("/");
+                await message.ErrorAsync("需要登录");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(archive.Client.Gender))
+            {
+                await message.ErrorAsync("性别不能为空");
+                return;
+            }
+
+            if (archive.Client.Age < 0)
+            {
+                await message.ErrorAsync("年龄不符合逻辑");
+                return;
+            }
+
+            try
+            {
+                archive.IsLoading = true;
+                await consultationService.InitializeAsync(archive, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
+            {
+                logger.LogWarning(ex, "Unable to initialize archive for nutrition assessment.");
+                await message.ErrorAsync("初始化营养评估失败，请检查网络后重试。");
+                archive.CurrentEnergyCalculator = null;
+                archive.DRIs = null;
+                archive.DietaryRecallSurvey = null;
+                archive.DietaryTower = null;
+                archive.ClientInfoFormEnabled = true;
+                archive.SubjectiveObjectiveAssessmentPlanInformation = null;
+            }
+            finally
+            {
+                archive.IsLoading = false;
+            }
+        }
+
+        public async Task ClientInfoConfirmed(Guid archiveId, CancellationToken cancellationToken = default)
+        {
+            if (!TryGetValue(archiveId, out var archive))
+            {
+                throw new KeyNotFoundException($"Consultation workspace {archiveId} does not exist.");
+            }
+
+            await ClientInfoConfirmed(archive, cancellationToken);
+        }
+
+        /// <summary>
+        /// 建立指定运行态咨询的格式无关档案文档快照。
+        /// </summary>
+        /// <param name="archiveId">运行态咨询标识。</param>
+        /// <param name="capturedAt">快照时间。</param>
+        /// <param name="bundleId">可选资源包标识。</param>
+        /// <returns>档案文档快照。</returns>
+        /// <exception cref="KeyNotFoundException">运行态咨询不存在。</exception>
+        public ArchiveDocument CreateContractDocument(
+            Guid archiveId,
+            DateTimeOffset? capturedAt = null,
+            ArchiveBundleId? bundleId = null)
+        {
+            if (!TryGetValue(archiveId, out var archive))
+            {
+                throw new KeyNotFoundException($"Consultation workspace {archiveId} does not exist.");
+            }
+
+            return contractAssembler.CreateDocument(archive, capturedAt, bundleId);
+        }
+
+        private void HandleClientNameChanged(object? sender, EventArgs e) =>
+            ClientNameChanged?.Invoke(sender, e);
+    }
+}

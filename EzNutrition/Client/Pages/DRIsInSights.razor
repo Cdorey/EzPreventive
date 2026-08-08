@@ -1,13 +1,15 @@
 ﻿@page "/drisinsights"
-@using EzNutrition.Client.Models;
+@using EzNutrition.Application.Consultations;
+@using EzNutrition.Application.Ports;
 @using EzNutrition.Client.Services;
-@using EzNutrition.Shared.Utilities;
+@using EzNutrition.Domain.Assessments;
+@using EzNutrition.Domain.Consultations;
 @using EzNutrition.Shared.Data.Entities;
 @using System.Text;
 @attribute [Authorize]
 @implements IDisposable
 @inject IMessageService Message
-@inject IHttpClientFactory HttpClientFactory
+@inject ConsultationApplicationService ConsultationService
 @inject ILogger<DRIsInSights> Logger
 <PageTitle>DRIs 速查</PageTitle>
 
@@ -105,14 +107,14 @@
         {
             IsLoading = true;
             await Task.Delay(RequestDebounceMilliseconds, cancellation.Token);
-            await Dris.FetchDRIsAsync(
-                HttpClientFactory.CreateClient("Authorize"),
+            await ConsultationService.LoadDietaryReferenceIntakesAsync(
+                Dris,
                 cancellation.Token);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or InvalidOperationException or NotSupportedException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
         {
             Logger.LogWarning(ex, "Unable to load DRI records.");
             await Message.ErrorAsync("膳食参考摄入量加载失败，请稍后重试。");

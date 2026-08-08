@@ -1,10 +1,15 @@
+using EzNutrition.Application.Archives;
+using EzNutrition.Application.Consultations;
+using EzNutrition.Application.Ports;
 using EzNutrition.Archives.Contracts.Validation;
-using EzNutrition.Client.Archives;
+using EzNutrition.Archives.Contracts.ValueObjects;
+using EzNutrition.Client.Infrastructure;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using System.Reflection;
 
 namespace EzNutrition.Client
 {
@@ -35,13 +40,35 @@ namespace EzNutrition.Client
             //builder.Services.AddScoped<AuthenticationStateProvider, UserSessionService>();
             builder.Services.AddSingleton<UserSessionService>();
             builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<UserSessionService>());
-            builder.Services.AddScoped<ArchiveManageService>();
-            builder.Services.AddSingleton(ArchiveContractAssembler.CreateDefault());
+            builder.Services.AddScoped<HttpNutritionDataSource>();
+            builder.Services.AddScoped<IEnergyReferenceDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
+            builder.Services.AddScoped<IDietaryReferenceIntakeDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
+            builder.Services.AddScoped<IFoodCompositionDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
+            builder.Services.AddScoped<ConsultationApplicationService>();
+            builder.Services.AddScoped<ConsultationWorkspaceManager>();
+            builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
             builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
             await builder.Build().RunAsync();
+        }
+
+        private static ArchiveContractAssembler CreateArchiveContractAssembler()
+        {
+            var assembly = typeof(Program).Assembly;
+            var version = assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion;
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                version = assembly.GetName().Version?.ToString() ?? "unknown";
+            }
+
+            return new ArchiveContractAssembler(new ApplicationIdentity(
+                new Uri("https://eznutrition.cdorey.net/applications/wasm-client"),
+                "EzNutrition WASM",
+                version));
         }
     }
 }

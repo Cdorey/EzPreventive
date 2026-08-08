@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj" />
+    <ProjectReference Include="..\EzNutrition.Domain\EzNutrition.Domain.csproj" />
+    <ProjectReference Include="..\EzNutrition\Shared\EzNutrition.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,10 +1,12 @@
-using EzNutrition.Client.Archives;
-using EzNutrition.Client.Models;
-using EzNutrition.Shared.Data.DietaryRecallSurvey;
+using EzNutrition.Application.Archives;
+using EzNutrition.Application.Consultations;
+using EzNutrition.Domain.Assessments;
+using EzNutrition.Domain.Consultations;
+using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.DTO.PromptDto;
 using EzNutrition.Shared.Data.Entities;
-using RuntimeArchive = EzNutrition.Client.Models.Archive;
-using RuntimeDietaryRecallSurvey = EzNutrition.Client.Models.DietarySurvey.DietaryRecallSurvey;
+using RuntimeArchive = EzNutrition.Application.Consultations.ConsultationWorkspace;
+using RuntimeDietaryRecallSurvey = EzNutrition.Domain.Dietary.DietaryRecallSurvey;
 
 namespace EzNutrition.Client.Tests.Fixtures;
 

@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj" />
+    <ProjectReference Include="..\..\EzNutrition.Application\EzNutrition.Application.csproj" />
+    <ProjectReference Include="..\..\EzNutrition.Domain\EzNutrition.Domain.csproj" />
     <ProjectReference Include="..\Shared\EzNutrition.Shared.csproj" />
   </ItemGroup>
 

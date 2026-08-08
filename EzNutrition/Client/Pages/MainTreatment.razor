@@ -1,13 +1,13 @@
 ﻿@page "/maintreatment/{id?}"
-@using EzNutrition.Client.Models
+@using EzNutrition.Application.Consultations
 @using EzNutrition.Client.Services
-@using EzNutrition.Shared.Utilities
+@using EzNutrition.Domain.Calculations
 @using EzNutrition.Shared.Data.Entities
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
-@inject ArchiveManageService ArchiveManager
+@inject ConsultationWorkspaceManager WorkspaceManager
 
 <PageTitle>营养咨询</PageTitle>
 
@@ -206,11 +206,11 @@
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
 
-    public Archive? CurrentArchive { get; private set; }
+    public ConsultationWorkspace? CurrentArchive { get; private set; }
 
     protected override void OnParametersSet()
     {
-        if (Guid.TryParse(Id, out var archiveId) && ArchiveManager.TryGetValue(archiveId, out var archive))
+        if (Guid.TryParse(Id, out var archiveId) && WorkspaceManager.TryGetValue(archiveId, out var archive))
         {
             CurrentArchive = archive;
             return;
@@ -227,7 +227,7 @@
             return;
         }
 
-        await ArchiveManager.ClientInfoConfirmed(CurrentArchive, lifetimeCancellation.Token);
+        await WorkspaceManager.ClientInfoConfirmed(CurrentArchive, lifetimeCancellation.Token);
     }
 
     private void DietarySurveyCalculationCompleted()

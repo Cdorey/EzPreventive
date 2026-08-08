@@ -2,8 +2,8 @@
 @using System.Text.Json
 @using System.Net.Http.Headers
 @using System.Diagnostics
-@using EzNutrition.Client.Models
-@using EzNutrition.Client.Models.DietarySurvey
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Dietary
 @using EzNutrition.Client.Services
 @using EzNutrition.Shared.Data.DTO.PromptDto
 @using EzNutrition.Shared.Policies
@@ -145,7 +145,7 @@
 
     private CancellationTokenSource? generationCancellation;
 
-    private Archive? activeArchive;
+    private ConsultationWorkspace? activeArchive;
 
     private GenerationState generationState = GenerationState.ReadyToSend;
 
@@ -181,7 +181,7 @@
         : "模型推理可能需要一些时间；请求超过 5 分钟会自动停止。";
 
     [Parameter, EditorRequired]
-    public required Archive CurrentArchive { get; set; }
+    public required ConsultationWorkspace CurrentArchive { get; set; }
 
     private async Task GenerateAsync()
     {
@@ -385,12 +385,12 @@
         }
     }
 
-    private bool IsActiveGeneration(Archive archive, CancellationTokenSource cancellation) =>
+    private bool IsActiveGeneration(ConsultationWorkspace archive, CancellationTokenSource cancellation) =>
         ReferenceEquals(activeArchive, archive)
         && ReferenceEquals(generationCancellation, cancellation);
 
     private void SetGenerationFailure(
-        Archive archive,
+        ConsultationWorkspace archive,
         CancellationTokenSource cancellation,
         GenerationState state,
         string message)

@@ -4,8 +4,9 @@ using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
-using EzNutrition.Client.Archives;
-using EzNutrition.Client.Models;
+using EzNutrition.Application.Archives;
+using EzNutrition.Application.Consultations;
+using EzNutrition.Domain.Consultations;
 using EzNutrition.Client.Tests.Fixtures;
 
 namespace EzNutrition.Client.Tests.Tests;
@@ -227,7 +228,7 @@ public sealed class ArchiveContractAssemblerTests
             reference.ExpectedResourceType == ArchiveResourceTypes.NutritionAdvice);
     }
 
-    private static ArchiveDocument CreateDocument(EzNutrition.Client.Models.Archive archive) =>
+    private static ArchiveDocument CreateDocument(ConsultationWorkspace archive) =>
         Assembler.CreateDocument(archive, archive.ContractIdentity.CreatedAt.AddHours(1));
 
     private static TResource SingleResource<TResource>(ArchiveDocument document)
