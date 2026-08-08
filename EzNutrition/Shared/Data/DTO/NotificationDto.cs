@@ -4,7 +4,7 @@ namespace EzNutrition.Shared.Data.DTO
 {
     public class NotificationDto
     {
-        [Required(ErrorMessage = "通知描述是必填项"),Display(Name ="通知正文")]
+        [Required(ErrorMessage = "通知描述是必填项"), Display(Name = "通知正文")]
         public string NoticeDescription { get; set; } = string.Empty;
 
         [Display(Name = "通知标题")]

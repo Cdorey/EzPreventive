@@ -13,6 +13,6 @@
         /// <summary>
         /// 标明本次调用者的身份，例如“医生”、“患者”、“护士”等。
         /// </summary>
-        public string CallerRole { get; set; }= "医生";
+        public string CallerRole { get; set; } = "医生";
     }
 }

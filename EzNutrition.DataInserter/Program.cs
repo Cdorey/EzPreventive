@@ -12,10 +12,8 @@ namespace EzNutrition.DataInserter
     /// </summary>
     internal class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
-            AiAgency.Test.TestIt().Wait();
-            Console.ReadLine();
         }
 
 
