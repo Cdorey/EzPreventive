@@ -1,10 +1,9 @@
-﻿@using EzNutrition.Client.Models
-@using EzNutrition.Client.Pages
+﻿@using EzNutrition.Client.Pages
 @using EzNutrition.Client.Services;
 @using EzNutrition.Shared.Policies
 @implements IDisposable
 @inject UserSessionService UserSession
-@inject ArchiveManageService ArchiveManager
+@inject ConsultationWorkspaceManager WorkspaceManager
 @inject NavigationManager Navigator
 <nav class="primary-navigation" aria-label="主要导航">
     <Menu Class="primary-menu" OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode="@MenuMode.Inline">
@@ -19,7 +18,7 @@
                     <span>门诊咨询</span>
                 </TitleTemplate>
                 <ChildContent>
-                    <MenuItem OnClick="OpenArchive">
+                    <MenuItem OnClick="OpenWorkspace">
                         <Icon Type="plus" Theme="IconThemeType.Outline" />
                         <span>新建咨询</span>
                     </MenuItem>
@@ -29,7 +28,7 @@
                             <span>当前咨询</span>
                         </TitleTemplate>
                         <ChildContent>
-                            @foreach (var archive in ArchiveManager)
+                            @foreach (var archive in WorkspaceManager)
                             {
                                 <MenuItem RouterLink="@($"maintreatment/{archive.Key}")">
                                     <span class="archive-label">@(string.IsNullOrWhiteSpace(archive.Value.Client.Name) ? archive.Key : archive.Value.Client.Name)</span>
@@ -63,7 +62,7 @@
     protected override void OnInitialized()
     {
         UserSession.AuthenticationStateChanged += HandleAuthenticationStateChanged;
-        ArchiveManager.ClientNameChanged += HandleClientNameChanged;
+        WorkspaceManager.ClientNameChanged += HandleClientNameChanged;
         base.OnInitialized();
     }
 
@@ -73,14 +72,14 @@
     private void HandleClientNameChanged(object? sender, EventArgs e) =>
         _ = InvokeAsync(StateHasChanged);
 
-    private void OpenArchive()
+    private void OpenWorkspace()
     {
-        Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");
+        Navigator.NavigateTo($"maintreatment/{WorkspaceManager.NewWorkspace()}");
     }
 
     public void Dispose()
     {
         UserSession.AuthenticationStateChanged -= HandleAuthenticationStateChanged;
-        ArchiveManager.ClientNameChanged -= HandleClientNameChanged;
+        WorkspaceManager.ClientNameChanged -= HandleClientNameChanged;
     }
 }

@@ -1,0 +1,18 @@
+{
+  "solution": {
+    "path": "EzPreventive.sln",
+    "projects": [
+      "EzNutrition.AiAgency\\EzNutrition.AiAgency.csproj",
+      "EzNutrition.Application\\EzNutrition.Application.csproj",
+      "EzNutrition.Application.Tests\\EzNutrition.Application.Tests.csproj",
+      "EzNutrition.Archives.Contracts\\EzNutrition.Archives.Contracts.csproj",
+      "EzNutrition.Archives.Contracts.Tests\\EzNutrition.Archives.Contracts.Tests.csproj",
+      "EzNutrition.Client.Tests\\EzNutrition.Client.Tests.csproj",
+      "EzNutrition.Domain\\EzNutrition.Domain.csproj",
+      "EzNutrition.UI\\EzNutrition.UI.csproj",
+      "EzNutrition\\Client\\EzNutrition.Client.csproj",
+      "EzNutrition\\Server\\EzNutrition.Server.csproj",
+      "EzNutrition\\Shared\\EzNutrition.Shared.csproj"
+    ]
+  }
+}

@@ -19,6 +19,8 @@ namespace EzNutrition.Server
                 ?? throw new InvalidOperationException("ConnectionStrings:EzNutritionDB is missing.");
             var applicationConnectionString = builder.Configuration.GetConnectionString("ApplicationDb")
                 ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDb is missing.");
+            var applyDatabaseMigrations = builder.Configuration.GetValue<bool?>(
+                "DatabaseStartup:ApplyMigrationsOnStartup") ?? false;
 
             // Add services to the container.
             builder.Services.AddDbContext<EzNutritionDbContext>(options => options.UseSqlServer(nutritionConnectionString));
@@ -57,9 +59,19 @@ namespace EzNutrition.Server
             await using (var scope = app.Services.CreateAsyncScope())
             {
                 var nutrDb = scope.ServiceProvider.GetRequiredService<EzNutritionDbContext>();
-                await nutrDb.Database.MigrateAsync();
                 var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                await appDb.Database.MigrateAsync();
+                if (applyDatabaseMigrations)
+                {
+                    await nutrDb.Database.MigrateAsync();
+                    await appDb.Database.MigrateAsync();
+                }
+                else
+                {
+                    await EnsureNoPendingMigrationsAsync(nutrDb, nameof(EzNutritionDbContext));
+                    await EnsureNoPendingMigrationsAsync(appDb, nameof(ApplicationDbContext));
+                    app.Logger.LogInformation("Database migrations are disabled for this startup.");
+                }
+
                 if (args.Any(x => string.Equals(x, "AuthInitialize", StringComparison.OrdinalIgnoreCase)))
                 {
                     var auth = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
@@ -90,6 +102,17 @@ namespace EzNutrition.Server
             app.MapFallbackToFile("index.html");
 
             await app.RunAsync();
+        }
+
+        private static async Task EnsureNoPendingMigrationsAsync(DbContext dbContext, string contextName)
+        {
+            var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToArray();
+            if (pendingMigrations.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"{contextName} has pending migrations while startup migration is disabled: " +
+                    string.Join(", ", pendingMigrations));
+            }
         }
     }
 }

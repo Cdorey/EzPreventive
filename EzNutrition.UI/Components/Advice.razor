@@ -1,0 +1,549 @@
+@using System.Diagnostics
+@using System.Text.Json
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Ports
+@using EzNutrition.Shared.Data.DTO.PromptDto
+@using EzNutrition.Shared.Policies
+@using EzNutrition.UI.Services
+@namespace EzNutrition.UI.Components
+@implements IAsyncDisposable
+@inject AiAdviceApplicationService AdviceService
+@inject IMessageService Message
+@inject ILogger<Advice> Logger
+
+<div class="advice-panel">
+    <AuthorizeView Policy="@PolicyList.Prescription">
+        <Authorized>
+            @if (CurrentArchive.AdvicePrompt is not null && CurrentArchive.AiGeneratedAdvice is not null)
+            {
+                @if (ShouldShowConsent)
+                {
+                    <Result Status="ResultStatus.Warning" Title="确认向 AI 代理发送数据">
+                        <Extra>
+                            <div class="advice-consent-content">
+                                <section>
+                                    <h3>使用前确认</h3>
+                                    <p>
+                                        以下数据将交由当前宿主配置的 AI 能力处理。浏览器版会通过 EzNutrition 后端代理并记入安全审查日志；
+                                        其他宿主的处理方式以“当前 AI 代理”信息为准。外部模型服务也可能按供应商政策记录数据。
+                                        请确认操作符合您所在地区卫生行政部门的规定。AI 生成内容须由营养专业医务人员审核，不构成医疗建议。
+                                    </p>
+                                </section>
+
+                                <section>
+                                    <h3>当前 AI 代理</h3>
+                                    @if (Environment is not null)
+                                    {
+                                        <dl class="agent-metadata">
+                                            <div><dt>提供者</dt><dd>@Environment.ProviderName</dd></div>
+                                            <div><dt>调用方式</dt><dd>@Environment.PlatformDetails</dd></div>
+                                            <div><dt>生成参数</dt><dd>@Environment.AdditionalInfo</dd></div>
+                                        </dl>
+                                    }
+                                    else
+                                    {
+                                        <p>AI 环境信息加载失败或尚未获取。</p>
+                                    }
+                                </section>
+
+                                <section>
+                                    <h3>拟发送的数据</h3>
+                                    <Collapse Class="prompt-disclosure">
+                                        <Panel Header="查看将发送的完整数据" Key="prompt-payload">
+                                            <pre class="prompt-preview"><code>@SerializedPrompt</code></pre>
+                                        </Panel>
+                                    </Collapse>
+                                </section>
+
+                                <div class="advice-actions">
+                                    <Button Type="ButtonType.Primary" OnClick="GenerateAsync" AutoLoading Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending || IsGenerationBusy)">同意并发送</Button>
+                                    <Button OnClick="CancelSend" Disabled="@(CurrentArchive.AiGeneratedAdvice.Sending)">取消</Button>
+                                </div>
+                            </div>
+                        </Extra>
+                    </Result>
+                }
+                else
+                {
+                    @if (CurrentArchive.AiGeneratedAdvice.Sending)
+                    {
+                        <section class="generation-status" role="status" aria-live="polite">
+                            <Spin Size="SpinSize.Small" />
+                            <div class="generation-status-copy">
+                                <strong>@GenerationStatusTitle</strong>
+                                <span>@GenerationStatusDescription</span>
+                            </div>
+                            <Button OnClick="CancelGeneration">停止生成</Button>
+                        </section>
+                    }
+                    else if (IsIncompleteGeneration)
+                    {
+                        <Result Status="ResultStatus.Warning"
+                                Title="AI 生成未完成"
+                                SubTitle="@generationStatusMessage">
+                            <Extra>
+                                <div class="advice-actions centered-actions">
+                                    <Button Type="ButtonType.Primary" OnClick="GenerateAsync" AutoLoading Disabled="@IsGenerationBusy">重新发送</Button>
+                                    <Button OnClick="BackToPreview">返回数据预览</Button>
+                                </div>
+                            </Extra>
+                        </Result>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.ReasoningContent))
+                    {
+                        <section class="advice-output-section reasoning-output">
+                            <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "供专业人员复核" : "正在生成 · 内容可能不完整")</span>
+                            <h2>助理的分析过程</h2>
+                            <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.ReasoningContent</div>
+                        </section>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.Content))
+                    {
+                        <section class="advice-output-section recommendation-output">
+                            <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "草稿" : "正在生成 · 内容可能不完整")</span>
+                            <h2>膳食建议与健康教育</h2>
+                            @if (CurrentArchive.AiGeneratedAdvice.IsReady)
+                            {
+                                <div class="output-content markdown-output">@SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)</div>
+                            }
+                            else
+                            {
+                                <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.Content</div>
+                            }
+                        </section>
+                    }
+                }
+            }
+            else
+            {
+                <Result Status="ResultStatus.Info" Title="准备 AI 辅助建议" SubTitle="完成能量分析、膳食调查和 SOAP 信息后，可在这里汇总并核对拟发送的数据。">
+                    <Extra>
+                        <Button Type="ButtonType.Primary" OnClick="MakePrompt">汇总并预览数据</Button>
+                    </Extra>
+                </Result>
+            }
+        </Authorized>
+        <NotAuthorized>
+            <Result Status="ResultStatus.Http403" Title="此功能需要专业资质认证" SubTitle="医学用途限具备卫生行政部门认可资质的医师或营养师；教学用途限营养及相关专业的高校师生。">
+                <Extra>
+                    <p class="authorization-note">认证入口位于“用户中心 → 专业资质认证申请”。请勿使用 epiman 测试账户提交申请。</p>
+                </Extra>
+            </Result>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    private EnvironmentDto? Environment { get; set; }
+
+    private static readonly TimeSpan GenerationTimeout = TimeSpan.FromMinutes(5);
+
+    private static readonly TimeSpan StreamRenderInterval = TimeSpan.FromMilliseconds(100);
+
+    private static readonly TimeSpan DisposalWaitTimeout = TimeSpan.FromSeconds(5);
+
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+
+    private CancellationTokenSource? generationCancellation;
+
+    private Task? activeGenerationTask;
+
+    private ConsultationWorkspace? activeArchive;
+
+    private GenerationState generationState = GenerationState.ReadyToSend;
+
+    private string generationStatusMessage = string.Empty;
+
+    private int receivedCharacterCount;
+
+    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    private string SerializedPrompt => JsonSerializer.Serialize(CurrentArchive.AdvicePrompt, PromptJsonOptions);
+
+    private bool ShouldShowConsent =>
+        !CurrentArchive.AiGeneratedAdvice!.Sending
+        && !CurrentArchive.AiGeneratedAdvice.IsReady
+        && generationState == GenerationState.ReadyToSend;
+
+    private bool IsIncompleteGeneration => generationState is
+        GenerationState.Cancelled or GenerationState.TimedOut or GenerationState.Failed;
+
+    private bool IsGenerationBusy => activeGenerationTask is { IsCompleted: false };
+
+    private string GenerationStatusTitle => generationState switch
+    {
+        GenerationState.Connecting => "正在提交请求",
+        GenerationState.WaitingForContent => "当前 AI 能力已接收请求，正在等待模型输出",
+        GenerationState.Streaming => "正在接收 AI 流式响应",
+        _ => "正在生成"
+    };
+
+    private string GenerationStatusDescription => generationState == GenerationState.Streaming
+        ? $"已接收 {receivedCharacterCount:N0} 个字符；内容会持续显示，完成前请勿直接用于工作。"
+        : "模型推理可能需要一些时间；请求超过 5 分钟会自动停止。";
+
+    [Parameter, EditorRequired]
+    public required ConsultationWorkspace CurrentArchive { get; set; }
+
+    private Task GenerateAsync()
+    {
+        if (activeGenerationTask is { IsCompleted: false })
+        {
+            return activeGenerationTask;
+        }
+
+        activeGenerationTask = GenerateCoreAsync();
+        return activeGenerationTask;
+    }
+
+    private async Task GenerateCoreAsync()
+    {
+        var archive = CurrentArchive;
+        var advice = archive.AiGeneratedAdvice;
+        if (archive.AdvicePrompt is null || advice is null || advice.Sending)
+        {
+            return;
+        }
+
+        generationCancellation?.Cancel();
+        generationCancellation?.Dispose();
+        var userCancellation = new CancellationTokenSource();
+        generationCancellation = userCancellation;
+        using var timeoutCancellation = new CancellationTokenSource(GenerationTimeout);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            lifetimeCancellation.Token,
+            userCancellation.Token,
+            timeoutCancellation.Token);
+        var cancellationToken = linkedCancellation.Token;
+
+        generationState = GenerationState.Connecting;
+        generationStatusMessage = string.Empty;
+        receivedCharacterCount = 0;
+
+        try
+        {
+            var renderTimer = Stopwatch.StartNew();
+            await foreach (var update in AdviceService.GenerateAsync(archive, Environment, cancellationToken))
+            {
+                if (!IsActiveGeneration(archive, userCancellation))
+                {
+                    continue;
+                }
+
+                if (update.Kind == AiAdviceGatewayUpdateKind.Accepted)
+                {
+                    generationState = GenerationState.WaitingForContent;
+                    await InvokeAsync(StateHasChanged);
+                    continue;
+                }
+
+                receivedCharacterCount += update.Content.Length;
+                generationState = GenerationState.Streaming;
+                if (receivedCharacterCount == update.Content.Length
+                    || renderTimer.Elapsed >= StreamRenderInterval)
+                {
+                    renderTimer.Restart();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsActiveGeneration(archive, userCancellation))
+            {
+                if (advice.GenerationStatus == AiAdviceGenerationStatus.Completed)
+                {
+                    generationState = GenerationState.Completed;
+                }
+                else
+                {
+                    RestorePresentationState(advice);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested)
+        {
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.TimedOut,
+                "等待 AI 响应已超过 5 分钟，前端已停止本次请求。可以重新发送。"))
+            {
+                await Message.WarningAsync("AI 生成超时，已停止本次请求。");
+            }
+        }
+        catch (OperationCanceledException) when (userCancellation.IsCancellationRequested)
+        {
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.Cancelled,
+                "本次生成已停止；页面中已显示的内容是不完整草稿。可以重新发送。"))
+            {
+                await Message.InfoAsync("已停止 AI 生成。");
+            }
+        }
+        catch (AiAdviceProviderException ex)
+        {
+            Logger.LogWarning(ex, "The AI provider reported a generation failure.");
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.Failed,
+                string.IsNullOrWhiteSpace(ex.Message) ? "AI 生成器调用失败，请稍后重试。" : ex.Message))
+            {
+                await Message.ErrorAsync("AI 生成器调用失败，请稍后重试。");
+            }
+        }
+        catch (AiAdviceAccessException ex)
+        {
+            Logger.LogWarning(ex, "The AI advice host could not be accessed.");
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.Failed,
+                "AI 调用暂时不可用，当前内容可能不完整。请稍后重试。"))
+            {
+                await Message.ErrorAsync("AI 请求失败，请稍后重试。");
+            }
+        }
+        catch (AiAdviceProtocolException ex)
+        {
+            Logger.LogWarning(ex, "The AI advice host returned an invalid stream.");
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.Failed,
+                "AI 响应中断或格式异常，当前内容可能不完整。请稍后重试。"))
+            {
+                await Message.ErrorAsync("AI 生成过程中发生错误，请稍后重试。");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AI advice generation failed.");
+            if (TrySetPresentationFailure(
+                archive,
+                userCancellation,
+                GenerationState.Failed,
+                "AI 生成过程中发生未知错误，当前内容可能不完整。请稍后重试。"))
+            {
+                await Message.ErrorAsync("AI 生成过程中发生错误，请稍后重试。");
+            }
+        }
+        finally
+        {
+            var wasActiveGeneration = IsActiveGeneration(archive, userCancellation);
+            if (wasActiveGeneration)
+            {
+                generationCancellation = null;
+            }
+
+            userCancellation.Dispose();
+
+            if (!lifetimeCancellation.IsCancellationRequested
+                && ReferenceEquals(activeArchive, archive))
+            {
+                if (!wasActiveGeneration)
+                {
+                    RestorePresentationState(advice);
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private bool IsActiveGeneration(ConsultationWorkspace archive, CancellationTokenSource cancellation) =>
+        ReferenceEquals(activeArchive, archive)
+        && ReferenceEquals(generationCancellation, cancellation);
+
+    private bool TrySetPresentationFailure(
+        ConsultationWorkspace archive,
+        CancellationTokenSource cancellation,
+        GenerationState state,
+        string message)
+    {
+        if (!IsActiveGeneration(archive, cancellation))
+        {
+            return false;
+        }
+
+        generationState = state;
+        generationStatusMessage = message.Trim();
+        return true;
+    }
+
+    private void MakePrompt()
+    {
+        if (AdviceService.PreparePrompt(CurrentArchive))
+        {
+            generationState = GenerationState.ReadyToSend;
+            generationStatusMessage = string.Empty;
+            receivedCharacterCount = 0;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelSend()
+    {
+        AdviceService.DiscardPreparedAdvice(CurrentArchive);
+        generationState = GenerationState.ReadyToSend;
+        generationStatusMessage = string.Empty;
+        receivedCharacterCount = 0;
+    }
+
+    private void CancelGeneration()
+    {
+        if (AdviceService.InterruptGeneration(CurrentArchive))
+        {
+            generationState = GenerationState.Cancelled;
+            generationStatusMessage = "本次生成已停止；页面中已显示的内容是不完整草稿。可以重新发送。";
+        }
+
+        generationCancellation?.Cancel();
+    }
+
+    private void BackToPreview()
+    {
+        if (CurrentArchive.AiGeneratedAdvice is not { Sending: false })
+        {
+            return;
+        }
+
+        AdviceService.ResetForPreview(CurrentArchive);
+        generationState = GenerationState.ReadyToSend;
+        generationStatusMessage = string.Empty;
+        receivedCharacterCount = 0;
+    }
+
+    protected override void OnParametersSet()
+    {
+        var advice = CurrentArchive.AiGeneratedAdvice ??= new AiGeneratedAdvice();
+        advice.Environment ??= Environment;
+
+        if (!ReferenceEquals(activeArchive, CurrentArchive))
+        {
+            var previousArchive = activeArchive;
+            var previousCancellation = generationCancellation;
+            if (previousArchive is not null)
+            {
+                AdviceService.InterruptGeneration(previousArchive);
+            }
+
+            generationCancellation = null;
+            previousCancellation?.Cancel();
+            activeArchive = CurrentArchive;
+            RestorePresentationState(advice);
+        }
+    }
+
+    private void RestorePresentationState(AiGeneratedAdvice advice)
+    {
+        generationState = advice.GenerationStatus switch
+        {
+            AiAdviceGenerationStatus.Generating when advice.Sending => GenerationState.WaitingForContent,
+            AiAdviceGenerationStatus.Generating => GenerationState.Cancelled,
+            AiAdviceGenerationStatus.Completed => GenerationState.Completed,
+            AiAdviceGenerationStatus.Incomplete => GenerationState.Cancelled,
+            AiAdviceGenerationStatus.Failed => GenerationState.Failed,
+            _ => GenerationState.ReadyToSend
+        };
+        generationStatusMessage = advice.GenerationStatus switch
+        {
+            AiAdviceGenerationStatus.Incomplete => "上一次 AI 生成没有完成，已保留收到的草稿内容。可以重新发送。",
+            AiAdviceGenerationStatus.Failed => "上一次 AI 生成失败，当前内容可能不完整。可以重新发送。",
+            AiAdviceGenerationStatus.Generating when !advice.Sending => "上一次 AI 生成已中断。可以重新发送。",
+            _ => string.Empty
+        };
+        receivedCharacterCount = advice.ReasoningContent.Length + advice.Content.Length;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Environment = await AdviceService.GetEnvironmentAsync(lifetimeCancellation.Token);
+            if (CurrentArchive.AiGeneratedAdvice is { } advice)
+            {
+                advice.Environment = Environment;
+            }
+        }
+        catch (AiAdviceAccessException ex) when (
+            ex.FailureKind == AiAdviceAccessFailureKind.AccessDenied)
+        {
+            Logger.LogInformation("The current user cannot access AI environment information.");
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (AiAdviceException ex)
+        {
+            Logger.LogWarning(ex, "Unable to load AI environment information.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "An unexpected error occurred while loading AI environment information.");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        var currentCancellation = generationCancellation;
+        generationCancellation = null;
+        if (activeArchive is not null)
+        {
+            AdviceService.InterruptGeneration(activeArchive);
+        }
+
+        lifetimeCancellation.Cancel();
+        currentCancellation?.Cancel();
+
+        var generationStopped = true;
+        if (activeGenerationTask is { } generationTask)
+        {
+            try
+            {
+                await generationTask.WaitAsync(DisposalWaitTimeout);
+            }
+            catch (TimeoutException)
+            {
+                generationStopped = false;
+                Logger.LogWarning(
+                    "AI generation did not stop within {Timeout} while the advice component was being disposed.",
+                    DisposalWaitTimeout);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "AI generation stopped while the advice component was being disposed.");
+            }
+        }
+
+        if (generationStopped)
+        {
+            lifetimeCancellation.Dispose();
+        }
+    }
+
+    private enum GenerationState
+    {
+        ReadyToSend,
+        Connecting,
+        WaitingForContent,
+        Streaming,
+        Completed,
+        Cancelled,
+        TimedOut,
+        Failed
+    }
+}

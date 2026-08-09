@@ -1,0 +1,37 @@
+﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Dietary
+@namespace EzNutrition.UI.Components
+<div class="summary-heading">
+    <div>
+        <span>综合结果</span>
+        <h2>评估总结</h2>
+    </div>
+    <Icon Type="fund" Theme="IconThemeType.Outline" />
+</div>
+@if (Archive?.DietaryTower is not null)
+{
+    <h3 class="tower-title">膳食平衡宝塔</h3>
+    @* Tower is here *@
+    <Table TItem="TowerLayer" TreeChildren="x=>x.Children" DataSource="Archive.DietaryTower.RenderTower()" ScrollX="620" HidePagination Size="TableSize.Small" DefaultExpandAllRows>
+        <PropertyColumn Title="类别" Property="r=>r.LayerName">
+            @(context.LayerName)
+        </PropertyColumn>
+        <PropertyColumn Title="宝塔建议值" Property="r=>r.StandardTowerValue">
+            @(context.StandardTowerValue)
+        </PropertyColumn>
+        @if (Archive.DietaryTower is DietaryRecallTower)
+        {
+            <PropertyColumn Title="膳食调查计算结果" Property="r=>r.DietaryRecallTower">
+                @(context.DietaryRecallTower)
+            </PropertyColumn>
+        }
+    </Table>
+}
+else
+{
+    <Skeleton Active />
+}
+@code {
+    [Parameter]
+    public ConsultationWorkspace? Archive { get; set; }
+}

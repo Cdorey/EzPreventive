@@ -1,11 +1,10 @@
 ﻿@page "/"
-@using EzNutrition.Client.Models;
 @using EzNutrition.Client.Services;
 @using System.ComponentModel.DataAnnotations;
 @using System.ComponentModel
 @implements IDisposable
 @inject UserSessionService UserSession
-@inject ArchiveManageService ArchiveManager
+@inject ConsultationWorkspaceManager WorkspaceManager
 @inject NavigationManager Navigator
 @inject ILogger<Index> Logger
 <PageTitle>首页</PageTitle>
@@ -44,7 +43,7 @@
                 <aside class="surface-panel quick-actions" aria-label="快捷操作">
                     <span class="panel-kicker">快捷操作</span>
                     <h2>今天要做什么？</h2>
-                    <Button Class="primary-action" Type="@ButtonType.Primary" Block OnClick="@(()=>{Navigator.NavigateTo($"maintreatment/{ArchiveManager.NewArchive()}");})">
+                    <Button Class="primary-action" Type="@ButtonType.Primary" Block OnClick="@(()=>{Navigator.NavigateTo($"maintreatment/{WorkspaceManager.NewWorkspace()}");})">
                         <Icon Type="plus-circle" Theme="IconThemeType.Outline" />
                         开启新咨询
                     </Button>
