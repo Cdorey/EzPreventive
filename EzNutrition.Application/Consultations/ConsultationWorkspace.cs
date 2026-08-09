@@ -10,6 +10,8 @@ namespace EzNutrition.Application.Consultations
     /// </summary>
     public class ConsultationWorkspace(IClient client, ArchiveContractIdentity? contractIdentity = null)
     {
+        internal object AiAdviceSyncRoot { get; } = new();
+
         public bool ClientInfoFormEnabled { get; set; } = true;
 
         public bool IsLoading { get; set; }

@@ -28,6 +28,8 @@ public enum AiAdviceGenerationStatus
 /// </summary>
 public sealed class AiGeneratedAdvice
 {
+    internal Guid? GenerationAttemptId { get; set; }
+
     /// <summary>获取或设置结果是否可供正式复核。</summary>
     public bool IsReady { get; set; }
 
