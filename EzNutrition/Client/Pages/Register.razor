@@ -24,9 +24,10 @@
         <div class="registration-card result-card">
             <Result Status="ResultStatus.Success"
                     Title="信息提交成功"
-                    SubTitle="一封确认邮件已发送到您的邮箱，请尽快激活您的账号。">
+                    SubTitle="一封确认邮件已发送到您的邮箱；请先完成邮箱验证，再登录账号。">
                 <Extra>
-                    <Button Type="ButtonType.Primary" OnClick="Login">登录</Button>
+                    <Button Type="ButtonType.Primary" OnClick="Login">我已完成邮箱确认，登录</Button>
+                    <Button OnClick="ResendConfirmation">未收到确认邮件</Button>
                 </Extra>
             </Result>
         </div>
@@ -224,7 +225,7 @@
             var message = registrationCreated
                 ? pendingUploadTicket is not null
                     ? "账号已注册，但证明图片上传失败；请保留当前页面并再次点击注册重试上传。"
-                    : "账号已注册，但无法上传证明图片；请激活并登录账号后在用户中心重新提交认证。"
+                    : "账号已注册，但无法上传证明图片；请登录账号后在用户中心重新提交认证。"
                 : ex is InvalidOperationException ? ex.Message : "注册请求失败，请稍后重试。";
             await ShowErrorAsync(message);
         }
@@ -262,6 +263,8 @@
             await Message.ErrorAsync("登录时发生异常，请稍后重试。");
         }
     }
+
+    private void ResendConfirmation() => Navigator.NavigateTo("account/resend-confirmation");
 
     private static bool TryValidate(object value, out string validationMessage)
     {

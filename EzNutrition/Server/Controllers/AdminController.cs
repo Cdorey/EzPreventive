@@ -138,6 +138,11 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("Role name and non-empty claim type/value pairs are required.");
             }
 
+            if (newClaims.Any(claim => JwtService.IsReservedClaimType(claim.Type)))
+            {
+                return BadRequest("System identity claims cannot be assigned to a role.");
+            }
+
             newClaims = newClaims
                 .DistinctBy(claim => (claim.Type, claim.Value))
                 .ToList();
@@ -171,6 +176,21 @@ namespace EzNutrition.Server.Controllers
                 if (!addResult.Succeeded)
                 {
                     return BadRequest($"Failed to add claim: {claimDto.Type}");
+                }
+            }
+
+            var usersInRole = await userManager.GetUsersInRoleAsync(roleName);
+            foreach (var user in usersInRole)
+            {
+                var stampResult = await userManager.UpdateSecurityStampAsync(user);
+                if (!stampResult.Succeeded)
+                {
+                    logger.LogError(
+                        "更新角色 {RoleName} 后使用户 {UserId} 的登录凭据失效失败：{Errors}",
+                        roleName,
+                        user.Id,
+                        stampResult.Errors);
+                    return BadRequest(stampResult.Errors);
                 }
             }
 
@@ -239,7 +259,9 @@ namespace EzNutrition.Server.Controllers
                 UserId = user.Id,
                 UserName = user.UserName ?? string.Empty,
                 Email = user.Email ?? string.Empty,
+                EmailConfirmed = user.EmailConfirmed,
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
+                PhoneNumberConfirmed = user.PhoneNumberConfirmed,
                 Roles = [.. roles],
                 Claims = [.. claims.Select(c => new ClaimDto { Type = c.Type, Value = c.Value })]
             };
@@ -313,6 +335,11 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest("用户标识、用户名、邮箱、角色和有效的 Claim 均不能为空。");
             }
 
+            if (dto.Claims.Any(claim => JwtService.IsReservedClaimType(claim.Type)))
+            {
+                return BadRequest("系统身份 Claim 不能由管理员直接分配。");
+            }
+
             var requestedRoles = dto.Roles
                 .Where(role => !string.IsNullOrWhiteSpace(role))
                 .Select(role => role.Trim())
@@ -341,9 +368,22 @@ namespace EzNutrition.Server.Controllers
             await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
             // 更新用户基本属性
+            var emailChanged = !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase);
+            var phoneNumberChanged = !string.Equals(
+                user.PhoneNumber ?? string.Empty,
+                dto.PhoneNumber ?? string.Empty,
+                StringComparison.Ordinal);
             user.UserName = dto.UserName;
             user.Email = dto.Email;
             user.PhoneNumber = dto.PhoneNumber;
+            if (emailChanged)
+            {
+                user.EmailConfirmed = false;
+            }
+            if (phoneNumberChanged)
+            {
+                user.PhoneNumberConfirmed = false;
+            }
 
             var updateResult = await userManager.UpdateAsync(user);
             if (!updateResult.Succeeded)
@@ -406,6 +446,13 @@ namespace EzNutrition.Server.Controllers
                     logger.LogError("添加 Claim {ClaimType} 失败：{Errors}", claim.Type, addClaimResult.Errors);
                     return BadRequest(addClaimResult.Errors);
                 }
+            }
+
+            var stampResult = await userManager.UpdateSecurityStampAsync(user);
+            if (!stampResult.Succeeded)
+            {
+                logger.LogError("使用户 {UserId} 的旧登录凭据失效失败：{Errors}", user.Id, stampResult.Errors);
+                return BadRequest(stampResult.Errors);
             }
 
             await transaction.CommitAsync(cancellationToken);

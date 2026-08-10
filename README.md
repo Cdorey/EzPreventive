@@ -12,7 +12,7 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 - **营养评估**：提供能量需求、膳食营养素参考摄入量等计算与速查能力。
 - **膳食调查**：支持 24 小时膳食回顾及相关膳食结构分析。
 - **AI 辅助建议**：通过服务端调用生成式 AI，并以流式方式呈现推理和建议；供应商能力由可替换适配器隔离，支持取消、失败反馈与重新发送。
-- **身份与权限**：提供用户认证、专业身份相关流程和受权限保护的功能入口。
+- **身份与权限**：提供邮箱确认与重发、密码修改与邮箱找回、邮箱/手机号码修改、专业身份相关流程和受权限保护的功能入口。
 - **档案基础**：已经建立格式无关的档案模型、校验、编解码和仓储契约；XML 导入、导出及持久化实现仍在开发计划中。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
@@ -35,7 +35,7 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 | `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
 | `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
 | `EzNutrition/Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
-| `*.Tests` | Application、Archives.Contracts 和 Client 的行为与架构边界测试 |
+| `*.Tests` | Application、Archives.Contracts、Client 和 Server 的行为、安全流程与架构边界测试 |
 
 依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、未来桌面客户端或其他宿主在组合根中提供具体实现。
 
@@ -49,7 +49,9 @@ dotnet build .\EzPreventive.sln -c Release --no-restore
 dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 ```
 
-运行服务端还需要配置两个 SQL Server 连接、JWT、邮件服务和 AI 供应商凭据。请使用用户机密、环境变量或受控配置源，不要把真实凭据提交到仓库。
+运行服务端还需要配置两个 SQL Server 连接、JWT、邮件服务和 AI 供应商凭据。首次执行 `AuthInitialize` 创建管理员时，还必须通过受控配置提供 `AuthBootstrap:AdminPassword`（环境变量形式为 `AuthBootstrap__AdminPassword`）。请使用用户机密、环境变量或受控配置源，不要把真实凭据提交到仓库或日志。
+
+生产部署还应按实际拓扑配置[受信任的反向代理](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)，确保登录和账户恢复的 IP 限流取得真实客户端地址；容器或多实例部署则应[持久化并共享 Data Protection 密钥环](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)，避免邮箱确认和密码重置令牌因重启或实例切换而失效。
 
 数据库迁移默认不会在服务启动时自动执行。部署时应把结构迁移作为显式步骤，并在启动应用前确认两个数据库均无待应用迁移。
 

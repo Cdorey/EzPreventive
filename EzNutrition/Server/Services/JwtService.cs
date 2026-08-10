@@ -17,6 +17,8 @@ namespace EzNutrition.Server.Services
         IOptions<JwtSettings> options,
         ILogger<JwtService> logger)
     {
+        internal const string SecurityStampClaimType = "EzNutrition.SecurityStamp";
+
         //public async Task<string> GenerateJwtToken(string userName)
         //{
         //    return await GenerateJwtToken(await userManager.FindByNameAsync(userName));
@@ -57,11 +59,17 @@ namespace EzNutrition.Server.Services
             var claimsList = new List<Claim>();
 
             // 1. 加入用户已有 Claims
-            claimsList.AddRange(await userManager.GetClaimsAsync(user));
+            claimsList.AddRange((await userManager.GetClaimsAsync(user))
+                .Where(claim => !IsReservedClaimType(claim.Type)));
 
-            // 2. 加入 Upn、Name
+            // 2. 加入稳定用户标识、Name 和安全戳指纹
             claimsList.Add(new Claim(ClaimTypes.Upn, user.Id));
+            claimsList.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
             claimsList.Add(new Claim(ClaimTypes.Name, user.UserName));
+            var securityStamp = await userManager.GetSecurityStampAsync(user);
+            claimsList.Add(new Claim(
+                SecurityStampClaimType,
+                CreateSecurityStampFingerprint(securityStamp)));
 
             // 3. 加入角色及其 Claims
             var roleNames = await userManager.GetRolesAsync(user);
@@ -82,7 +90,7 @@ namespace EzNutrition.Server.Services
                 }
 
                 var extraRoleClaims = await roleManager.GetClaimsAsync(roleEntity);
-                claimsList.AddRange(extraRoleClaims);
+                claimsList.AddRange(extraRoleClaims.Where(claim => !IsReservedClaimType(claim.Type)));
             }
 
             claimsList = claimsList
@@ -102,5 +110,44 @@ namespace EzNutrition.Server.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+
+        internal static string CreateSecurityStampFingerprint(string securityStamp)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(securityStamp);
+            return Base64UrlEncoder.Encode(SHA256.HashData(Encoding.UTF8.GetBytes(securityStamp)));
+        }
+
+        internal static bool IsSecurityStampFingerprintValid(
+            string fingerprint,
+            string securityStamp)
+        {
+            try
+            {
+                var actual = Base64UrlEncoder.DecodeBytes(fingerprint);
+                var expected = SHA256.HashData(Encoding.UTF8.GetBytes(securityStamp));
+                return actual.Length == expected.Length &&
+                    CryptographicOperations.FixedTimeEquals(actual, expected);
+            }
+            catch (Exception ex) when (ex is FormatException or ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        internal static bool IsReservedClaimType(string claimType) =>
+            claimType == SecurityStampClaimType ||
+            claimType == ClaimTypes.NameIdentifier ||
+            claimType == ClaimTypes.Upn ||
+            claimType == ClaimTypes.Name ||
+            claimType == ClaimTypes.Role ||
+            claimType == JwtRegisteredClaimNames.Sub ||
+            claimType == JwtRegisteredClaimNames.UniqueName ||
+            claimType == JwtRegisteredClaimNames.Jti ||
+            claimType == JwtRegisteredClaimNames.Iat ||
+            claimType == JwtRegisteredClaimNames.Exp ||
+            claimType == JwtRegisteredClaimNames.Nbf ||
+            claimType == JwtRegisteredClaimNames.Aud ||
+            claimType == JwtRegisteredClaimNames.Iss ||
+            claimType is "name" or "nameid" or "role" or "roles" or "upn";
     }
 }

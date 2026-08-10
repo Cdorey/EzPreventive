@@ -1,0 +1,30 @@
+<section class="account-action-page">
+    <article class="account-action-card">
+        <header>
+            <Icon Type="@IconType" Theme="IconThemeType.Outline" />
+            <span>@Eyebrow</span>
+            <h1>@Title</h1>
+            <p>@Description</p>
+        </header>
+        <div class="account-action-content">
+            @ChildContent
+        </div>
+    </article>
+</section>
+
+@code {
+    [Parameter]
+    public string Eyebrow { get; set; } = "账户安全";
+
+    [Parameter, EditorRequired]
+    public required string Title { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string Description { get; set; }
+
+    [Parameter]
+    public string IconType { get; set; } = "safety-certificate";
+
+    [Parameter, EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+}

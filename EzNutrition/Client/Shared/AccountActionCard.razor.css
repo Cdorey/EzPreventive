@@ -1,0 +1,66 @@
+.account-action-page {
+    display: grid;
+    place-items: start center;
+    width: 100%;
+    padding: clamp(8px, 3vw, 36px) 0;
+}
+
+.account-action-card {
+    width: min(100%, 580px);
+    padding: clamp(20px, 4vw, 34px);
+    background: #fff;
+    border: 1px solid var(--ez-border);
+    border-radius: 12px;
+}
+
+header {
+    margin-bottom: 24px;
+}
+
+header ::deep .anticon {
+    float: right;
+    color: var(--ez-primary);
+    font-size: 1.55rem;
+}
+
+header span {
+    color: var(--ez-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+header h1 {
+    margin: 5px 0 7px;
+    color: var(--ez-navy);
+    font-size: clamp(1.55rem, 3vw, 2rem);
+}
+
+header p {
+    margin: 0;
+    color: var(--ez-text-secondary);
+}
+
+.account-action-content ::deep .ant-form-item:last-child {
+    margin-bottom: 0;
+}
+
+.account-action-content ::deep .action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+@media (max-width: 575.98px) {
+    .account-action-card {
+        padding: 18px;
+    }
+
+    .account-action-content ::deep .action-buttons {
+        display: grid;
+    }
+
+    .account-action-content ::deep .action-buttons .ant-btn {
+        width: 100%;
+    }
+}

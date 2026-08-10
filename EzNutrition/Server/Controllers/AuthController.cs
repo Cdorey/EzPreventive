@@ -1,13 +1,10 @@
 ﻿using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Services;
 using EzNutrition.Shared.Data.DTO;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
-using System.Security.Claims;
-using System.Text;
 
 namespace EzNutrition.Server.Controllers
 {
@@ -16,6 +13,8 @@ namespace EzNutrition.Server.Controllers
     public class AuthController(
         ILogger<AuthController> logger,
         AuthManagerRepository authManagerRepository,
+        AccountSecurityService accountSecurityService,
+        IAccountRecoveryQueue accountRecoveryQueue,
         CertificateFileStore certificateFileStore) : ControllerBase
     {
         /// <summary>
@@ -25,6 +24,7 @@ namespace EzNutrition.Server.Controllers
         /// <param name="password"></param>
         /// <returns></returns>
         [HttpPost]
+        [EnableRateLimiting("Login")]
         public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
@@ -51,24 +51,11 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 检查邮箱是否可用
-        /// GET api/Account/CheckEmail?email=xxx@example.com
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> CheckEmail([FromQuery] string email)
-        {
-            if (string.IsNullOrWhiteSpace(email) || !new EmailAddressAttribute().IsValid(email))
-                return BadRequest("A valid email address is required.");
-
-            var available = await authManagerRepository.CheckEmail(email.Trim());
-            return Ok(available);
-        }
-
-        /// <summary>
         /// 用户注册，同时提交基本信息和专业身份信息
         /// 返回一个 uploadTicket，供后续上传证件照片使用
         /// </summary>
         [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
         public async Task<IActionResult> Register([FromBody] RegistrationDto registrationDto)
         {
             if (!ModelState.IsValid)
@@ -106,32 +93,84 @@ namespace EzNutrition.Server.Controllers
         /// <param name="token"></param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<IActionResult> ConfirmEmail([FromQuery][Required] string userId, [FromQuery][Required] string token)
+        [EnableRateLimiting("AccountRecovery")]
+        public IActionResult ConfirmEmail([FromQuery][Required] string userId, [FromQuery][Required] string token)
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
             {
                 return BadRequest("确认链接不完整，请检查");
             }
 
-            try
-            {
-                var result = await authManagerRepository.ConfirmEmailAsync(userId, token);
-                if (result is not null && result.Succeeded)
+            var destination = QueryHelpers.AddQueryString(
+                "/account/confirm-email",
+                new Dictionary<string, string?>
                 {
-                    return Ok("Email地址已确认！");
-                }
+                    ["userId"] = userId,
+                    ["token"] = token
+                });
+            return Redirect(destination);
+        }
 
-                return BadRequest("Email地址确认失败，请重试或重新请求确认邮件。");
-            }
-            catch (FormatException)
+        [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailDto request)
+        {
+            var result = await accountSecurityService.ConfirmEmailAsync(request.UserId, request.Token);
+            return ToActionResult(result);
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
+        public IActionResult ResendEmailConfirmation(
+            [FromBody] ResendEmailConfirmationDto request)
+        {
+            if (!accountRecoveryQueue.TryEnqueue(AccountRecoveryRequestKind.EmailConfirmation, request.Email))
             {
-                return BadRequest("Email确认链接格式不正确。");
+                return RecoveryQueueUnavailable();
             }
-            catch (Exception ex)
+
+            return Accepted(new AccountOperationResultDto
             {
-                logger.LogError(ex, "Error occurred while confirming email for user {UserId}.", userId);
-                return StatusCode(StatusCodes.Status500InternalServerError, "Email确认服务暂时不可用。");
+                Success = true,
+                Message = AccountSecurityService.GenericConfirmationResponse
+            });
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
+        public IActionResult ForgotPassword(
+            [FromBody] ForgotPasswordDto request)
+        {
+            if (!accountRecoveryQueue.TryEnqueue(AccountRecoveryRequestKind.PasswordReset, request.Email))
+            {
+                return RecoveryQueueUnavailable();
             }
+
+            return Accepted(new AccountOperationResultDto
+            {
+                Success = true,
+                Message = AccountSecurityService.GenericPasswordResetResponse
+            });
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto request)
+        {
+            var result = await accountSecurityService.ResetPasswordAsync(request);
+            return ToActionResult(result);
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountRecovery")]
+        public async Task<IActionResult> ConfirmEmailChange(
+            [FromBody] ConfirmEmailChangeDto request,
+            CancellationToken cancellationToken)
+        {
+            var result = await accountSecurityService.ConfirmEmailChangeAsync(
+                request,
+                cancellationToken);
+            return ToActionResult(result);
         }
 
         /// <summary>
@@ -179,6 +218,28 @@ namespace EzNutrition.Server.Controllers
                 logger.LogError(e, "Error occurred while uploading file for upload ticket {UploadTicket}.", uploadTicket);
                 return StatusCode(StatusCodes.Status500InternalServerError, "证件图片上传失败，请稍后重试。");
             }
+        }
+
+        private IActionResult ToActionResult(AccountSecurityResult result)
+        {
+            var response = new AccountOperationResultDto
+            {
+                Success = result.Succeeded,
+                Message = result.Message
+            };
+            return result.Succeeded ? Ok(response) : BadRequest(response);
+        }
+
+        private IActionResult RecoveryQueueUnavailable()
+        {
+            Response.Headers.RetryAfter = "60";
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new AccountOperationResultDto
+                {
+                    Success = false,
+                    Message = "邮件服务当前繁忙，请稍后重试。"
+                });
         }
     }
 }

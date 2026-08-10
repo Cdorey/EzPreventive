@@ -48,6 +48,7 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<AiAdviceApplicationService>();
             builder.Services.AddScoped<ConsultationApplicationService>();
             builder.Services.AddScoped<ConsultationWorkspaceManager>();
+            builder.Services.AddScoped<AccountService>();
             builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
             builder.Services.AddScoped<CertificateUploadService>();

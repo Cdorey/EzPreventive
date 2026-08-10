@@ -108,6 +108,19 @@
     min-width: 140px;
 }
 
+.account-help-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin-top: 8px;
+    font-size: 0.875rem;
+}
+
+.account-help-links a {
+    color: var(--ez-primary-strong);
+}
+
 .introduction-panel ::deep h1,
 .introduction-panel ::deep h2,
 .introduction-panel ::deep h3,

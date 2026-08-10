@@ -7,6 +7,8 @@ using EzNutrition.Server.Services.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 
 namespace EzNutrition.Server
 {
@@ -31,9 +33,59 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
             builder.Services.AddScoped<AuthManagerRepository>();
-            builder.Services.AddTransient<IEmailSender<IdentityUser>, SmtpEmailSender>();
+            builder.Services.AddSingleton<LoginTimingEqualizer>();
+            builder.Services.AddScoped<AccountSecurityService>();
+            builder.Services.AddSingleton<AccountRecoveryQueue>();
+            builder.Services.AddSingleton<IAccountRecoveryQueue>(provider =>
+                provider.GetRequiredService<AccountRecoveryQueue>());
+            builder.Services.AddHostedService<AccountRecoveryWorker>();
+            builder.Services.AddTransient<SmtpEmailSender>();
+            builder.Services.AddTransient<IAccountEmailSender>(provider =>
+                provider.GetRequiredService<SmtpEmailSender>());
+            builder.Services.AddTransient<IEmailSender<IdentityUser>>(provider =>
+                provider.GetRequiredService<SmtpEmailSender>());
             builder.Services.AddScoped<FoodNutritionValueRepository>();
             builder.Services.AddSingleton<CertificateFileStore>();
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddPolicy("AccountRecovery", context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 5,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+                options.AddPolicy("Login", context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 10,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+                options.AddPolicy("AccountSensitive", context =>
+                {
+                    var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                        ?? context.User.FindFirstValue(ClaimTypes.Upn)
+                        ?? "anonymous";
+                    var remoteAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        $"{userId}:{remoteAddress}",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 5,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(5)
+                        });
+                });
+            });
             builder.Services.AddHttpClient<IGenerativeAiProvider, TencentAgencyDeepSeekV4Pro>(client =>
             {
                 // Streaming requests are bounded by the request cancellation token rather than HttpClient's default timeout.
@@ -43,7 +95,14 @@ namespace EzNutrition.Server
             builder.Services.AddOptions<EmailSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(EmailSettings)))
                 .ValidateDataAnnotations()
+                .Validate(
+                    settings => Uri.TryCreate(settings.ClientUrl, UriKind.Absolute, out var uri) &&
+                        (uri.Scheme == Uri.UriSchemeHttps ||
+                         (builder.Environment.IsDevelopment() && uri.IsLoopback)),
+                    "EmailSettings:ClientUrl must use HTTPS outside local development.")
                 .ValidateOnStart();
+            builder.Services.AddOptions<AuthBootstrapSettings>()
+                .Bind(builder.Configuration.GetSection(AuthBootstrapSettings.SectionName));
             builder.Services.AddOptions<JwtSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
                 .ValidateDataAnnotations()
@@ -95,6 +154,7 @@ namespace EzNutrition.Server
 
             app.UseRouting();
             app.UseAuthentication();
+            app.UseRateLimiter();
             app.UseAuthorization();
 
             app.MapRazorPages();

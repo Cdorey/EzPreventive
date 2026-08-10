@@ -4,25 +4,45 @@ using MimeKit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using EzNutrition.Server.Services.Settings;
-using System.Threading.Tasks;
+using System.Text.Encodings.Web;
 
 namespace EzNutrition.Server.Services
 {
     /// <summary>
     /// 使用 MailKit 实现 IEmailSender<IdentityUser> 接口
     /// </summary>
-    public class SmtpEmailSender(IOptions<EmailSettings> options) : IEmailSender<IdentityUser>
+    public class SmtpEmailSender(
+        IOptions<EmailSettings> options,
+        ILogger<SmtpEmailSender> logger) : IEmailSender<IdentityUser>, IAccountEmailSender
     {
+        private static readonly TimeSpan DeliveryTimeout = TimeSpan.FromSeconds(30);
         private readonly EmailSettings smtpSettings = options.Value;
 
-        public async Task SendConfirmationLinkAsync(IdentityUser user, string email, string confirmationLink)
+        Task IEmailSender<IdentityUser>.SendConfirmationLinkAsync(
+            IdentityUser user,
+            string email,
+            string confirmationLink) =>
+            SendConfirmationLinkAsync(user, email, confirmationLink);
+
+        Task IEmailSender<IdentityUser>.SendPasswordResetLinkAsync(
+            IdentityUser user,
+            string email,
+            string resetLink) =>
+            SendPasswordResetLinkAsync(user, email, resetLink);
+
+        public async Task SendConfirmationLinkAsync(
+            IdentityUser user,
+            string email,
+            string confirmationLink,
+            CancellationToken cancellationToken = default)
         {
+            confirmationLink = HtmlEncoder.Default.Encode(confirmationLink);
             string subject = "欢迎加入 EzNutrition - 请确认您的电子邮箱";
             string body = $@"
 <div style='font-family:Arial, sans-serif; font-size:14px; color:#333;'>
   <h2 style='color:#2d89ef;'>欢迎加入 EzNutrition！</h2>
   <p>亲爱的用户，</p>
-  <p>感谢您注册 EzNutrition！为了激活您的账户并确认您的电子邮箱地址，请点击下面的按钮。点击激活即表示您同意以下所有内容：</p>
+  <p>感谢您注册 EzNutrition！为了确认这是您本人使用的电子邮箱地址，请阅读以下内容并点击确认按钮：</p>
   
   <h3>许可协议 (AGPL-3)</h3>
   <p>
@@ -54,9 +74,9 @@ namespace EzNutrition.Server.Services
   </p>
 
   
-  <p>如果您同意上述所有内容，请点击下面的按钮激活您的账户：</p>
+  <p>如果您同意上述所有内容，请点击下面的按钮确认您的电子邮箱：</p>
   <p>
-    <a href='{confirmationLink}' style='display:inline-block; padding:10px 20px; background-color:#2d89ef; color:#fff; text-decoration:none; border-radius:4px;'>确认并激活我的账户</a>
+    <a href='{confirmationLink}' style='display:inline-block; padding:10px 20px; background-color:#2d89ef; color:#fff; text-decoration:none; border-radius:4px;'>确认我的电子邮箱</a>
   </p>
   <p>如果按钮无法点击，请复制下面的链接到浏览器地址栏中访问：</p>
   <p style='word-break:break-all;'>{confirmationLink}</p>
@@ -64,7 +84,7 @@ namespace EzNutrition.Server.Services
   <p>祝您生活愉快！</p>
   <p>此致,<br/>作者 CdoreyPoisson</p>
 </div>";
-            await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body);
+            await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body, cancellationToken);
         }
 
         public async Task SendPasswordResetCodeAsync(IdentityUser user, string email, string resetCode)
@@ -74,15 +94,76 @@ namespace EzNutrition.Server.Services
             await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body);
         }
 
-        public async Task SendPasswordResetLinkAsync(IdentityUser user, string email, string resetLink)
+        public async Task SendPasswordResetLinkAsync(
+            IdentityUser user,
+            string email,
+            string resetLink,
+            CancellationToken cancellationToken = default)
         {
-            string subject = "Reset your password";
-            string body = $"Please reset your password by clicking this link: <a href='{resetLink}'>Reset Password</a>.";
-            await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body);
+            resetLink = HtmlEncoder.Default.Encode(resetLink);
+            string subject = "EzNutrition 密码重置";
+            string body = $@"
+<div style='font-family:Arial, sans-serif; font-size:14px; color:#333;'>
+  <h2 style='color:#2d89ef;'>重置您的 EzNutrition 密码</h2>
+  <p>我们收到了该账户的密码重置请求。请点击下面的按钮设置新密码：</p>
+  <p><a href='{resetLink}' style='display:inline-block; padding:10px 20px; background-color:#2d89ef; color:#fff; text-decoration:none; border-radius:4px;'>设置新密码</a></p>
+  <p>如果按钮无法点击，请复制下面的链接到浏览器地址栏：</p>
+  <p style='word-break:break-all;'>{resetLink}</p>
+  <p>如果这不是您发起的请求，可以忽略这封邮件。</p>
+</div>";
+            await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body, cancellationToken);
         }
 
-        private async Task SendEmailAsync(string username, string email, string subject, string body)
+        public async Task SendEmailChangeLinkAsync(
+            IdentityUser user,
+            string newEmail,
+            string confirmationLink,
+            CancellationToken cancellationToken = default)
         {
+            confirmationLink = HtmlEncoder.Default.Encode(confirmationLink);
+            var encodedEmail = HtmlEncoder.Default.Encode(newEmail);
+            const string subject = "确认您的 EzNutrition 新邮箱";
+            var body = $@"
+<div style='font-family:Arial, sans-serif; font-size:14px; color:#333;'>
+  <h2 style='color:#2d89ef;'>确认新电子邮箱</h2>
+  <p>您申请将 EzNutrition 账户邮箱修改为 <strong>{encodedEmail}</strong>。</p>
+  <p>请点击下面的按钮完成变更；确认前，原邮箱仍然有效。</p>
+  <p><a href='{confirmationLink}' style='display:inline-block; padding:10px 20px; background-color:#2d89ef; color:#fff; text-decoration:none; border-radius:4px;'>确认新邮箱</a></p>
+  <p>如果按钮无法点击，请复制下面的链接到浏览器地址栏：</p>
+  <p style='word-break:break-all;'>{confirmationLink}</p>
+  <p>如果这不是您发起的请求，请不要点击链接，并尽快修改账户密码。</p>
+</div>";
+            await SendEmailAsync(user.UserName ?? string.Empty, newEmail, subject, body, cancellationToken);
+        }
+
+        public async Task SendEmailChangedNotificationAsync(
+            IdentityUser user,
+            string previousEmail,
+            string newEmail,
+            CancellationToken cancellationToken = default)
+        {
+            var encodedEmail = HtmlEncoder.Default.Encode(newEmail);
+            const string subject = "EzNutrition 账户邮箱已修改";
+            var body = $@"
+<div style='font-family:Arial, sans-serif; font-size:14px; color:#333;'>
+  <h2 style='color:#2d89ef;'>账户安全通知</h2>
+  <p>您的 EzNutrition 账户邮箱已修改为 <strong>{encodedEmail}</strong>。</p>
+  <p>如果这不是您本人操作，请尽快联系管理员并修改账户密码。</p>
+</div>";
+            await SendEmailAsync(user.UserName ?? string.Empty, previousEmail, subject, body, cancellationToken);
+        }
+
+        private async Task SendEmailAsync(
+            string username,
+            string email,
+            string subject,
+            string body,
+            CancellationToken cancellationToken = default)
+        {
+            using var deliveryCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deliveryCancellation.CancelAfter(DeliveryTimeout);
+            var deliveryToken = deliveryCancellation.Token;
+
             // 构造邮件消息
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(smtpSettings.SenderName, smtpSettings.SenderEmail));
@@ -97,10 +178,24 @@ namespace EzNutrition.Server.Services
 
             // 使用 MailKit 的 SmtpClient 发送邮件
             using var client = new SmtpClient();
-            await client.ConnectAsync(smtpSettings.SmtpServer, smtpSettings.SmtpPort, SecureSocketOptions.SslOnConnect);
-            await client.AuthenticateAsync(smtpSettings.UserName, smtpSettings.Password);
-            var x = await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            await client.ConnectAsync(
+                smtpSettings.SmtpServer,
+                smtpSettings.SmtpPort,
+                SecureSocketOptions.SslOnConnect,
+                deliveryToken);
+            await client.AuthenticateAsync(
+                smtpSettings.UserName,
+                smtpSettings.Password,
+                deliveryToken);
+            await client.SendAsync(message, deliveryToken);
+            try
+            {
+                await client.DisconnectAsync(true, deliveryToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "SMTP accepted an email, but the client could not disconnect cleanly.");
+            }
         }
     }
 }
