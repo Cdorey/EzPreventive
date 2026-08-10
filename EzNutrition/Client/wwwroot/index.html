@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
     <title>EzNutrition</title>
     <base href="/" />
     <link href="css/app.css?v=20260806-layout" rel="stylesheet" />
@@ -28,6 +29,11 @@
         <a href="" class="reload">重新加载</a>
         <button type="button" class="dismiss" aria-label="关闭错误提示">×</button>
     </div>
+    <script>
+        window.ezNutrition = window.ezNutrition || {};
+        window.ezNutrition.scrubCurrentQuery = () =>
+            window.history.replaceState(window.history.state, document.title, window.location.pathname);
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

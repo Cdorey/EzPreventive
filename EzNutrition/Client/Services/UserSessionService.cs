@@ -110,7 +110,7 @@ namespace EzNutrition.Client.Services
             {
                 throw new InvalidOperationException(
                     response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                        ? "用户名或密码错误。"
+                        ? "用户名或密码错误、邮箱尚未确认，或账户暂时被锁定。"
                         : "登录失败，请稍后重试。");
             }
 

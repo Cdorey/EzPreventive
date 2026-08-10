@@ -1,0 +1,134 @@
+@page "/account/confirm-email"
+@using EzNutrition.Client.Services
+@using EzNutrition.Shared.Data.DTO
+@implements IDisposable
+@inject AccountService Account
+@inject NavigationManager Navigator
+@inject IJSRuntime JS
+@inject ILogger<ConfirmEmail> Logger
+<PageTitle>确认邮箱</PageTitle>
+
+<AccountActionCard Title="确认电子邮箱"
+                   Description="点击确认后，邮箱将被标记为已验证。"
+                   IconType="check-circle">
+    @if (completed)
+    {
+        <Result Status="ResultStatus.Success"
+                Title="邮箱确认成功"
+                SubTitle="@resultMessage">
+            <Extra>
+                <Button Type="ButtonType.Primary" OnClick="GoHome">返回登录</Button>
+            </Extra>
+        </Result>
+    }
+    else if (!HasValidLink)
+    {
+        <Result Status="ResultStatus.Error"
+                Title="确认链接不完整"
+                SubTitle="请使用确认邮件中的完整链接，或重新申请确认邮件。">
+            <Extra>
+                <Button Type="ButtonType.Primary" OnClick="RequestAgain">重新发送</Button>
+                <Button OnClick="GoHome">返回登录</Button>
+            </Extra>
+        </Result>
+    }
+    else
+    {
+        @if (errorMessage is not null)
+        {
+            <Alert Message="@errorMessage" Type="AlertType.Error" ShowIcon="true" />
+        }
+        <div class="action-buttons">
+            <Button Type="ButtonType.Primary" OnClick="ConfirmAsync" AutoLoading>确认我的邮箱</Button>
+            @if (errorMessage is not null)
+            {
+                <Button OnClick="RequestAgain">重新发送确认邮件</Button>
+            }
+            <Button OnClick="GoHome">取消</Button>
+        </div>
+    }
+</AccountActionCard>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "userId")]
+    public string? UserId { get; set; }
+
+    [Parameter, SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+    private readonly ConfirmEmailDto confirmation = new();
+    private bool completed;
+    private bool linkCaptured;
+    private bool scrubQueryOnNextRender;
+    private string? errorMessage;
+    private string resultMessage = string.Empty;
+    private bool HasValidLink =>
+        !string.IsNullOrWhiteSpace(confirmation.UserId) &&
+        !string.IsNullOrWhiteSpace(confirmation.Token);
+
+    protected override void OnParametersSet()
+    {
+        if (linkCaptured)
+        {
+            return;
+        }
+
+        linkCaptured = true;
+        confirmation.UserId = UserId ?? string.Empty;
+        confirmation.Token = Token ?? string.Empty;
+        if (HasValidLink)
+        {
+            scrubQueryOnNextRender = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!scrubQueryOnNextRender)
+        {
+            return;
+        }
+
+        scrubQueryOnNextRender = false;
+        try
+        {
+            await JS.InvokeVoidAsync("ezNutrition.scrubCurrentQuery");
+        }
+        catch (JSException ex)
+        {
+            Logger.LogWarning(ex, "Unable to remove the email confirmation token from the address bar.");
+        }
+    }
+
+    private async Task ConfirmAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var result = await Account.ConfirmEmailAsync(
+                confirmation,
+                lifetimeCancellation.Token);
+            resultMessage = result.Message;
+            completed = true;
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Email confirmation failed in the browser.");
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void RequestAgain() => Navigator.NavigateTo("account/resend-confirmation");
+
+    private void GoHome() => Navigator.NavigateTo("");
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
+    }
+}

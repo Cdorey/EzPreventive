@@ -4,6 +4,9 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject IHttpClientFactory HttpClientFactory
+@inject AccountService Account
+@inject UserSessionService UserSession
+@inject NavigationManager Navigator
 @inject IMessageService Message
 @inject CertificateUploadService CertificateUpload
 @inject ILogger<UserCenter> Logger
@@ -31,8 +34,22 @@
                             <Icon Type="user" Theme="IconThemeType.Outline" />
                         </div>
                         <Descriptions Bordered Column="@(new Dictionary<string,int>{{ "xs", 1}, {"md", 2}})">
-                            <DescriptionsItem Title="邮箱"><span class="breakable">@UserInfo.Email</span></DescriptionsItem>
-                            <DescriptionsItem Title="手机号码">@UserInfo.PhoneNumber</DescriptionsItem>
+                            <DescriptionsItem Title="邮箱">
+                                <div class="verified-value">
+                                    <span class="breakable">@UserInfo.Email</span>
+                                    <Tag Color="@(UserInfo.EmailConfirmed ? "success" : "warning")">
+                                        @(UserInfo.EmailConfirmed ? "已验证" : "未验证")
+                                    </Tag>
+                                </div>
+                            </DescriptionsItem>
+                            <DescriptionsItem Title="手机号码">
+                                <div class="verified-value">
+                                    <span>@(string.IsNullOrWhiteSpace(UserInfo.PhoneNumber) ? "未填写" : UserInfo.PhoneNumber)</span>
+                                    <Tag Color="@(UserInfo.PhoneNumberConfirmed ? "success" : "default")">
+                                        @(UserInfo.PhoneNumberConfirmed ? "已验证" : "未验证")
+                                    </Tag>
+                                </div>
+                            </DescriptionsItem>
                             <DescriptionsItem Title="UID"><span class="breakable">@UserInfo.UserId</span></DescriptionsItem>
                             <DescriptionsItem Title="有效角色">
                                 <div class="tag-list">
@@ -43,6 +60,42 @@
                                 </div>
                             </DescriptionsItem>
                         </Descriptions>
+                    </section>
+
+                    <section class="surface-card">
+                        <div class="card-heading">
+                            <div>
+                                <span>安全操作</span>
+                                <h2>账户安全</h2>
+                            </div>
+                            <Icon Type="lock" Theme="IconThemeType.Outline" />
+                        </div>
+                        <div class="account-security-actions">
+                            @if (!UserInfo.EmailConfirmed)
+                            {
+                                <Button OnClick="ResendConfirmationAsync" AutoLoading>
+                                    <Icon Type="mail" Theme="IconThemeType.Outline" />
+                                    重发确认邮件
+                                </Button>
+                            }
+                            <Button OnClick="OpenEmailChange">
+                                <Icon Type="swap" Theme="IconThemeType.Outline" />
+                                修改邮箱
+                            </Button>
+                            <Button OnClick="OpenPhoneChange">
+                                <Icon Type="phone" Theme="IconThemeType.Outline" />
+                                修改手机号码
+                            </Button>
+                            <Button Type="ButtonType.Primary" OnClick="OpenPasswordChange">
+                                <Icon Type="key" Theme="IconThemeType.Outline" />
+                                修改密码
+                            </Button>
+                        </div>
+                        <Alert Class="phone-verification-note"
+                               Type="AlertType.Info"
+                               Message="手机号码修改后为未验证状态"
+                               Description="当前版本尚未接入短信验证码；未验证号码不会用于密码找回或可信身份判断。"
+                               ShowIcon="true" />
                     </section>
 
                     @if (UserInfo.Claims.Count > 0)
@@ -64,6 +117,79 @@
                         </section>
                     }
                 </div>
+
+                <Modal Title="修改密码"
+                       @bind-Visible="changePasswordDialog"
+                       MaskClosable="@(!accountOperationSending)"
+                       Closable="@(!accountOperationSending)"
+                       CancelButtonProps="@AccountCancelButtonProps"
+                       OnCancel="ClosePasswordChange"
+                       OnOk="SubmitPasswordChangeAsync"
+                       ConfirmLoading="accountOperationSending">
+                    <Form Model="@changePasswordDto" Layout="FormLayout.Vertical">
+                        <ChildContent Context="formContext">
+                            <FormItem Label="当前密码">
+                                <InputPassword @bind-Value="@formContext.CurrentPassword" />
+                            </FormItem>
+                            <FormItem Label="新密码">
+                                <InputPassword Placeholder="至少 6 个字符" @bind-Value="@formContext.NewPassword" />
+                            </FormItem>
+                            <FormItem Label="确认新密码">
+                                <InputPassword @bind-Value="@formContext.ConfirmPassword" />
+                            </FormItem>
+                        </ChildContent>
+                    </Form>
+                </Modal>
+
+                <Modal Title="修改电子邮箱"
+                       @bind-Visible="changeEmailDialog"
+                       MaskClosable="@(!accountOperationSending)"
+                       Closable="@(!accountOperationSending)"
+                       CancelButtonProps="@AccountCancelButtonProps"
+                       OnCancel="CloseEmailChange"
+                       OnOk="SubmitEmailChangeAsync"
+                       ConfirmLoading="accountOperationSending">
+                    <Alert Class="modal-note"
+                           Type="AlertType.Info"
+                           Message="新邮箱需要再次确认"
+                           Description="确认邮件会发送到新邮箱；点击邮件中的确认按钮前，当前邮箱保持不变。"
+                           ShowIcon="true" />
+                    <Form Model="@requestEmailChangeDto" Layout="FormLayout.Vertical">
+                        <ChildContent Context="formContext">
+                            <FormItem Label="新电子邮箱">
+                                <Input Placeholder="name@example.com" @bind-Value="@formContext.NewEmail" />
+                            </FormItem>
+                            <FormItem Label="当前密码">
+                                <InputPassword @bind-Value="@formContext.CurrentPassword" />
+                            </FormItem>
+                        </ChildContent>
+                    </Form>
+                </Modal>
+
+                <Modal Title="修改手机号码"
+                       @bind-Visible="changePhoneDialog"
+                       MaskClosable="@(!accountOperationSending)"
+                       Closable="@(!accountOperationSending)"
+                       CancelButtonProps="@AccountCancelButtonProps"
+                       OnCancel="ClosePhoneChange"
+                       OnOk="SubmitPhoneChangeAsync"
+                       ConfirmLoading="accountOperationSending">
+                    <Alert Class="modal-note"
+                           Type="AlertType.Warning"
+                           Message="当前仅修改联系方式"
+                           Description="留空可清除手机号码；新号码会标记为未验证。"
+                           ShowIcon="true" />
+                    <Form Model="@changePhoneNumberDto" Layout="FormLayout.Vertical">
+                        <ChildContent Context="formContext">
+                            <FormItem Label="手机号码">
+                                <Input Placeholder="留空以清除" @bind-Value="@formContext.PhoneNumber" />
+                            </FormItem>
+                            <FormItem Label="当前密码">
+                                <InputPassword @bind-Value="@formContext.CurrentPassword" />
+                            </FormItem>
+                        </ChildContent>
+                    </Form>
+                </Modal>
 
                 <section class="surface-card certification-records">
                     <div class="section-toolbar">
@@ -119,6 +245,194 @@
     private bool certificationRequestSending = false;
     private readonly CancellationTokenSource lifetimeCancellation = new();
     private string? pendingUploadTicket;
+    private bool changePasswordDialog;
+    private bool changeEmailDialog;
+    private bool changePhoneDialog;
+    private bool accountOperationSending;
+    private ChangePasswordDto changePasswordDto = new();
+    private RequestEmailChangeDto requestEmailChangeDto = new();
+    private ChangePhoneNumberDto changePhoneNumberDto = new();
+    private ButtonProps AccountCancelButtonProps => new() { Disabled = accountOperationSending };
+
+    private async Task ResendConfirmationAsync()
+    {
+        if (UserInfo is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await Account.ResendEmailConfirmationAsync(
+                UserInfo.Email,
+                lifetimeCancellation.Token);
+            await Message.SuccessAsync(result.Message);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Unable to resend the account confirmation email.");
+            await Message.ErrorAsync(ex.Message);
+        }
+    }
+
+    private void OpenPasswordChange()
+    {
+        changePasswordDto = new ChangePasswordDto();
+        changePasswordDialog = true;
+    }
+
+    private void ClosePasswordChange()
+    {
+        if (accountOperationSending)
+        {
+            return;
+        }
+
+        changePasswordDialog = false;
+        changePasswordDto = new ChangePasswordDto();
+    }
+
+    private async Task SubmitPasswordChangeAsync()
+    {
+        if (!AccountFormValidation.TryValidate(changePasswordDto, out var validationMessage))
+        {
+            await Message.ErrorAsync(validationMessage);
+            return;
+        }
+
+        accountOperationSending = true;
+        try
+        {
+            var result = await Account.ChangePasswordAsync(
+                changePasswordDto,
+                lifetimeCancellation.Token);
+            await Message.SuccessAsync(result.Message);
+            ClosePasswordChange();
+            await SignOutAfterSecurityChangeAsync();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Unable to change the account password.");
+            await Message.ErrorAsync(ex.Message);
+        }
+        finally
+        {
+            accountOperationSending = false;
+        }
+    }
+
+    private void OpenEmailChange()
+    {
+        requestEmailChangeDto = new RequestEmailChangeDto();
+        changeEmailDialog = true;
+    }
+
+    private void CloseEmailChange()
+    {
+        if (accountOperationSending)
+        {
+            return;
+        }
+
+        changeEmailDialog = false;
+        requestEmailChangeDto = new RequestEmailChangeDto();
+    }
+
+    private async Task SubmitEmailChangeAsync()
+    {
+        if (!AccountFormValidation.TryValidate(requestEmailChangeDto, out var validationMessage))
+        {
+            await Message.ErrorAsync(validationMessage);
+            return;
+        }
+
+        accountOperationSending = true;
+        try
+        {
+            var result = await Account.RequestEmailChangeAsync(
+                requestEmailChangeDto,
+                lifetimeCancellation.Token);
+            await Message.SuccessAsync(result.Message);
+            accountOperationSending = false;
+            CloseEmailChange();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Unable to request an account email change.");
+            await Message.ErrorAsync(ex.Message);
+        }
+        finally
+        {
+            accountOperationSending = false;
+        }
+    }
+
+    private void OpenPhoneChange()
+    {
+        changePhoneNumberDto = new ChangePhoneNumberDto
+        {
+            PhoneNumber = UserInfo?.PhoneNumber
+        };
+        changePhoneDialog = true;
+    }
+
+    private void ClosePhoneChange()
+    {
+        if (accountOperationSending)
+        {
+            return;
+        }
+
+        changePhoneDialog = false;
+        changePhoneNumberDto = new ChangePhoneNumberDto();
+    }
+
+    private async Task SubmitPhoneChangeAsync()
+    {
+        if (!AccountFormValidation.TryValidate(changePhoneNumberDto, out var validationMessage))
+        {
+            await Message.ErrorAsync(validationMessage);
+            return;
+        }
+
+        accountOperationSending = true;
+        try
+        {
+            var result = await Account.ChangePhoneNumberAsync(
+                changePhoneNumberDto,
+                lifetimeCancellation.Token);
+            await Message.SuccessAsync(result.Message);
+            ClosePhoneChange();
+            await SignOutAfterSecurityChangeAsync();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Unable to change the account phone number.");
+            await Message.ErrorAsync(ex.Message);
+        }
+        finally
+        {
+            accountOperationSending = false;
+        }
+    }
+
+    private async Task SignOutAfterSecurityChangeAsync()
+    {
+        await UserSession.SignOutAsync();
+        Navigator.NavigateTo("", replace: true);
+    }
 
     private async Task SubmitCertificationRequest()
     {
@@ -220,10 +534,7 @@
 
     private async Task GetProfile()
     {
-        var httpClient = HttpClientFactory.CreateClient("Authorize");
-        UserInfo = await httpClient.GetFromJsonAsync<UserInfoDto>(
-            "User/Profile",
-            lifetimeCancellation.Token);
+        UserInfo = await Account.GetProfileAsync(lifetimeCancellation.Token);
     }
 
     private async Task GetProfessionalIdentities()
@@ -272,7 +583,7 @@
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
         {
             Logger.LogWarning(ex, "Unable to initialize the user center.");
             await Message.ErrorAsync("用户信息加载失败，请稍后重试。");

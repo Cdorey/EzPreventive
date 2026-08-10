@@ -1,0 +1,94 @@
+@page "/account/resend-confirmation"
+@using EzNutrition.Client.Services
+@using EzNutrition.Shared.Data.DTO
+@implements IDisposable
+@inject AccountService Account
+@inject NavigationManager Navigator
+@inject ILogger<ResendEmailConfirmation> Logger
+<PageTitle>重发邮箱确认</PageTitle>
+
+<AccountActionCard Title="重新发送邮箱确认"
+                   Description="适用于确认邮件已过期、丢失或未收到的情况。"
+                   IconType="mail">
+    @if (completed)
+    {
+        <Result Status="ResultStatus.Success"
+                Title="请求已受理"
+                SubTitle="@resultMessage">
+            <Extra>
+                <Button Type="ButtonType.Primary" OnClick="GoHome">返回登录</Button>
+                <Button OnClick="SendAgain">重新填写</Button>
+            </Extra>
+        </Result>
+    }
+    else
+    {
+        <Form Model="@model" Layout="FormLayout.Vertical">
+            <ChildContent Context="formContext">
+                <FormItem Label="注册邮箱">
+                    <Input Placeholder="name@example.com" @bind-Value="@formContext.Email" />
+                </FormItem>
+                @if (errorMessage is not null)
+                {
+                    <Alert Message="@errorMessage" Type="AlertType.Error" ShowIcon="true" />
+                }
+                <FormItem>
+                    <div class="action-buttons">
+                        <Button Type="ButtonType.Primary" OnClick="SubmitAsync" AutoLoading>发送确认邮件</Button>
+                        <Button OnClick="GoHome">返回登录</Button>
+                    </div>
+                </FormItem>
+            </ChildContent>
+        </Form>
+    }
+</AccountActionCard>
+
+@code {
+    private readonly ResendEmailConfirmationDto model = new();
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+    private bool completed;
+    private string? errorMessage;
+    private string resultMessage = "如果该邮箱对应一个尚未确认的账户，我们会发送确认邮件。";
+
+    private async Task SubmitAsync()
+    {
+        errorMessage = null;
+        if (!AccountFormValidation.TryValidate(model, out var validationMessage))
+        {
+            errorMessage = validationMessage;
+            return;
+        }
+
+        try
+        {
+            var result = await Account.ResendEmailConfirmationAsync(
+                model.Email,
+                lifetimeCancellation.Token);
+            resultMessage = result.Message;
+            completed = true;
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(ex, "Email confirmation resend failed in the browser.");
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void SendAgain()
+    {
+        model.Email = string.Empty;
+        completed = false;
+        errorMessage = null;
+    }
+
+    private void GoHome() => Navigator.NavigateTo("");
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
+    }
+}

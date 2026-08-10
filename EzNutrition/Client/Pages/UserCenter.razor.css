@@ -73,6 +73,32 @@
     gap: 6px;
 }
 
+.verified-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+}
+
+.account-security-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.account-security-actions ::deep .ant-btn {
+    min-height: 40px;
+    text-align: left;
+}
+
+::deep .phone-verification-note {
+    margin-top: 16px;
+}
+
+::deep .modal-note {
+    margin-bottom: 18px;
+}
+
 .section-toolbar > div {
     min-width: 0;
 }
@@ -98,5 +124,9 @@
 
     .section-toolbar ::deep .ant-btn {
         width: 100%;
+    }
+
+    .account-security-actions {
+        grid-template-columns: 1fr;
     }
 }
