@@ -1,18 +1,26 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Extension;
+using EzNutrition.Server.Services;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace EzNutrition.Server.Controllers
 {
     [ApiController]
     [Route("[controller]/[Action]")]
     [Authorize]
-    public class UserController(ILogger<UserController> logger, AuthManagerRepository authManagerRepository, UserManager<IdentityUser> userManager, ApplicationDbContext applicationDbContext) : ControllerBase
+    public class UserController(
+        ILogger<UserController> logger,
+        AuthManagerRepository authManagerRepository,
+        AccountSecurityService accountSecurityService,
+        UserManager<IdentityUser> userManager,
+        ApplicationDbContext applicationDbContext) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> Profile()
@@ -41,12 +49,61 @@ namespace EzNutrition.Server.Controllers
                 UserId = user.Id,
                 UserName = user.UserName ?? string.Empty,
                 Email = user.Email ?? string.Empty,
+                EmailConfirmed = user.EmailConfirmed,
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
+                PhoneNumberConfirmed = user.PhoneNumberConfirmed,
                 Roles = [.. roles],
                 Claims = [.. claims.Select(c => new ClaimDto { Type = c.Type, Value = c.Value })]
             };
             return Ok(dto);
 
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountSensitive")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
+        {
+            var userId = GetCurrentUserId();
+            if (userId is null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await accountSecurityService.ChangePasswordAsync(userId, request);
+            return ToActionResult(result);
+        }
+
+        [HttpPost]
+        [EnableRateLimiting("AccountSensitive")]
+        public async Task<IActionResult> RequestEmailChange(
+            [FromBody] RequestEmailChangeDto request,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId is null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await accountSecurityService.RequestEmailChangeAsync(
+                userId,
+                request,
+                cancellationToken);
+            return ToActionResult(result);
+        }
+
+        [HttpPut]
+        [EnableRateLimiting("AccountSensitive")]
+        public async Task<IActionResult> PhoneNumber([FromBody] ChangePhoneNumberDto request)
+        {
+            var userId = GetCurrentUserId();
+            if (userId is null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await accountSecurityService.ChangePhoneNumberAsync(userId, request);
+            return ToActionResult(result);
         }
 
         /// <summary>
@@ -117,6 +174,20 @@ namespace EzNutrition.Server.Controllers
             {
                 return NotFound("专业认证请求列表为空");
             }
+        }
+
+        private string? GetCurrentUserId() =>
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Upn);
+
+        private IActionResult ToActionResult(AccountSecurityResult result)
+        {
+            var response = new AccountOperationResultDto
+            {
+                Success = result.Succeeded,
+                Message = result.Message
+            };
+            return result.Succeeded ? Ok(response) : BadRequest(response);
         }
     }
 }

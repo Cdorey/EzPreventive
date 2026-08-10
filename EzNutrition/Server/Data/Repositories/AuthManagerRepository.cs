@@ -6,12 +6,9 @@ using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using System.Text;
 
 namespace EzNutrition.Server.Data.Repositories
 {
@@ -21,8 +18,9 @@ namespace EzNutrition.Server.Data.Repositories
                                        RoleManager<IdentityRole> roleManager,
                                        SignInManager<IdentityUser> signInManager,
                                        ILogger<AuthManagerRepository> logger,
-                                       IOptions<EmailSettings> options,
-                                       IEmailSender<IdentityUser> emailSender)
+                                       AccountSecurityService accountSecurityService,
+                                       LoginTimingEqualizer loginTimingEqualizer,
+                                       IOptions<AuthBootstrapSettings> bootstrapOptions)
     {
         /// <summary>
         /// 创建基础的Role关系，以及管理员账号
@@ -52,7 +50,13 @@ namespace EzNutrition.Server.Data.Repositories
             var admin = await userManager.FindByNameAsync("Admin");
             if (admin is null)
             {
-                var password = Guid.NewGuid().ToString();
+                var password = bootstrapOptions.Value.AdminPassword;
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    throw new InvalidOperationException(
+                        "AuthBootstrap:AdminPassword must be supplied through a protected configuration source when creating the Admin account.");
+                }
+
                 var addUser = await userManager.CreateAsync(new IdentityUser { UserName = "Admin" }, password);
                 if (!addUser.Succeeded)
                 {
@@ -60,7 +64,7 @@ namespace EzNutrition.Server.Data.Repositories
                     throw new InvalidOperationException("Failed to create the Admin user.");
                 }
 
-                logger.LogInformation("Admin用户创建成功，临时密码为 {password}，请立即更改", password);
+                logger.LogInformation("Admin用户创建成功；请立即使用受控配置中的初始密码登录并修改密码。");
                 admin = await userManager.FindByNameAsync("Admin")
                     ?? throw new InvalidOperationException("The Admin user could not be loaded after creation.");
             }
@@ -95,7 +99,12 @@ namespace EzNutrition.Server.Data.Repositories
             }
 
             var user = await userManager.FindByNameAsync(username.Trim());
-            if (user is not null && (await signInManager.PasswordSignInAsync(user, password, false, false)).Succeeded)
+            if (user is null)
+            {
+                loginTimingEqualizer.Verify(password);
+            }
+            else if ((await signInManager.CheckPasswordSignInAsync(user, password, true)).Succeeded &&
+                (string.IsNullOrWhiteSpace(user.Email) || user.EmailConfirmed))
             {
                 logger.LogInformation("用户登陆成功：{UserId}/{NormalizedUserName}", user.Id, user.NormalizedUserName);
                 return await jwtService.GenerateJwtToken(user);
@@ -155,11 +164,13 @@ namespace EzNutrition.Server.Data.Repositories
             var result = await userManager.CreateAsync(user, registrationDto.Password);
             if (!result.Succeeded)
             {
-                logger.LogError("用户注册失败：{errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+                logger.LogWarning(
+                    "用户注册未完成，Identity 错误代码：{ErrorCodes}",
+                    string.Join(", ", result.Errors.Select(error => error.Code)));
                 return new RegistrationResultDto
                 {
                     Success = false,
-                    Message = string.Join(", ", result.Errors.Select(e => e.Description))
+                    Message = "注册信息无法使用，请更换用户名或邮箱后重试。"
                 };
             }
 
@@ -171,7 +182,7 @@ namespace EzNutrition.Server.Data.Repositories
                     certificateTicket = await CreateProfessionalIdentityRequest(registrationDto.ProfessionalIdentity, user);
                 }
 
-                await SendEmailConfirmationAsync(user);
+                await accountSecurityService.SendEmailConfirmationAsync(user);
                 logger.LogInformation(
                     "用户注册成功：{UserName}，上传票据：{UploadTicket}",
                     registrationDto.UserName,
@@ -230,24 +241,6 @@ namespace EzNutrition.Server.Data.Repositories
             {
                 logger.LogCritical(ex, "回滚用户 {UserId} 时发生异常。", user.Id);
             }
-        }
-
-        /// <summary>
-        /// 私有方法：生成邮箱确认 token 并发送确认邮件
-        /// </summary>
-        private async Task SendEmailConfirmationAsync(IdentityUser user)
-        {
-            // 生成邮箱确认 Token
-            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-
-            // 对 token 进行 URL 安全编码
-            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-            // 构建确认链接。注意 ClientUrl 可以在配置文件中设置
-            var confirmationLink = $"{options.Value.ClientUrl}/Auth/ConfirmEmail?userId={user.Id}&token={encodedToken}";
-
-            // 发送确认邮件
-            await emailSender.SendConfirmationLinkAsync(user, user.Email!, confirmationLink);
         }
 
         /// <summary>
@@ -321,38 +314,5 @@ namespace EzNutrition.Server.Data.Repositories
             return isValid;
         }
 
-        /// <summary>
-        /// 验证邮箱是否可用
-        /// </summary>
-        /// <param name="email"></param>
-        /// <returns></returns>
-        public async Task<bool> CheckEmail(string email)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return false;
-
-            var user = await userManager.FindByEmailAsync(email);
-            return user == null;
-        }
-
-        /// <summary>
-        /// 邮箱确认
-        /// </summary>
-        /// <param name="userId"></param>
-        /// <param name="token"></param>
-        /// <returns></returns>
-        public async Task<IdentityResult?> ConfirmEmailAsync(string userId, string token)
-        {
-            var user = await userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return null;
-            }
-
-            // 解码 token（如果在生成时做了编码处理）
-            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
-
-            return await userManager.ConfirmEmailAsync(user, decodedToken);
-        }
     }
 }
