@@ -1,18 +1,40 @@
-.dri-result-tabs {
+.dri-result-sections {
+    display: grid;
+    gap: 26px;
     min-width: 0;
 }
 
-.table-guidance {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 12px;
-    color: var(--ez-text-secondary, #64748b);
-    font-size: 0.84rem;
+.reference-table-section {
+    min-width: 0;
 }
 
-.table-guidance ::deep .anticon {
+.reference-section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 12px;
+}
+
+.reference-section-heading > div > span {
+    color: var(--ez-primary-strong, #096dd9);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.reference-section-heading h3 {
+    margin: 2px 0 0;
+    color: var(--ez-navy, #0f2942);
+    font-size: 1.05rem;
+}
+
+.reference-section-heading small {
+    color: var(--ez-text-secondary, #64748b);
+    text-align: right;
+}
+
+.reference-section-heading ::deep .anticon {
     margin-right: 4px;
 }
 
@@ -31,18 +53,26 @@
     display: block;
     margin-top: 2px;
     color: var(--ez-text-secondary, #64748b);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 400;
 }
 
-::deep .ant-tabs-tab .ant-tag {
-    margin: 0 0 0 4px;
-    line-height: 18px;
+::deep .ant-table-tbody > tr > td {
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 @media (max-width: 767.98px) {
-    .table-guidance {
+    .dri-result-sections {
+        gap: 22px;
+    }
+
+    .reference-section-heading {
         display: grid;
-        gap: 4px;
+        gap: 6px;
+    }
+
+    .reference-section-heading small {
+        text-align: left;
     }
 }

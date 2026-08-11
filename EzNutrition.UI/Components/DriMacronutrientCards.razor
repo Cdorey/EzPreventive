@@ -1,0 +1,133 @@
+@using EzNutrition.Domain.Assessments
+@using EzNutrition.Shared.Data.Entities
+@namespace EzNutrition.UI.Components
+
+<section class="macronutrient-section" aria-labelledby="macronutrient-title">
+    <header class="macro-section-heading">
+        <div>
+            <span>供能比例</span>
+            <h3 id="macronutrient-title">宏量营养素与脂肪酸参考</h3>
+        </div>
+        <small>AMDR 与同一营养素的定量参考值合并展示</small>
+    </header>
+
+    <div class="macro-card-grid">
+        @foreach (var range in NutrientRanges)
+        {
+            var amdr = GetGroup(range, DriAdditionalReferenceKind.AcceptableMacronutrientDistributionRange)!;
+            <div class="macro-card-shell">
+                <Card Size="CardSize.Small">
+                    <TitleTemplate>
+                        <div class="macro-card-title">
+                            <strong>@range.Nutrient</strong>
+                            <Tag Color="@("blue")">AMDR</Tag>
+                        </div>
+                    </TitleTemplate>
+                    <ChildContent>
+                        <Popover Title="@($"AMDR · {amdr.DisplayName}")"
+                                 Trigger="@(new[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
+                            <ContentTemplate>
+                                <DietaryReferenceIntakesInnerRecords InnerRecords="amdr.Records" />
+                            </ContentTemplate>
+                            <ChildContent>
+                                <button type="button"
+                                        class="amdr-summary"
+                                        aria-label="@($"{range.Nutrient}可接受宏量营养素分布范围：{FormatAmdrRange(amdr)}")">
+                                    <span>建议供能比</span>
+                                    <strong>@FormatAmdrRange(amdr)</strong>
+                                </button>
+                            </ChildContent>
+                        </Popover>
+
+                        @if (HasCoreReference(range))
+                        {
+                            <div class="macro-core-values" aria-label="定量参考值">
+                                @if (range.EAR is not null)
+                                {
+                                    <div>
+                                        <span>EAR</span>
+                                        <DriReferenceValueDisplay Value="range.EAR" Label="平均需要量" />
+                                    </div>
+                                }
+                                @if (range.RNI is not null)
+                                {
+                                    <div>
+                                        <span>RNI/AI</span>
+                                        <DriReferenceValueDisplay Value="range.RNI" Label="推荐或适宜摄入量" />
+                                    </div>
+                                }
+                                @if (range.UL is not null)
+                                {
+                                    <div>
+                                        <span>UL</span>
+                                        <DriReferenceValueDisplay Value="range.UL" Label="可耐受最高摄入量" />
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @foreach (var group in range.AdditionalReferenceGroups.Where(group =>
+                            group.Kind != DriAdditionalReferenceKind.AcceptableMacronutrientDistributionRange))
+                        {
+                            <div class="macro-additional-value">
+                                <span>
+                                    <Tag Color="@GetTagColor(group.Kind)">@group.Code</Tag>
+                                    @group.DisplayName
+                                </span>
+                                <DriAdditionalReferenceDisplay Group="group" />
+                            </div>
+                        }
+                    </ChildContent>
+                </Card>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>获取或设置包含 AMDR 的营养素参考值。</summary>
+    [Parameter]
+    public IReadOnlyList<NutrientRange> NutrientRanges { get; set; } = [];
+
+    private static bool HasCoreReference(NutrientRange range) =>
+        range.EAR is not null || range.RNI is not null || range.UL is not null;
+
+    private static DriAdditionalReferenceGroup? GetGroup(
+        NutrientRange range,
+        DriAdditionalReferenceKind kind) =>
+        range.AdditionalReferenceGroups.FirstOrDefault(group => group.Kind == kind);
+
+    private static string FormatAmdrRange(DriAdditionalReferenceGroup group)
+    {
+        var lower = group.Records.Where(record => record.RecordType == DietaryReferenceIntakeType.AMDR_L).ToArray();
+        var upper = group.Records.Where(record => record.RecordType == DietaryReferenceIntakeType.AMDR_H).ToArray();
+
+        if (lower.Length == 1 && upper.Length == 1 &&
+            string.Equals(lower[0].MeasureUnit, upper[0].MeasureUnit, StringComparison.Ordinal))
+        {
+            return $"{lower[0].Value:0.##}–{upper[0].Value:0.##} {lower[0].MeasureUnit}";
+        }
+
+        if (lower.Length == 1 && upper.Length == 0)
+        {
+            return $"≥ {FormatValue(lower[0])}";
+        }
+
+        if (lower.Length == 0 && upper.Length == 1)
+        {
+            return $"≤ {FormatValue(upper[0])}";
+        }
+
+        return string.Join(" / ", group.Records.Select(FormatValue));
+    }
+
+    private static string FormatValue(DietaryReferenceIntakeValue record) =>
+        $"{record.Value:0.##} {record.MeasureUnit}";
+
+    private static string GetTagColor(DriAdditionalReferenceKind kind) => kind switch
+    {
+        DriAdditionalReferenceKind.ProposedIntakeForChronicDiseasePrevention => "purple",
+        DriAdditionalReferenceKind.SpecificProposedLevel => "cyan",
+        _ => "default"
+    };
+}

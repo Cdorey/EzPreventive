@@ -7,60 +7,92 @@
 }
 else
 {
-    <Tabs Class="dri-result-tabs" DefaultActiveKey="@(CoreRanges.Count > 0 ? "core" : "additional")">
-        <TabPane Key="core" Tab="常用参考值" Disabled="@(CoreRanges.Count == 0)">
-            <div class="table-guidance">
-                <span>按营养素横向比较 EAR、RNI/AI 与 UL</span>
-                <span><Icon Type="info-circle" Theme="IconThemeType.Outline" /> 点击数值查看核算依据</span>
-            </div>
-            <Table TItem="NutrientRange"
-                   DataSource="CoreRanges"
-                   HidePagination="true"
-                   Size="TableSize.Middle"
-                   ScrollX="720">
-                <PropertyColumn Property="range => range.Nutrient" Width="180">
-                    <TitleTemplate>
-                        <span><Icon Type="appstore" /> 营养素</span>
-                    </TitleTemplate>
-                    <ChildContent>
-                        <strong class="nutrient-name">@context.Nutrient</strong>
-                    </ChildContent>
-                </PropertyColumn>
-                <PropertyColumn Property="range => range.EAR" Width="180">
-                    <TitleTemplate>
-                        <span>EAR <small>平均需要量</small></span>
-                    </TitleTemplate>
-                    <ChildContent>
-                        <DriReferenceValueDisplay Value="@context.EAR" Label="平均需要量" />
-                    </ChildContent>
-                </PropertyColumn>
-                <PropertyColumn Property="range => range.RNI" Width="180">
-                    <TitleTemplate>
-                        <span>RNI/AI <small>推荐/适宜摄入量</small></span>
-                    </TitleTemplate>
-                    <ChildContent>
-                        <DriReferenceValueDisplay Value="@context.RNI" Label="推荐或适宜摄入量" />
-                    </ChildContent>
-                </PropertyColumn>
-                <PropertyColumn Property="range => range.UL" Width="180">
-                    <TitleTemplate>
-                        <span>UL <small>可耐受最高摄入量</small></span>
-                    </TitleTemplate>
-                    <ChildContent>
-                        <DriReferenceValueDisplay Value="@context.UL" Label="可耐受最高摄入量" />
-                    </ChildContent>
-                </PropertyColumn>
-            </Table>
-        </TabPane>
-        <TabPane Key="additional" Disabled="@(RangesWithAdditionalReferences.Count == 0)">
-            <TabTemplate>
-                <span>专项参考值 <Tag Color="@("blue")">@RangesWithAdditionalReferences.Count</Tag></span>
-            </TabTemplate>
-            <ChildContent>
-                <DriAdditionalReferences NutrientRanges="RangesWithAdditionalReferences" />
-            </ChildContent>
-        </TabPane>
-    </Tabs>
+    <div class="dri-result-sections">
+        @if (MacronutrientRanges.Count > 0)
+        {
+            <DriMacronutrientCards NutrientRanges="MacronutrientRanges" />
+        }
+
+        @if (ReferenceTableRanges.Count > 0)
+        {
+            <section class="reference-table-section" aria-labelledby="reference-table-title">
+                <header class="reference-section-heading">
+                    <div>
+                        <span>完整参考值</span>
+                        <h3 id="reference-table-title">维生素、矿物质与其他营养素</h3>
+                    </div>
+                    <small>
+                        <Icon Type="info-circle" Theme="IconThemeType.Outline" />
+                        同一营养素同行展示；点击数值查看核算依据
+                    </small>
+                </header>
+
+                <Table TItem="NutrientRange"
+                       DataSource="ReferenceTableRanges"
+                       HidePagination="true"
+                       Size="TableSize.Middle"
+                       ScrollX="@TableScrollWidth"
+                       TableLayout="fixed">
+                    <PropertyColumn Property="range => range.Nutrient"
+                                    Width="170"
+                                    Fixed="ColumnFixPlacement.Left">
+                        <TitleTemplate>
+                            <span><Icon Type="appstore" /> 营养素</span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <strong class="nutrient-name">@context.Nutrient</strong>
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="range => range.EAR" Width="150">
+                        <TitleTemplate>
+                            <span>EAR <small>平均需要量</small></span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <DriReferenceValueDisplay Value="@context.EAR" Label="平均需要量" />
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="range => range.RNI" Width="190">
+                        <TitleTemplate>
+                            <span>RNI/AI <small>推荐/适宜摄入量</small></span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <DriReferenceValueDisplay Value="@context.RNI" Label="推荐或适宜摄入量" />
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="range => range.UL" Width="160">
+                        <TitleTemplate>
+                            <span>UL <small>可耐受最高摄入量</small></span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <DriReferenceValueDisplay Value="@context.UL" Label="可耐受最高摄入量" />
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="range => range.AdditionalReferenceGroups"
+                                    Width="220"
+                                    Hidden="@(!HasPiNcd)">
+                        <TitleTemplate>
+                            <span>PI-NCD <small>慢性病预防建议量</small></span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <DriAdditionalReferenceDisplay
+                                Group="@GetGroup(context, DriAdditionalReferenceKind.ProposedIntakeForChronicDiseasePrevention)" />
+                        </ChildContent>
+                    </PropertyColumn>
+                    <PropertyColumn Property="range => range.AdditionalReferenceGroups"
+                                    Width="190"
+                                    Hidden="@(!HasSpl)">
+                        <TitleTemplate>
+                            <span>SPL <small>特定建议值</small></span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            <DriAdditionalReferenceDisplay
+                                Group="@GetGroup(context, DriAdditionalReferenceKind.SpecificProposedLevel)" />
+                        </ChildContent>
+                    </PropertyColumn>
+                </Table>
+            </section>
+        }
+    </div>
 }
 
 @code {
@@ -71,9 +103,33 @@ else
     private IReadOnlyList<NutrientRange> Ranges =>
         NutrientRanges as IReadOnlyList<NutrientRange> ?? NutrientRanges?.ToArray() ?? [];
 
-    private IReadOnlyList<NutrientRange> RangesWithAdditionalReferences =>
-        Ranges.Where(range => range.AdditionalReferenceGroups.Count > 0).ToArray();
+    private IReadOnlyList<NutrientRange> MacronutrientRanges =>
+        Ranges.Where(HasAmdr).ToArray();
 
-    private IReadOnlyList<NutrientRange> CoreRanges =>
-        Ranges.Where(range => range.EAR is not null || range.RNI is not null || range.UL is not null).ToArray();
+    private IReadOnlyList<NutrientRange> ReferenceTableRanges =>
+        Ranges.Where(range => !HasAmdr(range)).ToArray();
+
+    private bool HasPiNcd =>
+        HasReferenceKind(DriAdditionalReferenceKind.ProposedIntakeForChronicDiseasePrevention);
+
+    private bool HasSpl =>
+        HasReferenceKind(DriAdditionalReferenceKind.SpecificProposedLevel);
+
+    private string TableScrollWidth => (HasPiNcd, HasSpl) switch
+    {
+        (true, true) => "1080",
+        (true, false) or (false, true) => "900",
+        _ => "720"
+    };
+
+    private static bool HasAmdr(NutrientRange range) =>
+        GetGroup(range, DriAdditionalReferenceKind.AcceptableMacronutrientDistributionRange) is not null;
+
+    private bool HasReferenceKind(DriAdditionalReferenceKind kind) =>
+        ReferenceTableRanges.Any(range => GetGroup(range, kind) is not null);
+
+    private static DriAdditionalReferenceGroup? GetGroup(
+        NutrientRange range,
+        DriAdditionalReferenceKind kind) =>
+        range.AdditionalReferenceGroups.FirstOrDefault(group => group.Kind == kind);
 }

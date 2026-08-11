@@ -1,0 +1,39 @@
+@using EzNutrition.Domain.Assessments
+@namespace EzNutrition.UI.Components
+
+@if (Group is null)
+{
+    <span class="not-applicable" aria-label="无适用记录">—</span>
+}
+else
+{
+    <Popover Title="@($"{Group.Code} · {Group.DisplayName}")"
+             Trigger="@(new[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
+        <ContentTemplate>
+            <DietaryReferenceIntakesInnerRecords InnerRecords="Group.Records" />
+        </ContentTemplate>
+        <ChildContent>
+            <button type="button"
+                    class="additional-reference-value"
+                    aria-label="@($"{Group.DisplayName}：{Summary}")">
+                @foreach (var record in Group.Records)
+                {
+                    <span>@FormatValue(record)</span>
+                }
+            </button>
+        </ChildContent>
+    </Popover>
+}
+
+@code {
+    /// <summary>获取或设置需要展示的专项参考指标。</summary>
+    [Parameter]
+    public DriAdditionalReferenceGroup? Group { get; set; }
+
+    private string Summary => Group is null
+        ? string.Empty
+        : string.Join(" / ", Group.Records.Select(FormatValue));
+
+    private static string FormatValue(EzNutrition.Shared.Data.Entities.DietaryReferenceIntakeValue record) =>
+        $"{record.Value:0.##} {record.MeasureUnit}";
+}
