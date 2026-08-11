@@ -1,89 +1,79 @@
-﻿@using EzNutrition.Shared.Data.Entities;
-@using System.Text;
+@using EzNutrition.Domain.Assessments
 @namespace EzNutrition.UI.Components
 
-<Table TItem="NutrientRange" DataSource="NutrientRanges" HidePagination="true" Size="TableSize.Small" ScrollX="760">
-    <PropertyColumn Property="c=>c.Nutrient">
-        <TitleTemplate>
-            <span> <Icon Type="coffee" /> 营养素类型 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="c=>c.EAR">
-        <TitleTemplate>
-            <span> <Icon Type="vertical-align-middle" /> EAR </span>
-        </TitleTemplate>
-        <ChildContent>
-            @if (context.EAR != default)
-            {
-                <Popover Title="平均需要量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
-                    <ContentTemplate>
-                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.EAR.InnerRecords" />
-                    </ContentTemplate>
+@if (Ranges.Count == 0)
+{
+    <Empty Description="@("暂无适用的膳食参考摄入量")" Simple />
+}
+else
+{
+    <Tabs Class="dri-result-tabs" DefaultActiveKey="@(CoreRanges.Count > 0 ? "core" : "additional")">
+        <TabPane Key="core" Tab="常用参考值" Disabled="@(CoreRanges.Count == 0)">
+            <div class="table-guidance">
+                <span>按营养素横向比较 EAR、RNI/AI 与 UL</span>
+                <span><Icon Type="info-circle" Theme="IconThemeType.Outline" /> 点击数值查看核算依据</span>
+            </div>
+            <Table TItem="NutrientRange"
+                   DataSource="CoreRanges"
+                   HidePagination="true"
+                   Size="TableSize.Middle"
+                   ScrollX="720">
+                <PropertyColumn Property="range => range.Nutrient" Width="180">
+                    <TitleTemplate>
+                        <span><Icon Type="appstore" /> 营养素</span>
+                    </TitleTemplate>
                     <ChildContent>
-                        @(context.EAR.ToString())
+                        <strong class="nutrient-name">@context.Nutrient</strong>
                     </ChildContent>
-                </Popover>
-            }
-        </ChildContent>
-    </PropertyColumn>
-    <PropertyColumn Property="c=>c.RNI">
-        <TitleTemplate>
-            <span> <Icon Type="vertical-align-bottom" /> RNI/AI </span>
-        </TitleTemplate>
-        <ChildContent>
-            @if (context.RNI != default)
-            {
-                <Popover Title="推荐摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
-                    <ContentTemplate>
-                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.RNI.InnerRecords" />
-                    </ContentTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="range => range.EAR" Width="180">
+                    <TitleTemplate>
+                        <span>EAR <small>平均需要量</small></span>
+                    </TitleTemplate>
                     <ChildContent>
-                        @(context.RNI.ToString())
+                        <DriReferenceValueDisplay Value="@context.EAR" Label="平均需要量" />
                     </ChildContent>
-                </Popover>
-            }
-        </ChildContent>
-    </PropertyColumn>
-    <PropertyColumn Property="c=>c.UL">
-        <TitleTemplate>
-            <span> <Icon Type="vertical-align-top" /> UL </span>
-        </TitleTemplate>
-        <ChildContent>
-            @if (context.UL != default)
-            {
-                <Popover Title="可耐受最高摄入量核算明细" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
-                    <ContentTemplate>
-                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.UL.InnerRecords" />
-                    </ContentTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="range => range.RNI" Width="180">
+                    <TitleTemplate>
+                        <span>RNI/AI <small>推荐/适宜摄入量</small></span>
+                    </TitleTemplate>
                     <ChildContent>
-                        @(context.UL.ToString())
+                        <DriReferenceValueDisplay Value="@context.RNI" Label="推荐或适宜摄入量" />
                     </ChildContent>
-                </Popover>
-            }
-        </ChildContent>
-    </PropertyColumn>
-    <PropertyColumn Property="c=>c.OtherRecords">
-        <TitleTemplate>
-            <span> <Icon Type="info" /> 其他相关记录 </span>
-        </TitleTemplate>
-        <ChildContent>
-            @if (context.OtherRecords.Any())
-            {
-                <Popover Title="其他备择 DRIs 见解" Trigger="@(new AntDesign.Trigger[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
-                    <ContentTemplate>
-                        <DietaryReferenceIntakesInnerRecords InnerRecords="@context.OtherRecords" />
-                    </ContentTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="range => range.UL" Width="180">
+                    <TitleTemplate>
+                        <span>UL <small>可耐受最高摄入量</small></span>
+                    </TitleTemplate>
                     <ChildContent>
-                        ……
+                        <DriReferenceValueDisplay Value="@context.UL" Label="可耐受最高摄入量" />
                     </ChildContent>
-                </Popover>
-            }
-        </ChildContent>
-    </PropertyColumn>
-</Table>
+                </PropertyColumn>
+            </Table>
+        </TabPane>
+        <TabPane Key="additional" Disabled="@(RangesWithAdditionalReferences.Count == 0)">
+            <TabTemplate>
+                <span>专项参考值 <Tag Color="@("blue")">@RangesWithAdditionalReferences.Count</Tag></span>
+            </TabTemplate>
+            <ChildContent>
+                <DriAdditionalReferences NutrientRanges="RangesWithAdditionalReferences" />
+            </ChildContent>
+        </TabPane>
+    </Tabs>
+}
 
 @code {
+    /// <summary>获取或设置需要展示的营养素参考值。</summary>
     [Parameter]
     public IEnumerable<NutrientRange>? NutrientRanges { get; set; }
 
+    private IReadOnlyList<NutrientRange> Ranges =>
+        NutrientRanges as IReadOnlyList<NutrientRange> ?? NutrientRanges?.ToArray() ?? [];
+
+    private IReadOnlyList<NutrientRange> RangesWithAdditionalReferences =>
+        Ranges.Where(range => range.AdditionalReferenceGroups.Count > 0).ToArray();
+
+    private IReadOnlyList<NutrientRange> CoreRanges =>
+        Ranges.Where(range => range.EAR is not null || range.RNI is not null || range.UL is not null).ToArray();
 }

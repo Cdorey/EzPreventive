@@ -1,0 +1,48 @@
+.dri-result-tabs {
+    min-width: 0;
+}
+
+.table-guidance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+    color: var(--ez-text-secondary, #64748b);
+    font-size: 0.84rem;
+}
+
+.table-guidance ::deep .anticon {
+    margin-right: 4px;
+}
+
+.nutrient-name {
+    color: var(--ez-navy, #0f2942);
+    font-weight: 650;
+}
+
+::deep .ant-table-thead > tr > th {
+    color: var(--ez-navy, #0f2942);
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+::deep .ant-table-thead small {
+    display: block;
+    margin-top: 2px;
+    color: var(--ez-text-secondary, #64748b);
+    font-size: 0.72rem;
+    font-weight: 400;
+}
+
+::deep .ant-tabs-tab .ant-tag {
+    margin: 0 0 0 4px;
+    line-height: 18px;
+}
+
+@media (max-width: 767.98px) {
+    .table-guidance {
+        display: grid;
+        gap: 4px;
+    }
+}

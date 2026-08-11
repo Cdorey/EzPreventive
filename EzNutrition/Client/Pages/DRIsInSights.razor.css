@@ -63,6 +63,18 @@
     align-items: end;
 }
 
+.results-alert {
+    margin-bottom: 14px;
+}
+
+.results-body {
+    min-height: 180px;
+}
+
+.results-body ::deep .ant-empty {
+    padding: 42px 16px;
+}
+
 @media (max-width: 575.98px) {
     .filter-card,
     .results-card {

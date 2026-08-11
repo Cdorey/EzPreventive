@@ -1,0 +1,106 @@
+@using EzNutrition.Domain.Assessments
+@using EzNutrition.Shared.Data.Entities
+@namespace EzNutrition.UI.Components
+
+@if (NutrientRanges.Count == 0)
+{
+    <Empty Description="@("当前条件下没有专项参考指标")" Simple />
+}
+else
+{
+    <div class="additional-intro">
+        <Icon Type="profile" Theme="IconThemeType.Outline" />
+        <span>AMDR、PI-NCD、SPL 等指标按营养素归组展示；展开营养素查看完整建议。</span>
+    </div>
+    <Collapse Class="additional-collapse" Accordion>
+        @foreach (var range in NutrientRanges)
+        {
+            <Panel Key="@range.Nutrient">
+                <HeaderTemplate>
+                    <div class="nutrient-panel-heading">
+                        <strong>@range.Nutrient</strong>
+                        <span>
+                            @foreach (var group in range.AdditionalReferenceGroups)
+                            {
+                                <Tag Color="@GetTagColor(group.Kind)">@group.Code</Tag>
+                            }
+                        </span>
+                    </div>
+                </HeaderTemplate>
+                <ChildContent>
+                    <div class="reference-card-grid">
+                        @foreach (var group in range.AdditionalReferenceGroups)
+                        {
+                            <section class="reference-card" aria-label="@group.DisplayName">
+                                <header>
+                                    <Tag Color="@GetTagColor(group.Kind)">@group.Code</Tag>
+                                    <strong>@group.DisplayName</strong>
+                                </header>
+                                <Descriptions Bordered Column="1" Colon="false">
+                                    @foreach (var record in group.Records)
+                                    {
+                                        <DescriptionsItem Title="@GetRecordLabel(record)">
+                                            <div class="special-value">
+                                                <strong>@FormatValue(record)</strong>
+                                                <small>@FormatScope(record)</small>
+                                                @if (!string.IsNullOrWhiteSpace(record.Detail))
+                                                {
+                                                    <span>@record.Detail</span>
+                                                }
+                                            </div>
+                                        </DescriptionsItem>
+                                    }
+                                </Descriptions>
+                            </section>
+                        }
+                    </div>
+                </ChildContent>
+            </Panel>
+        }
+    </Collapse>
+}
+
+@code {
+    /// <summary>获取或设置包含专项参考指标的营养素范围。</summary>
+    [Parameter]
+    public IReadOnlyList<NutrientRange> NutrientRanges { get; set; } = [];
+
+    private static string GetTagColor(DriAdditionalReferenceKind kind) => kind switch
+    {
+        DriAdditionalReferenceKind.AcceptableMacronutrientDistributionRange => "blue",
+        DriAdditionalReferenceKind.ProposedIntakeForChronicDiseasePrevention => "purple",
+        DriAdditionalReferenceKind.SpecificProposedLevel => "cyan",
+        _ => "default"
+    };
+
+    private static string GetRecordLabel(DietaryReferenceIntakeValue record)
+    {
+        if (record.IsOffset)
+        {
+            return "调整量";
+        }
+
+        return record.RecordType switch
+        {
+            DietaryReferenceIntakeType.AMDR_L => "下限",
+            DietaryReferenceIntakeType.AMDR_H => "上限",
+            _ => "参考值"
+        };
+    }
+
+    private static string FormatValue(DietaryReferenceIntakeValue record) =>
+        $"{record.Value:0.##} {record.MeasureUnit}";
+
+    private static string FormatScope(DietaryReferenceIntakeValue record)
+    {
+        var parts = new[]
+        {
+            record.Gender,
+            record.AgeStart is null ? null : $"{record.AgeStart:0.##} 岁起",
+            record.SpecialPhysiologicalPeriod
+        }.Where(part => !string.IsNullOrWhiteSpace(part));
+
+        var scope = string.Join(" · ", parts);
+        return string.IsNullOrEmpty(scope) ? "通用人群记录" : scope;
+    }
+}
