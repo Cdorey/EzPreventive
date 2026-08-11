@@ -35,7 +35,7 @@ namespace EzNutrition.Domain.Assessments
                     ranges.Add(range);
                     foreach (var value in new[] { range.EAR, range.RNI, range.UL }.Where(value => value is not null))
                     {
-                        if (value!.InnerRecords.Count(record => !record.IsOffset) != 1)
+                        if (!value!.IsResolved)
                         {
                             issues.Add(new DriAggregationIssue
                             {
@@ -45,7 +45,7 @@ namespace EzNutrition.Domain.Assessments
                         }
                     }
                 }
-                catch (ArgumentException ex)
+                catch (DriAggregationException ex)
                 {
                     issues.Add(new DriAggregationIssue
                     {
