@@ -2,12 +2,18 @@
     min-width: 0;
 }
 
-.component-heading {
+.component-heading,
+.editor-intro,
+.result-toolbar,
+.calculation-action {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 6px;
+    gap: 16px;
+}
+
+.component-heading {
+    margin-bottom: 18px;
 }
 
 .component-heading span {
@@ -28,16 +34,402 @@
     font-size: 1.25rem;
 }
 
-.dietary-survey > ::deep p:first-of-type {
+.survey-editor,
+.survey-results {
+    display: grid;
+    gap: 18px;
+}
+
+.editor-intro h4 {
+    margin: 0 0 4px;
+    color: var(--ez-navy);
+    font-size: 1rem;
+}
+
+.editor-intro p,
+.calculation-action span,
+.result-toolbar span,
+.field-help,
+.food-option span,
+.food-option small,
+.food-identity span,
+.weight-basis span,
+.summary-metric > span,
+.mobile-summary-item > span,
+.calculation-note,
+.muted-value {
     color: var(--ez-text-secondary);
 }
 
+.editor-intro p {
+    margin: 0;
+}
+
+.entry-statistics {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+}
+
+.entry-statistics span {
+    padding: 7px 11px;
+    border: 1px solid var(--ez-border);
+    border-radius: 8px;
+    background: var(--ez-page, #f7f9fc);
+    color: var(--ez-text-secondary);
+    white-space: nowrap;
+}
+
+.entry-statistics strong {
+    color: var(--ez-navy);
+}
+
+.food-picker {
+    padding: 16px;
+    border: 1px solid var(--ez-border);
+    border-radius: 10px;
+    background: var(--ez-page, #f7f9fc);
+}
+
+.food-picker > label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--ez-navy);
+    font-weight: 600;
+}
+
+.field-help {
+    display: block;
+    margin-top: 7px;
+    font-size: 0.82rem;
+}
+
+.food-option,
+.food-identity,
+.weight-basis {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.food-option small {
+    white-space: normal;
+}
+
+.food-identity strong,
+.nutrient-name strong {
+    color: var(--ez-navy);
+}
+
+.food-identity span,
+.weight-basis span,
+.nutrient-name span {
+    font-size: 0.78rem;
+}
+
+.empty-guidance {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-height: 136px;
+    border: 1px dashed var(--ez-border);
+    border-radius: 10px;
+    color: var(--ez-text-secondary);
+}
+
+.empty-guidance ::deep .anticon {
+    color: var(--ez-primary);
+    font-size: 1.5rem;
+}
+
+.empty-guidance div {
+    display: grid;
+    gap: 3px;
+}
+
+.empty-guidance strong {
+    color: var(--ez-navy);
+}
+
+.entry-table,
+.summary-table {
+    overflow: hidden;
+    border: 1px solid var(--ez-border);
+    border-radius: 10px;
+}
+
+.entry-table ::deep .ant-table,
+.summary-table ::deep .ant-table {
+    border-radius: 10px;
+}
+
+.entry-table ::deep .ant-table-thead > tr > th,
+.summary-table ::deep .ant-table-thead > tr > th {
+    background: var(--ez-page, #f7f9fc);
+    color: var(--ez-navy);
+    font-weight: 600;
+}
+
+.calculation-action {
+    align-items: center;
+    padding: 14px 16px;
+    border-top: 1px solid var(--ez-border);
+    background: linear-gradient(90deg, rgba(22, 119, 255, 0.04), transparent);
+}
+
+.calculation-action > div {
+    display: grid;
+    gap: 2px;
+}
+
+.calculation-action strong {
+    color: var(--ez-navy);
+}
+
 .dietary-survey ::deep .calculate-button {
+    min-width: 188px;
     min-height: 44px;
 }
 
-@media (max-width: 575.98px) {
-    .dietary-survey ::deep .ant-collapse-content-box {
-        padding-inline: 10px;
+.result-toolbar {
+    align-items: center;
+}
+
+.result-toolbar > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.summary-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.summary-metric {
+    min-width: 0;
+    padding: 15px;
+    border: 1px solid var(--ez-border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(31, 64, 104, 0.05);
+}
+
+.summary-metric.has-flag {
+    border-color: #ffd591;
+    background: #fffdf7;
+}
+
+.metric-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.metric-heading > span {
+    overflow: hidden;
+    color: var(--ez-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.summary-metric > strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--ez-navy);
+    font-size: clamp(1.35rem, 2vw, 1.85rem);
+    line-height: 1.2;
+}
+
+.summary-metric small,
+.mobile-summary-value small {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.summary-metric > span {
+    display: block;
+    overflow: hidden;
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dietary-survey ::deep .dietary-result-tabs > .ant-tabs-nav {
+    margin-bottom: 14px;
+}
+
+.nutrient-name {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.result-value {
+    color: var(--ez-navy);
+    font-variant-numeric: tabular-nums;
+}
+
+.result-unit {
+    margin-left: 5px;
+    color: var(--ez-text-secondary);
+    font-size: 0.8rem;
+}
+
+.mobile-summary-list {
+    display: none;
+}
+
+.calculation-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--ez-page, #f7f9fc);
+}
+
+@media (max-width: 1199.98px) {
+    .summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .component-heading,
+    .editor-intro,
+    .calculation-action {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .entry-statistics {
+        flex-wrap: wrap;
+    }
+
+    .entry-statistics span {
+        flex: 1 1 140px;
+    }
+
+    .calculation-action {
+        padding-inline: 0;
+    }
+
+    .dietary-survey ::deep .calculate-button {
+        width: 100%;
+    }
+
+    .result-toolbar {
+        align-items: flex-start;
+    }
+
+    .result-toolbar > div {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .summary-metrics {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .summary-metric {
+        padding: 12px;
+    }
+
+    .metric-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .desktop-summary-table {
+        display: none;
+    }
+
+    .mobile-summary-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .mobile-summary-item {
+        display: grid;
+        gap: 8px;
+        padding: 13px;
+        border: 1px solid var(--ez-border);
+        border-radius: 9px;
+        background: #fff;
+    }
+
+    .mobile-summary-item > div:first-child,
+    .mobile-summary-value {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .mobile-summary-item > div:first-child span,
+    .mobile-summary-item > span {
+        color: var(--ez-text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .mobile-summary-value > strong {
+        color: var(--ez-navy);
+        font-size: 1.08rem;
+    }
+
+    .mobile-summary-item details {
+        padding-top: 7px;
+        border-top: 1px solid var(--ez-border);
+    }
+
+    .mobile-summary-item summary {
+        color: var(--ez-primary-strong);
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .mobile-summary-item dl {
+        display: grid;
+        gap: 6px;
+        margin: 10px 0 0;
+    }
+
+    .mobile-summary-item dl > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .mobile-summary-item dt,
+    .mobile-summary-item dd {
+        margin: 0;
+    }
+
+    .mobile-summary-item dt {
+        color: var(--ez-text-secondary);
+    }
+
+    .mobile-summary-item dd {
+        color: var(--ez-navy);
+        text-align: right;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .summary-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .result-toolbar {
+        gap: 10px;
     }
 }

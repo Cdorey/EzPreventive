@@ -1,4 +1,4 @@
-﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Ports
 @namespace EzNutrition.UI.Components
 @using EzNutrition.Domain.Dietary
@@ -8,135 +8,326 @@
 @inject IMessageService Message
 @inject ConsultationApplicationService ConsultationService
 @inject ILogger<DietarySurvey> Logger
+
 <div class="dietary-survey">
-<div class="component-heading">
-    <div>
-        <span>膳食摄入</span>
-        <h3>24 小时回顾法膳食调查</h3>
+    <div class="component-heading">
+        <div>
+            <span>膳食摄入</span>
+            <h3>24 小时回顾法膳食调查</h3>
+        </div>
+        <Icon Type="profile" Theme="IconThemeType.Outline" />
     </div>
-    <Icon Type="profile" Theme="IconThemeType.Outline" />
-</div>
-<Paragraph>逐项添加食物原料、生重、可食部与餐次；完成后统一核算营养素摄入。</Paragraph>
-<Space Direction="SpaceDirection.Vertical" Style="width: 100%;">
+
     @if (DietaryRecallSurvey?.SummaryCalculationTable is null)
     {
-        <SpaceItem Style="width:100%">
-            <Select TItem="Food" TItemValue="Guid" DataSource="@DietaryRecallSurvey?.Foods" Style="width:100%" EnableVirtualization=true LabelName="@nameof(Food.FriendlyName)" ValueName="@nameof(Food.FoodId)" Placeholder="搜索并选择食物原料" DefaultActiveFirstOption="false" Mode="SelectMode.Default" Size="InputSize.Large" EnableSearch OnSelectedItemChanged="OnSelectedItemChangedHandler" AutoClearSearchValue>
-                <ItemTemplate>
-                    <strong>@((context as Food).FriendlyName)</strong>
-                    <span>@((context as Food).Details)</span>
-                    <em> (@((context as Food).FoodGroups))</em>
-                </ItemTemplate>
-            </Select>
-        </SpaceItem>
-        <SpaceItem Style="width:100%">
-            <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Size="TableSize.Small" ScrollX="760">
-                <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
-                    @(context.Food.FriendlyCode)
-                </PropertyColumn>
-                <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
-                    @context.Food.FriendlyName
-                </PropertyColumn>
-                <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
-                    <Input Placeholder="通常为原料生重" type="InputType.Number" min="0" step="1" @bind-Value="@context.Weight" />
-                </PropertyColumn>
-                <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
-                    <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" />
-                </PropertyColumn>
-                <PropertyColumn Title="餐次" Property="r=>r.Weight">
-                    <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" />
-                </PropertyColumn>
-                <ActionColumn Title="操作">
-                    <Button Shape="@ButtonShape.Circle" OnClick="() =>RemoveRecord(context)" Icon="@IconType.Outline.Delete" />
-                </ActionColumn>
-            </Table>
-        </SpaceItem>
-        <SpaceItem Style="width:100%">
-            <Button Class="calculate-button" Type="ButtonType.Primary" Block OnClick="Calculate" AutoLoading><Icon Type="radar-chart" Theme="IconThemeType.Outline" />完成调查并计算结果</Button>
-        </SpaceItem>
-    }
-    else
-    {
-        <SpaceItem Style="width:100%">
-            @* Summary is here *@
-            <Collapse DefaultActiveKey="@(["Summary"])" Accordion>
-                <Panel Header="原始信息" Key="Original Data">
-                    <Table TItem="DietaryRecallEntry" DataSource="@Entries" HidePagination=true Responsive Size="TableSize.Small" ScrollX="720">
-                        <PropertyColumn Title="原料代码" Property="r=>r.Food.FriendlyCode">
-                            @(context.Food.FriendlyCode)
-                        </PropertyColumn>
-                        <PropertyColumn Title="原料名称" Property="r=>r.Food.FriendlyName">
-                            @context.Food.FriendlyName
-                        </PropertyColumn>
-                        <PropertyColumn Title="重量（克）" Property="r=>r.Weight">
-                            <Input Placeholder="通常为原料生重" type="InputType.Number" min="0" step="1" @bind-Value="@context.Weight" Disabled />
-                        </PropertyColumn>
-                        <PropertyColumn Title="均为可食部" Property="r=>r.Weight">
-                            <Switch @bind-Checked="@context.IsAllEdible" CheckedChildren="是" UnCheckedChildren="否" Disabled />
-                        </PropertyColumn>
-                        <PropertyColumn Title="餐次" Property="r=>r.Weight">
-                            <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" Disabled />
-                        </PropertyColumn>
-                    </Table>
-                </Panel>
-                <Panel Header="核算过程" Key="CalculatorProgress">
-                    @if (DietaryRecallSurvey.CalculateProgress is not null)
-                    {
-                        <Table DataSource="DietaryRecallSurvey.CalculateProgress.AsEnumerable().ToArray()" ScrollX="4000" HidePagination=true>
-                            @foreach (DataColumn column in DietaryRecallSurvey.CalculateProgress.Columns)
-                            {
-                                @if (DietaryRecallSurvey.CalculateProgress.Columns.IndexOf(column) <= 2)
-                                {
-                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" Width="100" Fixed="ColumnFixPlacement.Left" />
+        <section class="survey-editor" aria-label="膳食记录编辑区">
+            <div class="editor-intro">
+                <div>
+                    <h4>录入全天食物</h4>
+                    <p>逐项记录食物、重量口径与餐次。食物成分按每 100 克可食部核算。</p>
+                </div>
+                <div class="entry-statistics" aria-label="已录入概况">
+                    <span><strong>@EntryCount</strong> 项食物</span>
+                    <span><strong>@TotalRecordedWeight.ToString("0.#")</strong> g 记录重量</span>
+                </div>
+            </div>
 
+            <div class="food-picker">
+                <label>添加食物原料</label>
+                <Select TItem="Food"
+                        TItemValue="Guid"
+                        DataSource="@DietaryRecallSurvey?.Foods"
+                        Style="width:100%"
+                        EnableVirtualization="true"
+                        LabelName="@nameof(Food.FriendlyName)"
+                        ValueName="@nameof(Food.FoodId)"
+                        Placeholder="输入名称或代码搜索食物"
+                        DefaultActiveFirstOption="false"
+                        Mode="SelectMode.Default"
+                        Size="InputSize.Large"
+                        EnableSearch
+                        OnSelectedItemChanged="OnSelectedItemChangedHandler"
+                        AutoClearSearchValue>
+                    <ItemTemplate>
+                        <div class="food-option">
+                            <strong>@((context as Food).FriendlyName)</strong>
+                            <span>@((context as Food).FriendlyCode) · @((context as Food).FoodGroups)</span>
+                            @if (!string.IsNullOrWhiteSpace((context as Food).Details))
+                            {
+                                <small>@((context as Food).Details)</small>
+                            }
+                        </div>
+                    </ItemTemplate>
+                </Select>
+                <span class="field-help">选择后自动加入下方记录，默认按 100 g 可食重量录入。</span>
+            </div>
+
+            @if (EntryCount == 0)
+            {
+                <div class="empty-guidance">
+                    <Icon Type="inbox" Theme="IconThemeType.Outline" />
+                    <div>
+                        <strong>尚未添加食物</strong>
+                        <span>从上方搜索框选择当天摄入的第一种食物。</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="entry-table" aria-label="已录入食物">
+                    <Table TItem="DietaryRecallEntry"
+                           DataSource="@Entries"
+                           HidePagination="true"
+                           Responsive
+                           Size="TableSize.Middle"
+                           ScrollX="920"
+                           RowKey="entry => entry.EntryId">
+                        <PropertyColumn Title="食物" Property="entry => entry.Food.FriendlyName" Width="250">
+                            <div class="food-identity">
+                                <strong>@context.Food.FriendlyName</strong>
+                                <span>@context.Food.FriendlyCode</span>
+                            </div>
+                        </PropertyColumn>
+                        <PropertyColumn Title="重量（g）" Property="entry => entry.Weight" Width="160">
+                            <AntDesign.InputNumber TValue="decimal"
+                                         Min="0m"
+                                         Step="1m"
+                                         Precision="1"
+                                         Width="132px"
+                                         @bind-Value="@context.Weight" />
+                        </PropertyColumn>
+                        <PropertyColumn Title="重量口径" Property="entry => entry.IsAllEdible" Width="190">
+                            <div class="weight-basis">
+                                <Switch @bind-Checked="@context.IsAllEdible"
+                                        CheckedChildren="可食重量"
+                                        UnCheckedChildren="原始重量" />
+                                @if (!context.IsAllEdible)
+                                {
+                                    <span>按可食率 @(context.Food.EdiblePortion ?? 100)% 折算</span>
                                 }
                                 else
                                 {
-                                    <PropertyColumn Property="c=>c[column.ColumnName]" Title="@column.ColumnName" />
+                                    <span>不再扣除不可食部分</span>
                                 }
-                            }
-                        </Table>
-                    }
-                </Panel>
-                <Panel Header="调查结果" Key="Summary">
-                    @if (DietaryRecallSurvey.SummaryRows.Any())
-                    {
-                        <Table TItem="DietarySurveySummaryRow" DataSource="@DietaryRecallSurvey.SummaryRows" HidePagination=true Size="TableSize.Small" ScrollX="760" RowExpandable="@((record)=>record.Data.Expandable)">
-                            <ColumnDefinitions>
-                                <Column TData="string" Title="缩写" DataIndex="Abbreviation" />
-                                <Column TData="string" Title="项目名称" DataIndex="FriendlyName" />
-                                <PropertyColumn Title="参考标记" Property="x=>x.Flag">
-                                    @if (context.Flag is not null)
-                                    {
-                                        <Icon Type="@context.Flag" Theme="IconThemeType.Outline" />
-                                    }
-                                </PropertyColumn>
-                                <Column TData="string" Title="结果值" DataIndex="ValueString" />
-                                <Column TData="string" Title="单位" DataIndex="Unit" />
-                                <Column TData="string" Title="参考值" DataIndex="ReferenceRange" />
-                            </ColumnDefinitions>
-                            <ExpandTemplate>
-                                @if (context.Data.ExpendDescriptions is not null && context.Data.ExpendDescriptions.Any())
-                                {
-                                    <Descriptions Title="@context.Data.ExpendTitle" Column="@(new Dictionary<string,int>{{ "xs", 1}})">
-                                        @foreach (var description in context.Data.ExpendDescriptions)
-                                        {
-                                            <DescriptionsItem Title="@(description.Item1.Length>12?$"{description.Item1.Substring(0,11)}…":description.Item1)">@description.Item2</DescriptionsItem>
-                                        }
-                                    </Descriptions>
-                                }
-                            </ExpandTemplate>
-                        </Table>
-                    }
-                </Panel>
-            </Collapse>
-        </SpaceItem>
+                            </div>
+                        </PropertyColumn>
+                        <PropertyColumn Title="餐次" Property="entry => entry.MealOccasion" Width="180">
+                            <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" />
+                        </PropertyColumn>
+                        <ActionColumn Title="操作" Width="80">
+                            <Button Shape="ButtonShape.Circle"
+                                    Danger
+                                    OnClick="() => RemoveRecord(context)"
+                                    Icon="@IconType.Outline.Delete"
+                                    aria-label="@($"删除 {context.Food.FriendlyName}")" />
+                        </ActionColumn>
+                    </Table>
+                </div>
+            }
+
+            <div class="calculation-action">
+                <div>
+                    <strong>核算前请确认</strong>
+                    <span>重量口径会直接影响可食部折算；结果仍可返回修改后重新计算。</span>
+                </div>
+                <Button Class="calculate-button"
+                        Type="ButtonType.Primary"
+                        Size="ButtonSize.Large"
+                        Disabled="@(EntryCount == 0)"
+                        OnClick="Calculate"
+                        AutoLoading>
+                    <Icon Type="calculator" Theme="IconThemeType.Outline" />
+                    计算膳食摄入
+                </Button>
+            </div>
+        </section>
     }
-</Space>
+    else
+    {
+        <section class="survey-results" aria-label="膳食调查结果">
+            <div class="result-toolbar">
+                <div>
+                    <Tag Color="@("green")"><Icon Type="check-circle" Theme="IconThemeType.Outline" /> 已完成核算</Tag>
+                    <span>@EntryCount 项食物 · @TotalRecordedWeight.ToString("0.#") g 记录重量</span>
+                </div>
+                <Button OnClick="EditEntries" Icon="@IconType.Outline.Edit">修改记录</Button>
+            </div>
+
+            <div class="summary-metrics" aria-label="关键膳食指标">
+                @foreach (var metric in KeyMetrics)
+                {
+                    <article class="summary-metric @(metric.Flag is null ? string.Empty : "has-flag")">
+                        <div class="metric-heading">
+                            <span>@metric.FriendlyName</span>
+                            @StatusTag(metric)
+                        </div>
+                        <strong>@metric.ValueString <small>@metric.Unit</small></strong>
+                        @if (HasReference(metric))
+                        {
+                            <span>参考 @metric.ReferenceRange @metric.Unit</span>
+                        }
+                        else
+                        {
+                            <span>本次 24 小时回顾核算值</span>
+                        }
+                    </article>
+                }
+            </div>
+
+            <Tabs Class="dietary-result-tabs" DefaultActiveKey="summary">
+                <ChildContent>
+                    <TabPane Key="summary" Tab="营养素结果">
+                        @if (DietaryRecallSurvey.SummaryRows.Any())
+                        {
+                            <div class="summary-table desktop-summary-table">
+                                <Table TItem="DietarySurveySummaryRow"
+                                       DataSource="@DietaryRecallSurvey.SummaryRows"
+                                       HidePagination="true"
+                                       Size="TableSize.Middle"
+                                       ScrollX="760"
+                                       RowExpandable="@((record) => record.Data.Expandable)">
+                                    <ColumnDefinitions>
+                                        <PropertyColumn Title="营养素" Property="row => row.FriendlyName" Width="220">
+                                            <div class="nutrient-name">
+                                                <strong>@context.FriendlyName</strong>
+                                                @if (!string.IsNullOrWhiteSpace(context.Abbreviation))
+                                                {
+                                                    <span>@context.Abbreviation</span>
+                                                }
+                                            </div>
+                                        </PropertyColumn>
+                                        <PropertyColumn Title="核算结果" Property="row => row.ValueString" Width="170">
+                                            <strong class="result-value">@context.ValueString</strong>
+                                            <span class="result-unit">@context.Unit</span>
+                                        </PropertyColumn>
+                                        <PropertyColumn Title="参考判断" Property="row => row.Flag" Width="180">
+                                            @StatusTag(context)
+                                        </PropertyColumn>
+                                        <PropertyColumn Title="参考范围" Property="row => row.ReferenceRange">
+                                            @if (HasReference(context))
+                                            {
+                                                <span>@context.ReferenceRange @context.Unit</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="muted-value">未设置</span>
+                                            }
+                                        </PropertyColumn>
+                                    </ColumnDefinitions>
+                                    <ExpandTemplate>
+                                        @if (context.Data.ExpendDescriptions is not null && context.Data.ExpendDescriptions.Any())
+                                        {
+                                            <Descriptions Title="@context.Data.ExpendTitle" Column="@(new Dictionary<string, int> { { "xs", 1 }, { "md", 2 }, { "xl", 3 } })">
+                                                @foreach (var description in context.Data.ExpendDescriptions)
+                                                {
+                                                    <DescriptionsItem Title="@description.Item1">@description.Item2</DescriptionsItem>
+                                                }
+                                            </Descriptions>
+                                        }
+                                    </ExpandTemplate>
+                                </Table>
+                            </div>
+
+                            <div class="mobile-summary-list">
+                                @foreach (var row in DietaryRecallSurvey.SummaryRows)
+                                {
+                                    <article class="mobile-summary-item">
+                                        <div>
+                                            <strong>@row.FriendlyName</strong>
+                                            @if (!string.IsNullOrWhiteSpace(row.Abbreviation))
+                                            {
+                                                <span>@row.Abbreviation</span>
+                                            }
+                                        </div>
+                                        <div class="mobile-summary-value">
+                                            <strong>@row.ValueString <small>@row.Unit</small></strong>
+                                            @StatusTag(row)
+                                        </div>
+                                        <span>参考：@(HasReference(row) ? $"{row.ReferenceRange} {row.Unit}" : "未设置")</span>
+                                        @if (row.ExpendDescriptions is not null && row.ExpendDescriptions.Any())
+                                        {
+                                            <details>
+                                                <summary>@row.ExpendTitle</summary>
+                                                <dl>
+                                                    @foreach (var description in row.ExpendDescriptions)
+                                                    {
+                                                        <div><dt>@description.Item1</dt><dd>@description.Item2</dd></div>
+                                                    }
+                                                </dl>
+                                            </details>
+                                        }
+                                    </article>
+                                }
+                            </div>
+                        }
+                    </TabPane>
+
+                    <TabPane Key="entries" Tab="录入记录">
+                        <Table TItem="DietaryRecallEntry"
+                               DataSource="@Entries"
+                               HidePagination="true"
+                               Responsive
+                               Size="TableSize.Middle"
+                               ScrollX="720"
+                               RowKey="entry => entry.EntryId">
+                            <PropertyColumn Title="食物" Property="entry => entry.Food.FriendlyName">
+                                <div class="food-identity">
+                                    <strong>@context.Food.FriendlyName</strong>
+                                    <span>@context.Food.FriendlyCode</span>
+                                </div>
+                            </PropertyColumn>
+                            <PropertyColumn Title="记录重量" Property="entry => entry.Weight" Width="150">
+                                @context.Weight.ToString("0.#") <span class="muted-value">g</span>
+                            </PropertyColumn>
+                            <PropertyColumn Title="重量口径" Property="entry => entry.IsAllEdible" Width="190">
+                                @if (context.IsAllEdible)
+                                {
+                                    <Tag Color="@("blue")">可食重量</Tag>
+                                }
+                                else
+                                {
+                                    <Tag Color="@("orange")">原始重量 · 可食率 @(context.Food.EdiblePortion ?? 100)%</Tag>
+                                }
+                            </PropertyColumn>
+                            <PropertyColumn Title="餐次" Property="entry => entry.MealOccasion" Width="160">
+                                @context.MealOccasion
+                            </PropertyColumn>
+                        </Table>
+                    </TabPane>
+
+                    <TabPane Key="calculation" Tab="核算明细">
+                        <div class="calculation-note">
+                            <Icon Type="audit" Theme="IconThemeType.Outline" />
+                            <span>以下明细用于追溯每种食物对各营养素的贡献；营养素较多时可横向滚动查看。</span>
+                        </div>
+                        @if (DietaryRecallSurvey.CalculateProgress is not null)
+                        {
+                            <Table DataSource="DietaryRecallSurvey.CalculateProgress.Rows.Cast<DataRow>().ToArray()"
+                                   ScrollX="4000"
+                                   HidePagination="true"
+                                   Size="TableSize.Middle">
+                                @foreach (DataColumn column in DietaryRecallSurvey.CalculateProgress.Columns)
+                                {
+                                    @if (DietaryRecallSurvey.CalculateProgress.Columns.IndexOf(column) <= 2)
+                                    {
+                                        <PropertyColumn Property="row => row[column.ColumnName]" Title="@column.ColumnName" Width="120" Fixed="ColumnFixPlacement.Left" />
+                                    }
+                                    else
+                                    {
+                                        <PropertyColumn Property="row => row[column.ColumnName]" Title="@column.ColumnName" Width="120" />
+                                    }
+                                }
+                            </Table>
+                        }
+                    </TabPane>
+                </ChildContent>
+            </Tabs>
+        </section>
+    }
 </div>
+
 @code
 {
-
     [Parameter]
     public DietaryRecallSurvey? DietaryRecallSurvey { get; set; }
 
@@ -145,11 +336,59 @@
 
     public List<DietaryRecallEntry>? Entries => DietaryRecallSurvey?.RecallEntries;
 
+    private int EntryCount => Entries?.Count ?? 0;
+
+    private decimal TotalRecordedWeight => Entries?.Sum(entry => entry.Weight) ?? 0m;
+
+    private IEnumerable<DietarySurveySummaryRow> KeyMetrics =>
+        new[] { "总能量", "蛋白质供能比", "脂肪供能比", "碳水化合物供能比" }
+            .Select(name => DietaryRecallSurvey?.SummaryRows.FirstOrDefault(row => row.FriendlyName == name))
+            .Where(row => row is not null)
+            .Cast<DietarySurveySummaryRow>();
+
     private readonly CancellationTokenSource lifetimeCancellation = new();
+
+    private static bool HasReference(DietarySurveySummaryRow row) =>
+        !string.IsNullOrWhiteSpace(row.ReferenceRange?.Replace("~", string.Empty));
+
+    private static RenderFragment StatusTag(DietarySurveySummaryRow row) => builder =>
+    {
+        var (color, icon, label) = row.Flag switch
+        {
+            Flags.Lower => ("orange", "arrow-down", "低于参考"),
+            Flags.Higher => ("red", "arrow-up", "高于参考"),
+            _ when HasReference(row) => ("green", "check", "参考范围内"),
+            _ => ("default", "minus", "无参考值")
+        };
+
+        builder.OpenComponent<Tag>(0);
+        builder.AddAttribute(1, "Color", color);
+        builder.AddContent(2, renderBuilder =>
+        {
+            renderBuilder.OpenComponent<Icon>(0);
+            renderBuilder.AddAttribute(1, "Type", icon);
+            renderBuilder.AddAttribute(2, "Theme", IconThemeType.Outline);
+            renderBuilder.CloseComponent();
+            renderBuilder.AddContent(3, $" {label}");
+        });
+        builder.CloseComponent();
+    };
 
     private void RemoveRecord(DietaryRecallEntry entry)
     {
         Entries?.Remove(entry);
+    }
+
+    private async Task EditEntries()
+    {
+        if (DietaryRecallSurvey is null)
+        {
+            return;
+        }
+
+        DietaryRecallSurvey.SummaryCalculationTable = null;
+        DietaryRecallSurvey.SummaryRows.Clear();
+        await OnCalculationCompleted.InvokeAsync();
     }
 
     private async Task OnSelectedItemChangedHandler(Food? food)
@@ -208,6 +447,7 @@
                 return;
             }
         }
+
         try
         {
             await DietaryRecallSurvey.CalculateAsync();
