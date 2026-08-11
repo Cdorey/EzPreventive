@@ -1,0 +1,70 @@
+.calculation-records {
+    display: grid;
+    gap: 10px;
+    width: min(480px, calc(100vw - 64px));
+    max-height: min(520px, calc(100vh - 160px));
+    overflow: auto;
+}
+
+.calculation-record {
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+
+.calculation-record > header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ez-navy, #0f2942);
+}
+
+.calculation-record > header ::deep .ant-tag {
+    margin: 0;
+}
+
+.calculation-record > header > span {
+    margin-left: auto;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.calculation-record dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 10px 0 0;
+}
+
+.calculation-record dl > div {
+    min-width: 0;
+}
+
+.calculation-record dt {
+    color: #64748b;
+    font-size: 0.72rem;
+}
+
+.calculation-record dd {
+    margin: 2px 0 0;
+    color: #334155;
+    overflow-wrap: anywhere;
+}
+
+.calculation-record p {
+    margin: 9px 0 0;
+    padding-top: 8px;
+    color: #475569;
+    border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 575.98px) {
+    .calculation-records {
+        width: min(360px, calc(100vw - 48px));
+    }
+
+    .calculation-record dl {
+        grid-template-columns: 1fr;
+    }
+}

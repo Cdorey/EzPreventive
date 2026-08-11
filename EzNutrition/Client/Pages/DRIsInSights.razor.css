@@ -63,6 +63,41 @@
     align-items: end;
 }
 
+.results-alert {
+    margin-bottom: 14px;
+}
+
+.results-body {
+    min-height: 180px;
+}
+
+.results-body ::deep .ant-empty {
+    padding: 42px 16px;
+}
+
+@media (min-width: 1200px) {
+    .page-heading {
+        margin-bottom: 18px;
+    }
+
+    .filter-card,
+    .results-card {
+        padding: 18px 20px;
+    }
+
+    .filter-card {
+        margin-bottom: 14px;
+    }
+
+    .section-heading {
+        margin-bottom: 12px;
+    }
+
+    .filter-card ::deep .ant-form-item {
+        margin-bottom: 0;
+    }
+}
+
 @media (max-width: 575.98px) {
     .filter-card,
     .results-card {

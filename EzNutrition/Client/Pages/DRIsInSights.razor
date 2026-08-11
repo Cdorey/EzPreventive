@@ -1,14 +1,10 @@
 ﻿@page "/drisinsights"
 @using EzNutrition.Application.Consultations;
 @using EzNutrition.Application.Ports;
-@using EzNutrition.Client.Services;
 @using EzNutrition.Domain.Assessments;
 @using EzNutrition.Domain.Consultations;
-@using EzNutrition.Shared.Data.Entities;
-@using System.Text;
 @attribute [Authorize]
 @implements IDisposable
-@inject IMessageService Message
 @inject ConsultationApplicationService ConsultationService
 @inject ILogger<DRIsInSights> Logger
 <PageTitle>DRIs 速查</PageTitle>
@@ -32,7 +28,7 @@
             <GridRow Gutter="(16,0)">
                 <GridCol Xs="24" Md="8">
                     <FormItem Label="性别">
-                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnEERsChanged">
+                        <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender" OnChange="OnGenderChangedAsync">
                             <Radio RadioButton Value="@("男")">男</Radio>
                             <Radio RadioButton Value="@("女")">女</Radio>
                         </RadioGroup>
@@ -40,18 +36,18 @@
                 </GridCol>
                 <GridCol Xs="24" Md="6">
                     <FormItem Label="年龄">
-                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" OnChange="OnEERsChanged" Min="0" />
+                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" OnChange="OnCriteriaChangedAsync" Min="0" />
                     </FormItem>
                 </GridCol>
                 <GridCol Xs="24" Md="10">
                     <FormItem Label="特殊生理状况">
-                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnEERsChanged">
+                        <RadioGroup TValue="string" id="specialPhysiologicalPeriod" @bind-Value="context.SpecialPhysiologicalPeriod" OnChange="OnCriteriaChangedAsync">
                             <Radio RadioButton Value="@string.Empty">无</Radio>
-                            <Radio RadioButton Value="@("孕早期")">孕早期</Radio>
-                            <Radio RadioButton Value="@("孕中期")">孕中期</Radio>
-                            <Radio RadioButton Value="@("孕晚期")">孕晚期</Radio>
-                            <Radio RadioButton Value="@("乳母")">乳母</Radio>
-                            <Radio RadioButton Value="@("已绝经")">已绝经</Radio>
+                            <Radio RadioButton Value="@("孕早期")" Disabled="@(!IsFemale)">孕早期</Radio>
+                            <Radio RadioButton Value="@("孕中期")" Disabled="@(!IsFemale)">孕中期</Radio>
+                            <Radio RadioButton Value="@("孕晚期")" Disabled="@(!IsFemale)">孕晚期</Radio>
+                            <Radio RadioButton Value="@("乳母")" Disabled="@(!IsFemale)">乳母</Radio>
+                            <Radio RadioButton Value="@("已绝经")" Disabled="@(!IsFemale)">已绝经</Radio>
                         </RadioGroup>
                     </FormItem>
                 </GridCol>
@@ -65,14 +61,43 @@
                 <span>检索结果</span>
                 <h2 id="dris-results-title">适用参考摄入量</h2>
             </div>
-            <small>点击或悬停数值可查看核算明细</small>
+            <small>@(LastSuccessfulCriteria ?? "选择条件后自动检索")</small>
         </div>
+        @if (LoadState == DriBrowserLoadState.Error)
+        {
+            <Alert Class="results-alert"
+                   Type="AlertType.Error"
+                   Message="未能取得适用的参考摄入量"
+                   Description="@LoadError"
+                   ShowIcon="true" />
+        }
+        @if (Dris.AggregationIssues.Count > 0)
+        {
+            <Alert Class="results-alert"
+                   Type="AlertType.Warning"
+                   Message="部分参考值需要人工核定"
+                   Description="@AggregationWarning"
+                   ShowIcon="true" />
+        }
         <Spin Spinning="@IsLoading">
             <Indicator>
                 <Icon Type="loading" Style="font-size: 5rem" Theme="IconThemeType.Outline" Spin />
             </Indicator>
             <ChildContent>
-                <DRIsInSightTable NutrientRanges="@Dris.NutrientRanges" />
+                <div class="results-body">
+                    @if (LoadState == DriBrowserLoadState.Initial)
+                    {
+                        <Empty Description="@("请选择性别并确认年龄")" Simple />
+                    }
+                    else if (LoadState == DriBrowserLoadState.Error)
+                    {
+                        <Empty Description="@("当前没有可安全展示的查询结果")" Simple />
+                    }
+                    else
+                    {
+                        <DRIsInSightTable NutrientRanges="@Dris.NutrientRanges" />
+                    }
+                </div>
             </ChildContent>
         </Spin>
     </section>
@@ -84,11 +109,33 @@
 
     private DRIs Dris { get; set; } = new(new ClientInfo());
 
-    private bool IsLoading { get; set; } = false;
+    private DriBrowserLoadState LoadState { get; set; } = DriBrowserLoadState.Initial;
+
+    private bool IsLoading => LoadState == DriBrowserLoadState.Loading;
+
+    private bool IsFemale => string.Equals(Info.Gender, "女", StringComparison.Ordinal);
+
+    private string? LoadError { get; set; }
+
+    private string? LastSuccessfulCriteria { get; set; }
+
+    private string AggregationWarning => string.Join(
+        "；",
+        Dris.AggregationIssues.Select(issue => $"{issue.Nutrient}：{issue.Message}"));
 
     private CancellationTokenSource? requestCancellation;
 
-    private async Task OnEERsChanged()
+    private async Task OnGenderChangedAsync()
+    {
+        if (!IsFemale && !string.IsNullOrEmpty(Info.SpecialPhysiologicalPeriod))
+        {
+            Info.SpecialPhysiologicalPeriod = string.Empty;
+        }
+
+        await OnCriteriaChangedAsync();
+    }
+
+    private async Task OnCriteriaChangedAsync()
     {
         var previousCancellation = requestCancellation;
         requestCancellation = null;
@@ -96,7 +143,7 @@
 
         if (string.IsNullOrWhiteSpace(Info.Gender) || Info.Age < 0)
         {
-            IsLoading = false;
+            ClearResults(DriBrowserLoadState.Initial);
             return;
         }
 
@@ -105,11 +152,17 @@
 
         try
         {
-            IsLoading = true;
+            ClearResults(DriBrowserLoadState.Loading);
             await Task.Delay(RequestDebounceMilliseconds, cancellation.Token);
             await ConsultationService.LoadDietaryReferenceIntakesAsync(
                 Dris,
                 cancellation.Token);
+
+            if (ReferenceEquals(requestCancellation, cancellation))
+            {
+                LoadState = DriBrowserLoadState.Success;
+                LastSuccessfulCriteria = FormatCriteria();
+            }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -117,18 +170,37 @@
         catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
         {
             Logger.LogWarning(ex, "Unable to load DRI records.");
-            await Message.ErrorAsync("膳食参考摄入量加载失败，请稍后重试。");
+            if (ReferenceEquals(requestCancellation, cancellation))
+            {
+                ClearResults(DriBrowserLoadState.Error);
+                LoadError = "请核对查询条件或稍后重试；上一次结果已隐藏，避免与当前条件混淆。";
+            }
         }
         finally
         {
             if (ReferenceEquals(requestCancellation, cancellation))
             {
                 requestCancellation = null;
-                IsLoading = false;
             }
 
             cancellation.Dispose();
         }
+    }
+
+    private void ClearResults(DriBrowserLoadState state)
+    {
+        Dris.AvailableDRIs = [];
+        LoadState = state;
+        LoadError = null;
+        LastSuccessfulCriteria = null;
+    }
+
+    private string FormatCriteria()
+    {
+        var period = string.IsNullOrWhiteSpace(Info.SpecialPhysiologicalPeriod)
+            ? "无特殊生理状况"
+            : Info.SpecialPhysiologicalPeriod;
+        return $"当前结果：{Info.Gender} · {Info.Age} 岁 · {period}";
     }
 
     public void Dispose()
@@ -136,5 +208,13 @@
         var cancellation = requestCancellation;
         requestCancellation = null;
         cancellation?.Cancel();
+    }
+
+    private enum DriBrowserLoadState
+    {
+        Initial,
+        Loading,
+        Success,
+        Error
     }
 }

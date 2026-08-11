@@ -1,0 +1,34 @@
+.not-applicable {
+    color: #94a3b8;
+}
+
+.reference-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 3px 0;
+    color: var(--ez-primary-strong, #096dd9);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed currentColor;
+    cursor: pointer;
+}
+
+.reference-value:hover,
+.reference-value:focus-visible {
+    color: var(--ez-primary, #1890ff);
+}
+
+.reference-value:focus-visible {
+    outline: 2px solid rgba(24, 144, 255, 0.35);
+    outline-offset: 3px;
+}
+
+.reference-value-conflict {
+    color: #ad6800;
+    font-weight: 500;
+}

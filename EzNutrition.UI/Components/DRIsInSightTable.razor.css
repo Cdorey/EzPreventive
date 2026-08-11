@@ -1,0 +1,78 @@
+.dri-result-sections {
+    display: grid;
+    gap: 26px;
+    min-width: 0;
+}
+
+.reference-table-section {
+    min-width: 0;
+}
+
+.reference-section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 12px;
+}
+
+.reference-section-heading > div > span {
+    color: var(--ez-primary-strong, #096dd9);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.reference-section-heading h3 {
+    margin: 2px 0 0;
+    color: var(--ez-navy, #0f2942);
+    font-size: 1.05rem;
+}
+
+.reference-section-heading small {
+    color: var(--ez-text-secondary, #64748b);
+    text-align: right;
+}
+
+.reference-section-heading ::deep .anticon {
+    margin-right: 4px;
+}
+
+.nutrient-name {
+    color: var(--ez-navy, #0f2942);
+    font-weight: 650;
+}
+
+::deep .ant-table-thead > tr > th {
+    color: var(--ez-navy, #0f2942);
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+::deep .ant-table-thead small {
+    display: block;
+    margin-top: 2px;
+    color: var(--ez-text-secondary, #64748b);
+    font-size: 0.7rem;
+    font-weight: 400;
+}
+
+::deep .ant-table-tbody > tr > td {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+@media (max-width: 767.98px) {
+    .dri-result-sections {
+        gap: 22px;
+    }
+
+    .reference-section-heading {
+        display: grid;
+        gap: 6px;
+    }
+
+    .reference-section-heading small {
+        text-align: left;
+    }
+}

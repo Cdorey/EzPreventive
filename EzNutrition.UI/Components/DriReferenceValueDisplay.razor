@@ -1,0 +1,37 @@
+@using EzNutrition.Domain.Assessments
+@namespace EzNutrition.UI.Components
+
+@if (Value is null)
+{
+    <span class="not-applicable" aria-label="无适用记录">—</span>
+}
+else
+{
+    <Popover Title="@($"{Label}核算依据")"
+             Trigger="@(new[] { AntDesign.Trigger.Hover, AntDesign.Trigger.Click })">
+        <ContentTemplate>
+            <DietaryReferenceIntakesInnerRecords InnerRecords="Value.InnerRecords" />
+        </ContentTemplate>
+        <ChildContent>
+            <button type="button"
+                    class="reference-value @(Value.IsResolved ? string.Empty : "reference-value-conflict")"
+                    aria-label="@($"{Label}：{Value}")">
+                @if (!Value.IsResolved)
+                {
+                    <Icon Type="warning" Theme="IconThemeType.Outline" />
+                }
+                <span>@Value.ToString()</span>
+            </button>
+        </ChildContent>
+    </Popover>
+}
+
+@code {
+    /// <summary>获取或设置需要展示的聚合参考值。</summary>
+    [Parameter]
+    public AggregatedDriValue? Value { get; set; }
+
+    /// <summary>获取或设置用于辅助技术和明细标题的指标名称。</summary>
+    [Parameter]
+    public string Label { get; set; } = "参考值";
+}

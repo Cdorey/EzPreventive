@@ -1,48 +1,47 @@
-﻿@using EzNutrition.Shared.Data.Entities
+@using EzNutrition.Shared.Data.Entities
 @namespace EzNutrition.UI.Components
-<Table Context="cx" TItem="DietaryReferenceIntakeValue" DataSource="@InnerRecords" HidePagination="true">
-    <PropertyColumn Property="x=>x.AgeStart">
-        <TitleTemplate>
-            <span>年龄组 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.Gender">
-        <TitleTemplate>
-            <span>性别 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.SpecialPhysiologicalPeriod">
-        <TitleTemplate>
-            <span>特殊生理时期 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.RecordType">
-        <TitleTemplate>
-            <span>记录类别 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.IsOffset">
-        <TitleTemplate>
-            <span>是否为偏移值 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.Value">
-        <TitleTemplate>
-            <span>数值 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.MeasureUnit">
-        <TitleTemplate>
-            <span>单位 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-    <PropertyColumn Property="x=>x.Detail">
-        <TitleTemplate>
-            <span>备注 </span>
-        </TitleTemplate>
-    </PropertyColumn>
-</Table>
+
+<div class="calculation-records">
+    @foreach (var record in Records)
+    {
+        <article class="calculation-record">
+            <header>
+                <Tag Color="@(record.IsOffset ? "gold" : "blue")">
+                    @(record.IsOffset ? "调整量" : "基础值")
+                </Tag>
+                <strong>@($"{record.Value:0.##} {record.MeasureUnit}")</strong>
+                <span>@FormatRecordType(record.RecordType)</span>
+            </header>
+            <dl>
+                <div>
+                    <dt>适用年龄</dt>
+                    <dd>@(record.AgeStart is null ? "通用" : $"{record.AgeStart:0.##} 岁起")</dd>
+                </div>
+                <div>
+                    <dt>性别</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(record.Gender) ? "通用" : record.Gender)</dd>
+                </div>
+                <div>
+                    <dt>生理时期</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(record.SpecialPhysiologicalPeriod) ? "无特殊限定" : record.SpecialPhysiologicalPeriod)</dd>
+                </div>
+            </dl>
+            @if (!string.IsNullOrWhiteSpace(record.Detail))
+            {
+                <p>@record.Detail</p>
+            }
+        </article>
+    }
+</div>
+
 @code {
+    /// <summary>获取或设置参与核算的原始记录。</summary>
     [Parameter]
     public IEnumerable<DietaryReferenceIntakeValue>? InnerRecords { get; set; }
+
+    private IReadOnlyList<DietaryReferenceIntakeValue> Records =>
+        InnerRecords as IReadOnlyList<DietaryReferenceIntakeValue> ?? InnerRecords?.ToArray() ?? [];
+
+    private static string FormatRecordType(DietaryReferenceIntakeType type) =>
+        type.ToString().Replace('_', '-');
 }

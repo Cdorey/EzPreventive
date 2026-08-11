@@ -1,0 +1,29 @@
+.not-applicable {
+    color: #94a3b8;
+}
+
+.additional-reference-value {
+    display: grid;
+    justify-items: start;
+    gap: 2px;
+    max-width: 100%;
+    padding: 3px 0;
+    color: #531dab;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed currentColor;
+    cursor: pointer;
+}
+
+.additional-reference-value:hover,
+.additional-reference-value:focus-visible {
+    color: #722ed1;
+}
+
+.additional-reference-value:focus-visible {
+    outline: 2px solid rgba(114, 46, 209, 0.28);
+    outline-offset: 3px;
+}
