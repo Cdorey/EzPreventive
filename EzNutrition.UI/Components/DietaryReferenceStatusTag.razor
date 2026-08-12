@@ -1,0 +1,27 @@
+@namespace EzNutrition.UI.Components
+@using EzNutrition.Domain.Dietary
+
+@if (Row.Flag == Flags.Lower)
+{
+    <Tag Color="@("orange")"><Icon Type="arrow-down" Theme="IconThemeType.Outline" /> 低于参考</Tag>
+}
+else if (Row.Flag == Flags.Higher)
+{
+    <Tag Color="@("red")"><Icon Type="arrow-up" Theme="IconThemeType.Outline" /> 高于参考</Tag>
+}
+else if (HasReference)
+{
+    <Tag Color="@("green")"><Icon Type="check" Theme="IconThemeType.Outline" /> 参考范围内</Tag>
+}
+else
+{
+    <Tag><Icon Type="minus" Theme="IconThemeType.Outline" /> 无参考值</Tag>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public DietarySurveySummaryRow Row { get; set; } = default!;
+
+    private bool HasReference =>
+        !string.IsNullOrWhiteSpace(Row.ReferenceRange?.Replace("~", string.Empty));
+}

@@ -34,31 +34,9 @@
 
             <div class="food-picker">
                 <label>添加食物原料</label>
-                <Select TItem="Food"
-                        TItemValue="Guid"
-                        DataSource="@DietaryRecallSurvey?.Foods"
-                        Style="width:100%"
-                        EnableVirtualization="true"
-                        LabelName="@nameof(Food.FriendlyName)"
-                        ValueName="@nameof(Food.FoodId)"
-                        Placeholder="输入名称或代码搜索食物"
-                        DefaultActiveFirstOption="false"
-                        Mode="SelectMode.Default"
-                        Size="InputSize.Large"
-                        EnableSearch
-                        OnSelectedItemChanged="OnSelectedItemChangedHandler"
-                        AutoClearSearchValue>
-                    <ItemTemplate>
-                        <div class="food-option">
-                            <strong>@((context as Food).FriendlyName)</strong>
-                            <span>@((context as Food).FriendlyCode) · @((context as Food).FoodGroups)</span>
-                            @if (!string.IsNullOrWhiteSpace((context as Food).Details))
-                            {
-                                <small>@((context as Food).Details)</small>
-                            }
-                        </div>
-                    </ItemTemplate>
-                </Select>
+                <FoodSearchSelect @key="DietaryRecallSurvey"
+                                  Foods="@DietaryRecallSurvey?.Foods"
+                                  OnFoodSelected="OnSelectedItemChangedHandler" />
                 <span class="field-help">选择后自动加入下方记录，默认按 100 g 可食重量录入。</span>
             </div>
 
@@ -159,7 +137,7 @@
                     <article class="summary-metric @(metric.Flag is null ? string.Empty : "has-flag")">
                         <div class="metric-heading">
                             <span>@metric.FriendlyName</span>
-                            @StatusTag(metric)
+                            <DietaryReferenceStatusTag Row="@metric" />
                         </div>
                         <strong>@metric.ValueString <small>@metric.Unit</small></strong>
                         @if (HasReference(metric))
@@ -201,7 +179,7 @@
                                             <span class="result-unit">@context.Unit</span>
                                         </PropertyColumn>
                                         <PropertyColumn Title="参考判断" Property="row => row.Flag" Width="180">
-                                            @StatusTag(context)
+                                            <DietaryReferenceStatusTag Row="@context" />
                                         </PropertyColumn>
                                         <PropertyColumn Title="参考范围" Property="row => row.ReferenceRange">
                                             @if (HasReference(context))
@@ -241,7 +219,7 @@
                                         </div>
                                         <div class="mobile-summary-value">
                                             <strong>@row.ValueString <small>@row.Unit</small></strong>
-                                            @StatusTag(row)
+                                            <DietaryReferenceStatusTag Row="@row" />
                                         </div>
                                         <span>参考：@(HasReference(row) ? $"{row.ReferenceRange} {row.Unit}" : "未设置")</span>
                                         @if (row.ExpendDescriptions is not null && row.ExpendDescriptions.Any())
@@ -350,29 +328,6 @@
 
     private static bool HasReference(DietarySurveySummaryRow row) =>
         !string.IsNullOrWhiteSpace(row.ReferenceRange?.Replace("~", string.Empty));
-
-    private static RenderFragment StatusTag(DietarySurveySummaryRow row) => builder =>
-    {
-        var (color, icon, label) = row.Flag switch
-        {
-            Flags.Lower => ("orange", "arrow-down", "低于参考"),
-            Flags.Higher => ("red", "arrow-up", "高于参考"),
-            _ when HasReference(row) => ("green", "check", "参考范围内"),
-            _ => ("default", "minus", "无参考值")
-        };
-
-        builder.OpenComponent<Tag>(0);
-        builder.AddAttribute(1, "Color", color);
-        builder.AddContent(2, renderBuilder =>
-        {
-            renderBuilder.OpenComponent<Icon>(0);
-            renderBuilder.AddAttribute(1, "Type", icon);
-            renderBuilder.AddAttribute(2, "Theme", IconThemeType.Outline);
-            renderBuilder.CloseComponent();
-            renderBuilder.AddContent(3, $" {label}");
-        });
-        builder.CloseComponent();
-    };
 
     private void RemoveRecord(DietaryRecallEntry entry)
     {

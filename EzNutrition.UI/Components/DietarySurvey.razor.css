@@ -50,8 +50,6 @@
 .calculation-action span,
 .result-toolbar span,
 .field-help,
-.food-option span,
-.food-option small,
 .food-identity span,
 .weight-basis span,
 .summary-metric > span,
@@ -104,16 +102,11 @@
     font-size: 0.82rem;
 }
 
-.food-option,
 .food-identity,
 .weight-basis {
     display: flex;
     flex-direction: column;
     gap: 2px;
-}
-
-.food-option small {
-    white-space: normal;
 }
 
 .food-identity strong,

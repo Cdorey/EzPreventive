@@ -20,14 +20,7 @@ public sealed class DietarySurveyRenderTests
     [Fact]
     public async Task EditorWithAnEntryRendersAccessibleDeleteButton()
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddAntDesign();
-        services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
-        var dataSource = new EmptyNutritionDataSource();
-        services.AddSingleton(new ConsultationApplicationService(dataSource, dataSource, dataSource));
-
-        await using var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = BuildServiceProvider();
         await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(
             serviceProvider,
             serviceProvider.GetRequiredService<ILoggerFactory>());
@@ -62,6 +55,61 @@ public sealed class DietarySurveyRenderTests
             "aria-label=\"删除 测试食物\"",
             WebUtility.HtmlDecode(html),
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CalculatedResultRendersReferenceStatusTags()
+    {
+        await using var serviceProvider = BuildServiceProvider();
+        await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(
+            serviceProvider,
+            serviceProvider.GetRequiredService<ILoggerFactory>());
+        var client = new ClientInfo { Gender = "男" };
+        var survey = new DietaryRecallSurvey(client, [], [], new DRIs(client))
+        {
+            SummaryCalculationTable = new SummaryCalculationTable([], [])
+        };
+        survey.SummaryRows.AddRange(
+        [
+            new DietarySurveySummaryRow
+            {
+                FriendlyName = "总能量",
+                ValueString = "1800",
+                Unit = "kCal"
+            },
+            new DietarySurveySummaryRow
+            {
+                FriendlyName = "蛋白质供能比",
+                ValueString = "8",
+                Unit = "%E",
+                ReferenceRange = "10~20",
+                Flag = Flags.Lower
+            }
+        ]);
+
+        var html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var output = await renderer.RenderComponentAsync<DietarySurvey>(
+                ParameterView.FromDictionary(new Dictionary<string, object?>
+                {
+                    [nameof(DietarySurvey.DietaryRecallSurvey)] = survey
+                }));
+            return WebUtility.HtmlDecode(output.ToHtmlString());
+        });
+
+        Assert.Contains("已完成核算", html, StringComparison.Ordinal);
+        Assert.Contains("低于参考", html, StringComparison.Ordinal);
+    }
+
+    private static ServiceProvider BuildServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAntDesign();
+        services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
+        var dataSource = new EmptyNutritionDataSource();
+        services.AddSingleton(new ConsultationApplicationService(dataSource, dataSource, dataSource));
+        return services.BuildServiceProvider();
     }
 
     private sealed class NoOpJsRuntime : IJSRuntime
