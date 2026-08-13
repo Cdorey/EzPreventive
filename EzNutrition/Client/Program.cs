@@ -44,7 +44,9 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<IAiAdviceGateway, HttpAiAdviceGateway>();
             builder.Services.AddScoped<IEnergyReferenceDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
             builder.Services.AddScoped<IDietaryReferenceIntakeDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
-            builder.Services.AddScoped<IFoodCompositionDataSource>(provider => provider.GetRequiredService<HttpNutritionDataSource>());
+            builder.Services.AddScoped<IFoodCompositionDataSource>(provider =>
+                new SessionCachedFoodCatalogDataSource(
+                    provider.GetRequiredService<HttpNutritionDataSource>()));
             builder.Services.AddScoped<AiAdviceApplicationService>();
             builder.Services.AddScoped<ConsultationApplicationService>();
             builder.Services.AddScoped<ConsultationWorkspaceManager>();
