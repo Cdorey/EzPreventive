@@ -53,17 +53,17 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
                 }
             };
 
-            if (workspace.DietaryRecallSurvey is { SummaryRows.Count: > 0 } survey)
+            if (workspace.DietaryRecallSurvey is { NutrientAssessments.Count: > 0 } survey)
             {
                 prompt.DietaryRecallSurvey = new PromptDietaryRecallSurvey
                 {
-                    DeficientNutrients = survey.SummaryRows
-                        .Where(row => row.Flag == Flags.Lower)
-                        .Select(row => row.FriendlyName)
+                    DeficientNutrients = survey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
+                        .Select(assessment => assessment.FriendlyName)
                         .ToArray(),
-                    ExcessiveNutrients = survey.SummaryRows
-                        .Where(row => row.Flag == Flags.Higher)
-                        .Select(row => row.FriendlyName)
+                    ExcessiveNutrients = survey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
+                        .Select(assessment => assessment.FriendlyName)
                         .ToArray(),
                 };
             }

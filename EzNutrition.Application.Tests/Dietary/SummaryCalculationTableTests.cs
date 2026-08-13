@@ -1,11 +1,32 @@
 using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
-using System.Data;
 
 namespace EzNutrition.Application.Tests.Dietary;
 
 public sealed class SummaryCalculationTableTests
 {
+    [Theory]
+    [InlineData(5, 10, 20, DietaryReferenceStatus.BelowRange)]
+    [InlineData(15, 10, 20, DietaryReferenceStatus.WithinRange)]
+    [InlineData(25, 10, 20, DietaryReferenceStatus.AboveRange)]
+    [InlineData(15, null, null, DietaryReferenceStatus.NotEstablished)]
+    public void NutrientAssessmentDerivesReferenceStatusFromNumericBounds(
+        int value,
+        int? lowerReference,
+        int? upperReference,
+        DietaryReferenceStatus expected)
+    {
+        var assessment = new DietaryNutrientAssessment
+        {
+            FriendlyName = "测试营养素",
+            Value = value,
+            LowerReference = lowerReference,
+            UpperReference = upperReference
+        };
+
+        Assert.Equal(expected, assessment.ReferenceStatus);
+    }
+
     [Fact]
     public void CalculatesEdibleAndReportedWeightsWithoutChangingTheirMeaning()
     {
@@ -36,7 +57,7 @@ public sealed class SummaryCalculationTableTests
     }
 
     [Fact]
-    public async Task CalculationDetailUsesTheSameEdibleWeightAdjustmentAsTheSummary()
+    public void CalculationDetailUsesTheSameEdibleWeightAdjustmentAsTheSummary()
     {
         var energy = Nutrient(1, "能量", "kCal");
         var food = Food("测试食物", ediblePortion: 75, (energy, 240m));
@@ -46,13 +67,13 @@ public sealed class SummaryCalculationTableTests
         };
         var calculation = new SummaryCalculationTable(entries, [energy]);
 
-        var detail = await calculation.ToCalculateDataTableAsync();
+        var detail = calculation.CreateEntryCalculations();
 
-        var row = Assert.Single(detail.Rows.Cast<DataRow>());
-        Assert.Equal("测试食物", row["原料名称"]);
-        Assert.Equal("80", row["原料原始重量"]);
-        Assert.Equal("False", row["均为可食部"]);
-        Assert.Equal(144m, decimal.Parse((string)row["能量"]));
+        var row = Assert.Single(detail);
+        Assert.Equal("测试食物", row.FoodName);
+        Assert.Equal(80m, row.RecordedWeight);
+        Assert.False(row.IsAllEdible);
+        Assert.Equal(144m, row.NutrientValues[energy.NutrientId]);
         Assert.Equal(144m, calculation.TotalEnergy);
     }
 

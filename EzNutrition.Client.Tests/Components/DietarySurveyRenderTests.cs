@@ -69,21 +69,21 @@ public sealed class DietarySurveyRenderTests
         {
             SummaryCalculationTable = new SummaryCalculationTable([], [])
         };
-        survey.SummaryRows.AddRange(
+        survey.NutrientAssessments.AddRange(
         [
-            new DietarySurveySummaryRow
+            new DietaryNutrientAssessment
             {
                 FriendlyName = "总能量",
-                ValueString = "1800",
+                Value = 1800m,
                 Unit = "kCal"
             },
-            new DietarySurveySummaryRow
+            new DietaryNutrientAssessment
             {
                 FriendlyName = "蛋白质供能比",
-                ValueString = "8",
+                Value = 8m,
                 Unit = "%E",
-                ReferenceRange = "10~20",
-                Flag = Flags.Lower
+                LowerReference = 10m,
+                UpperReference = 20m
             }
         ]);
 

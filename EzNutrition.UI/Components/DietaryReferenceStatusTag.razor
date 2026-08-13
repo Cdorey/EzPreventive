@@ -1,15 +1,15 @@
 @namespace EzNutrition.UI.Components
 @using EzNutrition.Domain.Dietary
 
-@if (Row.Flag == Flags.Lower)
+@if (Row.ReferenceStatus == DietaryReferenceStatus.BelowRange)
 {
     <Tag Color="@("orange")"><Icon Type="arrow-down" Theme="IconThemeType.Outline" /> 低于参考</Tag>
 }
-else if (Row.Flag == Flags.Higher)
+else if (Row.ReferenceStatus == DietaryReferenceStatus.AboveRange)
 {
     <Tag Color="@("red")"><Icon Type="arrow-up" Theme="IconThemeType.Outline" /> 高于参考</Tag>
 }
-else if (HasReference)
+else if (Row.ReferenceStatus == DietaryReferenceStatus.WithinRange)
 {
     <Tag Color="@("green")"><Icon Type="check" Theme="IconThemeType.Outline" /> 参考范围内</Tag>
 }
@@ -20,8 +20,5 @@ else
 
 @code {
     [Parameter, EditorRequired]
-    public DietarySurveySummaryRow Row { get; set; } = default!;
-
-    private bool HasReference =>
-        !string.IsNullOrWhiteSpace(Row.ReferenceRange?.Replace("~", string.Empty));
+    public DietaryNutrientAssessment Row { get; set; } = default!;
 }

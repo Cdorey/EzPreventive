@@ -1,6 +1,4 @@
 ﻿using EzNutrition.Shared.Data.Entities;
-using System.Collections;
-using System.Data;
 
 namespace EzNutrition.Domain.Dietary
 {
@@ -29,24 +27,27 @@ namespace EzNutrition.Domain.Dietary
             }
         }
 
-        public Task<DataTable> ToCalculateDataTableAsync()
+        public IReadOnlyList<DietaryRecallEntryCalculation> CreateEntryCalculations()
         {
-            var table = new DataTable();
-            table.Columns.Add("原料名称");
-            table.Columns.Add("原料原始重量");
-            table.Columns.Add("均为可食部");
-            foreach (var nutrient in nutrients)
-            {
-                table.Columns.Add(nutrient.FriendlyName ?? string.Empty, typeof(string));
-            }
-            foreach (var entry in dietaryRecallEntries)
-            {
-                var calculatedValues = ToFoodNutrientValue(entry);
-                var values = from nutrient in nutrients
-                             select (calculatedValues.FirstOrDefault(value => value.NutrientId == nutrient.NutrientId)?.Value ?? 0).ToString();
-                table.Rows.Add([entry.Food.FriendlyName ?? string.Empty, entry.Weight, entry.IsAllEdible, .. values]);
-            }
-            return Task.FromResult(table);
+            return dietaryRecallEntries
+                .Select(entry =>
+                {
+                    var calculatedValues = ToFoodNutrientValue(entry)
+                        .GroupBy(value => value.NutrientId)
+                        .ToDictionary(group => group.Key, group => group.Sum(value => value.Value));
+                    var nutrientValues = nutrients.ToDictionary(
+                        nutrient => nutrient.NutrientId,
+                        nutrient => calculatedValues.GetValueOrDefault(nutrient.NutrientId));
+
+                    return new DietaryRecallEntryCalculation
+                    {
+                        FoodName = entry.Food.FriendlyName ?? string.Empty,
+                        RecordedWeight = entry.Weight,
+                        IsAllEdible = entry.IsAllEdible,
+                        NutrientValues = nutrientValues
+                    };
+                })
+                .ToArray();
         }
 
         /// <summary>

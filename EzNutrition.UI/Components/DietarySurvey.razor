@@ -3,7 +3,6 @@
 @namespace EzNutrition.UI.Components
 @using EzNutrition.Domain.Dietary
 @using EzNutrition.Shared.Data.Entities
-@using System.Data
 @implements IDisposable
 @inject IMessageService Message
 @inject ConsultationApplicationService ConsultationService
@@ -134,15 +133,15 @@
             <div class="summary-metrics" aria-label="关键膳食指标">
                 @foreach (var metric in KeyMetrics)
                 {
-                    <article class="summary-metric @(metric.Flag is null ? string.Empty : "has-flag")">
+                    <article class="summary-metric @(HasReferenceFlag(metric) ? "has-flag" : string.Empty)">
                         <div class="metric-heading">
                             <span>@metric.FriendlyName</span>
                             <DietaryReferenceStatusTag Row="@metric" />
                         </div>
-                        <strong>@metric.ValueString <small>@metric.Unit</small></strong>
-                        @if (HasReference(metric))
+                        <strong>@FormatValue(metric) <small>@metric.Unit</small></strong>
+                        @if (metric.HasReference)
                         {
-                            <span>参考 @metric.ReferenceRange @metric.Unit</span>
+                            <span>参考 @FormatReference(metric) @metric.Unit</span>
                         }
                         else
                         {
@@ -155,15 +154,15 @@
             <Tabs Class="dietary-result-tabs" DefaultActiveKey="summary">
                 <ChildContent>
                     <TabPane Key="summary" Tab="营养素结果">
-                        @if (DietaryRecallSurvey.SummaryRows.Any())
+                        @if (DietaryRecallSurvey.NutrientAssessments.Any())
                         {
                             <div class="summary-table desktop-summary-table">
-                                <Table TItem="DietarySurveySummaryRow"
-                                       DataSource="@DietaryRecallSurvey.SummaryRows"
+                                <Table TItem="DietaryNutrientAssessment"
+                                       DataSource="@DietaryRecallSurvey.NutrientAssessments"
                                        HidePagination="true"
                                        Size="TableSize.Middle"
                                        ScrollX="760"
-                                       RowExpandable="@((record) => record.Data.Expandable)">
+                                       RowExpandable="@((record) => HasBreakdown(record.Data))">
                                     <ColumnDefinitions>
                                         <PropertyColumn Title="营养素" Property="row => row.FriendlyName" Width="220">
                                             <div class="nutrient-name">
@@ -174,17 +173,17 @@
                                                 }
                                             </div>
                                         </PropertyColumn>
-                                        <PropertyColumn Title="核算结果" Property="row => row.ValueString" Width="170">
-                                            <strong class="result-value">@context.ValueString</strong>
+                                        <PropertyColumn Title="核算结果" Property="row => row.Value" Width="170">
+                                            <strong class="result-value">@FormatValue(context)</strong>
                                             <span class="result-unit">@context.Unit</span>
                                         </PropertyColumn>
-                                        <PropertyColumn Title="参考判断" Property="row => row.Flag" Width="180">
+                                        <PropertyColumn Title="参考判断" Property="row => row.ReferenceStatus" Width="180">
                                             <DietaryReferenceStatusTag Row="@context" />
                                         </PropertyColumn>
-                                        <PropertyColumn Title="参考范围" Property="row => row.ReferenceRange">
-                                            @if (HasReference(context))
+                                        <PropertyColumn Title="参考范围" Property="row => row.LowerReference">
+                                            @if (context.HasReference)
                                             {
-                                                <span>@context.ReferenceRange @context.Unit</span>
+                                                <span>@FormatReference(context) @context.Unit</span>
                                             }
                                             else
                                             {
@@ -193,12 +192,12 @@
                                         </PropertyColumn>
                                     </ColumnDefinitions>
                                     <ExpandTemplate>
-                                        @if (context.Data.ExpendDescriptions is not null && context.Data.ExpendDescriptions.Any())
+                                        @if (HasBreakdown(context.Data))
                                         {
-                                            <Descriptions Title="@context.Data.ExpendTitle" Column="@(new Dictionary<string, int> { { "xs", 1 }, { "md", 2 }, { "xl", 3 } })">
-                                                @foreach (var description in context.Data.ExpendDescriptions)
+                                            <Descriptions Title="@BreakdownTitle(context.Data)" Column="@(new Dictionary<string, int> { { "xs", 1 }, { "md", 2 }, { "xl", 3 } })">
+                                                @foreach (var description in BreakdownItems(context.Data))
                                                 {
-                                                    <DescriptionsItem Title="@description.Item1">@description.Item2</DescriptionsItem>
+                                                    <DescriptionsItem Title="@description.Label">@description.Value</DescriptionsItem>
                                                 }
                                             </Descriptions>
                                         }
@@ -207,7 +206,7 @@
                             </div>
 
                             <div class="mobile-summary-list">
-                                @foreach (var row in DietaryRecallSurvey.SummaryRows)
+                                @foreach (var row in DietaryRecallSurvey.NutrientAssessments)
                                 {
                                     <article class="mobile-summary-item">
                                         <div>
@@ -218,18 +217,18 @@
                                             }
                                         </div>
                                         <div class="mobile-summary-value">
-                                            <strong>@row.ValueString <small>@row.Unit</small></strong>
+                                            <strong>@FormatValue(row) <small>@row.Unit</small></strong>
                                             <DietaryReferenceStatusTag Row="@row" />
                                         </div>
-                                        <span>参考：@(HasReference(row) ? $"{row.ReferenceRange} {row.Unit}" : "未设置")</span>
-                                        @if (row.ExpendDescriptions is not null && row.ExpendDescriptions.Any())
+                                        <span>参考：@(row.HasReference ? $"{FormatReference(row)} {row.Unit}" : "未设置")</span>
+                                        @if (HasBreakdown(row))
                                         {
                                             <details>
-                                                <summary>@row.ExpendTitle</summary>
+                                                <summary>@BreakdownTitle(row)</summary>
                                                 <dl>
-                                                    @foreach (var description in row.ExpendDescriptions)
+                                                    @foreach (var description in BreakdownItems(row))
                                                     {
-                                                        <div><dt>@description.Item1</dt><dd>@description.Item2</dd></div>
+                                                        <div><dt>@description.Label</dt><dd>@description.Value</dd></div>
                                                     }
                                                 </dl>
                                             </details>
@@ -278,22 +277,21 @@
                             <Icon Type="audit" Theme="IconThemeType.Outline" />
                             <span>以下明细用于追溯每种食物对各营养素的贡献；营养素较多时可横向滚动查看。</span>
                         </div>
-                        @if (DietaryRecallSurvey.CalculateProgress is not null)
+                        @if (DietaryRecallSurvey.EntryCalculations.Count > 0)
                         {
-                            <Table DataSource="DietaryRecallSurvey.CalculateProgress.Rows.Cast<DataRow>().ToArray()"
+                            <Table TItem="DietaryRecallEntryCalculation"
+                                   DataSource="DietaryRecallSurvey.EntryCalculations"
                                    ScrollX="4000"
                                    HidePagination="true"
                                    Size="TableSize.Middle">
-                                @foreach (DataColumn column in DietaryRecallSurvey.CalculateProgress.Columns)
+                                <PropertyColumn Property="row => row.FoodName" Title="原料名称" Width="120" Fixed="ColumnFixPlacement.Left" />
+                                <PropertyColumn Property="row => row.RecordedWeight" Title="原料原始重量" Width="120" Fixed="ColumnFixPlacement.Left" />
+                                <PropertyColumn Property="row => row.IsAllEdible" Title="均为可食部" Width="120" Fixed="ColumnFixPlacement.Left" />
+                                @foreach (var nutrient in DietaryRecallSurvey.Nutrients)
                                 {
-                                    @if (DietaryRecallSurvey.CalculateProgress.Columns.IndexOf(column) <= 2)
-                                    {
-                                        <PropertyColumn Property="row => row[column.ColumnName]" Title="@column.ColumnName" Width="120" Fixed="ColumnFixPlacement.Left" />
-                                    }
-                                    else
-                                    {
-                                        <PropertyColumn Property="row => row[column.ColumnName]" Title="@column.ColumnName" Width="120" />
-                                    }
+                                    <PropertyColumn Property="row => row.NutrientValues[nutrient.NutrientId]" Title="@nutrient.FriendlyName" Width="120">
+                                        @context.NutrientValues[nutrient.NutrientId].ToString("0.##")
+                                    </PropertyColumn>
                                 }
                             </Table>
                         }
@@ -318,16 +316,70 @@
 
     private decimal TotalRecordedWeight => Entries?.Sum(entry => entry.Weight) ?? 0m;
 
-    private IEnumerable<DietarySurveySummaryRow> KeyMetrics =>
+    private IEnumerable<DietaryNutrientAssessment> KeyMetrics =>
         new[] { "总能量", "蛋白质供能比", "脂肪供能比", "碳水化合物供能比" }
-            .Select(name => DietaryRecallSurvey?.SummaryRows.FirstOrDefault(row => row.FriendlyName == name))
+            .Select(name => DietaryRecallSurvey?.NutrientAssessments.FirstOrDefault(row => row.FriendlyName == name))
             .Where(row => row is not null)
-            .Cast<DietarySurveySummaryRow>();
+            .Cast<DietaryNutrientAssessment>();
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
 
-    private static bool HasReference(DietarySurveySummaryRow row) =>
-        !string.IsNullOrWhiteSpace(row.ReferenceRange?.Replace("~", string.Empty));
+    private static string FormatValue(DietaryNutrientAssessment assessment) =>
+        assessment.FriendlyName == "总能量" || assessment.Unit == "%E"
+            ? assessment.Value.ToString("0")
+            : assessment.Value.ToString("0.00");
+
+    private static string FormatReference(DietaryNutrientAssessment assessment) =>
+        $"{FormatReferenceBound(assessment.LowerReference)}~{FormatReferenceBound(assessment.UpperReference)}";
+
+    private static string FormatReferenceBound(decimal? value) =>
+        value is null
+            ? string.Empty
+            : value.Value.ToString(value.Value % 1m == 0m ? "0" : "0.##");
+
+    private static bool HasBreakdown(DietaryNutrientAssessment assessment) =>
+        assessment.MealEnergies.Count > 0 || assessment.FoodContributions.Count > 0;
+
+    private static bool HasReferenceFlag(DietaryNutrientAssessment assessment) =>
+        assessment.ReferenceStatus is DietaryReferenceStatus.BelowRange
+            or DietaryReferenceStatus.AboveRange;
+
+    private static string BreakdownTitle(DietaryNutrientAssessment assessment) =>
+        assessment.FriendlyName switch
+        {
+            "总能量" => "详细信息",
+            "总脂肪" => "脂肪供应顺位",
+            _ => $"{assessment.FriendlyName}供应顺位"
+        };
+
+    private static IEnumerable<(string Label, string Value)> BreakdownItems(
+        DietaryNutrientAssessment assessment)
+    {
+        foreach (var meal in assessment.MealEnergies)
+        {
+            yield return (
+                $"{MealOccasionLabel(meal.MealOccasion)}供能",
+                $"{meal.Energy:0.##}kCal，{meal.PercentageOfTotalEnergy:0}%E");
+        }
+
+        foreach (var contribution in assessment.FoodContributions)
+        {
+            yield return (
+                contribution.FoodName,
+                $"{contribution.Value:0.00}{contribution.Unit}");
+        }
+    }
+
+    private static string MealOccasionLabel(MealOccasion occasion) => occasion switch
+    {
+        MealOccasion.Breakfast => "早餐",
+        MealOccasion.MorningSnack => "上午",
+        MealOccasion.Lunch => "午餐",
+        MealOccasion.AfternoonSnack => "下午",
+        MealOccasion.Dinner => "晚餐",
+        MealOccasion.LateNightSnack => "宵夜",
+        _ => occasion.ToString()
+    };
 
     private void RemoveRecord(DietaryRecallEntry entry)
     {
@@ -341,8 +393,7 @@
             return;
         }
 
-        DietaryRecallSurvey.SummaryCalculationTable = null;
-        DietaryRecallSurvey.SummaryRows.Clear();
+        DietaryRecallSurvey.ResetCalculation();
         await OnCalculationCompleted.InvokeAsync();
     }
 
@@ -405,14 +456,13 @@
 
         try
         {
-            await DietaryRecallSurvey.CalculateAsync();
+            DietaryRecallSurvey.Calculate();
             await OnCalculationCompleted.InvokeAsync();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Dietary recall calculation failed.");
-            DietaryRecallSurvey.SummaryCalculationTable = null;
-            DietaryRecallSurvey.SummaryRows.Clear();
+            DietaryRecallSurvey.ResetCalculation();
             await Message.ErrorAsync("膳食调查核算失败，请检查录入数据和食物成分资料。");
         }
     }
