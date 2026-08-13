@@ -213,16 +213,16 @@ internal static class RuntimeArchiveSamples
         return new RuntimeArchiveSample("unusual-physiology-ai", archive);
     }
 
-    public static async Task<RuntimeArchiveSample> CreateEmptyDietaryDraftAsync()
+    public static Task<RuntimeArchiveSample> CreateEmptyDietaryDraftAsync()
     {
         var archive = CreateArchive(9, "合成空白膳食草稿", "女", 26, 160, 52, string.Empty);
         var dris = new DRIs(archive.Client);
         var nutrients = CreateNutrients();
         var survey = new RuntimeDietaryRecallSurvey(archive.Client, CreateFoods(nutrients, 9), nutrients, dris);
-        await survey.CalculateAsync();
+        survey.Calculate();
         archive.DRIs = dris;
         archive.DietaryRecallSurvey = survey;
-        return new RuntimeArchiveSample("empty-dietary-draft", archive);
+        return Task.FromResult(new RuntimeArchiveSample("empty-dietary-draft", archive));
     }
 
     internal static RuntimeArchive CreateArchive(
@@ -298,7 +298,7 @@ internal static class RuntimeArchiveSamples
             Detail = "合成 DRIs 记录"
         };
 
-    private static async Task<RuntimeDietaryRecallSurvey> CreateDietaryRecallAsync(
+    private static Task<RuntimeDietaryRecallSurvey> CreateDietaryRecallAsync(
         IClient client,
         DRIs dris,
         int seed)
@@ -332,8 +332,8 @@ internal static class RuntimeArchiveSamples
                 IsAllEdible = true
             }
         ]);
-        await survey.CalculateAsync();
-        return survey;
+        survey.Calculate();
+        return Task.FromResult(survey);
     }
 
     internal static List<Nutrient> CreateNutrients()

@@ -1,194 +1,220 @@
-﻿using EzNutrition.Shared.Data.Entities;
-using System.Collections;
-using System.Data;
+using EzNutrition.Shared.Data.Entities;
 
-namespace EzNutrition.Domain.Dietary
+namespace EzNutrition.Domain.Dietary;
+
+public sealed class SummaryCalculationTable
 {
-    public class SummaryCalculationTable(List<DietaryRecallEntry> dietaryRecallEntries, List<Nutrient> nutrients)
+    private readonly Dictionary<int, Nutrient> nutrientsById = [];
+    private readonly Dictionary<string, Nutrient> nutrientsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, decimal> totalsByNutrientId = [];
+    private readonly Dictionary<Guid, NutrientValueAccumulator> totalsByFoodId = [];
+    private readonly Dictionary<MealOccasion, NutrientValueAccumulator> totalsByMeal = [];
+    private readonly IReadOnlyList<Food> foodsInSurveyOrder;
+    private readonly IReadOnlyList<DietaryRecallEntryCalculation> entryCalculations;
+
+    public SummaryCalculationTable(
+        List<DietaryRecallEntry> dietaryRecallEntries,
+        List<Nutrient> nutrients)
     {
-        private IEnumerable<FoodNutrientValue> ToFoodNutrientValue(DietaryRecallEntry dietaryRecallEntry)
+        IndexNutrients(nutrients);
+
+        var foods = new List<Food>();
+        var seenFoods = new HashSet<Food>();
+        var calculations = new List<DietaryRecallEntryCalculation>(dietaryRecallEntries.Count);
+
+        foreach (var entry in dietaryRecallEntries)
         {
-            var weight = dietaryRecallEntry.Weight;
-            if (!dietaryRecallEntry.IsAllEdible)
+            if (seenFoods.Add(entry.Food))
             {
-                weight = weight * (dietaryRecallEntry.Food.EdiblePortion ?? 100) / 100;
+                foods.Add(entry.Food);
             }
 
-            foreach (var foodNutrientValue in dietaryRecallEntry.Food.FoodNutrientValues!)
+            var entryTotals = AccumulateEntry(entry);
+            calculations.Add(new DietaryRecallEntryCalculation
             {
-                var nutrient = nutrients.First(x => x.NutrientId == foodNutrientValue.NutrientId);
-                yield return new FoodNutrientValue
+                FoodName = entry.Food.FriendlyName ?? string.Empty,
+                RecordedWeight = entry.Weight,
+                IsAllEdible = entry.IsAllEdible,
+                NutrientValues = nutrients.ToDictionary(
+                    nutrient => nutrient.NutrientId,
+                    nutrient => entryTotals.GetValueOrDefault(nutrient.NutrientId))
+            });
+        }
+
+        foodsInSurveyOrder = foods.ToArray();
+        entryCalculations = calculations.ToArray();
+    }
+
+    public decimal this[Nutrient nutrient] =>
+        totalsByNutrientId.GetValueOrDefault(nutrient.NutrientId);
+
+    public decimal this[string nutrientFriendlyName] => this[FindNutrient(nutrientFriendlyName)];
+
+    public IEnumerable<FoodNutrientValue> this[Food food] =>
+        totalsByFoodId.TryGetValue(food.FoodId, out var totals)
+            ? totals.CreateValues(food)
+            : [];
+
+    public IEnumerable<FoodNutrientValue> this[MealOccasion mealOccasion] =>
+        totalsByMeal.TryGetValue(mealOccasion, out var totals)
+            ? totals.CreateValues()
+            : [];
+
+    public decimal TotalEnergy => this["能量"];
+
+    public decimal CarbohydrateEnergy => this["碳水化合物"] * 4;
+
+    public decimal FatEnergy => this["脂肪"] * 9;
+
+    public decimal ProteinEnergy => this["蛋白质"] * 4;
+
+    public IEnumerable<FoodNutrientValue> CarbohydrateRank => CreateRank("碳水化合物");
+
+    public IEnumerable<FoodNutrientValue> FatRank => CreateRank("脂肪");
+
+    public IEnumerable<FoodNutrientValue> ProteinRank => CreateRank("蛋白质");
+
+    public IReadOnlyList<DietaryRecallEntryCalculation> CreateEntryCalculations() =>
+        entryCalculations;
+
+    internal decimal GetValue(MealOccasion mealOccasion, string nutrientFriendlyName)
+    {
+        if (!totalsByMeal.TryGetValue(mealOccasion, out var totals))
+        {
+            return 0m;
+        }
+
+        return totals.GetValue(FindNutrient(nutrientFriendlyName).NutrientId);
+    }
+
+    private Dictionary<int, decimal> AccumulateEntry(DietaryRecallEntry entry)
+    {
+        var effectiveWeight = entry.IsAllEdible
+            ? entry.Weight
+            : entry.Weight * (entry.Food.EdiblePortion ?? 100) / 100;
+        var entryTotals = new Dictionary<int, decimal>();
+        var foodTotals = GetOrAdd(totalsByFoodId, entry.Food.FoodId);
+        var mealTotals = GetOrAdd(totalsByMeal, entry.MealOccasion);
+
+        foreach (var sourceValue in entry.Food.FoodNutrientValues!)
+        {
+            var nutrient = FindNutrient(sourceValue.NutrientId);
+            var value = sourceValue.Value * effectiveWeight / 100;
+
+            AddValue(entryTotals, nutrient.NutrientId, value);
+            AddValue(totalsByNutrientId, sourceValue.Nutrient!.NutrientId, value);
+            foodTotals.Add(nutrient, sourceValue.MeasureUnit, value);
+            mealTotals.Add(nutrient, sourceValue.MeasureUnit, value);
+        }
+
+        return entryTotals;
+    }
+
+    private IEnumerable<FoodNutrientValue> CreateRank(string nutrientFriendlyName)
+    {
+        return foodsInSurveyOrder
+            .SelectMany(food => totalsByFoodId[food.FoodId].CreateValues(food, nutrientFriendlyName))
+            .OrderByDescending(value => value.Value);
+    }
+
+    private void IndexNutrients(IEnumerable<Nutrient> source)
+    {
+        foreach (var nutrient in source)
+        {
+            nutrientsById.TryAdd(nutrient.NutrientId, nutrient);
+            if (nutrient.FriendlyName is not null)
+            {
+                nutrientsByName.TryAdd(nutrient.FriendlyName, nutrient);
+            }
+        }
+    }
+
+    private Nutrient FindNutrient(int nutrientId) =>
+        nutrientsById.TryGetValue(nutrientId, out var nutrient)
+            ? nutrient
+            : throw new InvalidOperationException($"Nutrient {nutrientId} was not found.");
+
+    private Nutrient FindNutrient(string friendlyName) =>
+        nutrientsByName.TryGetValue(friendlyName, out var nutrient)
+            ? nutrient
+            : throw new InvalidOperationException($"Nutrient '{friendlyName}' was not found.");
+
+    private static NutrientValueAccumulator GetOrAdd<TKey>(
+        IDictionary<TKey, NutrientValueAccumulator> source,
+        TKey key)
+        where TKey : notnull
+    {
+        if (source.TryGetValue(key, out var totals))
+        {
+            return totals;
+        }
+
+        totals = new NutrientValueAccumulator();
+        source.Add(key, totals);
+        return totals;
+    }
+
+    private static void AddValue(IDictionary<int, decimal> source, int nutrientId, decimal value)
+    {
+        source.TryGetValue(nutrientId, out var currentValue);
+        source[nutrientId] = currentValue + value;
+    }
+
+    private sealed class NutrientValueAccumulator
+    {
+        private readonly Dictionary<int, AggregatedNutrientValue> valuesByNutrientId = [];
+        private readonly List<AggregatedNutrientValue> valuesInSourceOrder = [];
+
+        public void Add(Nutrient nutrient, string? measureUnit, decimal value)
+        {
+            if (valuesByNutrientId.TryGetValue(nutrient.NutrientId, out var aggregate))
+            {
+                aggregate.Value += value;
+                return;
+            }
+
+            aggregate = new AggregatedNutrientValue(
+                nutrient,
+                measureUnit ?? nutrient.DefaultMeasureUnit,
+                value);
+            valuesByNutrientId.Add(nutrient.NutrientId, aggregate);
+            valuesInSourceOrder.Add(aggregate);
+        }
+
+        public decimal GetValue(int nutrientId) =>
+            valuesByNutrientId.TryGetValue(nutrientId, out var value)
+                ? value.Value
+                : 0m;
+
+        public IReadOnlyList<FoodNutrientValue> CreateValues(
+            Food? food = null,
+            string? nutrientFriendlyName = null)
+        {
+            return valuesInSourceOrder
+                .Where(value => nutrientFriendlyName is null
+                    || value.Nutrient.FriendlyName == nutrientFriendlyName)
+                .Select(value => new FoodNutrientValue
                 {
-                    Food = dietaryRecallEntry.Food,
-                    FoodId = dietaryRecallEntry.Food.FoodId,
-                    Nutrient = nutrient,
-                    NutrientId = nutrient.NutrientId,
-                    MeasureUnit = foodNutrientValue.MeasureUnit ?? nutrient.DefaultMeasureUnit,
-                    Value = foodNutrientValue.Value * weight / 100
-                };
-            }
+                    Food = food,
+                    FoodId = food?.FoodId ?? Guid.Empty,
+                    Nutrient = value.Nutrient,
+                    NutrientId = value.Nutrient.NutrientId,
+                    MeasureUnit = value.MeasureUnit,
+                    Value = value.Value
+                })
+                .ToArray();
         }
+    }
 
-        public Task<DataTable> ToCalculateDataTableAsync()
-        {
-            var table = new DataTable();
-            table.Columns.Add("原料名称");
-            table.Columns.Add("原料原始重量");
-            table.Columns.Add("均为可食部");
-            foreach (var nutrient in nutrients)
-            {
-                table.Columns.Add(nutrient.FriendlyName ?? string.Empty, typeof(string));
-            }
-            foreach (var entry in dietaryRecallEntries)
-            {
-                var calculatedValues = ToFoodNutrientValue(entry);
-                var values = from nutrient in nutrients
-                             select (calculatedValues.FirstOrDefault(value => value.NutrientId == nutrient.NutrientId)?.Value ?? 0).ToString();
-                table.Rows.Add([entry.Food.FriendlyName ?? string.Empty, entry.Weight, entry.IsAllEdible, .. values]);
-            }
-            return Task.FromResult(table);
-        }
+    private sealed class AggregatedNutrientValue(
+        Nutrient nutrient,
+        string? measureUnit,
+        decimal value)
+    {
+        public Nutrient Nutrient { get; } = nutrient;
 
-        /// <summary>
-        /// 计算指定营养素的总值
-        /// </summary>
-        /// <param name="nutrient"></param>
-        /// <returns></returns>
-        public decimal this[Nutrient nutrient]
-        {
-            get
-            {
-                var records = from entry in dietaryRecallEntries
-                              from nutrientValue in entry.Food.FoodNutrientValues!
-                              where nutrientValue.Nutrient!.NutrientId == nutrient.NutrientId
-                              select new { Entry = entry, nutrientValue.Value };
+        public string? MeasureUnit { get; } = measureUnit;
 
-                return records.Sum(x =>
-                {
-                    if (x.Entry.IsAllEdible)
-                    {
-                        return x.Entry.Weight * x.Value / 100;
-                    }
-                    else
-                    {
-                        return (x.Entry.Weight * (x.Entry.Food.EdiblePortion ?? 100) / 100) * x.Value / 100;
-                    }
-                });
-            }
-        }
-
-        public decimal this[string nutrientFriendlyName] => this[nutrients.First(x => x.FriendlyName == nutrientFriendlyName)];
-
-        /// <summary>
-        /// 计算指定食物在本次问卷中的各类营养素的总值
-        /// </summary>
-        /// <param name="food"></param>
-        /// <returns></returns>
-        public IEnumerable<FoodNutrientValue> this[Food food]
-        {
-            get
-            {
-                return from entry in dietaryRecallEntries
-                       where entry.Food.FoodId == food.FoodId
-                       from foodNutrientValue in ToFoodNutrientValue(entry)
-                       group foodNutrientValue by foodNutrientValue.NutrientId into gp
-                       select new FoodNutrientValue
-                       {
-                           Food = food,
-                           FoodId = food.FoodId,
-                           Nutrient = gp.First().Nutrient,
-                           NutrientId = gp.First().NutrientId,
-                           MeasureUnit = gp.First().MeasureUnit,
-                           Value = gp.Sum(x => x.Value)
-                       };
-            }
-        }
-
-        /// <summary>
-        /// 计算指定餐次的各类营养素的总值
-        /// </summary>
-        /// <param name="mealOccasion"></param>
-        /// <returns></returns>
-        public IEnumerable<FoodNutrientValue> this[MealOccasion mealOccasion]
-        {
-            get
-            {
-                return from entry in dietaryRecallEntries
-                       where entry.MealOccasion == mealOccasion
-                       from foodNutrientValue in ToFoodNutrientValue(entry)
-                       group foodNutrientValue by foodNutrientValue.NutrientId into gp
-                       select new FoodNutrientValue
-                       {
-                           Nutrient = gp.First().Nutrient,
-                           NutrientId = gp.First().NutrientId,
-                           MeasureUnit = gp.First().MeasureUnit,
-                           Value = gp.Sum(x => x.Value)
-                       };
-            }
-        }
-
-        /// <summary>
-        /// 总能量
-        /// </summary>
-        public decimal TotalEnergy => this["能量"];
-
-        /// <summary>
-        /// 碳水化合物供能
-        /// </summary>
-        public decimal CarbohydrateEnergy => this["碳水化合物"] * 4;
-
-        /// <summary>
-        /// 脂肪供能
-        /// </summary>
-        public decimal FatEnergy => this["脂肪"] * 9;
-
-        /// <summary>
-        /// 蛋白质供能
-        /// </summary>
-        public decimal ProteinEnergy => this["蛋白质"] * 4;
-
-        public IEnumerable<FoodNutrientValue> CarbohydrateRank
-        {
-            get
-            {
-                return from entry in dietaryRecallEntries
-                       group entry by entry.Food into gp
-                       let sumValuesByFood = this[gp.Key]
-                       from sumValueByFood in sumValuesByFood
-                       where sumValueByFood.Nutrient!.FriendlyName == "碳水化合物"
-                       orderby sumValueByFood.Value descending
-                       select sumValueByFood;
-            }
-        }
-
-        public IEnumerable<FoodNutrientValue> FatRank
-        {
-            get
-            {
-                return from entry in dietaryRecallEntries
-                       group entry by entry.Food into gp
-                       let sumValuesByFood = this[gp.Key]
-                       from sumValueByFood in sumValuesByFood
-                       where sumValueByFood.Nutrient!.FriendlyName == "脂肪"
-                       orderby sumValueByFood.Value descending
-                       select sumValueByFood;
-            }
-        }
-
-        public IEnumerable<FoodNutrientValue> ProteinRank
-        {
-            get
-            {
-                return from entry in dietaryRecallEntries
-                       group entry by entry.Food into gp
-                       let sumValuesByFood = this[gp.Key]
-                       from sumValueByFood in sumValuesByFood
-                       where sumValueByFood.Nutrient!.FriendlyName == "蛋白质"
-                       orderby sumValueByFood.Value descending
-                       select sumValueByFood;
-            }
-        }
-
-        //public DietaryTower DietaryTower { get; } = new DietaryRecallTower(dietaryRecallEntries, standartTower);
+        public decimal Value { get; set; } = value;
     }
 }

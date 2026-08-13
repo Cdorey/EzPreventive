@@ -1,0 +1,29 @@
+.food-search-option {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px 0;
+}
+
+.food-search-option strong,
+.food-search-option span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.food-search-option strong {
+    color: var(--ez-navy);
+}
+
+.food-search-option span,
+.food-search-empty,
+.food-search-hint {
+    color: var(--ez-text-secondary);
+    font-size: 0.78rem;
+}
+
+.food-search-hint {
+    display: block;
+    margin-top: 6px;
+}

@@ -409,7 +409,7 @@ internal static class ConsultationScenarioCatalog
             Detail = "合成场景参考记录"
         };
 
-    private static async Task<RuntimeDietaryRecallSurvey> CreateDietarySurveyAsync(
+    private static Task<RuntimeDietaryRecallSurvey> CreateDietarySurveyAsync(
         IClient client,
         DRIs dris,
         int seed,
@@ -444,10 +444,10 @@ internal static class ConsultationScenarioCatalog
 
         if (pattern != DietaryPattern.Uncalculated)
         {
-            await survey.CalculateAsync();
+            survey.Calculate();
         }
 
-        return survey;
+        return Task.FromResult(survey);
     }
 
     private static DietaryRecallEntry Entry(
@@ -491,16 +491,16 @@ internal static class ConsultationScenarioCatalog
                 TotalBalanceEnergyViaCalculation = archive.CurrentEnergyCalculator?.Energy,
                 SpecialPhysiologicalPeriod = archive.Client.SpecialPhysiologicalPeriod
             },
-            DietaryRecallSurvey = archive.DietaryRecallSurvey?.SummaryRows.Count > 0
+            DietaryRecallSurvey = archive.DietaryRecallSurvey?.NutrientAssessments.Count > 0
                 ? new EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey
                 {
-                    DeficientNutrients = archive.DietaryRecallSurvey.SummaryRows
-                        .Where(row => row.Flag == Flags.Lower)
-                        .Select(row => row.FriendlyName)
+                    DeficientNutrients = archive.DietaryRecallSurvey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
+                        .Select(assessment => assessment.FriendlyName)
                         .ToArray(),
-                    ExcessiveNutrients = archive.DietaryRecallSurvey.SummaryRows
-                        .Where(row => row.Flag == Flags.Higher)
-                        .Select(row => row.FriendlyName)
+                    ExcessiveNutrients = archive.DietaryRecallSurvey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
+                        .Select(assessment => assessment.FriendlyName)
                         .ToArray()
                 }
                 : null,

@@ -342,24 +342,24 @@ public sealed class AiAdviceApplicationServiceTests
         Assert.True(energy.CorrectEnergy(2100));
 
         var survey = new DietaryRecallSurvey(client, [], [], new DRIs(client));
-        survey.SummaryRows.AddRange(
+        survey.NutrientAssessments.AddRange(
         [
-            new DietarySurveySummaryRow
+            new DietaryNutrientAssessment
             {
                 FriendlyName = "iron",
-                ValueString = "5",
-                Flag = Flags.Lower
+                Value = 5m,
+                LowerReference = 10m
             },
-            new DietarySurveySummaryRow
+            new DietaryNutrientAssessment
             {
                 FriendlyName = "sodium",
-                ValueString = "3000",
-                Flag = Flags.Higher
+                Value = 3000m,
+                UpperReference = 2000m
             },
-            new DietarySurveySummaryRow
+            new DietaryNutrientAssessment
             {
                 FriendlyName = "protein",
-                ValueString = "65"
+                Value = 65m
             }
         ]);
 

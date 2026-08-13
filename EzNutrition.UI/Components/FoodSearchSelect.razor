@@ -1,0 +1,151 @@
+@using EzNutrition.Shared.Data.Entities
+@namespace EzNutrition.UI.Components
+
+<Select TItem="Food"
+        TItemValue="Guid"
+        DataSource="@candidates"
+        ItemLabel="food => food.FriendlyName ?? string.Empty"
+        ItemValue="food => food.FoodId"
+        @bind-Value="selectedFoodId"
+        Style="width:100%"
+        Placeholder="输入名称、代码或食物分类搜索"
+        DefaultActiveFirstOption="false"
+        Mode="SelectMode.Default"
+        Size="InputSize.Large"
+        EnableSearch
+        SearchDebounceMilliseconds="0"
+        AutoClearSearchValue
+        OnSearch="HandleSearch"
+        OnDropdownVisibleChange="HandleDropdownVisibleChange"
+        OnSelectedItemChanged="HandleSelectedItemChanged"
+        FilterExpression="(option, search) => Matches(option.Item, search)">
+    <ItemTemplate Context="food">
+        <div class="food-search-option">
+            <strong title="@food.FriendlyName">@food.FriendlyName</strong>
+            <span title="@Describe(food)">@Describe(food)</span>
+        </div>
+    </ItemTemplate>
+    <NotFoundContent>
+        <span class="food-search-empty">
+            @(query.Length == 0 ? "输入关键词开始检索" : "未找到匹配食物")
+        </span>
+    </NotFoundContent>
+</Select>
+
+@if (hasMoreMatches)
+{
+    <span class="food-search-hint" role="status">结果较多，仅显示前 @CandidateLimit 项，请继续输入以缩小范围。</span>
+}
+
+@code {
+    private const int CandidateLimit = 50;
+    private const int NoMatch = int.MaxValue;
+
+    [Parameter]
+    public IEnumerable<Food>? Foods { get; set; }
+
+    [Parameter]
+    public EventCallback<Food> OnFoodSelected { get; set; }
+
+    private Food[] candidates = [];
+    private Guid selectedFoodId;
+    private string query = string.Empty;
+    private bool hasMoreMatches;
+
+    private void HandleSearch(string? value)
+    {
+        query = value?.Trim() ?? string.Empty;
+        (candidates, hasMoreMatches) = FindCandidates(Foods, query);
+        StateHasChanged();
+    }
+
+    private async Task HandleSelectedItemChanged(Food? food)
+    {
+        if (food is null)
+        {
+            return;
+        }
+
+        Reset();
+        await OnFoodSelected.InvokeAsync(food);
+    }
+
+    private void HandleDropdownVisibleChange(bool visible)
+    {
+        if (!visible)
+        {
+            Reset();
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        selectedFoodId = Guid.Empty;
+        candidates = [];
+        query = string.Empty;
+        hasMoreMatches = false;
+    }
+
+    internal static (Food[] Items, bool HasMore) FindCandidates(
+        IEnumerable<Food>? foods,
+        string? value)
+    {
+        var normalizedQuery = value?.Trim();
+        if (foods is null || string.IsNullOrEmpty(normalizedQuery))
+        {
+            return ([], false);
+        }
+
+        var matches = foods
+            .Select((food, index) => (Food: food, Index: index, Rank: MatchRank(food, normalizedQuery)))
+            .Where(match => match.Rank != NoMatch)
+            .OrderBy(match => match.Rank)
+            .ThenBy(match => match.Index)
+            .Take(CandidateLimit + 1)
+            .Select(match => match.Food)
+            .ToArray();
+
+        return matches.Length > CandidateLimit
+            ? (matches[..CandidateLimit], true)
+            : (matches, false);
+    }
+
+    private static bool Matches(Food? food, string? value)
+    {
+        var normalizedQuery = value?.Trim();
+        return food is not null &&
+               (string.IsNullOrEmpty(normalizedQuery) || MatchRank(food, normalizedQuery) != NoMatch);
+    }
+
+    private static int MatchRank(Food food, string value) => Math.Min(
+        Rank(food.FriendlyName, value, exact: 0, prefix: 2, contains: 4),
+        Math.Min(
+            Rank(food.FriendlyCode, value, exact: 1, prefix: 3, contains: 5),
+            Rank(food.FoodGroups, value, exact: 6, prefix: 6, contains: 6)));
+
+    private static int Rank(string? candidate, string value, int exact, int prefix, int contains)
+    {
+        if (string.Equals(candidate, value, StringComparison.OrdinalIgnoreCase))
+        {
+            return exact;
+        }
+
+        if (candidate?.StartsWith(value, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return prefix;
+        }
+
+        return candidate?.Contains(value, StringComparison.OrdinalIgnoreCase) == true
+            ? contains
+            : NoMatch;
+    }
+
+    private static string Describe(Food food)
+    {
+        var details = new[] { food.FriendlyCode, food.FoodGroups }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+        var description = string.Join(" · ", details);
+        return description.Length == 0 ? "暂无代码与分类信息" : description;
+    }
+}
