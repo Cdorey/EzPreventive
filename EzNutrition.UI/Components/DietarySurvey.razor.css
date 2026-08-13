@@ -54,6 +54,7 @@
 .weight-basis span,
 .summary-metric > span,
 .mobile-summary-item > span,
+.result-interpretation-note,
 .calculation-note,
 .muted-value {
     color: var(--ez-text-secondary);
@@ -194,6 +195,24 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
+}
+
+.result-interpretation-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid #d6e4ff;
+    border-radius: 8px;
+    background: #f7faff;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.result-interpretation-note ::deep .anticon {
+    flex: 0 0 auto;
+    margin-top: 3px;
+    color: var(--ez-primary);
 }
 
 .summary-metrics {

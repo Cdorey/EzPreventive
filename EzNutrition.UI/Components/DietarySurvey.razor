@@ -130,6 +130,11 @@
                 <Button OnClick="EditEntries" Icon="@IconType.Outline.Edit">修改记录</Button>
             </div>
 
+            <div class="result-interpretation-note" role="note" aria-label="结果解释">
+                <Icon Type="info-circle" Theme="IconThemeType.Outline" />
+                <span>本结果基于单日 24 小时膳食回顾，并与适用 DRIs 比较；高于或低于参考值仅作为进一步问询的风险线索，不代表通常摄入水平，也不单独构成营养诊断。</span>
+            </div>
+
             <div class="summary-metrics" aria-label="关键膳食指标">
                 @foreach (var metric in KeyMetrics)
                 {

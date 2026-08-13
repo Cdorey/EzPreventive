@@ -99,6 +99,9 @@ public sealed class DietarySurveyRenderTests
 
         Assert.Contains("已完成核算", html, StringComparison.Ordinal);
         Assert.Contains("低于参考", html, StringComparison.Ordinal);
+        Assert.Contains("单日 24 小时膳食回顾", html, StringComparison.Ordinal);
+        Assert.Contains("进一步问询的风险线索", html, StringComparison.Ordinal);
+        Assert.Contains("不单独构成营养诊断", html, StringComparison.Ordinal);
     }
 
     private static ServiceProvider BuildServiceProvider()
