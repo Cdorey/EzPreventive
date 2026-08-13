@@ -168,8 +168,7 @@ public class DietaryRecallSurvey(
         SummaryCalculationTable calculation,
         MealOccasion occasion)
     {
-        var energy = calculation[occasion]
-            .FirstOrDefault(value => value.Nutrient?.FriendlyName == "能量")?.Value ?? 0m;
+        var energy = calculation.GetValue(occasion, "能量");
         return new DietaryMealEnergy(
             occasion,
             energy,
