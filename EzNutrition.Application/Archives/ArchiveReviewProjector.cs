@@ -65,8 +65,8 @@ internal static class ArchiveReviewProjector
         var fields = new List<ArchiveReviewField>
         {
             Field("身份模式", FormatIdentityMode(patient?.IdentityMode)),
-            Field("咨询开始", FormatDateTime(consultation?.Period.Start)),
-            Field("咨询结束", FormatDateTime(consultation?.Period.End)),
+            DateTimeField("咨询开始", consultation?.Period.Start),
+            DateTimeField("咨询结束", consultation?.Period.End),
             Field("性别", snapshot?.AdministrativeSex?.Display ?? patient?.AdministrativeSex?.Display ?? "未提供"),
             Field("年龄", FormatQuantity(snapshot?.AgeAtConsultation)),
             Field("身高", FormatMeasurement(snapshot?.Height)),
@@ -87,9 +87,9 @@ internal static class ArchiveReviewProjector
         EnergyAssessmentResource energy => new ArchiveReviewSection
         {
             Title = "能量评估",
-            Description = $"评估时间：{FormatDateTime(energy.EffectiveAt)}",
             Fields =
             [
+                DateTimeField("评估时间", energy.EffectiveAt),
                 Field("候选计算", energy.CandidateCalculations.Count.ToString(CultureInfo.InvariantCulture)),
                 Field("采用能量", FormatQuantity(energy.ProfessionalDecision?.AdoptedEnergyTarget)),
                 Field("决定依据", energy.ProfessionalDecision?.DecisionBasis?.Display ?? "尚未形成"),
@@ -99,9 +99,9 @@ internal static class ArchiveReviewProjector
         DriAssessmentResource dri => new ArchiveReviewSection
         {
             Title = "膳食参考摄入量",
-            Description = $"评估时间：{FormatDateTime(dri.EffectiveAt)}",
             Fields =
             [
+                DateTimeField("评估时间", dri.EffectiveAt),
                 Field("采用人群", dri.PopulationGroup?.AdoptedGroup.Display ?? "尚未选择"),
                 Field("营养素项目", dri.NutrientResults.Count.ToString(CultureInfo.InvariantCulture)),
                 Field("参考数据", dri.ReferenceData is null
@@ -112,13 +112,12 @@ internal static class ArchiveReviewProjector
         DietaryRecallResource recall => new ArchiveReviewSection
         {
             Title = "膳食调查",
-            Description = $"最近修改：{FormatDateTime(recall.Metadata.LastModifiedAt)}",
             Fields =
             [
+                DateTimeField("最近修改", recall.Metadata.LastModifiedAt),
                 Field("记录状态", FormatRecallStatus(recall.Status)),
-                Field("回忆时段", recall.RecallPeriod is null
-                    ? "未提供"
-                    : $"{FormatDateTime(recall.RecallPeriod.Start)} — {FormatDateTime(recall.RecallPeriod.End)}"),
+                DateTimeField("回忆开始", recall.RecallPeriod?.Start),
+                DateTimeField("回忆结束", recall.RecallPeriod?.End),
                 Field("餐次", recall.Meals.Count.ToString(CultureInfo.InvariantCulture)),
                 Field("食物条目", recall.Meals.Sum(meal => meal.Entries.Count).ToString(CultureInfo.InvariantCulture)),
                 Field("记录总能量", FormatQuantity(recall.EnergyConsistency?.RecordedTotalEnergy))
@@ -127,9 +126,9 @@ internal static class ArchiveReviewProjector
         SoapNoteResource soap => new ArchiveReviewSection
         {
             Title = "SOAP 病史",
-            Description = $"记录时间：{FormatDateTime(soap.EffectiveAt)}",
             Fields =
             [
+                DateTimeField("记录时间", soap.EffectiveAt),
                 Field("主观资料", soap.Subjective ?? "未记录"),
                 Field("客观资料", soap.Objective ?? "未记录"),
                 Field("评估", soap.Assessment ?? "未记录"),
@@ -142,7 +141,7 @@ internal static class ArchiveReviewProjector
             Description = $"生成状态：{FormatAdviceStatus(advice.GenerationStatus)}",
             Fields =
             [
-                Field("生成时间", FormatDateTime(advice.CompletedAt ?? advice.RequestedAt)),
+                DateTimeField("生成时间", advice.CompletedAt ?? advice.RequestedAt),
                 Field("建议正文", advice.NarrativeContent ?? "未形成"),
                 Field("推理摘要", advice.ReasoningContent ?? "未记录")
             ]
@@ -151,11 +150,14 @@ internal static class ArchiveReviewProjector
         {
             Title = resource.ResourceType.Value,
             Description = "当前查看器尚未提供该资源的专用展示。",
-            Fields = [Field("最近修改", FormatDateTime(resource.Metadata.LastModifiedAt))]
+            Fields = [DateTimeField("最近修改", resource.Metadata.LastModifiedAt)]
         }
     };
 
     private static ArchiveReviewField Field(string label, string value) => new(label, value);
+
+    private static ArchiveReviewField DateTimeField(string label, DateTimeOffset? value) =>
+        value is { } instant ? new ArchiveReviewField(label, instant) : Field(label, "未提供");
 
     private static string FormatMeasurement(ClinicalMeasurement? measurement) =>
         measurement is null ? "未提供" : FormatQuantity(measurement.Value);
@@ -170,9 +172,6 @@ internal static class ArchiveReviewProjector
         var unit = quantity.Unit.Display ?? FormatUnit(quantity.Unit.Code);
         return FormattableString.Invariant($"{quantity.Value} {unit}");
     }
-
-    private static string FormatDateTime(DateTimeOffset? value) =>
-        value?.ToString("yyyy-MM-dd HH:mm zzz", CultureInfo.InvariantCulture) ?? "未提供";
 
     private static string JoinDisplays(IEnumerable<Coding>? codings)
     {

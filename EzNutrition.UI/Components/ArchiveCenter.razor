@@ -61,7 +61,10 @@
                                 @onclick="() => OpenStoredAsync(record.DocumentId)">
                             <strong>@record.Title</strong>
                             <span>@record.SubjectDisplay</span>
-                            <small>咨询 @record.ConsultationStartedAt.ToString("yyyy-MM-dd") · 保存 @record.LastSavedAt.ToString("MM-dd HH:mm")</small>
+                            <small>
+                                咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
+                                · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
+                            </small>
                         </button>
                     }
                 }

@@ -12,7 +12,9 @@
         <div>
             <span>只读调阅</span>
             <h2 id="archive-review-title">@Review.Title</h2>
-            <p>@Review.SubjectDisplay · @Review.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+            <p>
+                @Review.SubjectDisplay · <LocalDateTimeDisplay Value="@Review.CreatedAt" />
+            </p>
         </div>
         <Tag Color="@("blue")">@Review.FormatDisplay</Tag>
     </header>
@@ -33,7 +35,16 @@
                     {
                         <div>
                             <dt>@field.Label</dt>
-                            <dd>@field.Value</dd>
+                            <dd>
+                                @if (field.Instant is { } instant)
+                                {
+                                    <LocalDateTimeDisplay Value="@instant" />
+                                }
+                                else
+                                {
+                                    @field.Value
+                                }
+                            </dd>
                         </div>
                     }
                 </dl>

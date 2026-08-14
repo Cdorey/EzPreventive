@@ -44,6 +44,8 @@ public sealed class UiArchitectureBoundaryTests
         Assert.Equal(uiAssembly, typeof(ArchiveActions).Assembly);
         Assert.Equal(uiAssembly, typeof(ArchiveCenter).Assembly);
         Assert.Equal(uiAssembly, typeof(ArchiveDocumentReview).Assembly);
+        Assert.Equal(uiAssembly, typeof(LocalDateTimeDisplay).Assembly);
+        Assert.Equal(uiAssembly, typeof(ILocalDateTimeFormatter).Assembly);
         Assert.Equal(uiAssembly, typeof(SafeMarkdown).Assembly);
     }
 

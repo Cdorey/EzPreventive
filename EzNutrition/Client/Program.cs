@@ -8,6 +8,7 @@ using EzNutrition.Archives.Xml;
 using EzNutrition.Client.Infrastructure;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
+using EzNutrition.UI.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -62,6 +63,8 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<IArchiveDocumentTransport>(provider =>
                 provider.GetRequiredService<BrowserArchiveGateway>());
             builder.Services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
+            builder.Services.AddSingleton<ILocalDateTimeFormatter>(
+                new LocalDateTimeFormatter(TimeZoneInfo.Local));
             builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();

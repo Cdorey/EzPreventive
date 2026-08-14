@@ -100,9 +100,33 @@ public sealed record ArchiveRecordSummary
 }
 
 /// <summary>
-/// 表示档案只读调阅中的一个字段。
+/// 表示档案只读调阅中的一个文本或绝对时间字段。
 /// </summary>
-public sealed record ArchiveReviewField(string Label, string Value);
+public sealed record ArchiveReviewField
+{
+    /// <summary>创建文本字段。</summary>
+    public ArchiveReviewField(string label, string value)
+    {
+        Label = label;
+        Value = value;
+    }
+
+    /// <summary>创建绝对时间字段。</summary>
+    public ArchiveReviewField(string label, DateTimeOffset instant)
+    {
+        Label = label;
+        Instant = instant;
+    }
+
+    /// <summary>获取字段标签。</summary>
+    public string Label { get; }
+
+    /// <summary>获取文本值；时间字段为空。</summary>
+    public string? Value { get; }
+
+    /// <summary>获取绝对时间值；文本字段为空。</summary>
+    public DateTimeOffset? Instant { get; }
+}
 
 /// <summary>
 /// 表示档案只读调阅中的一个语义区段。

@@ -25,7 +25,12 @@ public sealed class ArchiveWorkflowTests
         Assert.True(browse.Operation.IsSuccess);
         Assert.True(open.Operation.IsSuccess);
         Assert.Equal("虚构测试对象", open.Review?.SubjectDisplay);
-        Assert.Contains(open.Review?.Sections ?? [], section => section.Title == "咨询概况");
+        var consultation = Assert.Single(open.Review!.Sections, section => section.Title == "咨询概况");
+        var consultationStartedAt = Assert.Single(
+            consultation.Fields,
+            field => field.Label == "咨询开始");
+        Assert.NotNull(consultationStartedAt.Instant);
+        Assert.Null(consultationStartedAt.Value);
         Assert.NotEmpty(fixture.Store.Documents);
     }
 
