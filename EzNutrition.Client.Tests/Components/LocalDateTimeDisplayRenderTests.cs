@@ -37,8 +37,9 @@ public sealed class LocalDateTimeDisplayRenderTests
             return WebUtility.HtmlDecode(output.ToHtmlString());
         });
 
-        Assert.Contains("2026-08-15 04:30 +08:00", html, StringComparison.Ordinal);
-        Assert.Contains("title=\"2026-08-15 04:30:00 +08:00\"", html, StringComparison.Ordinal);
+        Assert.Contains("2026-08-15 04:30", html, StringComparison.Ordinal);
+        Assert.Contains("title=\"2026-08-15 04:30:00\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("+08:00", html, StringComparison.Ordinal);
         Assert.Contains(
             "datetime=\"2026-08-14T20:30:00.0000000+00:00\"",
             html,

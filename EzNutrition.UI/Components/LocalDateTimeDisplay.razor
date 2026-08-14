@@ -9,10 +9,10 @@
     public DateTimeOffset Value { get; set; }
 
     [Parameter]
-    public string Format { get; set; } = "yyyy-MM-dd HH:mm zzz";
+    public string Format { get; set; } = "yyyy-MM-dd HH:mm";
 
     private string MachineReadableValue =>
         Value.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
 
-    private string FullDisplayValue => Formatter.Format(Value, "yyyy-MM-dd HH:mm:ss zzz");
+    private string FullDisplayValue => Formatter.Format(Value, "yyyy-MM-dd HH:mm:ss");
 }
