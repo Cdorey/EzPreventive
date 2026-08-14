@@ -155,6 +155,58 @@ public sealed class ArchiveWorkflowTests
         Assert.Equal("不应进入文件名的姓名", import.Review?.SubjectDisplay);
     }
 
+    /// <summary>
+    /// 验证同步占用 CPU 的 codec 不会阻塞发起档案保存的调用线程。
+    /// </summary>
+    [Fact]
+    public async Task SaveCurrentAsync_dispatches_encoding_before_host_storage()
+    {
+        var fixture = CreateFixture();
+        using var writeStarted = new ManualResetEventSlim();
+        using var continueWrite = new ManualResetEventSlim();
+        using var invocationReturned = new ManualResetEventSlim();
+        fixture.Codec.WriteStarted = writeStarted;
+        fixture.Codec.ContinueWrite = continueWrite;
+        Task<ArchiveOperationResult>? operation = null;
+        Exception? invocationException = null;
+        var caller = new Thread(() =>
+        {
+            try
+            {
+                operation = fixture.Workflow.SaveCurrentAsync(CreateWorkspace("后台编码对象")).AsTask();
+            }
+            catch (Exception exception)
+            {
+                invocationException = exception;
+            }
+            finally
+            {
+                invocationReturned.Set();
+            }
+        });
+
+        caller.Start();
+        try
+        {
+            Assert.True(invocationReturned.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Null(invocationException);
+            Assert.True(writeStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.NotNull(operation);
+            Assert.False(operation.IsCompleted);
+
+            continueWrite.Set();
+            var result = await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.True(result.IsSuccess);
+            Assert.NotEmpty(fixture.Store.Documents);
+        }
+        finally
+        {
+            continueWrite.Set();
+            Assert.True(caller.Join(TimeSpan.FromSeconds(5)));
+        }
+    }
+
     private static Fixture CreateFixture(
         ArchiveDocumentStoreCapabilities capabilities =
             ArchiveDocumentStoreCapabilities.Save |
@@ -176,7 +228,7 @@ public sealed class ArchiveWorkflowTests
             [codec],
             store,
             transport);
-        return new Fixture(workflow, store, transport);
+        return new Fixture(workflow, codec, store, transport);
     }
 
     private static ConsultationWorkspace CreateWorkspace(string name) => new(new ClientInfo
@@ -190,6 +242,7 @@ public sealed class ArchiveWorkflowTests
 
     private sealed record Fixture(
         ArchiveWorkflow Workflow,
+        MemoryCodec Codec,
         MemoryStore Store,
         MemoryTransport Transport);
 
@@ -207,6 +260,10 @@ public sealed class ArchiveWorkflowTests
 
         public IReadOnlyCollection<ArchiveFormatDescriptor> WritableFormats { get; } = [Format];
 
+        public ManualResetEventSlim? WriteStarted { get; set; }
+
+        public ManualResetEventSlim? ContinueWrite { get; set; }
+
         public ValueTask<ArchiveReadResult> ReadAsync(
             Stream source,
             CancellationToken cancellationToken = default) => ValueTask.FromResult(new ArchiveReadResult
@@ -220,6 +277,8 @@ public sealed class ArchiveWorkflowTests
             Stream destination,
             CancellationToken cancellationToken = default)
         {
+            WriteStarted?.Set();
+            ContinueWrite?.Wait(cancellationToken);
             document = request.Document;
             await destination.WriteAsync(Encoding.UTF8.GetBytes("<archive />"), cancellationToken);
             return new ArchiveWriteResult

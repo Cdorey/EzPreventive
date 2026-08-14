@@ -12,6 +12,7 @@
         DefaultActiveFirstOption="false"
         Mode="SelectMode.Default"
         Size="InputSize.Large"
+        Disabled="@Disabled"
         EnableSearch
         SearchDebounceMilliseconds="0"
         AutoClearSearchValue
@@ -46,6 +47,10 @@
 
     [Parameter]
     public EventCallback<Food> OnFoodSelected { get; set; }
+
+    /// <summary>获取或设置当前是否禁止选择食物。</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
 
     private Food[] candidates = [];
     private Guid selectedFoodId;

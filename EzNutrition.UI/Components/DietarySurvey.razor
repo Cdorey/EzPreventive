@@ -35,6 +35,7 @@
                 <label>添加食物原料</label>
                 <FoodSearchSelect @key="DietaryRecallSurvey"
                                   Foods="@DietaryRecallSurvey?.Foods"
+                                  Disabled="@isCalculating"
                                   OnFoodSelected="OnSelectedItemChangedHandler" />
                 <span class="field-help">选择后自动加入下方记录，默认按 100 g 可食重量录入。</span>
             </div>
@@ -71,11 +72,13 @@
                                          Step="1m"
                                          Precision="1"
                                          Width="132px"
+                                         Disabled="@isCalculating"
                                          @bind-Value="@context.Weight" />
                         </PropertyColumn>
                         <PropertyColumn Title="重量口径" Property="entry => entry.IsAllEdible" Width="190">
                             <div class="weight-basis">
                                 <Switch @bind-Checked="@context.IsAllEdible"
+                                        Disabled="@isCalculating"
                                         CheckedChildren="可食重量"
                                         UnCheckedChildren="原始重量" />
                                 @if (!context.IsAllEdible)
@@ -89,11 +92,14 @@
                             </div>
                         </PropertyColumn>
                         <PropertyColumn Title="餐次" Property="entry => entry.MealOccasion" Width="180">
-                            <EnumSelect TEnum="MealOccasion" @bind-Value="@context.MealOccasion" />
+                            <EnumSelect TEnum="MealOccasion"
+                                        Disabled="@isCalculating"
+                                        @bind-Value="@context.MealOccasion" />
                         </PropertyColumn>
                         <ActionColumn Title="操作" Width="80">
                             <Button Shape="ButtonShape.Circle"
                                     Danger
+                                    Disabled="@isCalculating"
                                     OnClick="() => RemoveRecord(context)"
                                     Icon="@IconType.Outline.Delete"
                                     AriaLabel="@($"删除 {context.Food.FriendlyName}")" />
@@ -110,7 +116,7 @@
                 <Button Class="calculate-button"
                         Type="ButtonType.Primary"
                         Size="ButtonSize.Large"
-                        Disabled="@(EntryCount == 0)"
+                        Disabled="@(EntryCount == 0 || isCalculating)"
                         OnClick="Calculate"
                         AutoLoading>
                     <Icon Type="calculator" Theme="IconThemeType.Outline" />
@@ -328,6 +334,7 @@
             .Cast<DietaryNutrientAssessment>();
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
+    private bool isCalculating;
 
     private static string FormatValue(DietaryNutrientAssessment assessment) =>
         assessment.FriendlyName == "总能量" || assessment.Unit == "%E"
@@ -388,12 +395,17 @@
 
     private void RemoveRecord(DietaryRecallEntry entry)
     {
+        if (isCalculating)
+        {
+            return;
+        }
+
         Entries?.Remove(entry);
     }
 
     private async Task EditEntries()
     {
-        if (DietaryRecallSurvey is null)
+        if (DietaryRecallSurvey is null || isCalculating)
         {
             return;
         }
@@ -404,7 +416,7 @@
 
     private async Task OnSelectedItemChangedHandler(Food? food)
     {
-        if (food is null)
+        if (food is null || isCalculating)
         {
             return;
         }
@@ -438,7 +450,7 @@
 
     private async Task Calculate()
     {
-        if (DietaryRecallSurvey is null)
+        if (DietaryRecallSurvey is null || isCalculating)
         {
             await Message.ErrorAsync("问卷系统初始化失败");
             return;
@@ -461,14 +473,24 @@
 
         try
         {
-            DietaryRecallSurvey.Calculate();
+            isCalculating = true;
+            await ConsultationService.CalculateDietaryRecallAsync(
+                DietaryRecallSurvey,
+                lifetimeCancellation.Token);
             await OnCalculationCompleted.InvokeAsync();
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Dietary recall calculation failed.");
             DietaryRecallSurvey.ResetCalculation();
             await Message.ErrorAsync("膳食调查核算失败，请检查录入数据和食物成分资料。");
+        }
+        finally
+        {
+            isCalculating = false;
         }
     }
 
