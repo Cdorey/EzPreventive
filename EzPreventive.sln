@@ -16,7 +16,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.AiAgency", "EzN
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts", "EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj", "{E23AEABE-E9BE-4AED-A358-ED9B1E264E30}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml", "EzNutrition.Archives.Xml\EzNutrition.Archives.Xml.csproj", "{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts.Tests", "EzNutrition.Archives.Contracts.Tests\EzNutrition.Archives.Contracts.Tests.csproj", "{4A7B381C-7B7A-44B5-9C7E-213D49CD7D67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml.Tests", "EzNutrition.Archives.Xml.Tests\EzNutrition.Archives.Xml.Tests.csproj", "{C65E54A1-B5F1-4C89-A074-E54D472CB572}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Client.Tests", "EzNutrition.Client.Tests\EzNutrition.Client.Tests.csproj", "{0EBB4324-26A7-44DA-B6A5-92B3A6EF6C04}"
 EndProject
@@ -188,6 +192,30 @@ Global
 		{A0EFB532-D00D-4A9E-BF43-18862B22D608}.Release|x64.Build.0 = Release|Any CPU
 		{A0EFB532-D00D-4A9E-BF43-18862B22D608}.Release|x86.ActiveCfg = Release|Any CPU
 		{A0EFB532-D00D-4A9E-BF43-18862B22D608}.Release|x86.Build.0 = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|x64.Build.0 = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Debug|x86.Build.0 = Debug|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|x64.ActiveCfg = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|x64.Build.0 = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|x86.ActiveCfg = Release|Any CPU
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}.Release|x86.Build.0 = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|x64.Build.0 = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Debug|x86.Build.0 = Debug|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|x64.ActiveCfg = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|x64.Build.0 = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|x86.ActiveCfg = Release|Any CPU
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
