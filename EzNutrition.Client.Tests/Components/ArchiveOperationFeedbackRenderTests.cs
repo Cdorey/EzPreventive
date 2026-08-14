@@ -21,9 +21,9 @@ public sealed class ArchiveOperationFeedbackRenderTests
             [
                 new ArchiveNotice
                 {
-                    Code = "archive.nutrition.energy-consistency-exceeded",
+                    Code = "archive.nutrition.aggregation-mismatch",
                     IsBlocking = true,
-                    Message = "宏量营养素折算能量超出记录容差。"
+                    Message = "保存的汇总无法由组成项复算。"
                 }
             ]
         };

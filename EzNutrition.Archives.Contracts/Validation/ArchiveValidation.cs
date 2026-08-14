@@ -14,7 +14,7 @@ public enum ArchiveValidationSeverity
     Information = 0,
 
     /// <summary>
-    /// 临床或兼容性提示，通常不阻止医师继续。
+    /// 不阻止当前操作的结构、完整性或兼容性提示。
     /// </summary>
     Warning = 1,
 
@@ -48,11 +48,6 @@ public enum ArchiveValidationCategory
     /// 身份、引用、生命周期或数学一致性问题。
     /// </summary>
     Integrity = 2,
-
-    /// <summary>
-    /// 需要专业人员留意但不应穷举禁止的临床合理性问题。
-    /// </summary>
-    Clinical = 3,
 
     /// <summary>
     /// 未知版本、扩展或降级风险等兼容性问题。

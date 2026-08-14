@@ -4,7 +4,7 @@ using EzNutrition.Archives.Contracts.Bundles;
 namespace EzNutrition.Archives.Contracts.Validation;
 
 /// <summary>
-/// 定义格式无关的档案结构、完整性和临床提示校验。
+/// 定义格式无关的档案安全、结构和内部完整性校验。
 /// </summary>
 public interface IArchiveValidator
 {
