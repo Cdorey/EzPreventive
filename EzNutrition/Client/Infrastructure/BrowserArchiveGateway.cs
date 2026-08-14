@@ -181,6 +181,8 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
     {
         public required string DocumentId { get; init; }
 
+        public string? PatientId { get; init; }
+
         public required string Title { get; init; }
 
         public required string SubjectDisplay { get; init; }
@@ -198,6 +200,7 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         public StoredArchiveDocumentInfo ToContract() => new()
         {
             DocumentId = Guid.Parse(DocumentId),
+            PatientId = Guid.TryParse(PatientId, out var patientId) ? patientId : null,
             Title = Title,
             SubjectDisplay = SubjectDisplay,
             ConsultationStartedAt = ConsultationStartedAt,
@@ -210,6 +213,7 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         public static BrowserStoredArchiveInfo From(StoredArchiveDocumentInfo info) => new()
         {
             DocumentId = info.DocumentId.ToString("D"),
+            PatientId = info.PatientId?.ToString("D"),
             Title = info.Title,
             SubjectDisplay = info.SubjectDisplay,
             ConsultationStartedAt = info.ConsultationStartedAt,

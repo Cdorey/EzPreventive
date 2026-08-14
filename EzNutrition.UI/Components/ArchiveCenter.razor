@@ -54,18 +54,44 @@
                 }
                 else
                 {
-                    @foreach (var record in records)
+                    @foreach (var group in PatientGroups)
                     {
-                        <button type="button"
-                                class="archive-record @(selectedDocumentId == record.DocumentId ? "selected" : null)"
-                                @onclick="() => OpenStoredAsync(record.DocumentId)">
-                            <strong>@record.Title</strong>
-                            <span>@record.SubjectDisplay</span>
-                            <small>
-                                咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
-                                · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
-                            </small>
-                        </button>
+                        <section class="archive-patient-group" data-patient-id="@group.PatientId?.ToString("D")">
+                            <header class="archive-patient-heading">
+                                <div>
+                                    <strong>@group.SubjectDisplay</strong>
+                                    <small>@group.Consultations.Count 次咨询</small>
+                                    @if (group.PatientId is null)
+                                    {
+                                        <small class="archive-legacy-note">旧版未关联档案</small>
+                                    }
+                                </div>
+                                @if (group.PatientId is not null && OnStartFollowUp.HasDelegate)
+                                {
+                                    <button type="button"
+                                            class="archive-follow-up"
+                                            disabled="@opening"
+                                            @onclick="() => StartFollowUpAsync(group)">
+                                        新建后续咨询
+                                    </button>
+                                }
+                            </header>
+
+                            <div class="archive-consultations">
+                                @foreach (var record in group.Consultations)
+                                {
+                                    <button type="button"
+                                            class="archive-record @(selectedDocumentId == record.DocumentId ? "selected" : null)"
+                                            @onclick="() => OpenStoredAsync(record.DocumentId)">
+                                        <strong>@record.Title</strong>
+                                        <small>
+                                            咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
+                                            · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
+                                        </small>
+                                    </button>
+                                }
+                            </div>
+                        </section>
                     }
                 }
             </aside>
@@ -89,6 +115,9 @@
 </section>
 
 @code {
+    [Parameter]
+    public EventCallback<ArchivePatientContext> OnStartFollowUp { get; set; }
+
     private readonly CancellationTokenSource lifetimeCancellation = new();
     private IReadOnlyList<ArchiveRecordSummary> records = Array.Empty<ArchiveRecordSummary>();
     private ArchiveReview? review;
@@ -100,6 +129,28 @@
     private bool CanBrowse => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse);
 
     private bool CanImport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Import);
+
+    private IReadOnlyList<PatientArchiveGroup> PatientGroups => records
+        .GroupBy(
+            record => record.PatientId is { } patientId
+                ? $"patient:{patientId:D}"
+                : $"legacy:{record.DocumentId:D}",
+            StringComparer.Ordinal)
+        .Select(group =>
+        {
+            var consultations = group
+                .OrderByDescending(record => record.ConsultationStartedAt)
+                .ThenByDescending(record => record.LastSavedAt)
+                .ToArray();
+            var latest = consultations[0];
+            return new PatientArchiveGroup(
+                latest.PatientId,
+                latest.SubjectDisplay,
+                consultations,
+                consultations.Max(record => record.LastSavedAt));
+        })
+        .OrderByDescending(group => group.LastSavedAt)
+        .ToArray();
 
     protected override async Task OnInitializedAsync() => await LoadRecordsAsync();
 
@@ -142,6 +193,48 @@
         await OpenAsync(() => ArchiveWorkflow.ImportAsync(lifetimeCancellation.Token));
     }
 
+    private async Task StartFollowUpAsync(PatientArchiveGroup group)
+    {
+        if (opening || !OnStartFollowUp.HasDelegate || group.PatientId is not { } patientId)
+        {
+            return;
+        }
+
+        var latest = group.Consultations[0];
+        selectedDocumentId = latest.DocumentId;
+        opening = true;
+        try
+        {
+            var result = await ArchiveWorkflow.OpenStoredAsync(latest.DocumentId, lifetimeCancellation.Token);
+            feedback = result.Operation.Notices.Count > 0 ? result.Operation : null;
+            if (!result.Operation.IsSuccess)
+            {
+                if (result.Operation.Status != ArchiveOperationStatus.Cancelled)
+                {
+                    await ReportFailureAsync(result.Operation);
+                }
+
+                return;
+            }
+
+            review = result.Review;
+            if (review?.PatientContext is not { } patientContext || patientContext.PatientId != patientId)
+            {
+                await Message.ErrorAsync("这份档案无法安全关联到既有患者，请将其作为独立咨询查看。");
+                return;
+            }
+
+            await OnStartFollowUp.InvokeAsync(patientContext);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            opening = false;
+        }
+    }
+
     private async Task OpenAsync(Func<ValueTask<ArchiveOpenResult>> action)
     {
         if (opening)
@@ -182,4 +275,10 @@
         lifetimeCancellation.Cancel();
         lifetimeCancellation.Dispose();
     }
+
+    private sealed record PatientArchiveGroup(
+        Guid? PatientId,
+        string SubjectDisplay,
+        IReadOnlyList<ArchiveRecordSummary> Consultations,
+        DateTimeOffset LastSavedAt);
 }

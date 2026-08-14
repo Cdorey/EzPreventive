@@ -65,8 +65,73 @@
 .archive-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     background: #f7f9fc;
+}
+
+.archive-patient-group {
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--ez-border);
+    border-radius: var(--ez-radius-sm);
+}
+
+.archive-patient-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--ez-border);
+}
+
+.archive-patient-heading > div {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+}
+
+.archive-patient-heading strong {
+    overflow: hidden;
+    color: var(--ez-navy);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.archive-patient-heading small {
+    color: var(--ez-text-secondary);
+}
+
+.archive-legacy-note {
+    color: #ad6800 !important;
+}
+
+.archive-follow-up {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    color: var(--ez-primary-strong);
+    background: transparent;
+    border: 1px solid #91caff;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+}
+
+.archive-follow-up:hover,
+.archive-follow-up:focus-visible {
+    background: #eaf4ff;
+}
+
+.archive-follow-up:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.archive-consultations {
+    display: grid;
+    gap: 3px;
+    padding: 5px;
 }
 
 .archive-record {
@@ -77,7 +142,7 @@
     color: var(--ez-text);
     background: #fff;
     border: 1px solid transparent;
-    border-radius: var(--ez-radius-sm);
+    border-radius: 4px;
     cursor: pointer;
     font: inherit;
     text-align: left;
@@ -91,7 +156,6 @@
 }
 
 .archive-record strong,
-.archive-record span,
 .archive-record small {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -102,7 +166,6 @@
     color: var(--ez-navy);
 }
 
-.archive-record span,
 .archive-record small {
     color: var(--ez-text-secondary);
 }

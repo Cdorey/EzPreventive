@@ -96,6 +96,10 @@
     padding-top: 4px;
 }
 
+.follow-up-notice {
+    margin-bottom: 18px;
+}
+
 .form-actions ::deep .ant-btn {
     min-width: 190px;
 }

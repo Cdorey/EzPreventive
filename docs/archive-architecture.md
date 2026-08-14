@@ -45,9 +45,11 @@ XML 文档和浏览器 IndexedDB 都不会因为档案操作而上传到服务�
 
 ## Bundle 与患者
 
-当前保存单位是 `ConsultationDocument`：一个 Patient、一次 Consultation 和该咨询的引用闭包。Bundle 是版本化文档/传输容器，不是“患者永久聚合根”。
+当前保存单位是 `ConsultationDocument`：一个 Patient、一次 Consultation 和该咨询的引用闭包。Bundle 是版本化文档/传输容器，不是“患者永久聚合根”。同一次运行态咨询重复保存会更新自己的草稿文档；开始后续咨询则建立新的 Consultation、临床资源和 Bundle，既有文档始终只读。
 
-同一患者跨多次咨询需要先建立可复用的 Patient 逻辑身份，并由 Repository 或机构主索引关联多次 Consultation。未来如需交换完整患者纵向档案，应新增明确的患者档案 profile 和引用闭包校验，不应悄悄改变 `ConsultationDocument` 的含义。
+Patient 的逻辑标识跨咨询保持稳定，本机档案索引以该标识归组多次 Consultation。档案页的“新建后续咨询”会从最近一次文档恢复患者身份，并仅用当次 SubjectSnapshot 预填新咨询表单；医生仍需按本次实际情况核对年龄、测量和生理状态。Patient 主数据不会根据咨询表单被隐式改写，如需更名或更正身份，应另行设计显式的患者资料维护和版本规则。
+
+归组不使用姓名推断。相同姓名但 Patient 标识不同的档案始终分开；旧版没有 Patient 索引的文档也各自保持独立，不开放后续咨询入口。未来如需交换完整患者纵向档案，应新增明确的患者档案 profile 和引用闭包校验，不应悄悄改变 `ConsultationDocument` 的含义。
 
 ## 扩展与二开
 
