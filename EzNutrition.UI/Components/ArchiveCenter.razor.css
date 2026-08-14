@@ -15,6 +15,10 @@
     border-bottom: 1px solid var(--ez-border);
 }
 
+.archive-feedback {
+    margin-top: 16px;
+}
+
 .archive-toolbar span {
     color: var(--ez-primary-strong);
     font-size: 0.75rem;

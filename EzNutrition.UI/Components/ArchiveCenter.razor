@@ -35,6 +35,13 @@
             </div>
         </header>
 
+        @if (feedback is not null)
+        {
+            <div class="archive-feedback">
+                <ArchiveOperationFeedback Result="feedback" />
+            </div>
+        }
+
         <div class="archive-workspace">
             <aside class="archive-list" aria-label="本机档案列表">
                 @if (loading)
@@ -82,6 +89,7 @@
     private readonly CancellationTokenSource lifetimeCancellation = new();
     private IReadOnlyList<ArchiveRecordSummary> records = Array.Empty<ArchiveRecordSummary>();
     private ArchiveReview? review;
+    private ArchiveOperationResult? feedback;
     private Guid? selectedDocumentId;
     private bool loading;
     private bool opening;
@@ -104,9 +112,10 @@
         {
             var result = await ArchiveWorkflow.BrowseAsync(lifetimeCancellation.Token);
             records = result.Records;
+            feedback = result.Operation.Notices.Count > 0 ? result.Operation : null;
             if (!result.Operation.IsSuccess)
             {
-                await Message.ErrorAsync(result.Operation.Message);
+                await ReportFailureAsync(result.Operation);
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -141,13 +150,14 @@
         try
         {
             var result = await action();
+            feedback = result.Operation.Notices.Count > 0 ? result.Operation : null;
             if (result.Operation.IsSuccess)
             {
                 review = result.Review;
             }
             else if (result.Operation.Status != ArchiveOperationStatus.Cancelled)
             {
-                await Message.ErrorAsync(result.Operation.Message);
+                await ReportFailureAsync(result.Operation);
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -158,6 +168,11 @@
             opening = false;
         }
     }
+
+    private async Task ReportFailureAsync(ArchiveOperationResult operation) =>
+        await Message.ErrorAsync(operation.Notices.Count > 0
+            ? operation.Message + " 详细原因已显示在档案调阅区。"
+            : operation.Message);
 
     public void Dispose()
     {

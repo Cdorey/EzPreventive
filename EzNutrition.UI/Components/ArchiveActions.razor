@@ -3,21 +3,24 @@
 
 @if (CanSave || CanExport)
 {
-    <div class="archive-actions" aria-label="档案操作">
-        @if (CanSave)
-        {
-            <Button Type="@ButtonType.Primary" Ghost OnClick="SaveAsync" AutoLoading>
-                <Icon Type="save" Theme="IconThemeType.Outline" />
-                保存档案
-            </Button>
-        }
-        @if (CanExport)
-        {
-            <Button OnClick="ExportAsync" AutoLoading>
-                <Icon Type="download" Theme="IconThemeType.Outline" />
-                导出文档
-            </Button>
-        }
+    <div class="archive-actions-panel">
+        <div class="archive-actions" aria-label="档案操作">
+            @if (CanSave)
+            {
+                <Button Type="@ButtonType.Primary" Ghost OnClick="SaveAsync" AutoLoading>
+                    <Icon Type="save" Theme="IconThemeType.Outline" />
+                    保存档案
+                </Button>
+            }
+            @if (CanExport)
+            {
+                <Button OnClick="ExportAsync" AutoLoading>
+                    <Icon Type="download" Theme="IconThemeType.Outline" />
+                    导出文档
+                </Button>
+            }
+        </div>
+        <ArchiveOperationFeedback Result="feedback" />
     </div>
 }
 
@@ -29,17 +32,26 @@
 
     private bool CanExport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Export);
 
-    private async Task SaveAsync() => await ReportAsync(
-        await ArchiveWorkflow.SaveCurrentAsync(Workspace));
+    private ArchiveOperationResult? feedback;
 
-    private async Task ExportAsync() => await ReportAsync(
-        await ArchiveWorkflow.ExportCurrentAsync(Workspace));
+    private async Task SaveAsync()
+    {
+        feedback = null;
+        await ReportAsync(await ArchiveWorkflow.SaveCurrentAsync(Workspace));
+    }
+
+    private async Task ExportAsync()
+    {
+        feedback = null;
+        await ReportAsync(await ArchiveWorkflow.ExportCurrentAsync(Workspace));
+    }
 
     private async Task ReportAsync(ArchiveOperationResult result)
     {
+        feedback = result.Notices.Count > 0 ? result : null;
         if (result.IsSuccess && result.Notices.Any(notice => !notice.IsBlocking))
         {
-            await Message.WarningAsync(result.Message + " 请留意档案校验提示。");
+            await Message.WarningAsync(result.Message + " 校验提示已显示在档案操作区。");
         }
         else if (result.IsSuccess)
         {
@@ -51,7 +63,9 @@
         }
         else
         {
-            await Message.ErrorAsync(result.Message);
+            await Message.ErrorAsync(result.Notices.Count > 0
+                ? result.Message + " 详细原因已显示在档案操作区。"
+                : result.Message);
         }
     }
 }
