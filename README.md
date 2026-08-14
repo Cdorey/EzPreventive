@@ -13,13 +13,13 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 - **膳食调查**：支持 24 小时膳食回顾及相关膳食结构分析。
 - **AI 辅助建议**：通过服务端调用生成式 AI，并以流式方式呈现推理和建议；供应商能力由可替换适配器隔离，支持取消、失败反馈与重新发送。
 - **身份与权限**：提供邮箱确认与重发、密码修改与邮箱找回、邮箱/手机号码修改、专业身份相关流程和受权限保护的功能入口。
-- **档案基础**：已经建立格式无关的档案模型、校验、编解码和仓储契约；XML 导入、导出及持久化实现仍在开发计划中。
+- **本机档案**：提供格式无关的档案模型、校验与工作流，支持在浏览器本机保存和只读调阅咨询档案，以及 XML 文档导入导出。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
 ## 数据与隐私边界
 
 - 多数营养计算在浏览器端执行，以减少不必要的数据上传；身份认证、参考数据查询和 AI 建议仍需要访问服务端。
-- 当前咨询工作区仅存在于浏览器会话内，尚未作为服务端档案长期保存。关闭或刷新应用可能导致当前工作区丢失；在档案导入、导出及持久化能力完成前，不能将其视为正式的业务档案系统。
+- 当前咨询工作区仍以浏览器会话为运行边界；完成咨询后应主动保存到本机档案库或导出 XML 文档。浏览器本机档案不会上传到服务端，但其可用性仍受当前设备、浏览器配置和站点数据保留策略影响，不能替代医疗机构正式档案系统的备份、审计与保留制度。
 - 使用 AI 建议功能时，请求会被发送至服务端及其配置的外部模型服务。服务端会保存登录用户标识、完整请求、模型返回的推理与建议内容以及处理时间，用于安全审计和防止接口滥用。
 - AI 请求可能包含咨询对象信息、膳食回顾和临床信息。请只提交完成任务所必需的数据，避免输入不必要的姓名、证件号码、联系方式等直接身份标识，并遵守适用的数据保护和医疗信息管理要求。
 
@@ -31,6 +31,7 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 | `EzNutrition.Application` | 咨询用例编排、应用服务及外部能力端口 |
 | `EzNutrition.UI` | 可复用的 Razor 营养工作台组件 |
 | `EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
+| `EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
 | `EzNutrition/Client` | Blazor WebAssembly 宿主、页面、依赖注入和浏览器 HTTP 适配器 |
 | `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
 | `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
@@ -57,6 +58,7 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 
 ## 近期重要变更
 
+- **2026-08-14 — 本机 XML 档案闭环**：建立格式无关的 Application 档案用例，加入独立 XML codec、浏览器 IndexedDB/文件适配器、桌面优先的保存与只读调阅界面，并保持 UI、格式和宿主存储之间的单向依赖。
 - **2026-08-08 至 09 — 可复用架构分层**：拆分 Domain、Application 和 UI，升级至 .NET 10，并以 `IAiAdviceGateway` 隔离 AI 应用流程与浏览器 HTTP/SSE 传输；补充应用、适配器和架构边界测试。详见 [PR #2](https://github.com/Cdorey/EzPreventive/pull/2)。
 - **2026-08-09 — 仓库聚焦 EzNutrition**：将 EzAttached 迁移至 [独立仓库](https://github.com/Cdorey/EzAttached)，删除废弃的 DataInserter 临时工具和冗余解决方案筛选文件。详见 [PR #3](https://github.com/Cdorey/EzPreventive/pull/3) 和 [PR #4](https://github.com/Cdorey/EzPreventive/pull/4)。
 - **2026-08-08 — 档案契约基线**：建立格式无关的档案资源、身份、引用、校验、编解码和仓储边界，并接入运行时咨询快照；具体 XML 实现尚未加入。详见 [PR #2](https://github.com/Cdorey/EzPreventive/pull/2)。
@@ -73,11 +75,11 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
    - 设计版本化、幂等、可审计的参考数据初始化器，并在分发数据前核对数据来源与授权；同步验证幂等、事务失败和版本识别行为。
    - 明确 AI 审计数据的最小字段、访问权限、脱敏方式和保留策略，并为策略调整补充针对性测试。
 
-2. **P1：交付 XML 档案最小闭环**
-   - 新建仅依赖 `EzNutrition.Archives.Contracts` 的 XML 实现包，实现现有 `IArchiveCodec`。
-   - 完成档案文档与 XML 流之间的导入、导出和往返一致性测试，覆盖非法输入、未知扩展保留、版本迁移和取消。
-   - 在 Application 中补充档案导入导出用例；如果首个版本需要重新打开并编辑档案，还需实现从 `ArchiveDocument` 恢复咨询工作区的映射。
-   - 将 XML 编解码与最终存储分开；文件、IndexedDB、SQLite 或其他仓储适配器按实际宿主需求选择。
+2. **P1：加固本机档案与继续编辑流程**
+   - 在更多浏览器和发布裁剪配置中验证 IndexedDB、文件导入导出和大文档取消行为，并明确本机档案保留与清理提示。
+   - 完成从 `ArchiveDocument` 恢复咨询工作区的受控反向映射，在保留资源身份、并发上下文和未知源内容的前提下提供“继续编辑”。
+   - 根据互操作需求发布 XML 格式说明与兼容样本，并为后续格式迁移保留确定性验证集。
+   - 评估导出文档的加密容器、签名和机构审计需求；纯 XML 默认不承担静态加密职责。
 
 3. **P1：继续收窄宿主耦合**
    - 参考现有 AI port/adapter 模式，把档案流程编排放入 Application，由宿主通过依赖注入提供格式、文件交互和仓储实现。

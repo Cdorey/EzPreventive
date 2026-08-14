@@ -1,0 +1,54 @@
+# 档案架构
+
+EzNutrition 的档案能力遵循“语义、用例、格式、宿主”四个边界，避免 UI 或 XML 实现决定未来 WPF Hybrid 和医疗机构适配器的形状。
+
+## 依赖方向
+
+```text
+EzNutrition.UI
+    -> EzNutrition.Application (IArchiveWorkflow、只读调阅模型)
+
+EzNutrition.Application
+    -> EzNutrition.Archives.Contracts
+    -> IArchiveDocumentStore / IArchiveDocumentTransport（宿主端口）
+
+EzNutrition.Archives.Xml
+    -> EzNutrition.Archives.Contracts
+
+EzNutrition.Client 或未来 WPF 宿主
+    -> Application + UI + Xml
+    -> 实现宿主存储和文件交互端口
+```
+
+`EzNutrition.UI` 不引用 XML codec、浏览器存储或文件路径。`EzNutrition.Archives.Xml` 不引用 Application、UI、Client、浏览器 API 或桌面文件 API。
+
+## 操作语义
+
+- **保存档案**：由 `IArchiveWorkflow` 将当前咨询映射成契约文档、校验、编码后交给 `IArchiveDocumentStore`。WASM 当前使用 IndexedDB；未来 WPF 或机构适配器可以使用文件目录、SQLite 或医院数据源。
+- **档案调阅**：列出宿主管理的档案摘要，解码选中文档并投影为格式无关的只读模型。当前不会把历史文档恢复成可编辑计算工作区。
+- **打开文档**：由 `IArchiveDocumentTransport` 取得外部文档，再选择可读 codec。它不会自动写入本机档案库。
+- **导出文档**：把当前咨询写成外部文档；文件名不包含患者姓名或业务标识。
+
+XML 文档和浏览器 IndexedDB 都不会因为档案操作而上传到服务端。应用中参考数据查询与 AI 建议仍有各自独立的网络和隐私边界。
+
+## Bundle 与患者
+
+当前保存单位是 `ConsultationDocument`：一个 Patient、一次 Consultation 和该咨询的引用闭包。Bundle 是版本化文档/传输容器，不是“患者永久聚合根”。
+
+同一患者跨多次咨询需要先建立可复用的 Patient 逻辑身份，并由 Repository 或机构主索引关联多次 Consultation。未来如需交换完整患者纵向档案，应新增明确的患者档案 profile 和引用闭包校验，不应悄悄改变 `ConsultationDocument` 的含义。
+
+## 扩展与二开
+
+医疗机构通常只需实现：
+
+- `IArchiveDocumentStore`：保存、列出和读取编码档案文档；
+- `IArchiveDocumentTransport`：宿主文件或文档交互；
+- 或更底层的 `IArchiveRepository`：资源版本、并发和历史语义。
+
+机构字段优先使用 `ArchiveExtension`。新增自定义 `IArchiveResource` 类型还需要对应 codec 与校验扩展，不能假设默认 XML codec 会自动认识任意 CLR 类型。
+
+## XML 安全与兼容
+
+XML codec 禁止 DTD 和外部实体，限制文档字符数与元素深度，在完整编码成功前不写入调用方目标流。读取后的未知源内容由 XML 专用 `ArchiveRoundTripState` 保留：语义未变化时可以原样回写；若已知语义发生变化，则返回兼容性错误，避免静默丢失未知内容。
+
+XML 是交换编码，不默认提供静态加密。需要加密、签名、密钥管理或审计时，应由外部安全容器或机构宿主策略承担。
