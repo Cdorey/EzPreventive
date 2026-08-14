@@ -35,7 +35,7 @@ internal static class ArchiveReviewProjector
             Title = title,
             SubjectDisplay = subject,
             CreatedAt = bundle.CreatedAt,
-            FormatDisplay = format is null ? "当前应用档案" : $"{format.MediaType ?? format.Identifier.AbsoluteUri} · {format.Version}",
+            FormatDisplay = format is null ? "当前应用档案" : FormatDisplay(format),
             ContainsUnknownContent = document.ContainsUnknownContent,
             Sections = sections
         };
@@ -64,7 +64,7 @@ internal static class ArchiveReviewProjector
         var snapshot = consultation?.SubjectSnapshot;
         var fields = new List<ArchiveReviewField>
         {
-            Field("身份模式", patient?.IdentityMode.ToString() ?? "未提供"),
+            Field("身份模式", FormatIdentityMode(patient?.IdentityMode)),
             Field("咨询开始", FormatDateTime(consultation?.Period.Start)),
             Field("咨询结束", FormatDateTime(consultation?.Period.End)),
             Field("性别", snapshot?.AdministrativeSex?.Display ?? patient?.AdministrativeSex?.Display ?? "未提供"),
@@ -115,7 +115,7 @@ internal static class ArchiveReviewProjector
             Description = $"最近修改：{FormatDateTime(recall.Metadata.LastModifiedAt)}",
             Fields =
             [
-                Field("记录状态", recall.Status?.ToString() ?? "草稿"),
+                Field("记录状态", FormatRecallStatus(recall.Status)),
                 Field("回忆时段", recall.RecallPeriod is null
                     ? "未提供"
                     : $"{FormatDateTime(recall.RecallPeriod.Start)} — {FormatDateTime(recall.RecallPeriod.End)}"),
@@ -139,7 +139,7 @@ internal static class ArchiveReviewProjector
         NutritionAdviceResource advice => new ArchiveReviewSection
         {
             Title = "营养建议",
-            Description = $"生成状态：{advice.GenerationStatus}",
+            Description = $"生成状态：{FormatAdviceStatus(advice.GenerationStatus)}",
             Fields =
             [
                 Field("生成时间", FormatDateTime(advice.CompletedAt ?? advice.RequestedAt)),
@@ -167,7 +167,7 @@ internal static class ArchiveReviewProjector
             return "未提供";
         }
 
-        var unit = quantity.Unit.Display ?? quantity.Unit.Code;
+        var unit = quantity.Unit.Display ?? FormatUnit(quantity.Unit.Code);
         return FormattableString.Invariant($"{quantity.Value} {unit}");
     }
 
@@ -179,4 +179,50 @@ internal static class ArchiveReviewProjector
         var values = codings?.Select(coding => coding.Display ?? coding.Code).ToArray() ?? [];
         return values.Length == 0 ? "无" : string.Join("、", values);
     }
+
+    private static string FormatDisplay(ArchiveFormatDescriptor format)
+    {
+        var formatName = format.MediaType?.EndsWith("+xml", StringComparison.OrdinalIgnoreCase) == true ||
+                         string.Equals(format.MediaType, "application/xml", StringComparison.OrdinalIgnoreCase)
+            ? "XML 档案"
+            : format.MediaType ?? format.Identifier.AbsoluteUri;
+        return $"{formatName} · {format.Version}";
+    }
+
+    private static string FormatIdentityMode(PatientIdentityMode? mode) => mode switch
+    {
+        PatientIdentityMode.Identified => "已关联身份",
+        PatientIdentityMode.Pseudonymous => "假名身份",
+        PatientIdentityMode.Unlinked => "未关联身份",
+        _ => "未提供"
+    };
+
+    private static string FormatRecallStatus(DietaryRecallStatus? status) => status switch
+    {
+        DietaryRecallStatus.IntakeReported => "已记录摄入",
+        DietaryRecallStatus.NoIntake => "明确未摄入",
+        _ => "草稿"
+    };
+
+    private static string FormatAdviceStatus(NutritionAdviceGenerationStatus status) => status switch
+    {
+        NutritionAdviceGenerationStatus.Prepared => "已准备",
+        NutritionAdviceGenerationStatus.Generating => "生成中",
+        NutritionAdviceGenerationStatus.Completed => "已完成",
+        NutritionAdviceGenerationStatus.Incomplete => "内容不完整",
+        NutritionAdviceGenerationStatus.Failed => "失败",
+        _ => status.ToString()
+    };
+
+    private static string FormatUnit(string code) => code switch
+    {
+        "a" => "岁",
+        "mo" => "月",
+        "kg" => "kg",
+        "g" => "g",
+        "cm" => "cm",
+        "kcal/d" => "千卡/日",
+        "g/d" => "克/日",
+        _ => code
+    };
 }

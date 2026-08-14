@@ -41,6 +41,9 @@ public sealed class UiArchitectureBoundaryTests
         Assert.Equal(uiAssembly, typeof(EnergyCalculatorTreatment).Assembly);
         Assert.Equal(uiAssembly, typeof(MedicalInformation).Assembly);
         Assert.Equal(uiAssembly, typeof(Summary).Assembly);
+        Assert.Equal(uiAssembly, typeof(ArchiveActions).Assembly);
+        Assert.Equal(uiAssembly, typeof(ArchiveCenter).Assembly);
+        Assert.Equal(uiAssembly, typeof(ArchiveDocumentReview).Assembly);
         Assert.Equal(uiAssembly, typeof(SafeMarkdown).Assembly);
     }
 
@@ -107,6 +110,23 @@ public sealed class UiArchitectureBoundaryTests
         Assert.Equal("EzNutrition.Client", typeof(HttpAiAdviceGateway).Assembly.GetName().Name);
         Assert.Equal("EzNutrition.Client.Infrastructure", typeof(HttpAiAdviceGateway).Namespace);
         Assert.True(typeof(IAiAdviceGateway).IsAssignableFrom(typeof(HttpAiAdviceGateway)));
+    }
+
+    /// <summary>
+    /// Verifies that browser archive storage is a host adapter and XML remains outside the reusable UI.
+    /// </summary>
+    [Fact]
+    public void Archive_adapters_have_the_expected_ownership()
+    {
+        Assert.Equal("EzNutrition.Client", typeof(BrowserArchiveGateway).Assembly.GetName().Name);
+        Assert.True(typeof(EzNutrition.Application.Archives.IArchiveDocumentStore)
+            .IsAssignableFrom(typeof(BrowserArchiveGateway)));
+        Assert.True(typeof(EzNutrition.Application.Archives.IArchiveDocumentTransport)
+            .IsAssignableFrom(typeof(BrowserArchiveGateway)));
+        Assert.Equal("EzNutrition.Archives.Xml", typeof(EzNutrition.Archives.Xml.XmlArchiveCodec).Assembly.GetName().Name);
+        Assert.DoesNotContain(
+            "EzNutrition.Archives.Xml",
+            typeof(ArchiveCenter).Assembly.GetReferencedAssemblies().Select(reference => reference.Name));
     }
 
     private static IEnumerable<Type> GetSignatureTypes(MemberInfo member)

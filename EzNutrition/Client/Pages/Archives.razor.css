@@ -1,0 +1,26 @@
+.archives-page {
+    min-width: 0;
+}
+
+.page-heading {
+    margin-bottom: 24px;
+}
+
+.page-heading > span {
+    color: var(--ez-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.page-heading h1 {
+    margin: 4px 0 5px;
+    color: var(--ez-navy);
+    font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+    line-height: 1.25;
+}
+
+.page-heading p {
+    margin: 0;
+    color: var(--ez-text-secondary);
+}

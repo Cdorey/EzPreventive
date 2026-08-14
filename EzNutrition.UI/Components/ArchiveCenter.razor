@@ -1,0 +1,167 @@
+@implements IDisposable
+@inject IArchiveWorkflow ArchiveWorkflow
+@inject IMessageService Message
+
+<section class="archive-center">
+    <div class="mobile-archive-note">
+        <Alert Type="@AlertType.Info"
+               Message="档案管理以桌面端为主"
+               Description="请在较大的屏幕上保存、导入或调阅本机档案；移动端继续保留咨询和速查流程。"
+               ShowIcon="true" />
+    </div>
+
+    <div class="archive-management-surface">
+        <header class="archive-toolbar">
+            <div>
+                <span>本机档案</span>
+                <h2>档案调阅</h2>
+                <p>档案保存在当前浏览器中，也可以打开外部档案文档；这些操作不会把文档上传到服务端。</p>
+            </div>
+            <div class="archive-toolbar-actions">
+                @if (CanImport)
+                {
+                    <Button OnClick="ImportAsync" AutoLoading>
+                        <Icon Type="folder-open" Theme="IconThemeType.Outline" />
+                        打开文档
+                    </Button>
+                }
+                @if (CanBrowse)
+                {
+                    <Button OnClick="LoadRecordsAsync" AutoLoading>
+                        <Icon Type="reload" Theme="IconThemeType.Outline" />
+                        刷新列表
+                    </Button>
+                }
+            </div>
+        </header>
+
+        <div class="archive-workspace">
+            <aside class="archive-list" aria-label="本机档案列表">
+                @if (loading)
+                {
+                    <Skeleton Active />
+                }
+                else if (records.Count == 0)
+                {
+                    <Empty Description="@("尚未保存本机档案")" />
+                }
+                else
+                {
+                    @foreach (var record in records)
+                    {
+                        <button type="button"
+                                class="archive-record @(selectedDocumentId == record.DocumentId ? "selected" : null)"
+                                @onclick="() => OpenStoredAsync(record.DocumentId)">
+                            <strong>@record.Title</strong>
+                            <span>@record.SubjectDisplay</span>
+                            <small>咨询 @record.ConsultationStartedAt.ToString("yyyy-MM-dd") · 保存 @record.LastSavedAt.ToString("MM-dd HH:mm")</small>
+                        </button>
+                    }
+                }
+            </aside>
+
+            <div class="archive-preview">
+                @if (opening)
+                {
+                    <Skeleton Active ParagraphRows="8" />
+                }
+                else if (review is not null)
+                {
+                    <ArchiveDocumentReview Review="review" />
+                }
+                else
+                {
+                    <Empty Description="@("选择一个本机档案，或打开外部档案文档")" />
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly CancellationTokenSource lifetimeCancellation = new();
+    private IReadOnlyList<ArchiveRecordSummary> records = Array.Empty<ArchiveRecordSummary>();
+    private ArchiveReview? review;
+    private Guid? selectedDocumentId;
+    private bool loading;
+    private bool opening;
+
+    private bool CanBrowse => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse);
+
+    private bool CanImport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Import);
+
+    protected override async Task OnInitializedAsync() => await LoadRecordsAsync();
+
+    private async Task LoadRecordsAsync()
+    {
+        if (!CanBrowse || loading)
+        {
+            return;
+        }
+
+        loading = true;
+        try
+        {
+            var result = await ArchiveWorkflow.BrowseAsync(lifetimeCancellation.Token);
+            records = result.Records;
+            if (!result.Operation.IsSuccess)
+            {
+                await Message.ErrorAsync(result.Operation.Message);
+            }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task OpenStoredAsync(Guid documentId)
+    {
+        selectedDocumentId = documentId;
+        await OpenAsync(() => ArchiveWorkflow.OpenStoredAsync(documentId, lifetimeCancellation.Token));
+    }
+
+    private async Task ImportAsync()
+    {
+        selectedDocumentId = null;
+        await OpenAsync(() => ArchiveWorkflow.ImportAsync(lifetimeCancellation.Token));
+    }
+
+    private async Task OpenAsync(Func<ValueTask<ArchiveOpenResult>> action)
+    {
+        if (opening)
+        {
+            return;
+        }
+
+        opening = true;
+        try
+        {
+            var result = await action();
+            if (result.Operation.IsSuccess)
+            {
+                review = result.Review;
+            }
+            else if (result.Operation.Status != ArchiveOperationStatus.Cancelled)
+            {
+                await Message.ErrorAsync(result.Operation.Message);
+            }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            opening = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        lifetimeCancellation.Cancel();
+        lifetimeCancellation.Dispose();
+    }
+}

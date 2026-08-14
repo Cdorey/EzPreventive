@@ -7,6 +7,19 @@
     margin-bottom: 24px;
 }
 
+.treatment-heading {
+    max-width: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.treatment-heading > div {
+    min-width: 0;
+    max-width: 960px;
+}
+
 .page-heading > span,
 .section-heading span,
 .section-navigation > span {
@@ -257,6 +270,10 @@
 }
 
 @media (max-width: 991.98px) {
+    .treatment-heading {
+        display: block;
+    }
+
     .workspace-card,
     .summary-card,
     .advice-card {

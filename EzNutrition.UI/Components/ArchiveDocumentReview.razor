@@ -1,0 +1,48 @@
+@if (Review.ContainsUnknownContent)
+{
+    <Alert Class="unknown-content-alert"
+           Type="@AlertType.Warning"
+           Message="档案包含当前版本尚不能解释的内容"
+           Description="这些源内容已保留；本页面只展示当前程序能够安全理解的部分。"
+           ShowIcon="true" />
+}
+
+<article class="archive-review" aria-labelledby="archive-review-title">
+    <header class="review-heading">
+        <div>
+            <span>只读调阅</span>
+            <h2 id="archive-review-title">@Review.Title</h2>
+            <p>@Review.SubjectDisplay · @Review.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+        </div>
+        <Tag Color="@("blue")">@Review.FormatDisplay</Tag>
+    </header>
+
+    <div class="review-sections">
+        @foreach (var section in Review.Sections)
+        {
+            <section class="review-section">
+                <header>
+                    <h3>@section.Title</h3>
+                    @if (!string.IsNullOrWhiteSpace(section.Description))
+                    {
+                        <p>@section.Description</p>
+                    }
+                </header>
+                <dl>
+                    @foreach (var field in section.Fields)
+                    {
+                        <div>
+                            <dt>@field.Label</dt>
+                            <dd>@field.Value</dd>
+                        </div>
+                    }
+                </dl>
+            </section>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public required ArchiveReview Review { get; set; }
+}

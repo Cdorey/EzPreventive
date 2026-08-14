@@ -14,10 +14,16 @@
 @if (CurrentArchive is not null)
 {
     <section class="treatment-page">
-        <header class="page-heading">
-            <span>门诊咨询</span>
-            <h1>@(CurrentArchive.ClientInfoFormEnabled ? "新建营养咨询" : string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "营养评估工作区" : $"{CurrentArchive.Client.Name}的营养评估")</h1>
-            <p>@(CurrentArchive.ClientInfoFormEnabled ? "先录入必要的人体测量与生理信息，再进入各项专业核算。" : "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。")</p>
+        <header class="page-heading treatment-heading">
+            <div>
+                <span>门诊咨询</span>
+                <h1>@(CurrentArchive.ClientInfoFormEnabled ? "新建营养咨询" : string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "营养评估工作区" : $"{CurrentArchive.Client.Name}的营养评估")</h1>
+                <p>@(CurrentArchive.ClientInfoFormEnabled ? "先录入必要的人体测量与生理信息，再进入各项专业核算。" : "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。")</p>
+            </div>
+            @if (!CurrentArchive.ClientInfoFormEnabled)
+            {
+                <ArchiveActions Workspace="CurrentArchive" />
+            }
         </header>
 
         @if (CurrentArchive.ClientInfoFormEnabled)

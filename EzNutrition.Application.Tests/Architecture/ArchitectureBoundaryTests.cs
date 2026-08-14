@@ -25,6 +25,7 @@ public sealed class ArchitectureBoundaryTests
         Assert.DoesNotContain("Microsoft.EntityFrameworkCore", references);
         Assert.DoesNotContain("EzNutrition.Application", references);
         Assert.DoesNotContain("EzNutrition.Client", references);
+        Assert.DoesNotContain("EzNutrition.Archives.Xml", references);
     }
 
     /// <summary>

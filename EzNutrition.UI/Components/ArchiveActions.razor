@@ -1,0 +1,57 @@
+@inject IArchiveWorkflow ArchiveWorkflow
+@inject IMessageService Message
+
+@if (CanSave || CanExport)
+{
+    <div class="archive-actions" aria-label="档案操作">
+        @if (CanSave)
+        {
+            <Button Type="@ButtonType.Primary" Ghost OnClick="SaveAsync" AutoLoading>
+                <Icon Type="save" Theme="IconThemeType.Outline" />
+                保存档案
+            </Button>
+        }
+        @if (CanExport)
+        {
+            <Button OnClick="ExportAsync" AutoLoading>
+                <Icon Type="download" Theme="IconThemeType.Outline" />
+                导出文档
+            </Button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public required ConsultationWorkspace Workspace { get; set; }
+
+    private bool CanSave => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Save);
+
+    private bool CanExport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Export);
+
+    private async Task SaveAsync() => await ReportAsync(
+        await ArchiveWorkflow.SaveCurrentAsync(Workspace));
+
+    private async Task ExportAsync() => await ReportAsync(
+        await ArchiveWorkflow.ExportCurrentAsync(Workspace));
+
+    private async Task ReportAsync(ArchiveOperationResult result)
+    {
+        if (result.IsSuccess && result.Notices.Any(notice => !notice.IsBlocking))
+        {
+            await Message.WarningAsync(result.Message + " 请留意档案校验提示。");
+        }
+        else if (result.IsSuccess)
+        {
+            await Message.SuccessAsync(result.Message);
+        }
+        else if (result.Status == ArchiveOperationStatus.Cancelled)
+        {
+            await Message.InfoAsync(result.Message);
+        }
+        else
+        {
+            await Message.ErrorAsync(result.Message);
+        }
+    }
+}

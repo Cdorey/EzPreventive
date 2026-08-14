@@ -3,6 +3,8 @@ using EzNutrition.Application.Consultations;
 using EzNutrition.Application.Ports;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
+using EzNutrition.Archives.Contracts.Serialization;
+using EzNutrition.Archives.Xml;
 using EzNutrition.Client.Infrastructure;
 using EzNutrition.Client.Services;
 using EzNutrition.Shared.Policies;
@@ -53,6 +55,13 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<AccountService>();
             builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
+            builder.Services.AddSingleton<IArchiveCodec, XmlArchiveCodec>();
+            builder.Services.AddScoped<BrowserArchiveGateway>();
+            builder.Services.AddScoped<IArchiveDocumentStore>(provider =>
+                provider.GetRequiredService<BrowserArchiveGateway>());
+            builder.Services.AddScoped<IArchiveDocumentTransport>(provider =>
+                provider.GetRequiredService<BrowserArchiveGateway>());
+            builder.Services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
             builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
