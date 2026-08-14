@@ -1,0 +1,24 @@
+.archive-actions-panel {
+    width: min(440px, 42vw);
+    display: grid;
+    justify-items: stretch;
+    gap: 10px;
+}
+
+.archive-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.archive-actions ::deep .ant-btn {
+    min-width: 112px;
+}
+
+@media (max-width: 991.98px) {
+    .archive-actions-panel {
+        display: none;
+    }
+}

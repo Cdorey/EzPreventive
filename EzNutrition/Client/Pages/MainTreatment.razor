@@ -14,10 +14,16 @@
 @if (CurrentArchive is not null)
 {
     <section class="treatment-page">
-        <header class="page-heading">
-            <span>门诊咨询</span>
-            <h1>@(CurrentArchive.ClientInfoFormEnabled ? "新建营养咨询" : string.IsNullOrWhiteSpace(CurrentArchive.Client.Name) ? "营养评估工作区" : $"{CurrentArchive.Client.Name}的营养评估")</h1>
-            <p>@(CurrentArchive.ClientInfoFormEnabled ? "先录入必要的人体测量与生理信息，再进入各项专业核算。" : "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。")</p>
+        <header class="page-heading treatment-heading">
+            <div>
+                <span>门诊咨询</span>
+                <h1>@PageHeading</h1>
+                <p>@PageDescription</p>
+            </div>
+            @if (!CurrentArchive.ClientInfoFormEnabled)
+            {
+                <ArchiveActions Workspace="CurrentArchive" />
+            }
         </header>
 
         @if (CurrentArchive.ClientInfoFormEnabled)
@@ -32,12 +38,24 @@
                         <Icon Type="idcard" Theme="IconThemeType.Outline" />
                     </div>
 
+                    @if (CurrentArchive.IsFollowUp)
+                    {
+                        <Alert Class="follow-up-notice"
+                               Type="AlertType.Info"
+                               Message="已沿用既有患者身份"
+                               Description="姓名沿用既有档案；其余信息已根据上一次咨询预填，请按本次实际情况核对并更新。"
+                               ShowIcon="true" />
+                    }
+
                     <Spin Spinning="CurrentArchive.IsLoading">
                         <Form Model="@CurrentArchive.Client" Layout="FormLayout.Vertical">
                             <GridRow Gutter="(16,0)">
                                 <GridCol Xs="24">
                                     <FormItem Label="姓名（选填）">
-                                        <Input Placeholder="仅用于区分当前浏览器中的咨询对象，服务器不保存" id="name" @bind-Value="context.Name" />
+                                        <Input Placeholder="仅用于区分当前浏览器中的咨询对象，服务器不保存"
+                                               id="name"
+                                               Disabled="@CurrentArchive.IsFollowUp"
+                                               @bind-Value="context.Name" />
                                     </FormItem>
                                 </GridCol>
                                 <GridCol Xs="24" Sm="12">
@@ -207,6 +225,21 @@
     private readonly CancellationTokenSource lifetimeCancellation = new();
 
     public ConsultationWorkspace? CurrentArchive { get; private set; }
+
+    private string PageHeading => CurrentArchive switch
+    {
+        { ClientInfoFormEnabled: true, IsFollowUp: true } => "新建后续咨询",
+        { ClientInfoFormEnabled: true } => "新建营养咨询",
+        { Client.Name: { } name } when !string.IsNullOrWhiteSpace(name) => $"{name}的营养评估",
+        _ => "营养评估工作区"
+    };
+
+    private string PageDescription => CurrentArchive?.ClientInfoFormEnabled switch
+    {
+        true when CurrentArchive.IsFollowUp => "核对本次人体测量与生理信息后，开始一份新的独立咨询记录。",
+        true => "先录入必要的人体测量与生理信息，再进入各项专业核算。",
+        _ => "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。"
+    };
 
     protected override void OnParametersSet()
     {

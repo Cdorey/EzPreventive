@@ -59,17 +59,11 @@ public static class ArchiveValidationCodes
     /// <summary>营养素或能量汇总无法与组成项复核。</summary>
     public const string NutrientAggregationMismatch = "archive.nutrition.aggregation-mismatch";
 
-    /// <summary>宏量营养素折算能量超出明确容差。</summary>
-    public const string EnergyConsistencyExceeded = "archive.nutrition.energy-consistency-exceeded";
-
     /// <summary>数量单位不一致，无法安全比较。</summary>
     public const string IncompatibleUnits = "archive.quantity.unit-mismatch";
 
     /// <summary>比例、顺序或其他技术数值超出定义范围。</summary>
     public const string InvalidTechnicalValue = "archive.resource.technical-value-invalid";
-
-    /// <summary>数值需要专业人员留意，但契约允许保存。</summary>
-    public const string ClinicalValueReview = "archive.clinical.value-review";
 
     /// <summary>资源历史形成多个未解决的当前版本头。</summary>
     public const string ConcurrentVersionHeads = "archive.resource.concurrent-heads";

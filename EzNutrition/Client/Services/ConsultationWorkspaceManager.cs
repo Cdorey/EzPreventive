@@ -22,9 +22,25 @@ namespace EzNutrition.Client.Services
         public Guid NewWorkspace()
         {
             var client = new ClientInfo();
-            this[client.ClientId] = new ConsultationWorkspace(client);
-            client.NameChanged += HandleClientNameChanged;
-            return client.ClientId;
+            return AddWorkspace(client, new ConsultationWorkspace(client));
+        }
+
+        /// <summary>
+        /// 使用既有患者身份建立一次新的独立咨询，并用最近一次快照预填表单。
+        /// </summary>
+        public Guid NewWorkspace(ArchivePatientContext patientContext)
+        {
+            ArgumentNullException.ThrowIfNull(patientContext);
+            var client = new ClientInfo
+            {
+                Name = patientContext.Name,
+                Gender = patientContext.Gender,
+                Age = patientContext.AgeInYears.GetValueOrDefault(),
+                Height = patientContext.HeightInCentimeters,
+                Weight = patientContext.WeightInKilograms,
+                SpecialPhysiologicalPeriod = patientContext.PhysiologicalState ?? string.Empty
+            };
+            return AddWorkspace(client, new ConsultationWorkspace(client, patientContext));
         }
 
         public async Task ClientInfoConfirmed(ConsultationWorkspace archive, CancellationToken cancellationToken = default)
@@ -111,5 +127,12 @@ namespace EzNutrition.Client.Services
 
         private void HandleClientNameChanged(object? sender, EventArgs e) =>
             ClientNameChanged?.Invoke(sender, e);
+
+        private Guid AddWorkspace(ClientInfo client, ConsultationWorkspace workspace)
+        {
+            this[client.ClientId] = workspace;
+            client.NameChanged += HandleClientNameChanged;
+            return client.ClientId;
+        }
     }
 }

@@ -142,6 +142,11 @@ public sealed class ArchiveContractAssembler
 
     private PatientResource CreatePatient(RuntimeWorkspace archive, DateTimeOffset capturedAt)
     {
+        if (archive.ExistingPatient is { } existingPatient)
+        {
+            return existingPatient;
+        }
+
         var name = archive.Client.Name?.Trim();
         return new PatientResource
         {

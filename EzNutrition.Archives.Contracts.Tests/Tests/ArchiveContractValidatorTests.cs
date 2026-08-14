@@ -93,10 +93,10 @@ public sealed class ArchiveContractValidatorTests
     }
 
     /// <summary>
-    /// 验证宏量营养素折算差异超出显式容差且无说明时会阻止导出。
+    /// 验证不同数据口径产生的能量差异会被忠实保留，而不由档案校验器解释。
     /// </summary>
     [Fact]
-    public void Energy_difference_beyond_tolerance_is_an_error()
+    public void Recorded_and_derived_energy_difference_is_preserved_without_archive_issue()
     {
         var sample = ArchiveSamples.GetRequired("multi-meal-recall");
         var recall = sample.Bundle.Entries.OfType<DietaryRecallResource>().Single();
@@ -105,23 +105,30 @@ public sealed class ArchiveContractValidatorTests
         {
             EnergyConsistency = consistency with
             {
-                RecordedTotalEnergy = new Quantity(
-                    consistency.RecordedTotalEnergy.Value + 100m,
-                    consistency.RecordedTotalEnergy.Unit)
+                Method = consistency.Method with
+                {
+                    Method = new Coding(
+                        consistency.Method.Method.System,
+                        "external-energy-comparison",
+                        display: "外部能量比较方法")
+                },
+                MacronutrientDerivedEnergy = new Quantity(
+                    consistency.MacronutrientDerivedEnergy.Value - 100m,
+                    consistency.MacronutrientDerivedEnergy.Unit),
+                AllowedDifference = new Quantity(0m, consistency.RecordedTotalEnergy.Unit)
             }
         };
 
         var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
 
-        Assert.Contains(result.Issues, issue => issue.Code == ArchiveValidationCodes.EnergyConsistencyExceeded);
-        Assert.True(result.HasErrors);
+        Assert.Empty(result.Issues);
     }
 
     /// <summary>
-    /// 验证负数临床数量只触发专业复核提示，不被 Contracts 直接禁止。
+    /// 验证档案校验器不解释负数临床数量的合理性。
     /// </summary>
     [Fact]
-    public void Negative_clinical_measurement_is_a_non_blocking_warning()
+    public void Negative_clinical_measurement_is_preserved_without_archive_issue()
     {
         var sample = ArchiveSamples.GetRequired("historical-snapshot");
         var consultation = sample.Bundle.Entries.OfType<ConsultationResource>().Single();
@@ -140,10 +147,56 @@ public sealed class ArchiveContractValidatorTests
 
         var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
 
-        var issue = Assert.Single(result.Issues, item => item.Code == ArchiveValidationCodes.ClinicalValueReview);
-        Assert.Equal(ArchiveValidationSeverity.Warning, issue.Severity);
-        Assert.Equal(ArchiveValidationCategory.Clinical, issue.Category);
-        Assert.False(result.HasErrors);
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证空 SOAP 内容可作为忠实事实保存，不由档案校验器产生临床提示。
+    /// </summary>
+    [Fact]
+    public void Empty_soap_content_is_preserved_without_archive_issue()
+    {
+        var sample = ArchiveSamples.GetRequired("comprehensive-adult");
+        var soap = sample.Bundle.Entries.OfType<SoapNoteResource>().Single();
+        var changed = soap with
+        {
+            Subjective = null,
+            Objective = null,
+            Assessment = null,
+            Plan = null
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.DraftSave);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证明确声明的确定性折算结果仍必须能够由档案内组成项复算。
+    /// </summary>
+    [Fact]
+    public void Declared_deterministic_energy_result_must_remain_reproducible()
+    {
+        var sample = ArchiveSamples.GetRequired("multi-meal-recall");
+        var recall = sample.Bundle.Entries.OfType<DietaryRecallResource>().Single();
+        var consistency = Assert.IsType<DietaryEnergyConsistency>(recall.EnergyConsistency);
+        var changed = recall with
+        {
+            EnergyConsistency = consistency with
+            {
+                MacronutrientDerivedEnergy = new Quantity(
+                    consistency.MacronutrientDerivedEnergy.Value - 100m,
+                    consistency.MacronutrientDerivedEnergy.Unit)
+            }
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        var issue = Assert.Single(result.Issues, item =>
+            item.Code == ArchiveValidationCodes.NutrientAggregationMismatch &&
+            item.Path?.Value.EndsWith("/MacronutrientDerivedEnergy", StringComparison.Ordinal) == true);
+        Assert.Equal(ArchiveValidationCategory.Integrity, issue.Category);
+        Assert.True(result.HasErrors);
     }
 
     /// <summary>

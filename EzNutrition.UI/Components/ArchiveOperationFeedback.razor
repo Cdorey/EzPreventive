@@ -1,0 +1,45 @@
+@if (Result is not null)
+{
+    <section class="archive-operation-feedback @ToneClass"
+             role="@AriaRole"
+             aria-live="polite"
+             aria-atomic="false">
+        <strong>@Result.Message</strong>
+        @if (DistinctNotices.Count > 0)
+        {
+            <p>以下校验信息可用于定位问题：</p>
+            <ul>
+                @foreach (var notice in DistinctNotices)
+                {
+                    <li class="@(notice.IsBlocking ? "blocking" : "advisory")">
+                        <span>@notice.Message</span>
+                        <small>@(notice.IsBlocking ? "阻断写出" : "需复核")</small>
+                        <code>问题代码：@notice.Code</code>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    [Parameter]
+    public ArchiveOperationResult? Result { get; set; }
+
+    private IReadOnlyList<ArchiveNotice> DistinctNotices => Result?.Notices
+        .DistinctBy(notice => (notice.Code, notice.Message, notice.IsBlocking))
+        .ToArray() ?? [];
+
+    private string AriaRole => Result?.Status is ArchiveOperationStatus.Invalid or ArchiveOperationStatus.Failed
+        ? "alert"
+        : "status";
+
+    private string ToneClass => Result?.Status switch
+    {
+        ArchiveOperationStatus.Invalid or ArchiveOperationStatus.Failed => "feedback-error",
+        ArchiveOperationStatus.Unavailable or ArchiveOperationStatus.Denied => "feedback-warning",
+        ArchiveOperationStatus.Cancelled => "feedback-info",
+        _ when Result?.Notices.Any(notice => !notice.IsBlocking) == true => "feedback-warning",
+        _ => "feedback-success"
+    };
+}

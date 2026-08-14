@@ -8,11 +8,10 @@ using EzNutrition.Archives.Contracts.ValueObjects;
 namespace EzNutrition.Archives.Contracts.Validation;
 
 /// <summary>
-/// 对格式无关档案执行生命周期、引用闭包和营养数学语义校验。
+/// 对格式无关档案执行安全、生命周期、引用闭包和可确定复算的内部完整性校验。
 /// </summary>
 /// <remarks>
-/// 校验器不访问网络、数据库、文件系统或具体交换格式。临床上少见的组合以提示方式报告，
-/// 不代替专业人员判断。
+/// 校验器不访问网络、数据库、文件系统或具体交换格式，也不判断临床事实是否合理。
 /// </remarks>
 public sealed class ArchiveContractValidator : IArchiveValidator
 {
@@ -76,7 +75,7 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 ValidateDietaryRecall(recall, scope, prefix, issues);
                 break;
             case SoapNoteResource soap:
-                ValidateSoapNote(soap, prefix, issues);
+                ValidateAssessmentReferenceTypes(soap.SubjectReference, soap.ConsultationReference, prefix, soap, issues);
                 break;
             case NutritionAdviceResource advice:
                 ValidateNutritionAdvice(advice, scope, prefix, issues);
@@ -352,11 +351,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
             return;
         }
 
-        ValidateClinicalQuantity(snapshot.AgeAtConsultation, Path(prefix, "/SubjectSnapshot/AgeAtConsultation"), consultation, issues);
-        ValidateClinicalMeasurement(snapshot.Height, Path(prefix, "/SubjectSnapshot/Height"), consultation, issues);
-        ValidateClinicalMeasurement(snapshot.Weight, Path(prefix, "/SubjectSnapshot/Weight"), consultation, issues);
-        ValidateClinicalMeasurement(snapshot.WaistCircumference, Path(prefix, "/SubjectSnapshot/WaistCircumference"), consultation, issues);
-        ValidateClinicalMeasurement(snapshot.HipCircumference, Path(prefix, "/SubjectSnapshot/HipCircumference"), consultation, issues);
         ValidateDistinctCodings(
             snapshot.PhysiologicalStates,
             Path(prefix, "/SubjectSnapshot/PhysiologicalStates"),
@@ -387,7 +381,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 ValidateReferenceData(referenceData, scope, candidatePath + "/ReferenceData", energy, issues);
             }
 
-            ValidateClinicalQuantity(candidate.Result, candidatePath + "/Result", energy, issues);
         }
 
         ValidateValueAbsentReasonChoice(
@@ -401,7 +394,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         var decision = energy.ProfessionalDecision;
         if (decision is not null)
         {
-            ValidateClinicalQuantity(decision.AdoptedEnergyTarget, Path(prefix, "/ProfessionalDecision/AdoptedEnergyTarget"), energy, issues);
             ValidateValueAbsentReasonChoice(
                 decision.DecisionBasis,
                 decision.DecisionBasisAbsentReason,
@@ -526,10 +518,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
             allocationPath + "/FoodExchangeTargets",
             resource,
             issues);
-        foreach (var exchange in allocation.FoodExchangeTargets)
-        {
-            ValidateClinicalQuantity(exchange.DailyExchanges, allocationPath + "/FoodExchangeTargets", resource, issues);
-        }
     }
 
     private static void ValidateDriAssessment(
@@ -598,11 +586,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 "DRIs 基础值与采用值不同但缺少调整说明。",
                 path + "/AdjustmentReason",
                 resource);
-        }
-
-        foreach (var component in value.Components)
-        {
-            ValidateClinicalQuantity(component.Value, path + "/Components", resource, issues);
         }
 
         var absoluteComponents = value.Components.Where(component => !component.IsOffset).ToArray();
@@ -717,8 +700,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                         recall);
                 }
 
-                ValidateClinicalQuantity(entry.ReportedAmount, entryPath + "/ReportedAmount", recall, issues);
-                ValidateClinicalQuantity(entry.AdoptedConsumedAmount, entryPath + "/AdoptedConsumedAmount", recall, issues);
                 ValidateValueAbsentReasonChoice(
                     entry.FoodCompositionData,
                     entry.FoodCompositionDataAbsentReason,
@@ -826,25 +807,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
             return;
         }
 
-        var difference = Math.Abs(
-            consistency.RecordedTotalEnergy.Value - consistency.MacronutrientDerivedEnergy.Value);
-        var exceeds = consistency.AllowedDifference is { } tolerance
-            ? difference > tolerance.Value
-            : difference > 0;
-        if (exceeds)
-        {
-            AddIssue(
-                issues,
-                ArchiveValidationCodes.EnergyConsistencyExceeded,
-                string.IsNullOrWhiteSpace(consistency.ProfessionalExplanation)
-                    ? ArchiveValidationSeverity.Error
-                    : ArchiveValidationSeverity.Warning,
-                ArchiveValidationCategory.Integrity,
-                "宏量营养素折算能量超出记录容差。",
-                path,
-                recall);
-        }
-
         var energy = FindNutrient(recall.TotalNutrientSummary, "energy");
         if (energy is not null && !QuantitiesEqual(energy.Amount, consistency.RecordedTotalEnergy))
         {
@@ -859,7 +821,8 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         }
 
         var protein = FindNutrient(recall.TotalNutrientSummary, "protein");
-        var fat = FindNutrient(recall.TotalNutrientSummary, "total-fat");
+        var fat = FindNutrient(recall.TotalNutrientSummary, "total-fat") ??
+            FindNutrient(recall.TotalNutrientSummary, "fat");
         var carbohydrate = FindNutrient(recall.TotalNutrientSummary, "carbohydrate");
         if (protein is null || fat is null || carbohydrate is null ||
             !protein.Amount.Unit.HasSameIdentity(fat.Amount.Unit) ||
@@ -899,28 +862,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                     path + "/MacronutrientDerivedEnergy",
                     recall);
             }
-        }
-    }
-
-    private static void ValidateSoapNote(
-        SoapNoteResource soap,
-        string prefix,
-        ICollection<ArchiveValidationIssue> issues)
-    {
-        ValidateAssessmentReferenceTypes(soap.SubjectReference, soap.ConsultationReference, prefix, soap, issues);
-        if (string.IsNullOrWhiteSpace(soap.Subjective) &&
-            string.IsNullOrWhiteSpace(soap.Objective) &&
-            string.IsNullOrWhiteSpace(soap.Assessment) &&
-            string.IsNullOrWhiteSpace(soap.Plan))
-        {
-            AddIssue(
-                issues,
-                ArchiveValidationCodes.RequiredSemanticValueMissing,
-                ArchiveValidationSeverity.Warning,
-                ArchiveValidationCategory.Clinical,
-                "SOAP 资源未包含任何记录段落。",
-                Path(prefix, "/Subjective"),
-                soap);
         }
     }
 
@@ -1461,37 +1402,6 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 ArchiveValidationSeverity.Error,
                 ArchiveValidationCategory.Integrity,
                 "显示顺序必须为不重复的正整数。",
-                path,
-                resource);
-        }
-    }
-
-    private static void ValidateClinicalMeasurement(
-        ClinicalMeasurement? measurement,
-        string path,
-        IArchiveResource resource,
-        ICollection<ArchiveValidationIssue> issues)
-    {
-        if (measurement is not null)
-        {
-            ValidateClinicalQuantity(measurement.Value, path + "/Value", resource, issues);
-        }
-    }
-
-    private static void ValidateClinicalQuantity(
-        Quantity? quantity,
-        string path,
-        IArchiveResource resource,
-        ICollection<ArchiveValidationIssue> issues)
-    {
-        if (quantity?.Value < 0)
-        {
-            AddIssue(
-                issues,
-                ArchiveValidationCodes.ClinicalValueReview,
-                ArchiveValidationSeverity.Warning,
-                ArchiveValidationCategory.Clinical,
-                "临床数量为负值，需要专业人员复核。",
                 path,
                 resource);
         }

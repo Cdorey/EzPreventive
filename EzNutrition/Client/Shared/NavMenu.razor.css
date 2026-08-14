@@ -35,6 +35,10 @@
 }
 
 @media (max-width: 991.98px) {
+    .primary-navigation ::deep .desktop-archive-menu {
+        display: none;
+    }
+
     .primary-navigation {
         min-height: calc(100vh - 55px);
     }
