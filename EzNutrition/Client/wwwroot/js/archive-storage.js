@@ -1,6 +1,7 @@
 const databaseName = "eznutrition-local-archives";
-const databaseVersion = 1;
+const databaseVersion = 2;
 const documentStoreName = "documents";
+const documentContentStoreName = "documentContents";
 
 function requestResult(request) {
     return new Promise((resolve, reject) => {
@@ -19,25 +20,56 @@ function transactionCompleted(transaction) {
 
 async function openDatabase() {
     const request = indexedDB.open(databaseName, databaseVersion);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = event => {
         const database = request.result;
-        if (!database.objectStoreNames.contains(documentStoreName)) {
-            const store = database.createObjectStore(documentStoreName, { keyPath: "documentId" });
-            store.createIndex("lastSavedAt", "lastSavedAt");
+        const transaction = request.transaction;
+        const documentStore = database.objectStoreNames.contains(documentStoreName)
+            ? transaction.objectStore(documentStoreName)
+            : database.createObjectStore(documentStoreName, { keyPath: "documentId" });
+        if (!documentStore.indexNames.contains("lastSavedAt")) {
+            documentStore.createIndex("lastSavedAt", "lastSavedAt");
+        }
+
+        const contentStore = database.objectStoreNames.contains(documentContentStoreName)
+            ? transaction.objectStore(documentContentStoreName)
+            : database.createObjectStore(documentContentStoreName);
+
+        if (event.oldVersion < 2) {
+            migrateInlineDocumentContent(documentStore, contentStore);
         }
     };
     return await requestResult(request);
 }
 
+function migrateInlineDocumentContent(documentStore, contentStore) {
+    const request = documentStore.openCursor();
+    request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+            return;
+        }
+
+        const record = cursor.value;
+        if (record.content !== undefined) {
+            const { content, ...info } = record;
+            contentStore.put(new Uint8Array(content), record.documentId);
+            cursor.update(info);
+        }
+        cursor.continue();
+    };
+}
+
 export async function saveDocument(info, content) {
     const database = await openDatabase();
     try {
-        const transaction = database.transaction(documentStoreName, "readwrite");
+        const transaction = database.transaction(
+            [documentStoreName, documentContentStoreName],
+            "readwrite");
         const completion = transactionCompleted(transaction);
-        transaction.objectStore(documentStoreName).put({
-            ...info,
-            content: new Uint8Array(content)
-        });
+        transaction.objectStore(documentStoreName).put(info);
+        transaction.objectStore(documentContentStoreName).put(
+            new Uint8Array(content),
+            info.documentId);
         await completion;
     } finally {
         database.close();
@@ -51,7 +83,7 @@ export async function listDocuments() {
         const completion = transactionCompleted(transaction);
         const records = await requestResult(transaction.objectStore(documentStoreName).getAll());
         await completion;
-        return records.map(({ content, ...info }) => info);
+        return records;
     } finally {
         database.close();
     }
@@ -60,15 +92,22 @@ export async function listDocuments() {
 export async function getDocument(documentId) {
     const database = await openDatabase();
     try {
-        const transaction = database.transaction(documentStoreName, "readonly");
+        const transaction = database.transaction(
+            [documentStoreName, documentContentStoreName],
+            "readonly");
         const completion = transactionCompleted(transaction);
-        const record = await requestResult(transaction.objectStore(documentStoreName).get(documentId));
+        const [info, content] = await Promise.all([
+            requestResult(transaction.objectStore(documentStoreName).get(documentId)),
+            requestResult(transaction.objectStore(documentContentStoreName).get(documentId))
+        ]);
         await completion;
-        if (!record) {
+        if (!info) {
             return null;
         }
+        if (content === undefined) {
+            throw new Error("Archive document content is missing.");
+        }
 
-        const { content, ...info } = record;
         return { info, content: new Uint8Array(content) };
     } finally {
         database.close();

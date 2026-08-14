@@ -31,6 +31,8 @@ EzNutrition.Client 或未来 WPF 宿主
 
 XML 文档和浏览器 IndexedDB 都不会因为档案操作而上传到服务端。应用中参考数据查询与 AI 建议仍有各自独立的网络和隐私边界。
 
+WASM 宿主在 IndexedDB 中将轻量文档摘要与 XML 字节分别保存。浏览档案只读取摘要，选择具体咨询或开始后续咨询时才读取并解码对应 XML；两个部分由同一个 IndexedDB 事务原子写入。旧版内联保存的文档在数据库升级时原子迁移，不改变 Application、UI 或 XML codec 的接口和语义。
+
 ## 时间语义
 
 档案契约使用 `DateTimeOffset` 表示绝对时刻；应用新建的审计时间使用 UTC，导入文档中已有的明确偏移则被忠实保留。XML、存储和 Application 不按当前设备时区改写档案时间。
