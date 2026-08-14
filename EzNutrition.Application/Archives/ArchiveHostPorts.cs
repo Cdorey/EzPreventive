@@ -13,7 +13,13 @@ public enum ArchiveDocumentStoreCapabilities
     Save = 1,
 
     /// <summary>可以列出和读取档案文档。</summary>
-    Browse = 2
+    Browse = 2,
+
+    /// <summary>可以删除一个档案文档。</summary>
+    Delete = 4,
+
+    /// <summary>可以清空档案文档存储。</summary>
+    Clear = 8
 }
 
 /// <summary>
@@ -82,6 +88,18 @@ public interface IArchiveDocumentStore
     ValueTask<StoredArchiveDocument?> GetAsync(
         Guid documentId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 删除一个编码档案文档；文档不存在时也视为完成。策略拒绝时抛出
+    /// <see cref="UnauthorizedAccessException"/>。
+    /// </summary>
+    ValueTask DeleteAsync(Guid documentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 清空存储中的全部编码档案文档。策略拒绝时抛出
+    /// <see cref="UnauthorizedAccessException"/>。
+    /// </summary>
+    ValueTask ClearAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

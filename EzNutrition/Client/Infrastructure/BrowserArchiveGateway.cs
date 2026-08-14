@@ -17,7 +17,10 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
 
     /// <inheritdoc />
     public ArchiveDocumentStoreCapabilities Capabilities =>
-        ArchiveDocumentStoreCapabilities.Save | ArchiveDocumentStoreCapabilities.Browse;
+        ArchiveDocumentStoreCapabilities.Save |
+        ArchiveDocumentStoreCapabilities.Browse |
+        ArchiveDocumentStoreCapabilities.Delete |
+        ArchiveDocumentStoreCapabilities.Clear;
 
     /// <inheritdoc />
     public bool CanOpen => true;
@@ -87,6 +90,39 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         catch (JSException exception)
         {
             throw new IOException("浏览器无法读取本机档案。", exception);
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DeleteAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+    {
+        var browserModule = await GetModuleAsync(cancellationToken);
+        try
+        {
+            await browserModule.InvokeVoidAsync(
+                "deleteDocument",
+                cancellationToken,
+                documentId.ToString("D"));
+        }
+        catch (JSException exception)
+        {
+            throw new IOException("浏览器无法删除本机档案。", exception);
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ClearAsync(CancellationToken cancellationToken = default)
+    {
+        var browserModule = await GetModuleAsync(cancellationToken);
+        try
+        {
+            await browserModule.InvokeVoidAsync("clearDocuments", cancellationToken);
+        }
+        catch (JSException exception)
+        {
+            throw new IOException("浏览器无法清空本机档案库。", exception);
         }
     }
 

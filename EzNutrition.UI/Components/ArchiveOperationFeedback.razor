@@ -37,7 +37,7 @@
     private string ToneClass => Result?.Status switch
     {
         ArchiveOperationStatus.Invalid or ArchiveOperationStatus.Failed => "feedback-error",
-        ArchiveOperationStatus.Unavailable => "feedback-warning",
+        ArchiveOperationStatus.Unavailable or ArchiveOperationStatus.Denied => "feedback-warning",
         ArchiveOperationStatus.Cancelled => "feedback-info",
         _ when Result?.Notices.Any(notice => !notice.IsBlocking) == true => "feedback-warning",
         _ => "feedback-success"

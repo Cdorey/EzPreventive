@@ -134,6 +134,14 @@
     padding: 5px;
 }
 
+.archive-record-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 3px;
+}
+
 .archive-record {
     width: 100%;
     display: grid;
@@ -155,6 +163,11 @@
     background: #eaf4ff;
 }
 
+.archive-record:disabled {
+    cursor: default;
+    opacity: 0.65;
+}
+
 .archive-record strong,
 .archive-record small {
     overflow: hidden;
@@ -172,6 +185,56 @@
 
 .archive-record small {
     font-size: 0.72rem;
+}
+
+.archive-record-delete {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    width: 48px;
+    padding: 5px;
+    color: #a8071a;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.68rem;
+}
+
+.archive-record-delete:hover,
+.archive-record-delete:focus-visible {
+    background: #fff1f0;
+    border-color: #ffa39e;
+}
+
+.archive-record-delete:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.archive-delete-summary {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0 0;
+}
+
+.archive-delete-summary > div {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px;
+}
+
+.archive-delete-summary dt {
+    color: var(--ez-text-secondary);
+}
+
+.archive-delete-summary dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--ez-navy);
+    overflow-wrap: anywhere;
 }
 
 @media (max-width: 1199.98px) {

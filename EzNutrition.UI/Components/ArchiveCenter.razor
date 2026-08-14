@@ -20,16 +20,25 @@
             <div class="archive-toolbar-actions">
                 @if (CanImport)
                 {
-                    <Button OnClick="ImportAsync" AutoLoading>
+                    <Button OnClick="ImportAsync" AutoLoading Disabled="@OperationInProgress">
                         <Icon Type="folder-open" Theme="IconThemeType.Outline" />
                         打开文档
                     </Button>
                 }
                 @if (CanBrowse)
                 {
-                    <Button OnClick="LoadRecordsAsync" AutoLoading>
+                    <Button OnClick="LoadRecordsAsync" AutoLoading Disabled="@OperationInProgress">
                         <Icon Type="reload" Theme="IconThemeType.Outline" />
                         刷新列表
+                    </Button>
+                }
+                @if (CanClear && records.Count > 0)
+                {
+                    <Button Danger
+                            Disabled="@OperationInProgress"
+                            OnClick="OpenClearDialog">
+                        <Icon Type="delete" Theme="IconThemeType.Outline" />
+                        清空档案库
                     </Button>
                 }
             </div>
@@ -70,7 +79,7 @@
                                 {
                                     <button type="button"
                                             class="archive-follow-up"
-                                            disabled="@opening"
+                                            disabled="@OperationInProgress"
                                             @onclick="() => StartFollowUpAsync(group)">
                                         新建后续咨询
                                     </button>
@@ -80,15 +89,30 @@
                             <div class="archive-consultations">
                                 @foreach (var record in group.Consultations)
                                 {
-                                    <button type="button"
-                                            class="archive-record @(selectedDocumentId == record.DocumentId ? "selected" : null)"
-                                            @onclick="() => OpenStoredAsync(record.DocumentId)">
-                                        <strong>@record.Title</strong>
-                                        <small>
-                                            咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
-                                            · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
-                                        </small>
-                                    </button>
+                                    <div class="archive-record-row">
+                                        <button type="button"
+                                                class="archive-record @(selectedDocumentId == record.DocumentId ? "selected" : null)"
+                                                disabled="@OperationInProgress"
+                                                @onclick="() => OpenStoredAsync(record.DocumentId)">
+                                            <strong>@record.Title</strong>
+                                            <small>
+                                                咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
+                                                · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
+                                            </small>
+                                        </button>
+                                        @if (CanDelete)
+                                        {
+                                            <button type="button"
+                                                    class="archive-record-delete"
+                                                    aria-label="@($"删除 {record.Title}")"
+                                                    title="删除这次咨询档案"
+                                                    disabled="@OperationInProgress"
+                                                    @onclick="() => OpenDeleteDialog(record)">
+                                                <Icon Type="delete" Theme="IconThemeType.Outline" />
+                                                <span>删除</span>
+                                            </button>
+                                        }
+                                    </div>
                                 }
                             </div>
                         </section>
@@ -114,6 +138,50 @@
     </div>
 </section>
 
+<Modal Title="删除档案"
+       @bind-Visible="deleteDialogVisible"
+       MaskClosable="@(!mutating)"
+       Closable="@(!mutating)"
+       OkText="@("删除")"
+       CancelText="@("取消")"
+       OkButtonProps="@DestructiveOkButtonProps"
+       CancelButtonProps="@DestructiveCancelButtonProps"
+       ConfirmLoading="@mutating"
+       OnCancel="CloseDeleteDialog"
+       OnOk="DeleteConfirmedAsync">
+    @if (pendingDelete is not null)
+    {
+        <Alert Type="AlertType.Warning"
+               Message="此操作无法撤销"
+               Description="只删除当前浏览器中的这一次咨询档案；已经导出的 XML 文件不受影响。"
+               ShowIcon="true" />
+        <dl class="archive-delete-summary">
+            <div><dt>咨询对象</dt><dd>@pendingDelete.SubjectDisplay</dd></div>
+            <div>
+                <dt>咨询日期</dt>
+                <dd><LocalDateTimeDisplay Value="@pendingDelete.ConsultationStartedAt" Format="yyyy-MM-dd HH:mm" /></dd>
+            </div>
+        </dl>
+    }
+</Modal>
+
+<Modal Title="清空本机档案库"
+       @bind-Visible="clearDialogVisible"
+       MaskClosable="@(!mutating)"
+       Closable="@(!mutating)"
+       OkText="@("清空档案库")"
+       CancelText="@("取消")"
+       OkButtonProps="@DestructiveOkButtonProps"
+       CancelButtonProps="@DestructiveCancelButtonProps"
+       ConfirmLoading="@mutating"
+       OnCancel="CloseClearDialog"
+       OnOk="ClearConfirmedAsync">
+    <Alert Type="AlertType.Warning"
+           Message="将删除当前浏览器中的全部本机档案"
+           Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的 XML 文件不受影响。")"
+           ShowIcon="true" />
+</Modal>
+
 @code {
     [Parameter]
     public EventCallback<ArchivePatientContext> OnStartFollowUp { get; set; }
@@ -125,10 +193,25 @@
     private Guid? selectedDocumentId;
     private bool loading;
     private bool opening;
+    private bool mutating;
+    private bool deleteDialogVisible;
+    private bool clearDialogVisible;
+    private ArchiveRecordSummary? pendingDelete;
 
     private bool CanBrowse => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse);
 
     private bool CanImport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Import);
+
+    private bool CanDelete => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Delete);
+
+    private bool CanClear => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear);
+
+    private bool OperationInProgress =>
+        loading || opening || mutating || deleteDialogVisible || clearDialogVisible;
+
+    private ButtonProps DestructiveOkButtonProps => new() { Danger = true, Disabled = mutating };
+
+    private ButtonProps DestructiveCancelButtonProps => new() { Disabled = mutating };
 
     private IReadOnlyList<PatientArchiveGroup> PatientGroups => records
         .GroupBy(
@@ -193,9 +276,122 @@
         await OpenAsync(() => ArchiveWorkflow.ImportAsync(lifetimeCancellation.Token));
     }
 
+    private void OpenDeleteDialog(ArchiveRecordSummary record)
+    {
+        if (!CanDelete || OperationInProgress)
+        {
+            return;
+        }
+
+        pendingDelete = record;
+        deleteDialogVisible = true;
+    }
+
+    private void CloseDeleteDialog()
+    {
+        if (mutating)
+        {
+            return;
+        }
+
+        deleteDialogVisible = false;
+        pendingDelete = null;
+    }
+
+    private async Task DeleteConfirmedAsync()
+    {
+        if (mutating || pendingDelete is not { } record)
+        {
+            return;
+        }
+
+        mutating = true;
+        try
+        {
+            var result = await ArchiveWorkflow.DeleteStoredAsync(
+                record.DocumentId,
+                lifetimeCancellation.Token);
+            feedback = result;
+            if (!result.IsSuccess)
+            {
+                await ReportFailureAsync(result);
+                return;
+            }
+
+            records = records.Where(item => item.DocumentId != record.DocumentId).ToArray();
+            if (selectedDocumentId == record.DocumentId)
+            {
+                selectedDocumentId = null;
+                review = null;
+            }
+
+            deleteDialogVisible = false;
+            pendingDelete = null;
+            await Message.SuccessAsync(result.Message);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            mutating = false;
+        }
+    }
+
+    private void OpenClearDialog()
+    {
+        if (!CanClear || records.Count == 0 || OperationInProgress)
+        {
+            return;
+        }
+
+        clearDialogVisible = true;
+    }
+
+    private void CloseClearDialog()
+    {
+        if (!mutating)
+        {
+            clearDialogVisible = false;
+        }
+    }
+
+    private async Task ClearConfirmedAsync()
+    {
+        if (mutating)
+        {
+            return;
+        }
+
+        mutating = true;
+        try
+        {
+            var result = await ArchiveWorkflow.ClearStoredAsync(lifetimeCancellation.Token);
+            feedback = result;
+            if (!result.IsSuccess)
+            {
+                await ReportFailureAsync(result);
+                return;
+            }
+
+            records = [];
+            selectedDocumentId = null;
+            review = null;
+            clearDialogVisible = false;
+            await Message.SuccessAsync(result.Message);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            mutating = false;
+        }
+    }
+
     private async Task StartFollowUpAsync(PatientArchiveGroup group)
     {
-        if (opening || !OnStartFollowUp.HasDelegate || group.PatientId is not { } patientId)
+        if (OperationInProgress || !OnStartFollowUp.HasDelegate || group.PatientId is not { } patientId)
         {
             return;
         }
@@ -265,10 +461,19 @@
         }
     }
 
-    private async Task ReportFailureAsync(ArchiveOperationResult operation) =>
-        await Message.ErrorAsync(operation.Notices.Count > 0
+    private async Task ReportFailureAsync(ArchiveOperationResult operation)
+    {
+        var message = operation.Notices.Count > 0
             ? operation.Message + " 详细原因已显示在档案调阅区。"
-            : operation.Message);
+            : operation.Message;
+        if (operation.Status is ArchiveOperationStatus.Unavailable or ArchiveOperationStatus.Denied)
+        {
+            await Message.WarningAsync(message);
+            return;
+        }
+
+        await Message.ErrorAsync(message);
+    }
 
     public void Dispose()
     {

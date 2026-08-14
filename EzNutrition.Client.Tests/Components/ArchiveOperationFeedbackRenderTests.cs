@@ -63,6 +63,22 @@ public sealed class ArchiveOperationFeedbackRenderTests
         Assert.Contains("archive.test.&lt;unsafe&gt;", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Denied_operation_renders_as_a_warning_status()
+    {
+        var result = new ArchiveOperationResult
+        {
+            Status = ArchiveOperationStatus.Denied,
+            Message = "当前策略不允许删除档案。"
+        };
+
+        var html = WebUtility.HtmlDecode(await RenderAsync(result));
+
+        Assert.Contains("class=\"archive-operation-feedback feedback-warning\"", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"status\"", html, StringComparison.Ordinal);
+        Assert.Contains(result.Message, html, StringComparison.Ordinal);
+    }
+
     private static async Task<string> RenderAsync(ArchiveOperationResult result)
     {
         await using var services = new ServiceCollection()

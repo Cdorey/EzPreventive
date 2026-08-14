@@ -114,6 +114,36 @@ export async function getDocument(documentId) {
     }
 }
 
+export async function deleteDocument(documentId) {
+    const database = await openDatabase();
+    try {
+        const transaction = database.transaction(
+            [documentStoreName, documentContentStoreName],
+            "readwrite");
+        const completion = transactionCompleted(transaction);
+        transaction.objectStore(documentStoreName).delete(documentId);
+        transaction.objectStore(documentContentStoreName).delete(documentId);
+        await completion;
+    } finally {
+        database.close();
+    }
+}
+
+export async function clearDocuments() {
+    const database = await openDatabase();
+    try {
+        const transaction = database.transaction(
+            [documentStoreName, documentContentStoreName],
+            "readwrite");
+        const completion = transactionCompleted(transaction);
+        transaction.objectStore(documentStoreName).clear();
+        transaction.objectStore(documentContentStoreName).clear();
+        await completion;
+    } finally {
+        database.close();
+    }
+}
+
 export function openDocument(maximumBytes) {
     return new Promise((resolve, reject) => {
         const input = document.createElement("input");

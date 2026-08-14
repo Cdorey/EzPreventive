@@ -21,7 +21,13 @@ public enum ArchiveWorkflowCapabilities
     Import = 4,
 
     /// <summary>可以把当前咨询导出为外部文档。</summary>
-    Export = 8
+    Export = 8,
+
+    /// <summary>可以删除宿主管理的一份本机档案。</summary>
+    Delete = 16,
+
+    /// <summary>可以清空宿主管理的本机档案库。</summary>
+    Clear = 32
 }
 
 /// <summary>
@@ -42,7 +48,10 @@ public enum ArchiveOperationStatus
     Invalid = 3,
 
     /// <summary>操作因存储或传输故障失败。</summary>
-    Failed = 4
+    Failed = 4,
+
+    /// <summary>宿主提供相应能力，但当前策略或用户不允许操作。</summary>
+    Denied = 5
 }
 
 /// <summary>
@@ -220,6 +229,14 @@ public interface IArchiveWorkflow
     ValueTask<ArchiveOpenResult> OpenStoredAsync(
         Guid documentId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>删除宿主管理的一份本机档案。</summary>
+    ValueTask<ArchiveOperationResult> DeleteStoredAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>清空宿主管理的本机档案库。</summary>
+    ValueTask<ArchiveOperationResult> ClearStoredAsync(CancellationToken cancellationToken = default);
 
     /// <summary>从宿主选择的外部文档读取档案。</summary>
     ValueTask<ArchiveOpenResult> ImportAsync(CancellationToken cancellationToken = default);

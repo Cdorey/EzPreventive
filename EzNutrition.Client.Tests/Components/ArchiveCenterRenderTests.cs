@@ -49,16 +49,41 @@ public sealed class ArchiveCenterRenderTests
         Assert.DoesNotContain("新建后续咨询", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Destructive_controls_are_rendered_only_for_declared_capabilities()
+    {
+        var record = CreateRecord(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "权限测试对象",
+            "权限测试咨询",
+            new DateTimeOffset(2026, 8, 14, 8, 0, 0, TimeSpan.Zero));
+
+        var browseOnly = WebUtility.HtmlDecode(await RenderAsync([record], includeFollowUpCallback: false));
+        var mutable = WebUtility.HtmlDecode(await RenderAsync(
+            [record],
+            includeFollowUpCallback: false,
+            capabilities: ArchiveWorkflowCapabilities.Browse |
+                          ArchiveWorkflowCapabilities.Delete |
+                          ArchiveWorkflowCapabilities.Clear));
+
+        Assert.DoesNotContain("清空档案库", browseOnly, StringComparison.Ordinal);
+        Assert.DoesNotContain("删除 权限测试咨询", browseOnly, StringComparison.Ordinal);
+        Assert.Contains("清空档案库", mutable, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"删除 权限测试咨询\"", mutable, StringComparison.Ordinal);
+    }
+
     private static async Task<string> RenderAsync(
         IReadOnlyList<ArchiveRecordSummary> records,
-        bool includeFollowUpCallback)
+        bool includeFollowUpCallback,
+        ArchiveWorkflowCapabilities capabilities = ArchiveWorkflowCapabilities.Browse)
     {
         await using var services = new ServiceCollection()
             .AddLogging()
             .AddAntDesign()
             .AddSingleton<IJSRuntime, NoOpJsRuntime>()
             .AddSingleton<ILocalDateTimeFormatter>(new LocalDateTimeFormatter(TimeZoneInfo.Utc))
-            .AddSingleton<IArchiveWorkflow>(new BrowseOnlyArchiveWorkflow(records))
+            .AddSingleton<IArchiveWorkflow>(new BrowseOnlyArchiveWorkflow(records, capabilities))
             .BuildServiceProvider();
         await using var renderer = new HtmlRenderer(
             services,
@@ -97,9 +122,11 @@ public sealed class ArchiveCenterRenderTests
     private static int CountOccurrences(string value, string expected) =>
         value.Split(expected, StringSplitOptions.None).Length - 1;
 
-    private sealed class BrowseOnlyArchiveWorkflow(IReadOnlyList<ArchiveRecordSummary> records) : IArchiveWorkflow
+    private sealed class BrowseOnlyArchiveWorkflow(
+        IReadOnlyList<ArchiveRecordSummary> records,
+        ArchiveWorkflowCapabilities capabilities) : IArchiveWorkflow
     {
-        public ArchiveWorkflowCapabilities Capabilities => ArchiveWorkflowCapabilities.Browse;
+        public ArchiveWorkflowCapabilities Capabilities { get; } = capabilities;
 
         public ValueTask<ArchiveBrowseResult> BrowseAsync(CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(new ArchiveBrowseResult
@@ -114,6 +141,13 @@ public sealed class ArchiveCenterRenderTests
 
         public ValueTask<ArchiveOpenResult> OpenStoredAsync(
             Guid documentId,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public ValueTask<ArchiveOperationResult> DeleteStoredAsync(
+            Guid documentId,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public ValueTask<ArchiveOperationResult> ClearStoredAsync(
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public ValueTask<ArchiveOpenResult> ImportAsync(CancellationToken cancellationToken = default) =>

@@ -55,6 +55,16 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
                 capabilities |= ArchiveWorkflowCapabilities.Browse;
             }
 
+            if (store.Capabilities.HasFlag(ArchiveDocumentStoreCapabilities.Delete))
+            {
+                capabilities |= ArchiveWorkflowCapabilities.Delete;
+            }
+
+            if (store.Capabilities.HasFlag(ArchiveDocumentStoreCapabilities.Clear))
+            {
+                capabilities |= ArchiveWorkflowCapabilities.Clear;
+            }
+
             if (HasReadableCodec && transport.CanOpen)
             {
                 capabilities |= ArchiveWorkflowCapabilities.Import;
@@ -186,6 +196,63 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         catch (Exception exception) when (IsExpectedHostFailure(exception))
         {
             return new ArchiveOpenResult { Operation = Failed("读取本机档案失败。") };
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ArchiveOperationResult> DeleteStoredAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Capabilities.HasFlag(ArchiveWorkflowCapabilities.Delete))
+        {
+            return Unavailable("当前运行环境没有配置删除本机档案的能力。");
+        }
+
+        try
+        {
+            await store.DeleteAsync(documentId, cancellationToken);
+            return Success("档案已从本机档案库删除。");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Denied("当前用户或宿主策略不允许删除这份档案。");
+        }
+        catch (Exception exception) when (IsExpectedHostFailure(exception))
+        {
+            return Failed("删除本机档案失败，请稍后重试。");
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ArchiveOperationResult> ClearStoredAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear))
+        {
+            return Unavailable("当前运行环境没有配置清空本机档案库的能力。");
+        }
+
+        try
+        {
+            await store.ClearAsync(cancellationToken);
+            return Success("本机档案库已清空。");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Denied("当前用户或宿主策略不允许清空本机档案库。");
+        }
+        catch (Exception exception) when (IsExpectedHostFailure(exception))
+        {
+            return Failed("清空本机档案库失败，请稍后重试。");
         }
     }
 
@@ -383,6 +450,12 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
     private static ArchiveOperationResult Unavailable(string message) => new()
     {
         Status = ArchiveOperationStatus.Unavailable,
+        Message = message
+    };
+
+    private static ArchiveOperationResult Denied(string message) => new()
+    {
+        Status = ArchiveOperationStatus.Denied,
         Message = message
     };
 

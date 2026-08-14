@@ -96,6 +96,43 @@ public sealed class ArchiveWorkflowTests
     }
 
     [Fact]
+    public async Task Delete_and_clear_are_optional_store_capabilities()
+    {
+        var fixture = CreateFixture();
+        await fixture.Workflow.SaveCurrentAsync(CreateWorkspace("待删除对象一"));
+        await fixture.Workflow.SaveCurrentAsync(CreateWorkspace("待删除对象二"));
+        var records = (await fixture.Workflow.BrowseAsync()).Records;
+
+        var delete = await fixture.Workflow.DeleteStoredAsync(records[0].DocumentId);
+        var afterDelete = (await fixture.Workflow.BrowseAsync()).Records;
+        var clear = await fixture.Workflow.ClearStoredAsync();
+
+        Assert.True(fixture.Workflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Delete));
+        Assert.True(fixture.Workflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear));
+        Assert.True(delete.IsSuccess);
+        Assert.Single(afterDelete);
+        Assert.True(clear.IsSuccess);
+        Assert.Empty(fixture.Store.Documents);
+    }
+
+    [Fact]
+    public async Task Mutation_operations_distinguish_unavailable_and_denied()
+    {
+        var unavailable = CreateFixture(ArchiveDocumentStoreCapabilities.Browse);
+        var denied = CreateFixture(denyMutations: true);
+
+        var unavailableDelete = await unavailable.Workflow.DeleteStoredAsync(Guid.NewGuid());
+        var unavailableClear = await unavailable.Workflow.ClearStoredAsync();
+        var deniedDelete = await denied.Workflow.DeleteStoredAsync(Guid.NewGuid());
+        var deniedClear = await denied.Workflow.ClearStoredAsync();
+
+        Assert.Equal(ArchiveOperationStatus.Unavailable, unavailableDelete.Status);
+        Assert.Equal(ArchiveOperationStatus.Unavailable, unavailableClear.Status);
+        Assert.Equal(ArchiveOperationStatus.Denied, deniedDelete.Status);
+        Assert.Equal(ArchiveOperationStatus.Denied, deniedClear.Status);
+    }
+
+    [Fact]
     public async Task Export_uses_an_identity_safe_filename_and_import_builds_a_read_only_review()
     {
         var fixture = CreateFixture();
@@ -118,10 +155,16 @@ public sealed class ArchiveWorkflowTests
         Assert.Equal("不应进入文件名的姓名", import.Review?.SubjectDisplay);
     }
 
-    private static Fixture CreateFixture()
+    private static Fixture CreateFixture(
+        ArchiveDocumentStoreCapabilities capabilities =
+            ArchiveDocumentStoreCapabilities.Save |
+            ArchiveDocumentStoreCapabilities.Browse |
+            ArchiveDocumentStoreCapabilities.Delete |
+            ArchiveDocumentStoreCapabilities.Clear,
+        bool denyMutations = false)
     {
         var codec = new MemoryCodec();
-        var store = new MemoryStore();
+        var store = new MemoryStore(capabilities) { DenyMutations = denyMutations };
         var transport = new MemoryTransport();
         var assembler = new ArchiveContractAssembler(new ApplicationIdentity(
             new Uri("https://example.invalid/tests/archive-workflow"),
@@ -187,12 +230,13 @@ public sealed class ArchiveWorkflowTests
         }
     }
 
-    private sealed class MemoryStore : IArchiveDocumentStore
+    private sealed class MemoryStore(ArchiveDocumentStoreCapabilities capabilities) : IArchiveDocumentStore
     {
         public Dictionary<Guid, StoredArchiveDocument> Documents { get; } = [];
 
-        public ArchiveDocumentStoreCapabilities Capabilities =>
-            ArchiveDocumentStoreCapabilities.Save | ArchiveDocumentStoreCapabilities.Browse;
+        public ArchiveDocumentStoreCapabilities Capabilities { get; } = capabilities;
+
+        public bool DenyMutations { get; init; }
 
         public ValueTask SaveAsync(
             StoredArchiveDocument document,
@@ -210,6 +254,30 @@ public sealed class ArchiveWorkflowTests
             Guid documentId,
             CancellationToken cancellationToken = default) => ValueTask.FromResult(
                 Documents.GetValueOrDefault(documentId));
+
+        public ValueTask DeleteAsync(
+            Guid documentId,
+            CancellationToken cancellationToken = default)
+        {
+            ThrowIfMutationsDenied();
+            Documents.Remove(documentId);
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask ClearAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfMutationsDenied();
+            Documents.Clear();
+            return ValueTask.CompletedTask;
+        }
+
+        private void ThrowIfMutationsDenied()
+        {
+            if (DenyMutations)
+            {
+                throw new UnauthorizedAccessException();
+            }
+        }
     }
 
     private sealed class MemoryTransport : IArchiveDocumentTransport
