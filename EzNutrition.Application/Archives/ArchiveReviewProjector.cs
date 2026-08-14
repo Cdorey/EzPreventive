@@ -37,6 +37,7 @@ internal static class ArchiveReviewProjector
             CreatedAt = bundle.CreatedAt,
             FormatDisplay = format is null ? "当前应用档案" : FormatDisplay(format),
             ContainsUnknownContent = document.ContainsUnknownContent,
+            PatientContext = patient is null ? null : new ArchivePatientContext(patient, consultation?.SubjectSnapshot),
             Sections = sections
         };
     }
@@ -44,6 +45,7 @@ internal static class ArchiveReviewProjector
     public static ArchiveRecordSummary CreateSummary(StoredArchiveDocumentInfo info) => new()
     {
         DocumentId = info.DocumentId,
+        PatientId = info.PatientId,
         Title = info.Title,
         SubjectDisplay = info.SubjectDisplay,
         ConsultationStartedAt = info.ConsultationStartedAt,

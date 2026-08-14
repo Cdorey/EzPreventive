@@ -24,6 +24,11 @@ public sealed record StoredArchiveDocumentInfo
     /// <summary>获取宿主文档标识。</summary>
     public required Guid DocumentId { get; init; }
 
+    /// <summary>
+    /// 获取用于归组多次咨询的患者逻辑标识；旧版未建立索引的文档为空。
+    /// </summary>
+    public Guid? PatientId { get; init; }
+
     /// <summary>获取档案标题。</summary>
     public required string Title { get; init; }
 

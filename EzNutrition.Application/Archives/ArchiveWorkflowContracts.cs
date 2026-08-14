@@ -86,6 +86,9 @@ public sealed record ArchiveRecordSummary
     /// <summary>获取宿主管理的文档标识。</summary>
     public required Guid DocumentId { get; init; }
 
+    /// <summary>获取患者逻辑标识；旧版未建立索引的文档为空。</summary>
+    public Guid? PatientId { get; init; }
+
     /// <summary>获取档案显示标题。</summary>
     public required string Title { get; init; }
 
@@ -165,6 +168,9 @@ public sealed record ArchiveReview
 
     /// <summary>获取是否携带当前实现不能解释但已保留的源内容。</summary>
     public required bool ContainsUnknownContent { get; init; }
+
+    /// <summary>获取可用于开始新一次独立咨询的患者上下文。</summary>
+    public ArchivePatientContext? PatientContext { get; init; }
 
     /// <summary>获取调阅区段。</summary>
     public IReadOnlyList<ArchiveReviewSection> Sections { get; init; } = Array.Empty<ArchiveReviewSection>();

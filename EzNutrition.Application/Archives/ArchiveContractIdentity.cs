@@ -1,4 +1,5 @@
 using EzNutrition.Archives.Contracts.Identity;
+using EzNutrition.Archives.Contracts.Resources;
 
 namespace EzNutrition.Application.Archives;
 
@@ -60,10 +61,33 @@ public sealed record ArchiveContractIdentity
         Func<Guid>? guidFactory = null)
     {
         guidFactory ??= Guid.NewGuid;
+        return CreateCore(createdAt ?? DateTimeOffset.UtcNow, null, guidFactory);
+    }
+
+    internal static ArchiveContractIdentity CreateForPatient(
+        PatientResource patient,
+        DateTimeOffset? createdAt = null,
+        Func<Guid>? guidFactory = null)
+    {
+        ArgumentNullException.ThrowIfNull(patient);
+        guidFactory ??= Guid.NewGuid;
+        var patientIdentity = new ArchiveResourceIdentity
+        {
+            ResourceId = patient.Metadata.ResourceId,
+            VersionId = patient.Metadata.VersionId
+        };
+        return CreateCore(createdAt ?? DateTimeOffset.UtcNow, patientIdentity, guidFactory);
+    }
+
+    private static ArchiveContractIdentity CreateCore(
+        DateTimeOffset createdAt,
+        ArchiveResourceIdentity? patientIdentity,
+        Func<Guid> guidFactory)
+    {
         return new ArchiveContractIdentity
         {
-            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
-            Patient = CreateResourceIdentity(guidFactory),
+            CreatedAt = createdAt,
+            Patient = patientIdentity ?? CreateResourceIdentity(guidFactory),
             Consultation = CreateResourceIdentity(guidFactory),
             EnergyAssessment = CreateResourceIdentity(guidFactory),
             DriAssessment = CreateResourceIdentity(guidFactory),

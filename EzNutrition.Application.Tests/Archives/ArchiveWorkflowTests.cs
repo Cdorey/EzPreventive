@@ -25,6 +25,7 @@ public sealed class ArchiveWorkflowTests
         Assert.True(browse.Operation.IsSuccess);
         Assert.True(open.Operation.IsSuccess);
         Assert.Equal("虚构测试对象", open.Review?.SubjectDisplay);
+        Assert.Equal(record.PatientId, open.Review?.PatientContext?.PatientId);
         var consultation = Assert.Single(open.Review!.Sections, section => section.Title == "咨询概况");
         var consultationStartedAt = Assert.Single(
             consultation.Fields,
@@ -32,6 +33,66 @@ public sealed class ArchiveWorkflowTests
         Assert.NotNull(consultationStartedAt.Instant);
         Assert.Null(consultationStartedAt.Value);
         Assert.NotEmpty(fixture.Store.Documents);
+    }
+
+    [Fact]
+    public async Task Follow_up_consultation_reuses_patient_identity_but_has_an_independent_document()
+    {
+        var fixture = CreateFixture();
+        var initial = CreateWorkspace("同一虚构患者");
+        await fixture.Workflow.SaveCurrentAsync(initial);
+        var firstRecord = Assert.Single((await fixture.Workflow.BrowseAsync()).Records);
+        var opened = await fixture.Workflow.OpenStoredAsync(firstRecord.DocumentId);
+        var patient = Assert.IsType<ArchivePatientContext>(opened.Review?.PatientContext);
+        var followUpClient = new ClientInfo
+        {
+            Name = patient.Name,
+            Gender = patient.Gender,
+            Age = patient.AgeInYears ?? 25,
+            Height = patient.HeightInCentimeters,
+            Weight = patient.WeightInKilograms,
+            SpecialPhysiologicalPeriod = patient.PhysiologicalState ?? string.Empty
+        };
+        var followUp = new ConsultationWorkspace(followUpClient, patient);
+
+        var save = await fixture.Workflow.SaveCurrentAsync(followUp);
+        var records = (await fixture.Workflow.BrowseAsync()).Records;
+
+        Assert.True(save.IsSuccess);
+        Assert.Equal(2, records.Count);
+        Assert.Single(records.Select(record => record.PatientId).Distinct());
+        Assert.Equal(initial.ContractIdentity.Patient, followUp.ContractIdentity.Patient);
+        Assert.NotEqual(initial.ContractIdentity.Consultation, followUp.ContractIdentity.Consultation);
+        Assert.NotEqual(firstRecord.DocumentId, followUp.ContractIdentity.Consultation.ResourceId.Value);
+        Assert.Equal(30, patient.AgeInYears);
+        Assert.Equal(165m, patient.HeightInCentimeters);
+        Assert.Equal(55m, patient.WeightInKilograms);
+    }
+
+    [Fact]
+    public async Task Equal_patient_names_do_not_merge_independent_consultations()
+    {
+        var fixture = CreateFixture();
+
+        await fixture.Workflow.SaveCurrentAsync(CreateWorkspace("同名虚构患者"));
+        await fixture.Workflow.SaveCurrentAsync(CreateWorkspace("同名虚构患者"));
+        var records = (await fixture.Workflow.BrowseAsync()).Records;
+
+        Assert.Equal(2, records.Count);
+        Assert.Equal(2, records.Select(record => record.PatientId).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Repeated_saves_of_one_consultation_replace_its_draft_document()
+    {
+        var fixture = CreateFixture();
+        var workspace = CreateWorkspace("重复保存对象");
+
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+
+        Assert.Single(fixture.Store.Documents);
+        Assert.Single((await fixture.Workflow.BrowseAsync()).Records);
     }
 
     [Fact]

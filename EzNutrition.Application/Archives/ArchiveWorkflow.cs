@@ -96,6 +96,7 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
             var info = new StoredArchiveDocumentInfo
             {
                 DocumentId = consultation.Metadata.ResourceId.Value,
+                PatientId = patient?.Metadata.ResourceId.Value,
                 Title = consultation.Title ?? $"{subject}的营养咨询",
                 SubjectDisplay = subject,
                 ConsultationStartedAt = consultation.Period.Start,
