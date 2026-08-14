@@ -12,6 +12,26 @@ namespace EzNutrition.Server.Extension
 {
     internal static class ProgramExtension
     {
+        private const string CrossOriginOpenerPolicy = "Cross-Origin-Opener-Policy";
+        private const string CrossOriginEmbedderPolicy = "Cross-Origin-Embedder-Policy";
+
+        /// <summary>
+        /// 为浏览器文档和 Worker 响应声明跨源隔离，使线程版 WebAssembly 能够安全使用共享内存。
+        /// </summary>
+        /// <param name="app">待配置的服务器请求管道。</param>
+        /// <returns>原始请求管道构建器。</returns>
+        internal static IApplicationBuilder UseCrossOriginIsolation(this IApplicationBuilder app)
+        {
+            ArgumentNullException.ThrowIfNull(app);
+
+            return app.Use(async (context, next) =>
+            {
+                context.Response.Headers[CrossOriginOpenerPolicy] = "same-origin";
+                context.Response.Headers[CrossOriginEmbedderPolicy] = "require-corp";
+                await next(context);
+            });
+        }
+
         internal static void AuthorizeConfiguration(this WebApplicationBuilder builder)
         {
             //Identity and Auth

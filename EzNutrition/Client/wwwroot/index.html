@@ -34,7 +34,45 @@
         window.ezNutrition.scrubCurrentQuery = () =>
             window.history.replaceState(window.history.state, document.title, window.location.pathname);
     </script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script>
+        window.ezNutrition.start = async () => {
+            // 线程版运行时不会静默降级；启动前先验证浏览器和响应头共同形成的隔离环境。
+            const capabilities = {
+                secureContext: window.isSecureContext,
+                crossOriginIsolated: window.crossOriginIsolated,
+                sharedMemory: typeof SharedArrayBuffer === "function" && typeof Atomics === "object",
+                workers: typeof Worker === "function"
+            };
+            const boot = document.querySelector("#app .app-boot");
+            const heading = boot?.querySelector("strong");
+            const status = boot?.querySelector("span");
+            const showFailure = (message) => {
+                boot?.classList.add("is-error");
+                if (heading) {
+                    heading.textContent = "无法启动本机计算环境";
+                }
+                if (status) {
+                    status.textContent = message;
+                }
+            };
+
+            if (!Object.values(capabilities).every(Boolean)) {
+                console.error("WASM threading prerequisites are unavailable.", capabilities);
+                showFailure("当前浏览器或站点配置不支持安全的后台计算，请联系系统管理员。");
+                return;
+            }
+
+            try {
+                await Blazor.start();
+            } catch (error) {
+                console.error("Blazor failed to start with the threaded runtime.", error);
+                showFailure("后台计算环境启动失败，请重新加载页面或联系系统管理员。");
+            }
+        };
+
+        window.ezNutrition.start();
+    </script>
 </body>
 
 </html>

@@ -132,6 +132,10 @@ img {
     font-size: 0.875rem;
 }
 
+.app-boot.is-error strong {
+    color: #a8071a;
+}
+
 .ant-table-wrapper,
 .ant-table-container,
 .ant-tabs,

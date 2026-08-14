@@ -149,6 +149,7 @@ namespace EzNutrition.Server
                 app.UseExceptionHandler("/Error");
             }
 
+            app.UseCrossOriginIsolation();
             app.UseBlazorFrameworkFiles();
             app.UseStaticFiles();
 
