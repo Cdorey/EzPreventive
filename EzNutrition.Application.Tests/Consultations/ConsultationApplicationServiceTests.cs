@@ -112,7 +112,17 @@ public sealed class ConsultationApplicationServiceTests
         var client = CreateClient();
         var nutrients = CreateCalculationNutrients();
         var food = CreateCalculationFood(nutrients);
-        var survey = new DietaryRecallSurvey(client, [food], nutrients, new DRIs(client));
+        var dris = new DRIs(client)
+        {
+            AvailableDRIs =
+            [
+                Dri("蛋白质", DietaryReferenceIntakeType.RNI, 60m, "g/d"),
+                Dri("蛋白质", DietaryReferenceIntakeType.UL, 120m, "g/d"),
+                Dri("蛋白质", DietaryReferenceIntakeType.AMDR_L, 10m, "%E"),
+                Dri("蛋白质", DietaryReferenceIntakeType.AMDR_H, 20m, "%E")
+            ]
+        };
+        var survey = new DietaryRecallSurvey(client, [food], nutrients, dris);
         survey.RecallEntries.Add(new DietaryRecallEntry
         {
             Food = food,
@@ -130,8 +140,18 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Equal(20m, Assessment(survey, "蛋白质供能比").Value);
         Assert.Equal(22m, Assessment(survey, "脂肪供能比").Value);
         Assert.Equal(40m, Assessment(survey, "碳水化合物供能比").Value);
+        var protein = Assessment(survey, "蛋白质");
+        Assert.Equal(DietaryReferenceIntakeType.RNI, protein.LowerReference?.Type);
+        Assert.Equal(60m, protein.LowerReference?.Value);
+        Assert.Equal("g/d", protein.LowerReference?.Unit);
+        Assert.Equal(DietaryReferenceIntakeType.UL, protein.UpperReference?.Type);
+        var proteinRatio = Assessment(survey, "蛋白质供能比");
+        Assert.Equal(DietaryReferenceIntakeType.AMDR_L, proteinRatio.LowerReference?.Type);
+        Assert.Equal(DietaryReferenceIntakeType.AMDR_H, proteinRatio.UpperReference?.Type);
         var detail = Assert.Single(survey.EntryCalculations);
         Assert.Equal(200m, detail.NutrientValues[Nutrient(nutrients, "能量").NutrientId]);
+        Assert.Equal(100m, detail.EdibleWeight);
+        Assert.Equal(MealOccasion.Lunch, detail.MealOccasion);
         Assert.Equal(100m, Assert.Single(survey.RecallEntries).Weight);
     }
 
@@ -222,6 +242,18 @@ public sealed class ConsultationApplicationServiceTests
         }).ToList();
         return food;
     }
+
+    private static DietaryReferenceIntakeValue Dri(
+        string nutrient,
+        DietaryReferenceIntakeType type,
+        decimal value,
+        string unit) => new()
+        {
+            Nutrient = nutrient,
+            RecordType = type,
+            Value = value,
+            MeasureUnit = unit
+        };
 
     private sealed class StubNutritionDataSource :
         IEnergyReferenceDataSource,

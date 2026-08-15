@@ -83,14 +83,14 @@ public class DietaryRecallSurvey(
             FriendlyName = "总维生素A",
             Value = calculation["总维生素A"],
             Unit = vitaminAReference?.RNI?.MeasureUnit ?? string.Empty,
-            LowerReference = vitaminAReference?.RNI?.Value
+            LowerReference = CreateReference(vitaminAReference?.RNI)
         });
         assessments.Add(new DietaryNutrientAssessment
         {
             FriendlyName = "视黄醇",
             Value = calculation["视黄醇"],
             Unit = vitaminAReference?.UL?.MeasureUnit ?? string.Empty,
-            UpperReference = vitaminAReference?.UL?.Value
+            UpperReference = CreateReference(vitaminAReference?.UL)
         });
         assessments.Add(CreateNutrientAssessment(calculation, "胡萝卜素"));
         assessments.Add(CreateNutrientAssessment(calculation, "维生素B1", "VitB1", "硫胺素", "VitB1"));
@@ -121,8 +121,8 @@ public class DietaryRecallSurvey(
             FriendlyName = assessmentName,
             Value = calculation[compositionName],
             Unit = "g",
-            LowerReference = reference?.RNI?.Value,
-            UpperReference = reference?.UL?.Value,
+            LowerReference = CreateReference(reference?.RNI),
+            UpperReference = CreateReference(reference?.UL),
             FoodContributions = contributions
                 .Select(value => new DietaryFoodContribution(
                     value.Food?.FriendlyName ?? string.Empty,
@@ -131,15 +131,17 @@ public class DietaryRecallSurvey(
                 .ToArray()
         });
 
+        var lowerAmdr = reference?.OtherRecords
+            .FirstOrDefault(value => value.RecordType == DietaryReferenceIntakeType.AMDR_L);
+        var upperAmdr = reference?.OtherRecords
+            .FirstOrDefault(value => value.RecordType == DietaryReferenceIntakeType.AMDR_H);
         assessments.Add(new DietaryNutrientAssessment
         {
             FriendlyName = ratioName,
             Value = PercentageOfTotalEnergy(componentEnergy, calculation.TotalEnergy),
             Unit = "%E",
-            LowerReference = reference?.OtherRecords
-                .FirstOrDefault(value => value.RecordType == DietaryReferenceIntakeType.AMDR_L)?.Value,
-            UpperReference = reference?.OtherRecords
-                .FirstOrDefault(value => value.RecordType == DietaryReferenceIntakeType.AMDR_H)?.Value
+            LowerReference = CreateReference(lowerAmdr),
+            UpperReference = CreateReference(upperAmdr)
         });
     }
 
@@ -159,10 +161,27 @@ public class DietaryRecallSurvey(
             FriendlyName = friendlyName,
             Value = calculation[compositionName ?? friendlyName],
             Unit = reference?.RNI?.MeasureUnit ?? string.Empty,
-            LowerReference = reference?.RNI?.Value,
-            UpperReference = reference?.UL?.Value
+            LowerReference = CreateReference(reference?.RNI),
+            UpperReference = CreateReference(reference?.UL)
         };
     }
+
+    private static DietaryNutrientReference? CreateReference(AggregatedDriValue? reference) =>
+        reference?.ResolvedValue is { } value
+            ? new DietaryNutrientReference(
+                reference.RecordType,
+                value,
+                reference.MeasureUnit ?? string.Empty)
+            : null;
+
+    private static DietaryNutrientReference? CreateReference(
+        DietaryReferenceIntakeValue? reference) =>
+        reference is null
+            ? null
+            : new DietaryNutrientReference(
+                reference.RecordType,
+                reference.Value,
+                reference.MeasureUnit ?? string.Empty);
 
     private static DietaryMealEnergy CreateMealEnergy(
         SummaryCalculationTable calculation,

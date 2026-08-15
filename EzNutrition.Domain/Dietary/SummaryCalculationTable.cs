@@ -29,11 +29,14 @@ public sealed class SummaryCalculationTable
                 foods.Add(entry.Food);
             }
 
-            var entryTotals = AccumulateEntry(entry);
+            var edibleWeight = CalculateEdibleWeight(entry);
+            var entryTotals = AccumulateEntry(entry, edibleWeight);
             calculations.Add(new DietaryRecallEntryCalculation
             {
                 FoodName = entry.Food.FriendlyName ?? string.Empty,
                 RecordedWeight = entry.Weight,
+                EdibleWeight = edibleWeight,
+                MealOccasion = entry.MealOccasion,
                 IsAllEdible = entry.IsAllEdible,
                 NutrientValues = nutrients.ToDictionary(
                     nutrient => nutrient.NutrientId,
@@ -87,11 +90,10 @@ public sealed class SummaryCalculationTable
         return totals.GetValue(FindNutrient(nutrientFriendlyName).NutrientId);
     }
 
-    private Dictionary<int, decimal> AccumulateEntry(DietaryRecallEntry entry)
+    private Dictionary<int, decimal> AccumulateEntry(
+        DietaryRecallEntry entry,
+        decimal edibleWeight)
     {
-        var effectiveWeight = entry.IsAllEdible
-            ? entry.Weight
-            : entry.Weight * (entry.Food.EdiblePortion ?? 100) / 100;
         var entryTotals = new Dictionary<int, decimal>();
         var foodTotals = GetOrAdd(totalsByFoodId, entry.Food.FoodId);
         var mealTotals = GetOrAdd(totalsByMeal, entry.MealOccasion);
@@ -99,7 +101,7 @@ public sealed class SummaryCalculationTable
         foreach (var sourceValue in entry.Food.FoodNutrientValues!)
         {
             var nutrient = FindNutrient(sourceValue.NutrientId);
-            var value = sourceValue.Value * effectiveWeight / 100;
+            var value = sourceValue.Value * edibleWeight / 100;
 
             AddValue(entryTotals, nutrient.NutrientId, value);
             AddValue(totalsByNutrientId, sourceValue.Nutrient!.NutrientId, value);
@@ -109,6 +111,11 @@ public sealed class SummaryCalculationTable
 
         return entryTotals;
     }
+
+    private static decimal CalculateEdibleWeight(DietaryRecallEntry entry) =>
+        entry.IsAllEdible
+            ? entry.Weight
+            : entry.Weight * (entry.Food.EdiblePortion ?? 100) / 100;
 
     private IEnumerable<FoodNutrientValue> CreateRank(string nutrientFriendlyName)
     {

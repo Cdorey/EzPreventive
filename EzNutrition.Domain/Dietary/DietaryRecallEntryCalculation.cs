@@ -6,6 +6,10 @@ public sealed record DietaryRecallEntryCalculation
 
     public decimal RecordedWeight { get; init; }
 
+    public decimal EdibleWeight { get; init; }
+
+    public MealOccasion MealOccasion { get; init; }
+
     public bool IsAllEdible { get; init; }
 
     public required IReadOnlyDictionary<int, decimal> NutrientValues { get; init; }

@@ -82,8 +82,14 @@ public sealed class DietarySurveyRenderTests
                 FriendlyName = "蛋白质供能比",
                 Value = 8m,
                 Unit = "%E",
-                LowerReference = 10m,
-                UpperReference = 20m
+                LowerReference = new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.AMDR_L,
+                    10m,
+                    "%E"),
+                UpperReference = new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.AMDR_H,
+                    20m,
+                    "%E")
             }
         ]);
 

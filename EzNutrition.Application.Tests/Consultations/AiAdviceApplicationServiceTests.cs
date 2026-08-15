@@ -348,13 +348,19 @@ public sealed class AiAdviceApplicationServiceTests
             {
                 FriendlyName = "iron",
                 Value = 5m,
-                LowerReference = 10m
+                LowerReference = new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.RNI,
+                    10m,
+                    "mg/d")
             },
             new DietaryNutrientAssessment
             {
                 FriendlyName = "sodium",
                 Value = 3000m,
-                UpperReference = 2000m
+                UpperReference = new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.UL,
+                    2000m,
+                    "mg/d")
             },
             new DietaryNutrientAssessment
             {
