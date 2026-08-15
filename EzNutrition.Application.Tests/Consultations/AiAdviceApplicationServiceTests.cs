@@ -80,7 +80,9 @@ public sealed class AiAdviceApplicationServiceTests
             {
                 Assert.Equal("protein", protein.Name);
                 Assert.Equal(AdviceReferenceComparison.NotEstablished, protein.ReferenceComparison);
-                Assert.Empty(protein.References);
+                var preventiveReference = Assert.Single(protein.References);
+                Assert.Equal("PI-NCD", preventiveReference.Type);
+                Assert.Equal(75m, preventiveReference.Value);
                 Assert.Equal(
                     ["food-b", "food-c", "food-a"],
                     protein.TopFoodSources?.Select(source => source.FoodName));
@@ -438,6 +440,13 @@ public sealed class AiAdviceApplicationServiceTests
                     FriendlyName = "protein",
                     Value = 65m,
                     Unit = "g",
+                    ContextReferences =
+                    [
+                        new DietaryNutrientReference(
+                            DietaryReferenceIntakeType.PI_NCD,
+                            75m,
+                            "g/d")
+                    ],
                     FoodContributions =
                     [
                         new DietaryFoodContribution("food-a", 5m, "g"),

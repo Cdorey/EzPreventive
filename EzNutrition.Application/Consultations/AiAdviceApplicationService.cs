@@ -106,6 +106,8 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
             MapReferenceComparison(assessment.ReferenceStatus),
             new[] { assessment.LowerReference, assessment.UpperReference }
                 .OfType<DietaryNutrientReference>()
+                .Concat(assessment.ContextReferences)
+                .Distinct()
                 .Select(reference => new DietaryReferenceTarget(
                     reference.Type.ToString().Replace('_', '-'),
                     reference.Value,

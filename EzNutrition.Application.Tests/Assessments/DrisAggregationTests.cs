@@ -98,6 +98,8 @@ public sealed class DrisAggregationTests
         var range = Assert.Single(dris.NutrientRanges);
 
         Assert.Equal(4, range.OtherRecords.Count);
+        Assert.Equal(30m, range.PiNcd?.ResolvedValue);
+        Assert.Equal("%E", range.PiNcd?.MeasureUnit);
         Assert.Collection(
             range.AdditionalReferenceGroups,
             group =>

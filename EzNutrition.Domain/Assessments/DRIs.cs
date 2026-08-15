@@ -33,7 +33,8 @@ namespace EzNutrition.Domain.Assessments
                 {
                     var range = new NutrientRange(rangeInfo);
                     ranges.Add(range);
-                    foreach (var value in new[] { range.EAR, range.RNI, range.UL }.Where(value => value is not null))
+                    foreach (var value in new[] { range.EAR, range.RNI, range.UL, range.PiNcd }
+                        .Where(value => value is not null))
                     {
                         if (!value!.IsResolved)
                         {

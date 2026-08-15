@@ -83,7 +83,10 @@ public class DietaryRecallSurvey(
             FriendlyName = "总维生素A",
             Value = calculation["总维生素A"],
             Unit = vitaminAReference?.RNI?.MeasureUnit ?? string.Empty,
-            LowerReference = CreateReference(vitaminAReference?.RNI)
+            LowerReference = CreateReference(vitaminAReference?.RNI),
+            ContextReferences = CreateContextReferences(
+                vitaminAReference,
+                vitaminAReference?.RNI?.MeasureUnit)
         });
         assessments.Add(new DietaryNutrientAssessment
         {
@@ -123,6 +126,7 @@ public class DietaryRecallSurvey(
             Unit = "g",
             LowerReference = CreateReference(reference?.RNI),
             UpperReference = CreateReference(reference?.UL),
+            ContextReferences = CreateContextReferences(reference, "g"),
             FoodContributions = contributions
                 .Select(value => new DietaryFoodContribution(
                     value.Food?.FriendlyName ?? string.Empty,
@@ -141,7 +145,8 @@ public class DietaryRecallSurvey(
             Value = PercentageOfTotalEnergy(componentEnergy, calculation.TotalEnergy),
             Unit = "%E",
             LowerReference = CreateReference(lowerAmdr),
-            UpperReference = CreateReference(upperAmdr)
+            UpperReference = CreateReference(upperAmdr),
+            ContextReferences = CreateContextReferences(reference, "%E")
         });
     }
 
@@ -155,16 +160,39 @@ public class DietaryRecallSurvey(
         var reference = DRIs.NutrientRanges.FirstOrDefault(
             range => range.Nutrient == (driName ?? friendlyName));
 
+        var unit = reference?.RNI?.MeasureUnit
+            ?? reference?.UL?.MeasureUnit
+            ?? string.Empty;
         return new DietaryNutrientAssessment
         {
             Abbreviation = abbreviation ?? string.Empty,
             FriendlyName = friendlyName,
             Value = calculation[compositionName ?? friendlyName],
-            Unit = reference?.RNI?.MeasureUnit ?? string.Empty,
+            Unit = unit,
             LowerReference = CreateReference(reference?.RNI),
-            UpperReference = CreateReference(reference?.UL)
+            UpperReference = CreateReference(reference?.UL),
+            ContextReferences = CreateContextReferences(reference, unit)
         };
     }
+
+    private static IReadOnlyList<DietaryNutrientReference> CreateContextReferences(
+        NutrientRange? range,
+        string? assessmentUnit)
+    {
+        var reference = CreateReference(range?.PiNcd);
+        return reference is not null && UnitsMatch(reference.Unit, assessmentUnit)
+            ? [reference]
+            : [];
+    }
+
+    private static bool UnitsMatch(string referenceUnit, string? assessmentUnit) =>
+        string.Equals(
+            NormalizeDailyUnit(referenceUnit),
+            NormalizeDailyUnit(assessmentUnit),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeDailyUnit(string? unit) =>
+        (unit ?? string.Empty).Trim().Replace("/d", string.Empty, StringComparison.OrdinalIgnoreCase);
 
     private static DietaryNutrientReference? CreateReference(AggregatedDriValue? reference) =>
         reference?.ResolvedValue is { } value

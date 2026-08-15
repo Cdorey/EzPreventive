@@ -24,6 +24,8 @@ public sealed record DietaryNutrientAssessment
 
     public DietaryNutrientReference? UpperReference { get; init; }
 
+    public IReadOnlyList<DietaryNutrientReference> ContextReferences { get; init; } = [];
+
     public IReadOnlyList<DietaryMealEnergy> MealEnergies { get; init; } = [];
 
     public IReadOnlyList<DietaryFoodContribution> FoodContributions { get; init; } = [];

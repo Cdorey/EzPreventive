@@ -118,6 +118,7 @@ public sealed class ConsultationApplicationServiceTests
             [
                 Dri("蛋白质", DietaryReferenceIntakeType.RNI, 60m, "g/d"),
                 Dri("蛋白质", DietaryReferenceIntakeType.UL, 120m, "g/d"),
+                Dri("蛋白质", DietaryReferenceIntakeType.PI_NCD, 75m, "g/d"),
                 Dri("蛋白质", DietaryReferenceIntakeType.AMDR_L, 10m, "%E"),
                 Dri("蛋白质", DietaryReferenceIntakeType.AMDR_H, 20m, "%E")
             ]
@@ -145,9 +146,14 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Equal(60m, protein.LowerReference?.Value);
         Assert.Equal("g/d", protein.LowerReference?.Unit);
         Assert.Equal(DietaryReferenceIntakeType.UL, protein.UpperReference?.Type);
+        var preventiveReference = Assert.Single(protein.ContextReferences);
+        Assert.Equal(DietaryReferenceIntakeType.PI_NCD, preventiveReference.Type);
+        Assert.Equal(75m, preventiveReference.Value);
+        Assert.Equal("g/d", preventiveReference.Unit);
         var proteinRatio = Assessment(survey, "蛋白质供能比");
         Assert.Equal(DietaryReferenceIntakeType.AMDR_L, proteinRatio.LowerReference?.Type);
         Assert.Equal(DietaryReferenceIntakeType.AMDR_H, proteinRatio.UpperReference?.Type);
+        Assert.Empty(proteinRatio.ContextReferences);
         var detail = Assert.Single(survey.EntryCalculations);
         Assert.Equal(200m, detail.NutrientValues[Nutrient(nutrients, "能量").NutrientId]);
         Assert.Equal(100m, detail.EdibleWeight);
