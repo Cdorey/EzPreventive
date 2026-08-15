@@ -17,6 +17,7 @@ public sealed class NutrientRange
         EAR = CreateReferenceValue(records, DietaryReferenceIntakeType.EAR);
         RNI = CreateReferenceValue(records, DietaryReferenceIntakeType.RNI, DietaryReferenceIntakeType.AI);
         UL = CreateReferenceValue(records, DietaryReferenceIntakeType.UL);
+        PiNcd = CreateReferenceValue(records, DietaryReferenceIntakeType.PI_NCD);
         OtherRecords = records
             .Where(record => record.RecordType is not DietaryReferenceIntakeType.EAR
                 and not DietaryReferenceIntakeType.RNI
@@ -37,6 +38,9 @@ public sealed class NutrientRange
 
     /// <summary>获取可耐受最高摄入量。</summary>
     public AggregatedDriValue? UL { get; }
+
+    /// <summary>获取慢性病预防建议摄入量。</summary>
+    public AggregatedDriValue? PiNcd { get; }
 
     /// <summary>获取尚未归入核心参考值的原始记录。</summary>
     public IReadOnlyList<DietaryReferenceIntakeValue> OtherRecords { get; }

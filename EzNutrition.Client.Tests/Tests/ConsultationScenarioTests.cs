@@ -333,7 +333,8 @@ public sealed class ConsultationScenarioTests
         Assert.Equal(Normalize(source.Content), advice.NarrativeContent);
         Assert.NotEmpty(advice.InputResourceReferences);
 
-        var prompt = Assert.IsType<EzNutrition.Shared.Data.DTO.PromptDto.PromptDto>(scenario.Archive.AdvicePrompt);
+        var prompt = Assert.IsType<EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto>(
+            scenario.Archive.AdvicePrompt);
         AssertNamedQuantity(advice, "age", prompt.PatientInfo.Age);
         AssertNamedQuantity(advice, "height", prompt.PatientInfo.Height);
         AssertNamedQuantity(advice, "weight", prompt.PatientInfo.Weight);

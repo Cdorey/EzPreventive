@@ -11,7 +11,8 @@ using EzNutrition.Domain.Calculations;
 using EzNutrition.Domain.Consultations;
 using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
-using PromptDto = EzNutrition.Shared.Data.DTO.PromptDto.PromptDto;
+using AiAdviceRequestDto = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
+using AdviceReferenceComparison = EzNutrition.Shared.Data.DTO.PromptDto.DietaryReferenceComparison;
 using RuntimeWorkspace = EzNutrition.Application.Consultations.ConsultationWorkspace;
 
 namespace EzNutrition.Application.Archives;
@@ -743,7 +744,7 @@ public sealed class ArchiveContractAssembler
             _ => NutritionAdviceGenerationStatus.Prepared
         };
 
-    private static IReadOnlyList<NamedArchiveValue> CreateAdviceInputSummary(PromptDto? prompt)
+    private static IReadOnlyList<NamedArchiveValue> CreateAdviceInputSummary(AiAdviceRequestDto? prompt)
     {
         if (prompt is null)
         {
@@ -790,13 +791,19 @@ public sealed class ArchiveContractAssembler
                 ArchiveContractCoding.PhysiologicalState(prompt.PatientInfo.SpecialPhysiologicalPeriod)));
         }
 
-        foreach (var nutrient in prompt.DietaryRecallSurvey?.DeficientNutrients ?? [])
+        foreach (var nutrient in prompt.DietaryRecallSurvey?.Nutrients
+            .Where(nutrient =>
+                nutrient.ReferenceComparison == AdviceReferenceComparison.BelowReference)
+            .Select(nutrient => nutrient.Name) ?? [])
         {
             Add(inputs, "deficient-nutrient", "摄入不足营养素", new CodingArchiveValue(
                 ArchiveContractCoding.Nutrient(nutrient)));
         }
 
-        foreach (var nutrient in prompt.DietaryRecallSurvey?.ExcessiveNutrients ?? [])
+        foreach (var nutrient in prompt.DietaryRecallSurvey?.Nutrients
+            .Where(nutrient =>
+                nutrient.ReferenceComparison == AdviceReferenceComparison.AboveReference)
+            .Select(nutrient => nutrient.Name) ?? [])
         {
             Add(inputs, "excessive-nutrient", "摄入过量营养素", new CodingArchiveValue(
                 ArchiveContractCoding.Nutrient(nutrient)));

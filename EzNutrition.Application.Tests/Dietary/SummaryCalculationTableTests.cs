@@ -20,8 +20,18 @@ public sealed class SummaryCalculationTableTests
         {
             FriendlyName = "测试营养素",
             Value = value,
-            LowerReference = lowerReference,
-            UpperReference = upperReference
+            LowerReference = lowerReference is null
+                ? null
+                : new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.RNI,
+                    lowerReference.Value,
+                    "mg/d"),
+            UpperReference = upperReference is null
+                ? null
+                : new DietaryNutrientReference(
+                    DietaryReferenceIntakeType.UL,
+                    upperReference.Value,
+                    "mg/d")
         };
 
         Assert.Equal(expected, assessment.ReferenceStatus);
@@ -72,6 +82,8 @@ public sealed class SummaryCalculationTableTests
         var row = Assert.Single(detail);
         Assert.Equal("测试食物", row.FoodName);
         Assert.Equal(80m, row.RecordedWeight);
+        Assert.Equal(60m, row.EdibleWeight);
+        Assert.Equal(MealOccasion.Dinner, row.MealOccasion);
         Assert.False(row.IsAllEdible);
         Assert.Equal(144m, row.NutrientValues[energy.NutrientId]);
         Assert.Equal(144m, calculation.TotalEnergy);

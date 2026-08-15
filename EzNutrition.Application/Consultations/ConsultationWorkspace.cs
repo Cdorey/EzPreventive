@@ -57,7 +57,7 @@ namespace EzNutrition.Application.Consultations
 
         public AiGeneratedAdvice? AiGeneratedAdvice { get; set; }
 
-        public EzNutrition.Shared.Data.DTO.PromptDto.PromptDto? AdvicePrompt { get; set; }
+        public EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto? AdvicePrompt { get; set; }
 
         public SubjectiveObjectiveAssessmentPlanInformation? SubjectiveObjectiveAssessmentPlanInformation { get; set; }
     }

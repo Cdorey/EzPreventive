@@ -86,9 +86,13 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Equal("application/json", request.ContentType?.MediaType);
         Assert.Equal("utf-8", request.ContentType?.CharSet);
         Assert.NotNull(request.Body);
+        Assert.Contains("女", request.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u5973", request.Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"patientInfo\"", request.Body, StringComparison.Ordinal);
 
-        var posted = JsonSerializer.Deserialize<PromptDto>(request.Body!);
+        var posted = JsonSerializer.Deserialize<AiAdviceRequestDto>(request.Body!, WebJsonOptions);
         Assert.NotNull(posted);
+        Assert.Equal(AiAdviceRequestDto.CurrentSchemaVersion, posted.SchemaVersion);
         Assert.Equal(prompt.PatientInfo.Gender, posted.PatientInfo.Gender);
         Assert.Equal(prompt.PatientInfo.Age, posted.PatientInfo.Age);
         Assert.Equal(prompt.PatientInfo.BMI, posted.PatientInfo.BMI);
@@ -105,12 +109,22 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Equal(prompt.ClinicalInfo?.Objective, posted.ClinicalInfo?.Objective);
         Assert.Equal(prompt.ClinicalInfo?.Assessment, posted.ClinicalInfo?.Assessment);
         Assert.Equal(prompt.ClinicalInfo?.Plan, posted.ClinicalInfo?.Plan);
-        Assert.Equal(
-            prompt.DietaryRecallSurvey?.DeficientNutrients,
-            posted.DietaryRecallSurvey?.DeficientNutrients);
-        Assert.Equal(
-            prompt.DietaryRecallSurvey?.ExcessiveNutrients,
-            posted.DietaryRecallSurvey?.ExcessiveNutrients);
+        var postedDietary = Assert.IsType<PromptDietaryRecallSurvey>(posted.DietaryRecallSurvey);
+        Assert.Equal("24-hour-recall", postedDietary.Method);
+        Assert.Equal(1, postedDietary.RecallDays);
+        var postedFood = Assert.Single(postedDietary.Foods);
+        Assert.Equal("米饭", postedFood.FoodName);
+        Assert.Equal(DietaryMealOccasion.Lunch, postedFood.Meal);
+        Assert.Equal(150m, postedFood.EdibleAmount);
+        var postedCalcium = Assert.Single(
+            postedDietary.Nutrients,
+            nutrient => nutrient.Name == "钙");
+        Assert.Equal(420m, postedCalcium.Intake);
+        Assert.Equal(DietaryReferenceComparison.BelowReference, postedCalcium.ReferenceComparison);
+        var calciumReference = Assert.Single(postedCalcium.References);
+        Assert.Equal("RNI", calciumReference.Type);
+        Assert.Equal(800m, calciumReference.Value);
+        Assert.Equal("mg/d", calciumReference.Unit);
 
         Assert.True(
             request.Options.TryGetValue("WebAssemblyEnableStreamingResponse", out var streamingValue),
@@ -309,7 +323,7 @@ public sealed class HttpAiAdviceGatewayTests
     private static HttpAiAdviceGateway CreateGateway(RecordingHandler handler) =>
         new(new RecordingHttpClientFactory(handler, BaseAddress));
 
-    private static PromptDto CreatePrompt() => new()
+    private static AiAdviceRequestDto CreatePrompt() => new()
     {
         PatientInfo = new PatientInfo
         {
@@ -324,8 +338,29 @@ public sealed class HttpAiAdviceGatewayTests
         },
         DietaryRecallSurvey = new PromptDietaryRecallSurvey
         {
-            DeficientNutrients = ["钙", "维生素D"],
-            ExcessiveNutrients = ["钠"]
+            Foods =
+            [
+                new DietaryRecallFoodItem(
+                    "米饭",
+                    DietaryMealOccasion.Lunch,
+                    150m,
+                    "g")
+            ],
+            Nutrients =
+            [
+                new DietaryNutrientIntake(
+                    "钙",
+                    420m,
+                    "mg",
+                    DietaryReferenceComparison.BelowReference,
+                    [new DietaryReferenceTarget("RNI", 800m, "mg/d")]),
+                new DietaryNutrientIntake(
+                    "钠",
+                    2300m,
+                    "mg",
+                    DietaryReferenceComparison.AboveReference,
+                    [new DietaryReferenceTarget("PI-NCD", 2000m, "mg/d")])
+            ]
         },
         ClinicalInfo = new ClinicalInfo
         {

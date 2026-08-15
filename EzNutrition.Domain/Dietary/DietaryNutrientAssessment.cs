@@ -1,3 +1,5 @@
+using EzNutrition.Shared.Data.Entities;
+
 namespace EzNutrition.Domain.Dietary;
 
 public enum DietaryReferenceStatus
@@ -18,9 +20,11 @@ public sealed record DietaryNutrientAssessment
 
     public string Unit { get; init; } = string.Empty;
 
-    public decimal? LowerReference { get; init; }
+    public DietaryNutrientReference? LowerReference { get; init; }
 
-    public decimal? UpperReference { get; init; }
+    public DietaryNutrientReference? UpperReference { get; init; }
+
+    public IReadOnlyList<DietaryNutrientReference> ContextReferences { get; init; } = [];
 
     public IReadOnlyList<DietaryMealEnergy> MealEnergies { get; init; } = [];
 
@@ -32,12 +36,12 @@ public sealed record DietaryNutrientAssessment
     {
         get
         {
-            if (LowerReference is { } lower && Value < lower)
+            if (LowerReference is { Value: var lower } && Value < lower)
             {
                 return DietaryReferenceStatus.BelowRange;
             }
 
-            if (UpperReference is { } upper && Value > upper)
+            if (UpperReference is { Value: var upper } && Value > upper)
             {
                 return DietaryReferenceStatus.AboveRange;
             }
@@ -48,6 +52,11 @@ public sealed record DietaryNutrientAssessment
         }
     }
 }
+
+public sealed record DietaryNutrientReference(
+    DietaryReferenceIntakeType Type,
+    decimal Value,
+    string Unit);
 
 public sealed record DietaryMealEnergy(
     MealOccasion MealOccasion,

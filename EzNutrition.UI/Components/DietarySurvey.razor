@@ -355,10 +355,10 @@
     private static string FormatReference(DietaryNutrientAssessment assessment) =>
         $"{FormatReferenceBound(assessment.LowerReference)}~{FormatReferenceBound(assessment.UpperReference)}";
 
-    private static string FormatReferenceBound(decimal? value) =>
-        value is null
+    private static string FormatReferenceBound(DietaryNutrientReference? reference) =>
+        reference is null
             ? string.Empty
-            : value.Value.ToString(value.Value % 1m == 0m ? "0" : "0.##");
+            : reference.Value.ToString(reference.Value % 1m == 0m ? "0" : "0.##");
 
     private static bool HasBreakdown(DietaryNutrientAssessment assessment) =>
         assessment.MealEnergies.Count > 0 || assessment.FoodContributions.Count > 0;

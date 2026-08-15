@@ -48,16 +48,25 @@ namespace EzNutrition.AiAgency
         }
 
         public async IAsyncEnumerable<AiResultDto> Generate(
-            PromptDto prompt,
+            AiChatPrompt prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var rep = new ChatCompletionsRequest
             {
                 Model = "deepseek-r1",
-                Messages = [new Message {
-                    Role="user",
-                    Content=JsonSerializer.Serialize(prompt)
-                }],
+                Messages =
+                [
+                    new Message
+                    {
+                        Role = "system",
+                        Content = prompt.SystemMessage
+                    },
+                    new Message
+                    {
+                        Role = "user",
+                        Content = prompt.UserMessage
+                    }
+                ],
                 Stream = true,
                 Temperature = 0.8f,
                 MaxTokens = 51200
@@ -134,7 +143,7 @@ namespace EzNutrition.AiAgency
         }
 
         public async IAsyncEnumerable<AiResultDto> Generate(
-            PromptDto prompt,
+            AiChatPrompt prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             using var request = new HttpRequestMessage(
@@ -150,16 +159,16 @@ namespace EzNutrition.AiAgency
 
                 messages = new object[]
                 {
-            new
-            {
-                role = "system",
-                content = JsonSerializer.Serialize(prompt.DialogConfiguration)
-            },
-            new
-            {
-                role = "user",
-                content = JsonSerializer.Serialize(prompt)
-            }
+                    new
+                    {
+                        role = "system",
+                        content = prompt.SystemMessage
+                    },
+                    new
+                    {
+                        role = "user",
+                        content = prompt.UserMessage
+                    }
                 },
 
                 stream = true,
