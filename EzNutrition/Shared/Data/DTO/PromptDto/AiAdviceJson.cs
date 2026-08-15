@@ -15,6 +15,9 @@ public static class AiAdviceJson
     /// <summary>获取用于医生发送前预览的缩进 JSON 选项。</summary>
     public static JsonSerializerOptions Indented { get; } = Create(writeIndented: true);
 
+    /// <summary>Serializes AI consultation data using the shared compact representation.</summary>
+    public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Compact);
+
     private static JsonSerializerOptions Create(bool writeIndented) => new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,

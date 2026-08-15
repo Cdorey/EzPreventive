@@ -90,8 +90,9 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.DoesNotContain("\\u5973", request.Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("\"patientInfo\"", request.Body, StringComparison.Ordinal);
 
-        var posted = JsonSerializer.Deserialize<PromptDto>(request.Body!, WebJsonOptions);
+        var posted = JsonSerializer.Deserialize<AiAdviceRequestDto>(request.Body!, WebJsonOptions);
         Assert.NotNull(posted);
+        Assert.Equal(AiAdviceRequestDto.CurrentSchemaVersion, posted.SchemaVersion);
         Assert.Equal(prompt.PatientInfo.Gender, posted.PatientInfo.Gender);
         Assert.Equal(prompt.PatientInfo.Age, posted.PatientInfo.Age);
         Assert.Equal(prompt.PatientInfo.BMI, posted.PatientInfo.BMI);
@@ -312,7 +313,7 @@ public sealed class HttpAiAdviceGatewayTests
     private static HttpAiAdviceGateway CreateGateway(RecordingHandler handler) =>
         new(new RecordingHttpClientFactory(handler, BaseAddress));
 
-    private static PromptDto CreatePrompt() => new()
+    private static AiAdviceRequestDto CreatePrompt() => new()
     {
         PatientInfo = new PatientInfo
         {

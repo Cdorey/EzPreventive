@@ -173,7 +173,7 @@ internal static class RuntimeArchiveSamples
             Assessment = "由专业人员判断该组合。",
             Plan = "保留原始记录并复核。"
         };
-        archive.AdvicePrompt = new PromptDto
+        archive.AdvicePrompt = new AiAdviceRequestDto
         {
             PatientInfo = new PatientInfo
             {

@@ -2,6 +2,7 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Entities;
 using EzNutrition.Server.Data.Repositories;
+using EzNutrition.Server.Services;
 using EzNutrition.Shared.Data.DTO.PromptDto;
 using EzNutrition.Shared.Policies;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +19,7 @@ namespace EzNutrition.Server.Controllers
     public class PrescriptionController(
         IGenerativeAiProvider generator,
         ApplicationDbContext applicationDb,
+        AiAdvicePromptComposer promptComposer,
         ILogger<PrescriptionController> logger) : ControllerBase
     {
         [HttpGet]
@@ -29,11 +31,8 @@ namespace EzNutrition.Server.Controllers
         [HttpPost]
         [Consumes("application/json")]
         [RequestSizeLimit(1024 * 1024)]
-        public async Task<IActionResult> Generate([FromBody] PromptDto prompt)
+        public async Task<IActionResult> Generate([FromBody] AiAdviceRequestDto request)
         {
-            //覆盖用户参数
-            prompt.DialogConfiguration = new DialogConfiguration();
-
             var userId = User.FindFirstValue(ClaimTypes.Upn);
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -42,11 +41,12 @@ namespace EzNutrition.Server.Controllers
             }
 
             var cancellationToken = HttpContext.RequestAborted;
+            var chatPrompt = promptComposer.Compose(request);
 
             var generateRequest = new PrescriptionGenerateRequest
             {
                 UserId = userId,
-                Prompt = JsonSerializer.Serialize(prompt),
+                Prompt = chatPrompt.UserMessage,
                 RequestTime = DateTime.Now,
             };
 
@@ -68,7 +68,7 @@ namespace EzNutrition.Server.Controllers
                 await Response.WriteAsync(": connected\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
 
-                await foreach (var result in generator.Generate(prompt, cancellationToken))
+                await foreach (var result in generator.Generate(chatPrompt, cancellationToken))
                 {
                     if (result.IsReasoningContent)
                     {

@@ -11,7 +11,7 @@ using EzNutrition.Domain.Calculations;
 using EzNutrition.Domain.Consultations;
 using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
-using PromptDto = EzNutrition.Shared.Data.DTO.PromptDto.PromptDto;
+using AiAdviceRequestDto = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
 using RuntimeWorkspace = EzNutrition.Application.Consultations.ConsultationWorkspace;
 
 namespace EzNutrition.Application.Archives;
@@ -743,7 +743,7 @@ public sealed class ArchiveContractAssembler
             _ => NutritionAdviceGenerationStatus.Prepared
         };
 
-    private static IReadOnlyList<NamedArchiveValue> CreateAdviceInputSummary(PromptDto? prompt)
+    private static IReadOnlyList<NamedArchiveValue> CreateAdviceInputSummary(AiAdviceRequestDto? prompt)
     {
         if (prompt is null)
         {

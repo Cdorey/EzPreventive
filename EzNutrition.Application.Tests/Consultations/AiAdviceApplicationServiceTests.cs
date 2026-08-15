@@ -6,7 +6,7 @@ using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
 using System.Runtime.CompilerServices;
 using AdviceEnvironment = EzNutrition.Shared.Data.DTO.PromptDto.EnvironmentDto;
-using AdvicePrompt = EzNutrition.Shared.Data.DTO.PromptDto.PromptDto;
+using AdviceRequest = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
 
 namespace EzNutrition.Application.Tests.Consultations;
 
@@ -22,7 +22,7 @@ public sealed class AiAdviceApplicationServiceTests
         var prepared = service.PreparePrompt(workspace);
 
         Assert.True(prepared);
-        var prompt = Assert.IsType<AdvicePrompt>(workspace.AdvicePrompt);
+        var prompt = Assert.IsType<AdviceRequest>(workspace.AdvicePrompt);
         Assert.Equal("female", prompt.PatientInfo.Gender);
         Assert.Equal(35, prompt.PatientInfo.Age);
         Assert.Equal(22.04m, prompt.PatientInfo.BMI);
@@ -213,7 +213,7 @@ public sealed class AiAdviceApplicationServiceTests
         var service = new AiAdviceApplicationService(gateway);
         var workspace = PrepareWorkspace(service);
         var originalAdvice = Assert.IsType<AiGeneratedAdvice>(workspace.AiGeneratedAdvice);
-        var originalPrompt = Assert.IsType<AdvicePrompt>(workspace.AdvicePrompt);
+        var originalPrompt = Assert.IsType<AdviceRequest>(workspace.AdvicePrompt);
 
         await using var updates = service
             .GenerateAsync(workspace, environment: null)
@@ -459,17 +459,17 @@ public sealed class AiAdviceApplicationServiceTests
     }
 
     private sealed class StubAiAdviceGateway(
-        Func<AdvicePrompt, CancellationToken, IAsyncEnumerable<AiAdviceGatewayUpdate>> generate)
+        Func<AdviceRequest, CancellationToken, IAsyncEnumerable<AiAdviceGatewayUpdate>> generate)
         : IAiAdviceGateway
     {
-        public AdvicePrompt? LastPrompt { get; private set; }
+        public AdviceRequest? LastPrompt { get; private set; }
 
         public Task<AdviceEnvironment?> GetEnvironmentAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AdviceEnvironment?>(null);
 
         public IAsyncEnumerable<AiAdviceGatewayUpdate> GenerateAsync(
-            AdvicePrompt prompt,
+            AdviceRequest prompt,
             CancellationToken cancellationToken = default)
         {
             LastPrompt = prompt;

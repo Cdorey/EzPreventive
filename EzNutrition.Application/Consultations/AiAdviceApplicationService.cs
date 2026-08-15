@@ -31,7 +31,21 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
                 return false;
             }
 
-            var prompt = new PromptDto
+            var dietaryRecallSurvey = workspace.DietaryRecallSurvey is { NutrientAssessments.Count: > 0 } survey
+                ? new PromptDietaryRecallSurvey
+                {
+                    DeficientNutrients = survey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
+                        .Select(assessment => assessment.FriendlyName)
+                        .ToArray(),
+                    ExcessiveNutrients = survey.NutrientAssessments
+                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
+                        .Select(assessment => assessment.FriendlyName)
+                        .ToArray(),
+                }
+                : null;
+
+            var prompt = new AiAdviceRequestDto
             {
                 PatientInfo = new PatientInfo
                 {
@@ -50,23 +64,9 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
                     Objective = workspace.SubjectiveObjectiveAssessmentPlanInformation.Objective,
                     Assessment = workspace.SubjectiveObjectiveAssessmentPlanInformation.Assessment,
                     Plan = workspace.SubjectiveObjectiveAssessmentPlanInformation.Plan,
-                }
+                },
+                DietaryRecallSurvey = dietaryRecallSurvey
             };
-
-            if (workspace.DietaryRecallSurvey is { NutrientAssessments.Count: > 0 } survey)
-            {
-                prompt.DietaryRecallSurvey = new PromptDietaryRecallSurvey
-                {
-                    DeficientNutrients = survey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
-                        .Select(assessment => assessment.FriendlyName)
-                        .ToArray(),
-                    ExcessiveNutrients = survey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
-                        .Select(assessment => assessment.FriendlyName)
-                        .ToArray(),
-                };
-            }
 
             workspace.AdvicePrompt = prompt;
             ResetAdvice(workspace);
@@ -127,7 +127,7 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workspace);
-        PromptDto prompt;
+        AiAdviceRequestDto prompt;
         AiGeneratedAdvice advice;
         var attemptId = Guid.NewGuid();
         lock (workspace.AiAdviceSyncRoot)

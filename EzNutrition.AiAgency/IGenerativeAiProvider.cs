@@ -27,7 +27,7 @@ namespace EzNutrition.AiAgency
         string AdditionalInfo { get; }
 
         IAsyncEnumerable<AiResultDto> Generate(
-            PromptDto prompt,
+            AiChatPrompt prompt,
             CancellationToken cancellationToken = default);
     }
 }

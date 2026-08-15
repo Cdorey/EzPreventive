@@ -75,17 +75,17 @@ public sealed class HttpAiAdviceGateway(IHttpClientFactory httpClientFactory) : 
 
     /// <inheritdoc />
     public async IAsyncEnumerable<AiAdviceGatewayUpdate> GenerateAsync(
-        PromptDto prompt,
+        AiAdviceRequestDto requestData,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentNullException.ThrowIfNull(requestData);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint);
         request.SetBrowserResponseStreamingEnabled(true);
         string json;
         try
         {
-            json = JsonSerializer.Serialize(prompt, AiAdviceJson.Compact);
+            json = JsonSerializer.Serialize(requestData, AiAdviceJson.Compact);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {

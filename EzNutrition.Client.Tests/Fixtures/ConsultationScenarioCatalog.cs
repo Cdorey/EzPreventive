@@ -475,10 +475,10 @@ internal static class ConsultationScenarioCatalog
         return new DietaryRecallTower(archive.DietaryRecallSurvey.RecallEntries, standard);
     }
 
-    private static PromptDto CreatePrompt(RuntimeArchive archive)
+    private static AiAdviceRequestDto CreatePrompt(RuntimeArchive archive)
     {
         var soap = archive.SubjectiveObjectiveAssessmentPlanInformation ?? new();
-        return new PromptDto
+        return new AiAdviceRequestDto
         {
             PatientInfo = new PatientInfo
             {

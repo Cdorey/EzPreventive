@@ -19,7 +19,7 @@ public interface IAiAdviceGateway
     /// adapter observed the transport's explicit completion signal.
     /// </summary>
     IAsyncEnumerable<AiAdviceGatewayUpdate> GenerateAsync(
-        PromptDto prompt,
+        AiAdviceRequestDto request,
         CancellationToken cancellationToken = default);
 }
 
