@@ -66,7 +66,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
 
         AssertUiProjection(scenario, uiHtml);
         AssertPreparedDietaryProjection(scenario, preparedRequest);
-        AssertHttpDisclosureShape(httpJson);
+        AssertHttpDisclosureShape(scenario, httpJson);
         Assert.Equal(AiAdviceJson.Serialize(preparedRequest), httpJson);
         Assert.Equal(httpJson, AiAdviceJson.Serialize(postedRequest));
         AssertModelMessages(scenario, httpJson, modelPrompt.SystemMessage, modelPrompt.UserMessage);
@@ -146,7 +146,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         Assert.Equal(3, protein.TopFoodSources.Length);
     }
 
-    private static void AssertHttpDisclosureShape(string httpJson)
+    private static void AssertHttpDisclosureShape(DietaryScenario scenario, string httpJson)
     {
         Assert.DoesNotContain("\\u", httpJson, StringComparison.OrdinalIgnoreCase);
         using var document = JsonDocument.Parse(httpJson);
@@ -157,6 +157,21 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
             "patientInfo",
             "dietaryRecallSurvey",
             "clinicalInfo");
+
+        var expectedPatientProperties = new List<string>
+        {
+            "gender",
+            "age",
+            "pal",
+            "totalBalanceEnergyViaCalculation",
+            "specialPhysiologicalPeriod"
+        };
+        if (scenario.IncludesMeasurements)
+        {
+            expectedPatientProperties.AddRange(["bmi", "height", "weight"]);
+        }
+
+        AssertPropertyNames(root.GetProperty("patientInfo"), [.. expectedPatientProperties]);
 
         var dietary = root.GetProperty("dietaryRecallSurvey");
         AssertPropertyNames(dietary, "method", "recallDays", "foods", "nutrients");
@@ -249,13 +264,13 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
             Name = $"合成咨询对象·{definition.Key}",
             Gender = "女",
             Age = 35,
-            Height = 165m,
-            Weight = 60m
+            Height = definition.IncludesMeasurements ? 165m : null,
+            Weight = definition.IncludesMeasurements ? 60m : null
         };
         var energy = new EnergyCalculator(client)
         {
             PAL = 1.5m,
-            AvailableEERs = [new EER { BEE = 21m, PAL = 1.5m }]
+            AvailableEERs = [new EER { BEE = 21m, PAL = 1.5m, AvgBwEER = 2000 }]
         };
         Assert.True(energy.Calculate());
         Assert.True(energy.CorrectEnergy(2000));
@@ -315,6 +330,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
             definition.Key,
             workspace,
             entries,
+            definition.IncludesMeasurements,
             definition.ExpectedNutrients);
     }
 
@@ -448,6 +464,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         new DietaryScenarioDefinition(
             "balanced-day",
             "三餐相对均衡",
+            true,
             [
                 Entry(OatPorridge, 300m, MealOccasion.Breakfast),
                 Entry(Egg, 50m, MealOccasion.Breakfast),
@@ -468,6 +485,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         new DietaryScenarioDefinition(
             "takeaway-heavy-day",
             "外卖和加工食品偏多",
+            true,
             [
                 Entry(FriedDoughStick, 100m, MealOccasion.Breakfast),
                 Entry(InstantNoodles, 120m, MealOccasion.Lunch),
@@ -486,6 +504,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         new DietaryScenarioDefinition(
             "light-intake-day",
             "全天摄入偏少",
+            false,
             [
                 Entry(RicePorridge, 300m, MealOccasion.Breakfast),
                 Entry(Apple, 150m, MealOccasion.MorningSnack, isAllEdible: false),
@@ -545,6 +564,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
     private sealed record DietaryScenarioDefinition(
         string Key,
         string DisplayName,
+        bool IncludesMeasurements,
         IReadOnlyList<ScenarioEntryDefinition> EntryDefinitions,
         IReadOnlyDictionary<string, ExpectedNutrient> ExpectedNutrients);
 
@@ -552,6 +572,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         string Key,
         ConsultationWorkspace Workspace,
         IReadOnlyList<ScenarioEntry> Entries,
+        bool IncludesMeasurements,
         IReadOnlyDictionary<string, ExpectedNutrient> ExpectedNutrients);
 
     private sealed record ScenarioEntryDefinition(
