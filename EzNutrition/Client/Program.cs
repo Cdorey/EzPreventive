@@ -68,9 +68,7 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<CertificateUploadService>();
             builder.Services.AddAntDesign();
             builder.Services.AddOptions();
-            var host = builder.Build();
-            await ThreadingRuntimeGuard.EnsureBackgroundThreadAsync();
-            await host.RunAsync();
+            await builder.Build().RunAsync();
         }
 
         private static ArchiveContractAssembler CreateArchiveContractAssembler()

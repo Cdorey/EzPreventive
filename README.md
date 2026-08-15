@@ -54,8 +54,6 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 
 生产部署还应按实际拓扑配置[受信任的反向代理](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)，确保登录和账户恢复的 IP 限流取得真实客户端地址；容器或多实例部署则应[持久化并共享 Data Protection 密钥环](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)，避免邮箱确认和密码重置令牌因重启或实例切换而失效。
 
-浏览器宿主启用了 WebAssembly 线程运行时。生产站点必须使用 HTTPS，并保留 Server 写入的 `Cross-Origin-Opener-Policy: same-origin` 与 `Cross-Origin-Embedder-Policy: require-corp` 响应头；反向代理或 CDN 不应删除、覆盖或合并出冲突值，所有跨源脚本和资源也必须满足隔离策略。客户端启动时会同时检查浏览器能力、跨源隔离状态和实际后台线程；任一条件不满足都会显示明确错误，不会静默退回主线程执行。未来 WPF Hybrid 宿主直接使用本机 .NET 线程池，不需要这些浏览器响应头。
-
 数据库迁移默认不会在服务启动时自动执行。部署时应把结构迁移作为显式步骤，并在启动应用前确认两个数据库均无待应用迁移。
 
 ## 近期重要变更
