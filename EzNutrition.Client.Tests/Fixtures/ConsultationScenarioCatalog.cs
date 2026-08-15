@@ -494,13 +494,26 @@ internal static class ConsultationScenarioCatalog
             DietaryRecallSurvey = archive.DietaryRecallSurvey?.NutrientAssessments.Count > 0
                 ? new EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey
                 {
-                    DeficientNutrients = archive.DietaryRecallSurvey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
-                        .Select(assessment => assessment.FriendlyName)
+                    Foods = archive.DietaryRecallSurvey.EntryCalculations
+                        .Select(entry => new DietaryRecallFoodItem(
+                            entry.FoodName,
+                            MapMeal(entry.MealOccasion),
+                            entry.EdibleWeight,
+                            "g"))
                         .ToArray(),
-                    ExcessiveNutrients = archive.DietaryRecallSurvey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
-                        .Select(assessment => assessment.FriendlyName)
+                    Nutrients = archive.DietaryRecallSurvey.NutrientAssessments
+                        .Select(assessment => new DietaryNutrientIntake(
+                            assessment.FriendlyName,
+                            assessment.Value,
+                            assessment.Unit,
+                            MapComparison(assessment.ReferenceStatus),
+                            new[] { assessment.LowerReference, assessment.UpperReference }
+                                .OfType<DietaryNutrientReference>()
+                                .Select(reference => new DietaryReferenceTarget(
+                                    reference.Type.ToString().Replace('_', '-'),
+                                    reference.Value,
+                                    reference.Unit))
+                                .ToArray()))
                         .ToArray()
                 }
                 : null,
@@ -513,6 +526,27 @@ internal static class ConsultationScenarioCatalog
             }
         };
     }
+
+    private static DietaryReferenceComparison MapComparison(
+        DietaryReferenceStatus status) => status switch
+        {
+            DietaryReferenceStatus.NotEstablished => DietaryReferenceComparison.NotEstablished,
+            DietaryReferenceStatus.WithinRange => DietaryReferenceComparison.WithinReference,
+            DietaryReferenceStatus.BelowRange => DietaryReferenceComparison.BelowReference,
+            DietaryReferenceStatus.AboveRange => DietaryReferenceComparison.AboveReference,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
+        };
+
+    private static DietaryMealOccasion MapMeal(MealOccasion meal) => meal switch
+    {
+        MealOccasion.Breakfast => DietaryMealOccasion.Breakfast,
+        MealOccasion.MorningSnack => DietaryMealOccasion.MorningSnack,
+        MealOccasion.Lunch => DietaryMealOccasion.Lunch,
+        MealOccasion.AfternoonSnack => DietaryMealOccasion.AfternoonSnack,
+        MealOccasion.Dinner => DietaryMealOccasion.Dinner,
+        MealOccasion.LateNightSnack => DietaryMealOccasion.LateNightSnack,
+        _ => throw new ArgumentOutOfRangeException(nameof(meal), meal, null)
+    };
 
     private static AiGeneratedAdvice CreateAdviceState(
         NutritionAdviceGenerationStatus status,

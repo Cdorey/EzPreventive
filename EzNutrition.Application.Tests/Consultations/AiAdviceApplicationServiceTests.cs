@@ -6,6 +6,8 @@ using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
 using System.Runtime.CompilerServices;
 using AdviceEnvironment = EzNutrition.Shared.Data.DTO.PromptDto.EnvironmentDto;
+using AdviceMealOccasion = EzNutrition.Shared.Data.DTO.PromptDto.DietaryMealOccasion;
+using AdviceReferenceComparison = EzNutrition.Shared.Data.DTO.PromptDto.DietaryReferenceComparison;
 using AdviceRequest = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
 
 namespace EzNutrition.Application.Tests.Consultations;
@@ -13,7 +15,7 @@ namespace EzNutrition.Application.Tests.Consultations;
 public sealed class AiAdviceApplicationServiceTests
 {
     [Fact]
-    public void PreparePrompt_maps_consultation_data_and_dietary_flags()
+    public void PreparePrompt_maps_calculated_dietary_details_without_recalculating_them()
     {
         var gateway = CreateGateway();
         var service = new AiAdviceApplicationService(gateway);
@@ -40,9 +42,62 @@ public sealed class AiAdviceApplicationServiceTests
 
         var dietary = Assert.IsType<EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey>(
             prompt.DietaryRecallSurvey);
-        Assert.Equal(["iron"], dietary.DeficientNutrients);
-        Assert.Equal(["sodium"], dietary.ExcessiveNutrients);
+        Assert.Equal("24-hour-recall", dietary.Method);
+        Assert.Equal(1, dietary.RecallDays);
+        var food = Assert.Single(dietary.Foods);
+        Assert.Equal("rice", food.FoodName);
+        Assert.Equal(AdviceMealOccasion.Lunch, food.Meal);
+        Assert.Equal(75m, food.EdibleAmount);
+        Assert.Equal("g", food.Unit);
+
+        Assert.Collection(
+            dietary.Nutrients,
+            energy =>
+            {
+                Assert.Equal("total energy", energy.Name);
+                var share = Assert.Single(energy.MealEnergyShares!);
+                Assert.Equal(AdviceMealOccasion.Breakfast, share.Meal);
+                Assert.Equal(600m, share.Energy);
+                Assert.Equal(30m, share.PercentageOfTotalEnergy);
+            },
+            iron =>
+            {
+                Assert.Equal("iron", iron.Name);
+                Assert.Equal(5m, iron.Intake);
+                Assert.Equal(AdviceReferenceComparison.BelowReference, iron.ReferenceComparison);
+                var reference = Assert.Single(iron.References);
+                Assert.Equal("RNI", reference.Type);
+                Assert.Equal(10m, reference.Value);
+                Assert.Equal("mg/d", reference.Unit);
+            },
+            sodium =>
+            {
+                Assert.Equal("sodium", sodium.Name);
+                Assert.Equal(AdviceReferenceComparison.AboveReference, sodium.ReferenceComparison);
+                Assert.Equal("UL", Assert.Single(sodium.References).Type);
+            },
+            protein =>
+            {
+                Assert.Equal("protein", protein.Name);
+                Assert.Equal(AdviceReferenceComparison.NotEstablished, protein.ReferenceComparison);
+                Assert.Empty(protein.References);
+                Assert.Equal(
+                    ["food-b", "food-c", "food-a"],
+                    protein.TopFoodSources?.Select(source => source.FoodName));
+            });
         Assert.Equal(AiAdviceGenerationStatus.Prepared, workspace.AiGeneratedAdvice?.GenerationStatus);
+    }
+
+    [Fact]
+    public void PreparePrompt_omits_dietary_module_when_no_calculation_exists()
+    {
+        var service = new AiAdviceApplicationService(CreateGateway());
+        var workspace = CreateReadyWorkspace();
+        workspace.DietaryRecallSurvey!.ResetCalculation();
+
+        Assert.True(service.PreparePrompt(workspace));
+
+        Assert.Null(workspace.AdvicePrompt?.DietaryRecallSurvey);
     }
 
     [Fact]
@@ -342,32 +397,69 @@ public sealed class AiAdviceApplicationServiceTests
         Assert.True(energy.CorrectEnergy(2100));
 
         var survey = new DietaryRecallSurvey(client, [], [], new DRIs(client));
-        survey.NutrientAssessments.AddRange(
-        [
-            new DietaryNutrientAssessment
-            {
-                FriendlyName = "iron",
-                Value = 5m,
-                LowerReference = new DietaryNutrientReference(
-                    DietaryReferenceIntakeType.RNI,
-                    10m,
-                    "mg/d")
-            },
-            new DietaryNutrientAssessment
-            {
-                FriendlyName = "sodium",
-                Value = 3000m,
-                UpperReference = new DietaryNutrientReference(
-                    DietaryReferenceIntakeType.UL,
-                    2000m,
-                    "mg/d")
-            },
-            new DietaryNutrientAssessment
-            {
-                FriendlyName = "protein",
-                Value = 65m
-            }
-        ]);
+        survey.ApplyCalculation(new DietaryRecallCalculationResult
+        {
+            Summary = new SummaryCalculationTable([], []),
+            NutrientAssessments =
+            [
+                new DietaryNutrientAssessment
+                {
+                    FriendlyName = "total energy",
+                    Value = 2000m,
+                    Unit = "kcal",
+                    MealEnergies =
+                    [
+                        new DietaryMealEnergy(MealOccasion.Breakfast, 600m, 30m),
+                        new DietaryMealEnergy(MealOccasion.MorningSnack, 0m, 0m)
+                    ]
+                },
+                new DietaryNutrientAssessment
+                {
+                    FriendlyName = "iron",
+                    Value = 5m,
+                    Unit = "mg",
+                    LowerReference = new DietaryNutrientReference(
+                        DietaryReferenceIntakeType.RNI,
+                        10m,
+                        "mg/d")
+                },
+                new DietaryNutrientAssessment
+                {
+                    FriendlyName = "sodium",
+                    Value = 3000m,
+                    Unit = "mg",
+                    UpperReference = new DietaryNutrientReference(
+                        DietaryReferenceIntakeType.UL,
+                        2000m,
+                        "mg/d")
+                },
+                new DietaryNutrientAssessment
+                {
+                    FriendlyName = "protein",
+                    Value = 65m,
+                    Unit = "g",
+                    FoodContributions =
+                    [
+                        new DietaryFoodContribution("food-a", 5m, "g"),
+                        new DietaryFoodContribution("food-b", 20m, "g"),
+                        new DietaryFoodContribution("food-c", 10m, "g"),
+                        new DietaryFoodContribution("food-d", 1m, "g")
+                    ]
+                }
+            ],
+            EntryCalculations =
+            [
+                new DietaryRecallEntryCalculation
+                {
+                    FoodName = "rice",
+                    RecordedWeight = 100m,
+                    EdibleWeight = 75m,
+                    MealOccasion = MealOccasion.Lunch,
+                    IsAllEdible = false,
+                    NutrientValues = new Dictionary<int, decimal>()
+                }
+            ]
+        });
 
         return new ConsultationWorkspace(client)
         {

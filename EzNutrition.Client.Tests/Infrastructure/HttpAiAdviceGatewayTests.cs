@@ -109,12 +109,22 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Equal(prompt.ClinicalInfo?.Objective, posted.ClinicalInfo?.Objective);
         Assert.Equal(prompt.ClinicalInfo?.Assessment, posted.ClinicalInfo?.Assessment);
         Assert.Equal(prompt.ClinicalInfo?.Plan, posted.ClinicalInfo?.Plan);
-        Assert.Equal(
-            prompt.DietaryRecallSurvey?.DeficientNutrients,
-            posted.DietaryRecallSurvey?.DeficientNutrients);
-        Assert.Equal(
-            prompt.DietaryRecallSurvey?.ExcessiveNutrients,
-            posted.DietaryRecallSurvey?.ExcessiveNutrients);
+        var postedDietary = Assert.IsType<PromptDietaryRecallSurvey>(posted.DietaryRecallSurvey);
+        Assert.Equal("24-hour-recall", postedDietary.Method);
+        Assert.Equal(1, postedDietary.RecallDays);
+        var postedFood = Assert.Single(postedDietary.Foods);
+        Assert.Equal("米饭", postedFood.FoodName);
+        Assert.Equal(DietaryMealOccasion.Lunch, postedFood.Meal);
+        Assert.Equal(150m, postedFood.EdibleAmount);
+        var postedCalcium = Assert.Single(
+            postedDietary.Nutrients,
+            nutrient => nutrient.Name == "钙");
+        Assert.Equal(420m, postedCalcium.Intake);
+        Assert.Equal(DietaryReferenceComparison.BelowReference, postedCalcium.ReferenceComparison);
+        var calciumReference = Assert.Single(postedCalcium.References);
+        Assert.Equal("RNI", calciumReference.Type);
+        Assert.Equal(800m, calciumReference.Value);
+        Assert.Equal("mg/d", calciumReference.Unit);
 
         Assert.True(
             request.Options.TryGetValue("WebAssemblyEnableStreamingResponse", out var streamingValue),
@@ -328,8 +338,29 @@ public sealed class HttpAiAdviceGatewayTests
         },
         DietaryRecallSurvey = new PromptDietaryRecallSurvey
         {
-            DeficientNutrients = ["钙", "维生素D"],
-            ExcessiveNutrients = ["钠"]
+            Foods =
+            [
+                new DietaryRecallFoodItem(
+                    "米饭",
+                    DietaryMealOccasion.Lunch,
+                    150m,
+                    "g")
+            ],
+            Nutrients =
+            [
+                new DietaryNutrientIntake(
+                    "钙",
+                    420m,
+                    "mg",
+                    DietaryReferenceComparison.BelowReference,
+                    [new DietaryReferenceTarget("RNI", 800m, "mg/d")]),
+                new DietaryNutrientIntake(
+                    "钠",
+                    2300m,
+                    "mg",
+                    DietaryReferenceComparison.AboveReference,
+                    [new DietaryReferenceTarget("PI-NCD", 2000m, "mg/d")])
+            ]
         },
         ClinicalInfo = new ClinicalInfo
         {

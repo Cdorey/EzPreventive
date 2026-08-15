@@ -2,6 +2,7 @@ using EzNutrition.Application.Ports;
 using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.DTO.PromptDto;
 using System.Runtime.CompilerServices;
+using DomainDietaryRecallSurvey = EzNutrition.Domain.Dietary.DietaryRecallSurvey;
 using PromptDietaryRecallSurvey = EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey;
 
 namespace EzNutrition.Application.Consultations;
@@ -32,17 +33,7 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
             }
 
             var dietaryRecallSurvey = workspace.DietaryRecallSurvey is { NutrientAssessments.Count: > 0 } survey
-                ? new PromptDietaryRecallSurvey
-                {
-                    DeficientNutrients = survey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange)
-                        .Select(assessment => assessment.FriendlyName)
-                        .ToArray(),
-                    ExcessiveNutrients = survey.NutrientAssessments
-                        .Where(assessment => assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange)
-                        .Select(assessment => assessment.FriendlyName)
-                        .ToArray(),
-                }
+                ? CreateDietaryRecallProjection(survey)
                 : null;
 
             var prompt = new AiAdviceRequestDto
@@ -73,6 +64,77 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
             return true;
         }
     }
+
+    private static PromptDietaryRecallSurvey CreateDietaryRecallProjection(
+        DomainDietaryRecallSurvey survey) => new()
+        {
+            Foods = survey.EntryCalculations
+                .Select(entry => new DietaryRecallFoodItem(
+                    entry.FoodName,
+                    MapMeal(entry.MealOccasion),
+                    entry.EdibleWeight,
+                    "g"))
+                .ToArray(),
+            Nutrients = survey.NutrientAssessments
+                .Select(CreateNutrientProjection)
+                .ToArray()
+        };
+
+    private static DietaryNutrientIntake CreateNutrientProjection(
+        DietaryNutrientAssessment assessment)
+    {
+        var mealEnergyShares = assessment.MealEnergies
+            .Where(meal => meal.Energy > 0m)
+            .Select(meal => new DietaryMealEnergyShare(
+                MapMeal(meal.MealOccasion),
+                meal.Energy,
+                meal.PercentageOfTotalEnergy))
+            .ToArray();
+        var topFoodSources = assessment.FoodContributions
+            .OrderByDescending(source => source.Value)
+            .Take(3)
+            .Select(source => new DietaryFoodSource(
+                source.FoodName,
+                source.Value,
+                source.Unit))
+            .ToArray();
+
+        return new DietaryNutrientIntake(
+            assessment.FriendlyName,
+            assessment.Value,
+            assessment.Unit,
+            MapReferenceComparison(assessment.ReferenceStatus),
+            new[] { assessment.LowerReference, assessment.UpperReference }
+                .OfType<DietaryNutrientReference>()
+                .Select(reference => new DietaryReferenceTarget(
+                    reference.Type.ToString().Replace('_', '-'),
+                    reference.Value,
+                    reference.Unit))
+                .ToArray(),
+            mealEnergyShares.Length == 0 ? null : mealEnergyShares,
+            topFoodSources.Length == 0 ? null : topFoodSources);
+    }
+
+    private static DietaryReferenceComparison MapReferenceComparison(
+        DietaryReferenceStatus status) => status switch
+        {
+            DietaryReferenceStatus.NotEstablished => DietaryReferenceComparison.NotEstablished,
+            DietaryReferenceStatus.WithinRange => DietaryReferenceComparison.WithinReference,
+            DietaryReferenceStatus.BelowRange => DietaryReferenceComparison.BelowReference,
+            DietaryReferenceStatus.AboveRange => DietaryReferenceComparison.AboveReference,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
+        };
+
+    private static DietaryMealOccasion MapMeal(MealOccasion meal) => meal switch
+    {
+        MealOccasion.Breakfast => DietaryMealOccasion.Breakfast,
+        MealOccasion.MorningSnack => DietaryMealOccasion.MorningSnack,
+        MealOccasion.Lunch => DietaryMealOccasion.Lunch,
+        MealOccasion.AfternoonSnack => DietaryMealOccasion.AfternoonSnack,
+        MealOccasion.Dinner => DietaryMealOccasion.Dinner,
+        MealOccasion.LateNightSnack => DietaryMealOccasion.LateNightSnack,
+        _ => throw new ArgumentOutOfRangeException(nameof(meal), meal, null)
+    };
 
     /// <summary>Discards the prepared disclosure and resets generated advice.</summary>
     public void DiscardPreparedAdvice(ConsultationWorkspace workspace)

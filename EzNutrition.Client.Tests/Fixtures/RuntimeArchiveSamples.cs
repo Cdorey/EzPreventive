@@ -188,8 +188,29 @@ internal static class RuntimeArchiveSamples
             },
             DietaryRecallSurvey = new EzNutrition.Shared.Data.DTO.PromptDto.DietaryRecallSurvey
             {
-                DeficientNutrients = ["钙"],
-                ExcessiveNutrients = ["钠"]
+                Foods =
+                [
+                    new DietaryRecallFoodItem(
+                        "合成米饭",
+                        DietaryMealOccasion.Lunch,
+                        150m,
+                        "g")
+                ],
+                Nutrients =
+                [
+                    new DietaryNutrientIntake(
+                        "钙",
+                        400m,
+                        "mg",
+                        DietaryReferenceComparison.BelowReference,
+                        [new DietaryReferenceTarget("RNI", 800m, "mg/d")]),
+                    new DietaryNutrientIntake(
+                        "钠",
+                        2300m,
+                        "mg",
+                        DietaryReferenceComparison.AboveReference,
+                        [new DietaryReferenceTarget("PI-NCD", 2000m, "mg/d")])
+                ]
             },
             ClinicalInfo = new ClinicalInfo
             {
