@@ -7,16 +7,26 @@
         <div class="archive-actions" aria-label="档案操作">
             @if (CanSave)
             {
-                <Button Type="@ButtonType.Primary" Ghost OnClick="SaveAsync" AutoLoading>
-                    <Icon Type="save" Theme="IconThemeType.Outline" />
-                    保存档案
+                <Button Type="@ButtonType.Primary"
+                        Ghost
+                        OnClick="SaveAsync"
+                        Disabled="@OperationInProgress"
+                        AutoLoading>
+                    @if (!saving)
+                    {
+                        <Icon Type="save" Theme="IconThemeType.Outline" />
+                    }
+                    @(saving ? "正在保存…" : "保存档案")
                 </Button>
             }
             @if (CanExport)
             {
-                <Button OnClick="ExportAsync" AutoLoading>
-                    <Icon Type="download" Theme="IconThemeType.Outline" />
-                    导出文档
+                <Button OnClick="ExportAsync" Disabled="@OperationInProgress" AutoLoading>
+                    @if (!exporting)
+                    {
+                        <Icon Type="download" Theme="IconThemeType.Outline" />
+                    }
+                    @(exporting ? "正在导出…" : "导出文档")
                 </Button>
             }
         </div>
@@ -33,17 +43,49 @@
     private bool CanExport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Export);
 
     private ArchiveOperationResult? feedback;
+    private bool saving;
+    private bool exporting;
+
+    private bool OperationInProgress => saving || exporting;
 
     private async Task SaveAsync()
     {
-        feedback = null;
-        await ReportAsync(await ArchiveWorkflow.SaveCurrentAsync(Workspace));
+        if (OperationInProgress)
+        {
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            await Task.Yield();
+            feedback = null;
+            await ReportAsync(await ArchiveWorkflow.SaveCurrentAsync(Workspace));
+        }
+        finally
+        {
+            saving = false;
+        }
     }
 
     private async Task ExportAsync()
     {
-        feedback = null;
-        await ReportAsync(await ArchiveWorkflow.ExportCurrentAsync(Workspace));
+        if (OperationInProgress)
+        {
+            return;
+        }
+
+        exporting = true;
+        try
+        {
+            await Task.Yield();
+            feedback = null;
+            await ReportAsync(await ArchiveWorkflow.ExportCurrentAsync(Workspace));
+        }
+        finally
+        {
+            exporting = false;
+        }
     }
 
     private async Task ReportAsync(ArchiveOperationResult result)

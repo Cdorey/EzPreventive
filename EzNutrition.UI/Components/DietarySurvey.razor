@@ -35,9 +35,19 @@
                 <label>添加食物原料</label>
                 <FoodSearchSelect @key="DietaryRecallSurvey"
                                   Foods="@DietaryRecallSurvey?.Foods"
-                                  Disabled="@isCalculating"
+                                  Disabled="@(isCalculating || isAddingFood)"
                                   OnFoodSelected="OnSelectedItemChangedHandler" />
-                <span class="field-help">选择后自动加入下方记录，默认按 100 g 可食重量录入。</span>
+                @if (isAddingFood)
+                {
+                    <span class="field-help food-load-status" role="status">
+                        <Icon Type="loading" Spin />
+                        正在读取食物成分并加入记录…
+                    </span>
+                }
+                else
+                {
+                    <span class="field-help">选择后自动加入下方记录，默认按 100 g 可食重量录入。</span>
+                }
             </div>
 
             @if (EntryCount == 0)
@@ -116,7 +126,7 @@
                 <Button Class="calculate-button"
                         Type="ButtonType.Primary"
                         Size="ButtonSize.Large"
-                        Disabled="@(EntryCount == 0 || isCalculating)"
+                        Disabled="@(EntryCount == 0 || isCalculating || isAddingFood)"
                         OnClick="Calculate"
                         AutoLoading>
                     <Icon Type="calculator" Theme="IconThemeType.Outline" />
@@ -334,6 +344,7 @@
             .Cast<DietaryNutrientAssessment>();
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
+    private bool isAddingFood;
     private bool isCalculating;
 
     private static string FormatValue(DietaryNutrientAssessment assessment) =>
@@ -416,7 +427,7 @@
 
     private async Task OnSelectedItemChangedHandler(Food? food)
     {
-        if (food is null || isCalculating)
+        if (food is null || isCalculating || isAddingFood)
         {
             return;
         }
@@ -429,6 +440,7 @@
 
         try
         {
+            isAddingFood = true;
             if (food.FoodNutrientValues is null)
             {
                 await ConsultationService.LoadFoodCompositionAsync(
@@ -446,13 +458,22 @@
             Logger.LogWarning(ex, "Unable to load food composition for {FoodCode}.", food.FriendlyCode);
             await Message.ErrorAsync(ex.Message);
         }
+        finally
+        {
+            isAddingFood = false;
+        }
     }
 
     private async Task Calculate()
     {
-        if (DietaryRecallSurvey is null || isCalculating)
+        if (DietaryRecallSurvey is null)
         {
             await Message.ErrorAsync("问卷系统初始化失败");
+            return;
+        }
+
+        if (isCalculating || isAddingFood)
+        {
             return;
         }
 
