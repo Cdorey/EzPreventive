@@ -2,6 +2,7 @@ using EzNutrition.Application.Consultations;
 using EzNutrition.Application.Ports;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
+using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
 
 namespace EzNutrition.Application.Tests.Consultations;
@@ -100,6 +101,64 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Null(food.FoodNutrientValues);
     }
 
+    /// <summary>
+    /// 验证后台调度不会改变既有重量折算、营养素合计和供能比算法。
+    /// </summary>
+    [Fact]
+    public async Task CalculateDietaryRecallAsync_preserves_nutrition_results()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var client = CreateClient();
+        var nutrients = CreateCalculationNutrients();
+        var food = CreateCalculationFood(nutrients);
+        var survey = new DietaryRecallSurvey(client, [food], nutrients, new DRIs(client));
+        survey.RecallEntries.Add(new DietaryRecallEntry
+        {
+            Food = food,
+            Weight = 100m,
+            MealOccasion = MealOccasion.Lunch,
+            IsAllEdible = true
+        });
+
+        await service.CalculateDietaryRecallAsync(survey);
+
+        Assert.Equal(200m, survey.SummaryCalculationTable?.TotalEnergy);
+        Assert.Equal(10m, Assessment(survey, "蛋白质").Value);
+        Assert.Equal(5m, Assessment(survey, "总脂肪").Value);
+        Assert.Equal(20m, Assessment(survey, "碳水化合物").Value);
+        Assert.Equal(20m, Assessment(survey, "蛋白质供能比").Value);
+        Assert.Equal(22m, Assessment(survey, "脂肪供能比").Value);
+        Assert.Equal(40m, Assessment(survey, "碳水化合物供能比").Value);
+        var detail = Assert.Single(survey.EntryCalculations);
+        Assert.Equal(200m, detail.NutrientValues[Nutrient(nutrients, "能量").NutrientId]);
+        Assert.Equal(100m, Assert.Single(survey.RecallEntries).Weight);
+    }
+
+    /// <summary>
+    /// 验证预先取消的后台核算不会覆盖调查对象已有状态。
+    /// </summary>
+    [Fact]
+    public async Task CalculateDietaryRecallAsync_does_not_apply_a_cancelled_calculation()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var client = CreateClient();
+        var nutrients = CreateCalculationNutrients();
+        var food = CreateCalculationFood(nutrients);
+        var survey = new DietaryRecallSurvey(client, [food], nutrients, new DRIs(client));
+        survey.RecallEntries.Add(new DietaryRecallEntry { Food = food, Weight = 100m });
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.CalculateDietaryRecallAsync(survey, cancellation.Token));
+
+        Assert.Null(survey.SummaryCalculationTable);
+        Assert.Empty(survey.NutrientAssessments);
+        Assert.Empty(survey.EntryCalculations);
+    }
+
     private static ConsultationApplicationService CreateService(StubNutritionDataSource source) =>
         new(source, source, source);
 
@@ -111,6 +170,58 @@ public sealed class ConsultationApplicationServiceTests
         Weight = 60,
         SpecialPhysiologicalPeriod = string.Empty
     };
+
+    private static DietaryNutrientAssessment Assessment(
+        DietaryRecallSurvey survey,
+        string name) => Assert.Single(
+            survey.NutrientAssessments,
+            assessment => assessment.FriendlyName == name);
+
+    private static Nutrient Nutrient(IEnumerable<Nutrient> nutrients, string name) =>
+        Assert.Single(nutrients, nutrient => nutrient.FriendlyName == name);
+
+    private static Nutrient[] CreateCalculationNutrients()
+    {
+        var names = new[]
+        {
+            "能量", "蛋白质", "脂肪", "碳水化合物", "钾", "钠", "镁", "铁", "锰", "锌", "磷", "硒", "铜",
+            "总维生素A", "视黄醇", "胡萝卜素", "硫胺素", "核黄素", "烟酸", "维生素C", "总维生素E"
+        };
+        return names.Select((name, index) => new Nutrient
+        {
+            NutrientId = index + 1,
+            FriendlyName = name,
+            DefaultMeasureUnit = name == "能量" ? "kCal" : "g"
+        }).ToArray();
+    }
+
+    private static Food CreateCalculationFood(IReadOnlyList<Nutrient> nutrients)
+    {
+        var food = new Food
+        {
+            FoodId = Guid.NewGuid(),
+            FriendlyCode = "TEST-ASYNC",
+            FriendlyName = "后台核算测试食物",
+            EdiblePortion = 100
+        };
+        var values = new Dictionary<string, decimal>(StringComparer.Ordinal)
+        {
+            ["能量"] = 200m,
+            ["蛋白质"] = 10m,
+            ["脂肪"] = 5m,
+            ["碳水化合物"] = 20m
+        };
+        food.FoodNutrientValues = nutrients.Select(nutrient => new FoodNutrientValue
+        {
+            Food = food,
+            FoodId = food.FoodId,
+            Nutrient = nutrient,
+            NutrientId = nutrient.NutrientId,
+            MeasureUnit = nutrient.DefaultMeasureUnit,
+            Value = values.GetValueOrDefault(nutrient.FriendlyName ?? string.Empty, 1m)
+        }).ToList();
+        return food;
+    }
 
     private sealed class StubNutritionDataSource :
         IEnergyReferenceDataSource,

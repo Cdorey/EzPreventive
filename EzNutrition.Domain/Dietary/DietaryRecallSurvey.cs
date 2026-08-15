@@ -204,19 +204,54 @@ public class DietaryRecallSurvey(
 
     public IReadOnlyList<DietaryRecallEntryCalculation> EntryCalculations { get; private set; } = [];
 
+    /// <summary>
+    /// 使用当前膳食记录完成核算并立即应用结果。
+    /// </summary>
     public void Calculate()
     {
-        var calculation = new SummaryCalculationTable(RecallEntries, Nutrients.ToList());
+        ApplyCalculation(CreateCalculation(RecallEntries));
+    }
+
+    /// <summary>
+    /// 使用给定的稳定记录快照完成核算，但不改变当前调查对象。
+    /// </summary>
+    /// <param name="recallEntries">按调查录入顺序排列的膳食记录快照。</param>
+    /// <returns>可在核算完成后原子应用的完整结果。</returns>
+    public DietaryRecallCalculationResult CreateCalculation(
+        IReadOnlyList<DietaryRecallEntry> recallEntries)
+    {
+        ArgumentNullException.ThrowIfNull(recallEntries);
+
+        var calculation = new SummaryCalculationTable(recallEntries.ToList(), Nutrients.ToList());
         var assessments = CreateNutrientAssessments(calculation);
         var entryCalculations = calculation.CreateEntryCalculations();
 
+        return new DietaryRecallCalculationResult
+        {
+            Summary = calculation,
+            NutrientAssessments = assessments,
+            EntryCalculations = entryCalculations
+        };
+    }
+
+    /// <summary>
+    /// 一次性应用已经完成的膳食核算结果，并通知依赖该结果的领域投影。
+    /// </summary>
+    /// <param name="result">待应用的完整核算结果。</param>
+    public void ApplyCalculation(DietaryRecallCalculationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
         NutrientAssessments.Clear();
-        NutrientAssessments.AddRange(assessments);
-        EntryCalculations = entryCalculations;
-        SummaryCalculationTable = calculation;
+        NutrientAssessments.AddRange(result.NutrientAssessments);
+        EntryCalculations = result.EntryCalculations;
+        SummaryCalculationTable = result.Summary;
         OnCalculate?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// 清除最近一次核算结果，使调查对象重新进入记录编辑状态。
+    /// </summary>
     public void ResetCalculation()
     {
         SummaryCalculationTable = null;

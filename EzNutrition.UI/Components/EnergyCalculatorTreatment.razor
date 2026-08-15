@@ -42,7 +42,11 @@
                             }
                         </RadioGroup>
                     }
-                    <Button Type="@ButtonType.Primary" @onclick="OnCalculateBtnClick">计算推荐能量</Button>
+                    <Button Type="@ButtonType.Primary"
+                            Disabled="@IsEerLoading"
+                            @onclick="OnCalculateBtnClick">
+                        计算推荐能量
+                    </Button>
                 </div>
             }
             else

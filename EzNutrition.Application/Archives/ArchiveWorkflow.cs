@@ -92,7 +92,11 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
-            var encoded = await EncodeAsync(workspace, ArchiveValidationScope.DraftSave, cancellationToken);
+            var documentSnapshot = assembler.CreateDocument(workspace);
+            var encoded = await EncodeAsync(
+                documentSnapshot,
+                ArchiveValidationScope.DraftSave,
+                cancellationToken);
             if (encoded.Operation is not null)
             {
                 return encoded.Operation;
@@ -297,7 +301,11 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
-            var encoded = await EncodeAsync(workspace, ArchiveValidationScope.Export, cancellationToken);
+            var documentSnapshot = assembler.CreateDocument(workspace);
+            var encoded = await EncodeAsync(
+                documentSnapshot,
+                ArchiveValidationScope.Export,
+                cancellationToken);
             if (encoded.Operation is not null)
             {
                 return encoded.Operation;
@@ -327,80 +335,83 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
     private bool HasReadableCodec => codecs.Any(codec => codec.ReadableFormats.Count > 0);
 
-    private async ValueTask<EncodedArchive> EncodeAsync(
-        ConsultationWorkspace workspace,
+    private Task<EncodedArchive> EncodeAsync(
+        ArchiveDocument document,
         ArchiveValidationScope scope,
-        CancellationToken cancellationToken)
-    {
-        var document = assembler.CreateDocument(workspace);
-        var semanticValidation = validator.ValidateBundle(document.Bundle, scope);
-        if (semanticValidation.HasErrors)
+        CancellationToken cancellationToken) => Task.Run(
+        async () =>
         {
-            return EncodedArchive.Invalid(Invalid("当前咨询未通过档案校验，尚未写出。", semanticValidation));
-        }
+            var semanticValidation = validator.ValidateBundle(document.Bundle, scope);
+            if (semanticValidation.HasErrors)
+            {
+                return EncodedArchive.Invalid(Invalid("当前咨询未通过档案校验，尚未写出。", semanticValidation));
+            }
 
-        var choice = codecs
-            .SelectMany(codec => codec.WritableFormats.Select(format => (Codec: codec, Format: format)))
-            .OrderBy(candidate => candidate.Format.Identifier.AbsoluteUri, StringComparer.Ordinal)
-            .ThenBy(candidate => candidate.Format.Version, StringComparer.Ordinal)
-            .FirstOrDefault();
-        if (choice.Codec is null || choice.Format is null)
-        {
-            return EncodedArchive.Invalid(Unavailable("没有配置可写出的档案格式。"));
-        }
+            var choice = codecs
+                .SelectMany(codec => codec.WritableFormats.Select(format => (Codec: codec, Format: format)))
+                .OrderBy(candidate => candidate.Format.Identifier.AbsoluteUri, StringComparer.Ordinal)
+                .ThenBy(candidate => candidate.Format.Version, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (choice.Codec is null || choice.Format is null)
+            {
+                return EncodedArchive.Invalid(Unavailable("没有配置可写出的档案格式。"));
+            }
 
-        await using var destination = new MemoryStream();
-        var writeResult = await choice.Codec.WriteAsync(new ArchiveWriteRequest
-        {
-            Document = document,
-            TargetFormat = choice.Format
-        }, destination, cancellationToken);
-        if (!writeResult.IsSuccess)
-        {
-            return EncodedArchive.Invalid(Invalid("档案编码失败，未产生可保存的文档。", writeResult.Validation));
-        }
+            await using var destination = new MemoryStream();
+            var writeResult = await choice.Codec.WriteAsync(new ArchiveWriteRequest
+            {
+                Document = document,
+                TargetFormat = choice.Format
+            }, destination, cancellationToken);
+            if (!writeResult.IsSuccess)
+            {
+                return EncodedArchive.Invalid(Invalid("档案编码失败，未产生可保存的文档。", writeResult.Validation));
+            }
 
-        return new EncodedArchive
-        {
-            Document = document,
-            TargetFormat = choice.Format,
-            Content = destination.ToArray(),
-            Notices = ToNotices(semanticValidation)
-                .Concat(ToNotices(writeResult.Validation))
-                .DistinctBy(notice => (notice.Code, notice.Message))
-                .ToArray()
-        };
-    }
+            return new EncodedArchive
+            {
+                Document = document,
+                TargetFormat = choice.Format,
+                Content = destination.ToArray(),
+                Notices = ToNotices(semanticValidation)
+                    .Concat(ToNotices(writeResult.Validation))
+                    .DistinctBy(notice => (notice.Code, notice.Message))
+                    .ToArray()
+            };
+        },
+        cancellationToken);
 
-    private async ValueTask<ArchiveOpenResult> DecodeAsync(
+    private Task<ArchiveOpenResult> DecodeAsync(
         ReadOnlyMemory<byte> content,
         string? mediaType,
         string? formatIdentifier,
         string? formatVersion,
-        CancellationToken cancellationToken)
-    {
-        var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
-        if (codec is null)
+        CancellationToken cancellationToken) => Task.Run(
+        async () =>
         {
-            return new ArchiveOpenResult { Operation = Invalid("无法识别该档案文档的格式。") };
-        }
+            var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
+            if (codec is null)
+            {
+                return new ArchiveOpenResult { Operation = Invalid("无法识别该档案文档的格式。") };
+            }
 
-        await using var source = new MemoryStream(content.ToArray(), writable: false);
-        var readResult = await codec.ReadAsync(source, cancellationToken);
-        if (!readResult.IsSuccess || readResult.Document is null)
-        {
+            await using var source = new MemoryStream(content.ToArray(), writable: false);
+            var readResult = await codec.ReadAsync(source, cancellationToken);
+            if (!readResult.IsSuccess || readResult.Document is null)
+            {
+                return new ArchiveOpenResult
+                {
+                    Operation = Invalid("档案文档未通过格式或语义校验。", readResult.Validation)
+                };
+            }
+
             return new ArchiveOpenResult
             {
-                Operation = Invalid("档案文档未通过格式或语义校验。", readResult.Validation)
+                Operation = Success("档案已安全打开。", ToNotices(readResult.Validation)),
+                Review = ArchiveReviewProjector.Create(readResult.Document)
             };
-        }
-
-        return new ArchiveOpenResult
-        {
-            Operation = Success("档案已安全打开。", ToNotices(readResult.Validation)),
-            Review = ArchiveReviewProjector.Create(readResult.Document)
-        };
-    }
+        },
+        cancellationToken);
 
     private IArchiveCodec? SelectReadableCodec(
         string? mediaType,

@@ -115,6 +115,32 @@ public sealed class ConsultationApplicationService(
         food.FoodNutrientValues = [.. values];
     }
 
+    /// <summary>
+    /// 在托管线程池上核算一份稳定的膳食记录快照，并在输入未变化时应用结果。
+    /// </summary>
+    /// <param name="survey">待核算的膳食回顾调查。</param>
+    /// <param name="cancellationToken">用于放弃尚未开始的核算或阻止应用结果的取消标记。</param>
+    public async Task CalculateDietaryRecallAsync(
+        DietaryRecallSurvey survey,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(survey);
+
+        // 食物目录、成分表和 DRIs 在咨询初始化后保持只读；这里只复制医生仍可编辑的记录字段。
+        var entries = survey.RecallEntries.Select(CreateEntrySnapshot).ToArray();
+        var result = await Task.Run(
+            () => survey.CreateCalculation(entries),
+            cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!MatchesCurrentEntries(survey.RecallEntries, entries))
+        {
+            throw new InvalidOperationException("膳食记录在核算期间发生变化，请重新计算。");
+        }
+
+        survey.ApplyCalculation(result);
+    }
+
     private static NutritionSubjectQuery CreateSubjectQuery(IClient client)
     {
         if (string.IsNullOrWhiteSpace(client.Gender) || client.Age < 0)
@@ -128,6 +154,41 @@ public sealed class ConsultationApplicationService(
             Age = client.Age,
             SpecialPhysiologicalPeriod = client.SpecialPhysiologicalPeriod ?? string.Empty
         };
+    }
+
+    private static DietaryRecallEntry CreateEntrySnapshot(DietaryRecallEntry entry) => new()
+    {
+        EntryId = entry.EntryId,
+        Food = entry.Food,
+        Weight = entry.Weight,
+        MealOccasion = entry.MealOccasion,
+        IsAllEdible = entry.IsAllEdible
+    };
+
+    private static bool MatchesCurrentEntries(
+        IReadOnlyList<DietaryRecallEntry> current,
+        IReadOnlyList<DietaryRecallEntry> snapshot)
+    {
+        if (current.Count != snapshot.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < current.Count; index++)
+        {
+            var currentEntry = current[index];
+            var snapshotEntry = snapshot[index];
+            if (currentEntry.EntryId != snapshotEntry.EntryId ||
+                currentEntry.Food.FoodId != snapshotEntry.Food.FoodId ||
+                currentEntry.Weight != snapshotEntry.Weight ||
+                currentEntry.MealOccasion != snapshotEntry.MealOccasion ||
+                currentEntry.IsAllEdible != snapshotEntry.IsAllEdible)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void EnsureNotEmpty<T>(IReadOnlyCollection<T>? values, string message)

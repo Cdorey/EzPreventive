@@ -103,6 +103,13 @@
     font-size: 0.82rem;
 }
 
+.food-load-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ez-primary-strong);
+}
+
 .food-identity,
 .weight-basis {
     display: flex;
