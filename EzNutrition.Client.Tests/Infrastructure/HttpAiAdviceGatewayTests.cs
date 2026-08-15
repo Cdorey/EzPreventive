@@ -86,8 +86,11 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Equal("application/json", request.ContentType?.MediaType);
         Assert.Equal("utf-8", request.ContentType?.CharSet);
         Assert.NotNull(request.Body);
+        Assert.Contains("女", request.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u5973", request.Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"patientInfo\"", request.Body, StringComparison.Ordinal);
 
-        var posted = JsonSerializer.Deserialize<PromptDto>(request.Body!);
+        var posted = JsonSerializer.Deserialize<PromptDto>(request.Body!, WebJsonOptions);
         Assert.NotNull(posted);
         Assert.Equal(prompt.PatientInfo.Gender, posted.PatientInfo.Gender);
         Assert.Equal(prompt.PatientInfo.Age, posted.PatientInfo.Age);

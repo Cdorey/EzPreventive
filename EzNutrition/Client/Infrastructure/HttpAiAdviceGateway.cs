@@ -85,7 +85,7 @@ public sealed class HttpAiAdviceGateway(IHttpClientFactory httpClientFactory) : 
         string json;
         try
         {
-            json = JsonSerializer.Serialize(prompt);
+            json = JsonSerializer.Serialize(prompt, AiAdviceJson.Compact);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {

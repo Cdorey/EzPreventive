@@ -49,7 +49,7 @@
                                 <section>
                                     <h3>拟发送的数据</h3>
                                     <Collapse Class="prompt-disclosure">
-                                        <Panel Header="查看将发送的完整数据" Key="prompt-payload">
+                                        <Panel Header="查看将发送的咨询数据" Key="prompt-payload">
                                             <pre class="prompt-preview"><code>@SerializedPrompt</code></pre>
                                         </Panel>
                                     </Collapse>
@@ -158,12 +158,7 @@
 
     private int receivedCharacterCount;
 
-    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
-
-    private string SerializedPrompt => JsonSerializer.Serialize(CurrentArchive.AdvicePrompt, PromptJsonOptions);
+    private string SerializedPrompt => JsonSerializer.Serialize(CurrentArchive.AdvicePrompt, AiAdviceJson.Indented);
 
     private bool ShouldShowConsent =>
         !CurrentArchive.AiGeneratedAdvice!.Sending
