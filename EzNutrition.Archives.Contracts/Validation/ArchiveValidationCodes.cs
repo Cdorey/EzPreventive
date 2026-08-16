@@ -70,4 +70,8 @@ public static class ArchiveValidationCodes
 
     /// <summary>营养建议生成状态与时间或内容不一致。</summary>
     public const string AdviceGenerationStateInvalid = "archive.advice.generation-state-invalid";
+
+    /// <summary>量表身份不足以定位确切定义版本。</summary>
+    public const string AssessmentInstrumentIdentityIncomplete =
+        "archive.assessment.instrument-identity-incomplete";
 }

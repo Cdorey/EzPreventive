@@ -76,4 +76,9 @@ public static class ArchiveResourceTypes
     /// 获取营养报告资源类型。
     /// </summary>
     public static ResourceTypeCode NutritionReport { get; } = new("NutritionReport");
+
+    /// <summary>
+    /// 获取通用营养量表评估资源类型。
+    /// </summary>
+    public static ResourceTypeCode NutritionScaleAssessment { get; } = new("NutritionScaleAssessment");
 }

@@ -514,9 +514,195 @@ public sealed class ArchiveContractValidatorTests
         Assert.True(result.HasErrors);
     }
 
+    /// <summary>
+    /// 验证量表草稿可以尚未填写回答或形成总分。
+    /// </summary>
+    [Fact]
+    public void Draft_scale_assessment_can_remain_unanswered_and_unscored()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            Metadata = scale.Metadata with
+            {
+                Status = ResourceLifecycleStatus.Draft,
+                FinalizedAt = null,
+                FinalizedBy = null
+            },
+            Responses = [],
+            DerivedResults = [],
+            TotalScore = null
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.DraftSave);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证正式量表必须通过版本或指纹定位确切定义，导入时则保留为兼容性警告。
+    /// </summary>
+    [Fact]
+    public void Final_scale_assessment_requires_an_exact_instrument_identity()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    scale.Instrument.Code.System,
+                    scale.Instrument.Code.Code,
+                    display: scale.Instrument.Code.Display)
+            }
+        };
+
+        var export = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+        var import = Validator.ValidateResource(changed, ArchiveValidationScope.Import);
+
+        Assert.Contains(export.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.AssessmentInstrumentIdentityIncomplete &&
+            issue.Severity == ArchiveValidationSeverity.Error);
+        Assert.Contains(import.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.AssessmentInstrumentIdentityIncomplete &&
+            issue.Severity == ArchiveValidationSeverity.Warning);
+        Assert.True(export.HasErrors);
+        Assert.False(import.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表中的已列出条目必须保存回答或明确缺失原因。
+    /// </summary>
+    [Fact]
+    public void Final_scale_response_requires_an_answer_or_absent_reason()
+    {
+        var scale = SyntheticScale();
+        var responses = scale.Responses.ToArray();
+        responses[0] = responses[0] with { Answer = null };
+        var changed = scale with { Responses = responses };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/Responses/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表不能同时保存总分及其缺失原因。
+    /// </summary>
+    [Fact]
+    public void Scale_total_score_and_absent_reason_are_mutually_exclusive()
+    {
+        var changed = SyntheticScale() with
+        {
+            TotalScoreAbsentReason = DataAbsentReasonCode.Unknown
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.ValueAndAbsentReasonConflict &&
+            issue.Path?.Value.EndsWith("/TotalScore", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表必须保存总分或无法取得总分的明确原因。
+    /// </summary>
+    [Fact]
+    public void Final_scale_requires_a_total_score_or_absent_reason()
+    {
+        var changed = SyntheticScale() with { TotalScore = null };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/TotalScore", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证通用校验器不把所有量表误判为题目分值的简单求和。
+    /// </summary>
+    [Fact]
+    public void Scale_specific_scoring_is_not_inferred_by_the_archive_validator()
+    {
+        var scale = SyntheticScale();
+        var responses = scale.Responses
+            .Select(response => response with { ScoreContribution = 99m })
+            .ToArray();
+        var changed = scale with { Responses = responses, TotalScore = -1m };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证量表评分输入必须解析到 Bundle 中的确切资源版本。
+    /// </summary>
+    [Fact]
+    public void Scale_input_must_resolve_to_an_exact_resource_version()
+    {
+        var sample = ArchiveSamples.GetRequired("synthetic-scale-assessment");
+        var scale = sample.Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
+        var input = Assert.Single(scale.InputResourceReferences);
+        var changed = scale with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    input.ResourceId,
+                    new ResourceVersionId(Guid.Parse("90000000-0000-0000-0000-000000000004")),
+                    input.ExpectedResourceType)
+            ]
+        };
+        var bundle = Replace(sample.Bundle, scale, changed);
+
+        var result = Validator.ValidateBundle(bundle, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.UnresolvedReference &&
+            issue.Path?.Value.Contains("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证量表评估不能把自身当前版本列为评分输入。
+    /// </summary>
+    [Fact]
+    public void Scale_cannot_use_its_current_version_as_an_input()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    scale.Metadata.ResourceId,
+                    scale.Metadata.VersionId,
+                    ArchiveResourceTypes.NutritionScaleAssessment)
+            ]
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.InvalidTechnicalValue &&
+            issue.Path?.Value.EndsWith("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
     private static NutritionReportResource TeachingReport() =>
         ArchiveSamples.GetRequired("teaching-report")
             .Bundle.Entries.OfType<NutritionReportResource>().Single();
+
+    private static NutritionScaleAssessmentResource SyntheticScale() =>
+        ArchiveSamples.GetRequired("synthetic-scale-assessment")
+            .Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
 
     private static ArchiveBundle Replace<TResource>(
         ArchiveBundle bundle,

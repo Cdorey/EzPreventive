@@ -71,7 +71,7 @@ internal static class ArchiveSamples
     };
 
     /// <summary>
-    /// 获取九种合成档案情境。
+    /// 获取十种合成档案情境。
     /// </summary>
     public static IReadOnlyList<ArchiveSample> All { get; } = Array.AsReadOnly(
         new[]
@@ -84,7 +84,8 @@ internal static class ArchiveSamples
             CreateSpecialPhysiologySample(),
             CreateAmendmentChainSample(),
             CreateExtensionsAndIdentifiersSample(),
-            CreateTeachingReportSample()
+            CreateTeachingReportSample(),
+            CreateSyntheticScaleAssessmentSample()
         });
 
     /// <summary>
@@ -675,6 +676,102 @@ internal static class ArchiveSamples
             consultation,
             soap,
             report);
+    }
+
+    private static ArchiveSample CreateSyntheticScaleAssessmentSample()
+    {
+        var patient = new PatientResource
+        {
+            Metadata = Metadata(1001, 1001, 10),
+            IdentityMode = PatientIdentityMode.Pseudonymous,
+            Names = [new HumanName { Text = "虚构量表对象" }]
+        };
+        var consultationReference = ExactReference(1002, 1002, ArchiveResourceTypes.Consultation);
+        var consultation = new ConsultationResource
+        {
+            Metadata = Metadata(1002, 1002, 10),
+            SubjectReference = PatientReference(1001),
+            Period = new Period(At(10, 8), At(10, 9)),
+            ClinicalResourceReferences =
+            [
+                ExactReference(1003, 1003, ArchiveResourceTypes.SoapNote),
+                ExactReference(1004, 1004, ArchiveResourceTypes.NutritionScaleAssessment)
+            ],
+            Title = "虚构通用量表评估咨询",
+            ServiceProvider = SampleClinician
+        };
+        var soap = new SoapNoteResource
+        {
+            Metadata = Metadata(1003, 1003, 10),
+            SubjectReference = PatientReference(1001),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(10, 8),
+            Assessment = "用于验证量表输入引用的虚构评估记录。"
+        };
+        var scale = new NutritionScaleAssessmentResource
+        {
+            Metadata = Metadata(1004, 1004, 10),
+            SubjectReference = PatientReference(1001),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(10, 9),
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    new Uri(SampleRoot, "codes/assessment-instrument"),
+                    "synthetic-nutrition-screening",
+                    display: "虚构营养筛查量表"),
+                Version = "1.0-test",
+                Definition = new CanonicalReference(
+                    new Uri(SampleRoot, "assessment-instruments/synthetic-nutrition-screening"),
+                    "1.0-test"),
+                DefinitionFingerprint = new ContentFingerprint(
+                    Code("fingerprint-algorithm", "sha-256", "SHA-256"),
+                    "3d0ddf920785da54eabe959e5ddec2671c0340094e0e8ea9e953ed57c2c68d0e")
+            },
+            InputResourceReferences =
+            [
+                ExactReference(1003, 1003, ArchiveResourceTypes.SoapNote)
+            ],
+            Responses =
+            [
+                new AssessmentItemResponse
+                {
+                    Item = Code("synthetic-scale-item", "item-a", "虚构条目 A"),
+                    Answer = new CodingArchiveValue(
+                        Code("synthetic-scale-answer", "option-one", "虚构选项一")),
+                    ScoreContribution = 1m
+                },
+                new AssessmentItemResponse
+                {
+                    Item = Code("synthetic-scale-item", "item-b", "虚构条目 B"),
+                    Answer = new BooleanArchiveValue(false),
+                    ScoreContribution = 0m
+                }
+            ],
+            DerivedResults =
+            [
+                new NamedArchiveValue
+                {
+                    Name = Code("assessment-result", "answered-item-count", "已回答条目数"),
+                    Value = new IntegerArchiveValue(2)
+                }
+            ],
+            ScoringMethod = Algorithm("synthetic-scale-scoring", "1.0-test", "虚构量表评分方法"),
+            TotalScore = 1m,
+            Interpretation = Code("synthetic-scale-interpretation", "category-one", "虚构分类一"),
+            Performer = SampleClinician
+        };
+
+        return Sample(
+            "synthetic-scale-assessment",
+            "不对应任何真实量表的通用结构样本，用于验证量表横向扩展能力。",
+            10,
+            ArchiveBundleType.ConsultationDocument,
+            10,
+            patient,
+            consultation,
+            soap,
+            scale);
     }
 
     private static DietaryRecallResource CreateMultiMealRecall(

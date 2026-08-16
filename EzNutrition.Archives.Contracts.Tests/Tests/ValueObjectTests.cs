@@ -237,6 +237,28 @@ public sealed class ValueObjectTests
     }
 
     /// <summary>
+    /// 验证量表自身版本独立于代码体系版本，并规范化可选文本。
+    /// </summary>
+    [Fact]
+    public void Assessment_instrument_version_has_independent_normalized_semantics()
+    {
+        var code = new Coding(
+            new Uri("https://example.invalid/codes/assessment-instrument"),
+            "synthetic-scale",
+            "code-system-release");
+        var instrument = new AssessmentInstrumentIdentity
+        {
+            Code = code,
+            Version = "  instrument-edition  "
+        };
+        var unversioned = instrument with { Version = " " };
+
+        Assert.Equal("code-system-release", instrument.Code.Version);
+        Assert.Equal("instrument-edition", instrument.Version);
+        Assert.Null(unversioned.Version);
+    }
+
+    /// <summary>
     /// 验证通用扩展值的判别联合仅由 Contracts 程序集扩展。
     /// </summary>
     [Fact]
