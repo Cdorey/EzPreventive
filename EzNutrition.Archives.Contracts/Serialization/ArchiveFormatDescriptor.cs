@@ -34,7 +34,9 @@ public sealed record ArchiveFormatDescriptor
         Version = version.Trim();
         MediaType = string.IsNullOrWhiteSpace(mediaType) ? null : mediaType.Trim();
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
-        PreferredFileExtension = NormalizeFileExtension(preferredFileExtension);
+        PreferredFileExtension = NormalizeFileExtension(
+            preferredFileExtension,
+            nameof(preferredFileExtension));
     }
 
     /// <summary>
@@ -62,7 +64,7 @@ public sealed record ArchiveFormatDescriptor
     /// </summary>
     public string? PreferredFileExtension { get; }
 
-    private static string? NormalizeFileExtension(string? value)
+    private static string? NormalizeFileExtension(string? value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -74,7 +76,9 @@ public sealed record ArchiveFormatDescriptor
             extension[0] != '.' ||
             extension.IndexOfAny(['/', '\\']) >= 0)
         {
-            throw new ArgumentException("首选文件扩展名必须以句点开头，且不能包含路径分隔符。", nameof(value));
+            throw new ArgumentException(
+                "首选文件扩展名必须以句点开头，且不能包含路径分隔符。",
+                parameterName);
         }
 
         return extension;

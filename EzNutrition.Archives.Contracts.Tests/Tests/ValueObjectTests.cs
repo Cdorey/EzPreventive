@@ -1,6 +1,7 @@
 using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Archives.Contracts.Repositories;
 using EzNutrition.Archives.Contracts.Resources;
+using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using System.Reflection;
@@ -317,6 +318,28 @@ public sealed class ValueObjectTests
         Assert.Throws<ArgumentException>(() => new ArchiveExtension(relative));
         Assert.Throws<ArgumentException>(() => new ApplicationIdentity(relative, "app", "1"));
         Assert.Throws<ArgumentException>(() => new ReferenceDataIdentity(relative, "dataset"));
+    }
+
+    /// <summary>
+    /// 验证格式实现可以声明安全的展示名称和文件扩展名，而不把具体格式固化到调用方。
+    /// </summary>
+    [Fact]
+    public void Archive_format_descriptor_normalizes_file_metadata()
+    {
+        var format = new ArchiveFormatDescriptor(
+            new Uri("https://example.invalid/formats/test"),
+            "1",
+            "application/x-test",
+            "  测试档案  ",
+            "  .test  ");
+
+        Assert.Equal("测试档案", format.DisplayName);
+        Assert.Equal(".test", format.PreferredFileExtension);
+        var exception = Assert.Throws<ArgumentException>(() => new ArchiveFormatDescriptor(
+            new Uri("https://example.invalid/formats/test"),
+            "1",
+            preferredFileExtension: "test"));
+        Assert.Equal("preferredFileExtension", exception.ParamName);
     }
 
     /// <summary>

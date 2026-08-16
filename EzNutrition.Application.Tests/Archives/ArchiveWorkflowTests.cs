@@ -157,6 +157,54 @@ public sealed class ArchiveWorkflowTests
         Assert.Equal("不应进入文件名的姓名", import.Review?.SubjectDisplay);
     }
 
+    [Fact]
+    public async Task Stored_export_forwards_the_saved_document_without_reencoding_it()
+    {
+        var fixture = CreateFixture();
+        var workspace = CreateWorkspace("已保存档案导出对象");
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+        var stored = Assert.Single(fixture.Store.Documents).Value;
+        stored = stored with
+        {
+            Info = stored.Info with
+            {
+                FormatDisplayName = null,
+                PreferredFileExtension = null
+            }
+        };
+        fixture.Store.Documents[stored.Info.DocumentId] = stored;
+        var writesBeforeExport = fixture.Codec.WriteCount;
+
+        var export = await fixture.Workflow.ExportStoredAsync(stored.Info.DocumentId);
+
+        Assert.True(export.IsSuccess);
+        Assert.True(fixture.Workflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.ExportStored));
+        Assert.Equal(writesBeforeExport, fixture.Codec.WriteCount);
+        Assert.Equal(stored.Content, fixture.Transport.LastExport?.Content);
+        Assert.Equal(stored.Info.FormatIdentifier, fixture.Transport.LastExport?.Format.Identifier.AbsoluteUri);
+        Assert.Equal(stored.Info.FormatVersion, fixture.Transport.LastExport?.Format.Version);
+        Assert.Equal("测试档案格式", fixture.Transport.LastExport?.Format.DisplayName);
+        Assert.Equal(".archive-test", fixture.Transport.LastExport?.Format.PreferredFileExtension);
+        Assert.Equal($"eznutrition-{stored.Info.DocumentId:N}", fixture.Transport.LastExport?.SuggestedFileNameStem);
+    }
+
+    [Fact]
+    public async Task Stored_export_capability_and_result_follow_host_policy()
+    {
+        var unavailable = CreateFixture(canSaveExternal: false);
+        var denied = CreateFixture(denyExternalSave: true);
+        var deniedWorkspace = CreateWorkspace("导出策略拒绝对象");
+        await denied.Workflow.SaveCurrentAsync(deniedWorkspace);
+        var deniedDocumentId = Assert.Single(denied.Store.Documents).Key;
+
+        var unavailableResult = await unavailable.Workflow.ExportStoredAsync(Guid.NewGuid());
+        var deniedResult = await denied.Workflow.ExportStoredAsync(deniedDocumentId);
+
+        Assert.False(unavailable.Workflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.ExportStored));
+        Assert.Equal(ArchiveOperationStatus.Unavailable, unavailableResult.Status);
+        Assert.Equal(ArchiveOperationStatus.Denied, deniedResult.Status);
+    }
+
     /// <summary>
     /// 验证同步占用 CPU 的 codec 不会阻塞发起档案保存的调用线程。
     /// </summary>
@@ -215,11 +263,17 @@ public sealed class ArchiveWorkflowTests
             ArchiveDocumentStoreCapabilities.Browse |
             ArchiveDocumentStoreCapabilities.Delete |
             ArchiveDocumentStoreCapabilities.Clear,
-        bool denyMutations = false)
+        bool denyMutations = false,
+        bool canSaveExternal = true,
+        bool denyExternalSave = false)
     {
         var codec = new MemoryCodec();
         var store = new MemoryStore(capabilities) { DenyMutations = denyMutations };
-        var transport = new MemoryTransport();
+        var transport = new MemoryTransport
+        {
+            CanSave = canSaveExternal,
+            DenySave = denyExternalSave
+        };
         var assembler = new ArchiveContractAssembler(new ApplicationIdentity(
             new Uri("https://example.invalid/tests/archive-workflow"),
             "档案工作流测试",
@@ -268,6 +322,8 @@ public sealed class ArchiveWorkflowTests
 
         public ManualResetEventSlim? ContinueWrite { get; set; }
 
+        public int WriteCount { get; private set; }
+
         public ValueTask<ArchiveReadResult> ReadAsync(
             Stream source,
             CancellationToken cancellationToken = default) => ValueTask.FromResult(new ArchiveReadResult
@@ -281,6 +337,7 @@ public sealed class ArchiveWorkflowTests
             Stream destination,
             CancellationToken cancellationToken = default)
         {
+            WriteCount++;
             WriteStarted?.Set();
             ContinueWrite?.Wait(cancellationToken);
             document = request.Document;
@@ -347,7 +404,9 @@ public sealed class ArchiveWorkflowTests
     {
         public bool CanOpen => true;
 
-        public bool CanSave => true;
+        public bool CanSave { get; init; } = true;
+
+        public bool DenySave { get; init; }
 
         public ExternalArchiveDocument? NextInput { get; set; }
 
@@ -360,6 +419,11 @@ public sealed class ArchiveWorkflowTests
             ArchiveDocumentExport document,
             CancellationToken cancellationToken = default)
         {
+            if (DenySave)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
             LastExport = document;
             return ValueTask.CompletedTask;
         }

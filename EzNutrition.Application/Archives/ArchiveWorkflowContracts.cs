@@ -27,7 +27,10 @@ public enum ArchiveWorkflowCapabilities
     Delete = 16,
 
     /// <summary>可以清空宿主管理的本机档案库。</summary>
-    Clear = 32
+    Clear = 32,
+
+    /// <summary>可以把宿主管理的一份已保存档案导出为外部文档。</summary>
+    ExportStored = 64
 }
 
 /// <summary>
@@ -227,6 +230,13 @@ public interface IArchiveWorkflow
 
     /// <summary>调阅宿主管理的一个档案。</summary>
     ValueTask<ArchiveOpenResult> OpenStoredAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 将宿主管理的一份已保存档案按其原始编码内容写出到外部文档。
+    /// </summary>
+    ValueTask<ArchiveOperationResult> ExportStoredAsync(
         Guid documentId,
         CancellationToken cancellationToken = default);
 
