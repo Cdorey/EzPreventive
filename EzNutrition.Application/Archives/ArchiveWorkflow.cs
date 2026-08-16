@@ -117,7 +117,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
                 LastSavedAt = DateTimeOffset.UtcNow,
                 FormatIdentifier = targetFormat.Identifier.AbsoluteUri,
                 FormatVersion = targetFormat.Version,
-                MediaType = targetFormat.MediaType ?? "application/octet-stream"
+                MediaType = targetFormat.MediaType ?? "application/octet-stream",
+                FormatDisplayName = targetFormat.DisplayName,
+                PreferredFileExtension = targetFormat.PreferredFileExtension
             };
 
             await store.SaveAsync(new StoredArchiveDocument
@@ -314,8 +316,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
             var consultation = encoded.Document!.Bundle.Entries.OfType<ConsultationResource>().Single();
             await transport.SaveAsync(new ArchiveDocumentExport
             {
-                SuggestedFileName = $"eznutrition-{consultation.Metadata.ResourceId.Value:N}.xml",
-                MediaType = encoded.TargetFormat!.MediaType ?? "application/octet-stream",
+                SuggestedFileNameStem = $"eznutrition-{consultation.Metadata.ResourceId.Value:N}",
+                Format = encoded.TargetFormat!,
                 Content = encoded.Content
             }, cancellationToken);
 

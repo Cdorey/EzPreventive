@@ -141,16 +141,18 @@ public sealed class ArchiveWorkflowTests
         var export = await fixture.Workflow.ExportCurrentAsync(workspace);
         fixture.Transport.NextInput = new ExternalArchiveDocument
         {
-            FileName = fixture.Transport.LastExport?.SuggestedFileName,
-            MediaType = fixture.Transport.LastExport?.MediaType,
+            FileName = fixture.Transport.LastExport is { } exported
+                ? exported.SuggestedFileNameStem + exported.Format.PreferredFileExtension
+                : null,
+            MediaType = fixture.Transport.LastExport?.Format.MediaType,
             Content = fixture.Transport.LastExport?.Content ?? ReadOnlyMemory<byte>.Empty
         };
         var import = await fixture.Workflow.ImportAsync();
 
         Assert.True(export.IsSuccess);
         Assert.NotNull(fixture.Transport.LastExport);
-        Assert.DoesNotContain("姓名", fixture.Transport.LastExport.SuggestedFileName, StringComparison.Ordinal);
-        Assert.EndsWith(".xml", fixture.Transport.LastExport.SuggestedFileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("姓名", fixture.Transport.LastExport.SuggestedFileNameStem, StringComparison.Ordinal);
+        Assert.Equal(".archive-test", fixture.Transport.LastExport.Format.PreferredFileExtension);
         Assert.True(import.Operation.IsSuccess);
         Assert.Equal("不应进入文件名的姓名", import.Review?.SubjectDisplay);
     }
@@ -251,7 +253,9 @@ public sealed class ArchiveWorkflowTests
         private static readonly ArchiveFormatDescriptor Format = new(
             new Uri("https://example.invalid/formats/memory-xml"),
             "1.0",
-            "application/xml");
+            "application/x-archive-test",
+            "测试档案格式",
+            ".archive-test");
         private ArchiveDocument? document;
 
         public Uri CodecIdentifier { get; } = new("https://example.invalid/codecs/memory");

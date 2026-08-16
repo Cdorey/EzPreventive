@@ -153,7 +153,7 @@
     {
         <Alert Type="AlertType.Warning"
                Message="此操作无法撤销"
-               Description="只删除当前浏览器中的这一次咨询档案；已经导出的 XML 文件不受影响。"
+               Description="只删除当前浏览器中的这一次咨询档案；已经导出的档案文件不受影响。"
                ShowIcon="true" />
         <dl class="archive-delete-summary">
             <div><dt>咨询对象</dt><dd>@pendingDelete.SubjectDisplay</dd></div>
@@ -178,7 +178,7 @@
        OnOk="ClearConfirmedAsync">
     <Alert Type="AlertType.Warning"
            Message="将删除当前浏览器中的全部本机档案"
-           Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的 XML 文件不受影响。")"
+           Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的档案文件不受影响。")"
            ShowIcon="true" />
 </Modal>
 

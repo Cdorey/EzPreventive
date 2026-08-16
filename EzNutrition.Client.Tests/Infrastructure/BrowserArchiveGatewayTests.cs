@@ -1,4 +1,5 @@
 using EzNutrition.Application.Archives;
+using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Client.Infrastructure;
 using Microsoft.JSInterop;
 
@@ -30,6 +31,32 @@ public sealed class BrowserArchiveGatewayTests
                 Assert.Equal("clearDocuments", call.Identifier);
                 Assert.Empty(call.Arguments);
             });
+    }
+
+    [Fact]
+    public async Task Browser_transport_uses_format_metadata_for_the_download()
+    {
+        var module = new RecordingModule();
+        await using var gateway = new BrowserArchiveGateway(new ModuleRuntime(module));
+        var content = new byte[] { 1, 2, 3 };
+
+        await gateway.SaveAsync(new ArchiveDocumentExport
+        {
+            SuggestedFileNameStem = "eznutrition-safe-id",
+            Format = new ArchiveFormatDescriptor(
+                new Uri("https://example.invalid/formats/test"),
+                "1.0",
+                "application/x-archive-test",
+                "测试档案",
+                ".archive-test"),
+            Content = content
+        });
+
+        var call = Assert.Single(module.Calls);
+        Assert.Equal("downloadDocument", call.Identifier);
+        Assert.Equal("eznutrition-safe-id.archive-test", call.Arguments[0]);
+        Assert.Equal("application/x-archive-test", call.Arguments[1]);
+        Assert.Equal(content, Assert.IsType<byte[]>(call.Arguments[2]));
     }
 
     private sealed class ModuleRuntime(IJSObjectReference module) : IJSRuntime

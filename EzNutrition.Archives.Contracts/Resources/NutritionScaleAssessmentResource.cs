@@ -79,7 +79,7 @@ public sealed record AssessmentItemResponse
 /// <remarks>
 /// 本资源为结构相近的营养筛查或评估量表提供统一档案形状。NRS 2002、MNA 等具体量表应在
 /// Domain 或 Application 中实现各自的录入和评分规则，再映射为本资源；新增量表不应要求
-/// XML codec 认识新的 CLR 资源类型。对于无法由本结构忠实表达的复杂评估，仍可新增专用资源。
+/// 档案 codec 认识新的 CLR 资源类型。对于无法由本结构忠实表达的复杂评估，仍可新增专用资源。
 /// </remarks>
 public sealed record NutritionScaleAssessmentResource : IArchiveResource
 {
