@@ -54,6 +54,30 @@ public sealed class XmlArchiveCodecTests
         Assert.Equal("虚构测试对象", Assert.Single(patient.Names).Text);
     }
 
+    /// <summary>
+    /// 验证报告用途、参与职责、行为时机构快照、签发者和产物身份均可往返。
+    /// </summary>
+    [Fact]
+    public async Task Nutrition_report_provenance_round_trips_as_current_xml()
+    {
+        var codec = CreateCodec();
+        var source = CreateReportDocument();
+        var bytes = await WriteAsync(codec, source);
+
+        await using var stream = new MemoryStream(bytes);
+        var read = await codec.ReadAsync(stream);
+
+        Assert.True(read.IsSuccess);
+        Assert.Contains("resourceType=\"NutritionReport\"", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+        var report = Assert.Single(read.Document!.Bundle.Entries.OfType<NutritionReportResource>());
+        Assert.Equal("teaching", report.Purpose.Code);
+        Assert.Equal("虚构营养学院", report.Metadata.FinalizedBy?.Organization?.Display);
+        Assert.Equal("teacher", report.Metadata.FinalizedBy?.Kind?.Code);
+        Assert.Equal("student", Assert.Single(report.Participants).Actor.Kind?.Code);
+        Assert.Equal("application/pdf", report.RenderedArtifact?.MediaType);
+        Assert.Equal(new string('b', 64), report.RenderedArtifact?.Fingerprint.Value);
+    }
+
     [Fact]
     public async Task Unknown_xml_is_preserved_until_known_semantics_change()
     {
@@ -191,6 +215,96 @@ public sealed class XmlArchiveCodecTests
                 CreatedAt = time,
                 Producer = application,
                 Entries = new IArchiveResource[] { patient, consultation }
+            }
+        };
+    }
+
+    private static ArchiveDocument CreateReportDocument()
+    {
+        var source = CreateDocument();
+        var patient = source.Bundle.Entries.OfType<PatientResource>().Single();
+        var consultation = source.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var time = consultation.Metadata.CreatedAt;
+        var organization = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "organization", display: "机构"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/organizations"),
+                "SYNTHETIC-UNIVERSITY-001"),
+            Display = "虚构营养学院"
+        };
+        var teacher = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "teacher", display: "教师"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/users"),
+                "SYNTHETIC-TEACHER-001"),
+            Display = "虚构指导教师",
+            Organization = organization
+        };
+        var student = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "student", display: "学生"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/users"),
+                "SYNTHETIC-STUDENT-001"),
+            Display = "虚构学生",
+            Organization = organization
+        };
+        var reportId = new ResourceId(Guid.Parse("10000000-0000-0000-0000-000000000003"));
+        var report = new NutritionReportResource
+        {
+            Metadata = Metadata(reportId, 3, time, consultation.Metadata.SourceApplication) with
+            {
+                Status = ResourceLifecycleStatus.Final,
+                FinalizedAt = time,
+                FinalizedBy = teacher
+            },
+            SubjectReference = new LogicalResourceReference(patient.Metadata.ResourceId, ArchiveResourceTypes.Patient),
+            ConsultationReference = new VersionedResourceReference(
+                consultation.Metadata.ResourceId,
+                consultation.Metadata.VersionId,
+                ArchiveResourceTypes.Consultation),
+            Purpose = new Coding(
+                new Uri("https://example.invalid/codes/report-purpose"),
+                "teaching",
+                display: "教学"),
+            Title = "虚构教学营养报告",
+            PresentationTemplate = new CanonicalReference(
+                new Uri("https://example.invalid/report-templates/teaching-summary"),
+                "1.0"),
+            RenderedArtifact = new ReportArtifactIdentity(
+                "application/pdf",
+                new ContentFingerprint(
+                    new Coding(
+                        new Uri("https://example.invalid/codes/fingerprint-algorithm"),
+                        "sha-256",
+                        display: "SHA-256"),
+                    new string('b', 64))),
+            Participants =
+            [
+                new ReportParticipation
+                {
+                    Function = new Coding(
+                        new Uri("https://example.invalid/codes/report-participation"),
+                        "author",
+                        display: "作者"),
+                    Actor = student,
+                    ActedAt = time
+                }
+            ]
+        };
+        var reportReference = new VersionedResourceReference(
+            report.Metadata.ResourceId,
+            report.Metadata.VersionId,
+            ArchiveResourceTypes.NutritionReport);
+        var changedConsultation = consultation with { ClinicalResourceReferences = [reportReference] };
+
+        return source with
+        {
+            Bundle = source.Bundle with
+            {
+                Entries = new IArchiveResource[] { patient, changedConsultation, report }
             }
         };
     }

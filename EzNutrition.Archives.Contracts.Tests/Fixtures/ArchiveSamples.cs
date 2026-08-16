@@ -22,17 +22,56 @@ internal static class ArchiveSamples
         "EzNutrition 档案契约测试程序",
         "1.0.0-test");
 
+    private static readonly ActorReference SampleClinicalOrganization = new()
+    {
+        Kind = Code("actor-kind", "organization", "机构"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-organizations"),
+            "SYNTHETIC-ORGANIZATION-001"),
+        Display = "虚构社区卫生服务中心"
+    };
+
     private static readonly ActorReference SampleClinician = new()
     {
         Kind = Code("actor-kind", "practitioner", "医师"),
         Identifier = new BusinessIdentifier(
             new Uri(SampleRoot, "identifiers/test-clinicians"),
             "SYNTHETIC-CLINICIAN-001"),
-        Display = "虚构测试医师"
+        Display = "虚构测试医师",
+        Organization = SampleClinicalOrganization
+    };
+
+    private static readonly ActorReference SampleTeachingOrganization = new()
+    {
+        Kind = Code("actor-kind", "organization", "机构"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-organizations"),
+            "SYNTHETIC-ORGANIZATION-002"),
+        Display = "虚构营养学院"
+    };
+
+    private static readonly ActorReference SampleTeacher = new()
+    {
+        Kind = Code("actor-kind", "teacher", "教师"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-users"),
+            "SYNTHETIC-TEACHER-001"),
+        Display = "虚构指导教师",
+        Organization = SampleTeachingOrganization
+    };
+
+    private static readonly ActorReference SampleStudent = new()
+    {
+        Kind = Code("actor-kind", "student", "学生"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-users"),
+            "SYNTHETIC-STUDENT-001"),
+        Display = "虚构学生",
+        Organization = SampleTeachingOrganization
     };
 
     /// <summary>
-    /// 获取首轮八种合成档案情境。
+    /// 获取九种合成档案情境。
     /// </summary>
     public static IReadOnlyList<ArchiveSample> All { get; } = Array.AsReadOnly(
         new[]
@@ -44,7 +83,8 @@ internal static class ArchiveSamples
             CreateHistoricalSnapshotSample(),
             CreateSpecialPhysiologySample(),
             CreateAmendmentChainSample(),
-            CreateExtensionsAndIdentifiersSample()
+            CreateExtensionsAndIdentifiersSample(),
+            CreateTeachingReportSample()
         });
 
     /// <summary>
@@ -556,6 +596,85 @@ internal static class ArchiveSamples
                     "1.0-test",
                     "application/vnd.eznutrition.synthetic+json")
             });
+    }
+
+    private static ArchiveSample CreateTeachingReportSample()
+    {
+        var patient = new PatientResource
+        {
+            Metadata = Metadata(901, 901, 9),
+            IdentityMode = PatientIdentityMode.Pseudonymous,
+            Names = [new HumanName { Text = "虚构教学对象" }]
+        };
+        var consultationReference = ExactReference(902, 902, ArchiveResourceTypes.Consultation);
+        var consultation = new ConsultationResource
+        {
+            Metadata = Metadata(902, 902, 9),
+            SubjectReference = PatientReference(901),
+            Period = new Period(At(9, 8), At(9, 9)),
+            ClinicalResourceReferences =
+            [
+                ExactReference(903, 903, ArchiveResourceTypes.SoapNote),
+                ExactReference(904, 904, ArchiveResourceTypes.NutritionReport)
+            ],
+            Title = "虚构教学营养咨询",
+            ServiceProvider = SampleTeacher
+        };
+        var soap = new SoapNoteResource
+        {
+            Metadata = Metadata(903, 903, 9),
+            SubjectReference = PatientReference(901),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(9, 8),
+            Assessment = "虚构教学评估。",
+            Plan = "虚构教学计划。"
+        };
+        var report = new NutritionReportResource
+        {
+            Metadata = Metadata(904, 904, 9) with { FinalizedBy = SampleTeacher },
+            SubjectReference = PatientReference(901),
+            ConsultationReference = consultationReference,
+            Purpose = Code("report-purpose", "teaching", "教学"),
+            Title = "虚构教学营养报告",
+            InputResourceReferences =
+            [
+                ExactReference(903, 903, ArchiveResourceTypes.SoapNote)
+            ],
+            PresentationTemplate = new CanonicalReference(
+                new Uri(SampleRoot, "report-templates/teaching-summary"),
+                "1.0"),
+            RenderedArtifact = new ReportArtifactIdentity(
+                "application/pdf",
+                new ContentFingerprint(
+                    Code("fingerprint-algorithm", "sha-256", "SHA-256"),
+                    "1bd33a54f0879d51b727b90b5f3058fce96738ab88c460011cb9606e513b1df4")),
+            Participants =
+            [
+                new ReportParticipation
+                {
+                    Function = Code("report-participation", "author", "作者"),
+                    Actor = SampleStudent,
+                    ActedAt = At(9, 8)
+                },
+                new ReportParticipation
+                {
+                    Function = Code("report-participation", "reviewer", "复核者"),
+                    Actor = SampleTeacher,
+                    ActedAt = At(9, 9)
+                }
+            ]
+        };
+
+        return Sample(
+            "teaching-report",
+            "学生编制、教师复核并签发的虚构教学营养报告，仅保存产物指纹。",
+            9,
+            ArchiveBundleType.ConsultationDocument,
+            9,
+            patient,
+            consultation,
+            soap,
+            report);
     }
 
     private static DietaryRecallResource CreateMultiMealRecall(

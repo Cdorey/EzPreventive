@@ -71,4 +71,9 @@ public static class ArchiveResourceTypes
     /// 获取营养建议资源类型。
     /// </summary>
     public static ResourceTypeCode NutritionAdvice { get; } = new("NutritionAdvice");
+
+    /// <summary>
+    /// 获取营养报告资源类型。
+    /// </summary>
+    public static ResourceTypeCode NutritionReport { get; } = new("NutritionReport");
 }

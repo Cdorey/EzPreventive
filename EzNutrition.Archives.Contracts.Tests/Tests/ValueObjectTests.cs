@@ -1,5 +1,6 @@
 using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Archives.Contracts.Repositories;
+using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using System.Reflection;
@@ -215,6 +216,24 @@ public sealed class ValueObjectTests
 
         Assert.Equal(new[] { "样本名" }, name.Given);
         Assert.Throws<NotSupportedException>(() => ((IList<string>)name.Given).Add("外部写入"));
+    }
+
+    /// <summary>
+    /// 验证报告产物身份拒绝空媒体类型或空内容指纹。
+    /// </summary>
+    [Fact]
+    public void Report_artifact_identity_requires_media_type_and_fingerprint()
+    {
+        var fingerprint = new ContentFingerprint(
+            new Coding(new Uri("https://example.invalid/codes/fingerprint"), "sha-256"),
+            new string('a', 64));
+
+        var artifact = new ReportArtifactIdentity(" application/pdf ", fingerprint);
+
+        Assert.Equal("application/pdf", artifact.MediaType);
+        Assert.Same(fingerprint, artifact.Fingerprint);
+        Assert.Throws<ArgumentException>(() => new ReportArtifactIdentity(" ", fingerprint));
+        Assert.Throws<ArgumentNullException>(() => new ReportArtifactIdentity("application/pdf", null!));
     }
 
     /// <summary>

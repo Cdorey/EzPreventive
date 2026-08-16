@@ -16,5 +16,6 @@ namespace EzNutrition.Archives.Xml.Internal;
 [JsonSerializable(typeof(DietaryRecallResource))]
 [JsonSerializable(typeof(SoapNoteResource))]
 [JsonSerializable(typeof(NutritionAdviceResource))]
+[JsonSerializable(typeof(NutritionReportResource))]
 [JsonSerializable(typeof(ArchiveExtension[]))]
 internal sealed partial class ArchiveXmlJsonContext : JsonSerializerContext;
