@@ -54,6 +54,58 @@ public sealed class XmlArchiveCodecTests
         Assert.Equal("虚构测试对象", Assert.Single(patient.Names).Text);
     }
 
+    /// <summary>
+    /// 验证报告用途、参与职责、行为时机构快照、签发者和产物身份均可往返。
+    /// </summary>
+    [Fact]
+    public async Task Nutrition_report_provenance_round_trips_as_current_xml()
+    {
+        var codec = CreateCodec();
+        var source = CreateReportDocument();
+        var bytes = await WriteAsync(codec, source);
+
+        await using var stream = new MemoryStream(bytes);
+        var read = await codec.ReadAsync(stream);
+
+        Assert.True(read.IsSuccess);
+        Assert.Contains("resourceType=\"NutritionReport\"", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+        var report = Assert.Single(read.Document!.Bundle.Entries.OfType<NutritionReportResource>());
+        Assert.Equal("teaching", report.Purpose.Code);
+        Assert.Equal("虚构营养学院", report.Metadata.FinalizedBy?.Organization?.Display);
+        Assert.Equal("teacher", report.Metadata.FinalizedBy?.Kind?.Code);
+        Assert.Equal("student", Assert.Single(report.Participants).Actor.Kind?.Code);
+        Assert.Equal("application/pdf", report.RenderedArtifact?.MediaType);
+        Assert.Equal(new string('b', 64), report.RenderedArtifact?.Fingerprint.Value);
+    }
+
+    /// <summary>
+    /// 验证通用量表身份、类型化回答、缺失原因、评分结果和实施者均可完整往返。
+    /// </summary>
+    [Fact]
+    public async Task Nutrition_scale_assessment_round_trips_as_current_xml()
+    {
+        var codec = CreateCodec();
+        var bytes = await WriteAsync(codec, CreateScaleAssessmentDocument());
+
+        await using var stream = new MemoryStream(bytes);
+        var read = await codec.ReadAsync(stream);
+
+        Assert.True(read.IsSuccess);
+        Assert.Contains(
+            "resourceType=\"NutritionScaleAssessment\"",
+            Encoding.UTF8.GetString(bytes),
+            StringComparison.Ordinal);
+        var scale = Assert.Single(read.Document!.Bundle.Entries.OfType<NutritionScaleAssessmentResource>());
+        Assert.Equal("synthetic-screening", scale.Instrument.Code.Code);
+        Assert.Equal("1.0-test", scale.Instrument.Version);
+        Assert.Equal("1.0-test", scale.Instrument.Definition?.Version);
+        Assert.Equal(new string('c', 64), scale.Instrument.DefinitionFingerprint?.Value);
+        Assert.IsType<BooleanArchiveValue>(scale.Responses[0].Answer);
+        Assert.Equal(DataAbsentReasonCode.NotAsked, scale.Responses[1].AnswerAbsentReason);
+        Assert.Equal(1.5m, scale.TotalScore);
+        Assert.Equal("虚构量表实施者", scale.Performer?.Display);
+    }
+
     [Fact]
     public async Task Unknown_xml_is_preserved_until_known_semantics_change()
     {
@@ -191,6 +243,204 @@ public sealed class XmlArchiveCodecTests
                 CreatedAt = time,
                 Producer = application,
                 Entries = new IArchiveResource[] { patient, consultation }
+            }
+        };
+    }
+
+    private static ArchiveDocument CreateReportDocument()
+    {
+        var source = CreateDocument();
+        var patient = source.Bundle.Entries.OfType<PatientResource>().Single();
+        var consultation = source.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var time = consultation.Metadata.CreatedAt;
+        var organization = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "organization", display: "机构"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/organizations"),
+                "SYNTHETIC-UNIVERSITY-001"),
+            Display = "虚构营养学院"
+        };
+        var teacher = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "teacher", display: "教师"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/users"),
+                "SYNTHETIC-TEACHER-001"),
+            Display = "虚构指导教师",
+            Organization = organization
+        };
+        var student = new ActorReference
+        {
+            Kind = new Coding(new Uri("https://example.invalid/codes/actor-kind"), "student", display: "学生"),
+            Identifier = new BusinessIdentifier(
+                new Uri("https://example.invalid/identifiers/users"),
+                "SYNTHETIC-STUDENT-001"),
+            Display = "虚构学生",
+            Organization = organization
+        };
+        var reportId = new ResourceId(Guid.Parse("10000000-0000-0000-0000-000000000003"));
+        var report = new NutritionReportResource
+        {
+            Metadata = Metadata(reportId, 3, time, consultation.Metadata.SourceApplication) with
+            {
+                Status = ResourceLifecycleStatus.Final,
+                FinalizedAt = time,
+                FinalizedBy = teacher
+            },
+            SubjectReference = new LogicalResourceReference(patient.Metadata.ResourceId, ArchiveResourceTypes.Patient),
+            ConsultationReference = new VersionedResourceReference(
+                consultation.Metadata.ResourceId,
+                consultation.Metadata.VersionId,
+                ArchiveResourceTypes.Consultation),
+            Purpose = new Coding(
+                new Uri("https://example.invalid/codes/report-purpose"),
+                "teaching",
+                display: "教学"),
+            Title = "虚构教学营养报告",
+            PresentationTemplate = new CanonicalReference(
+                new Uri("https://example.invalid/report-templates/teaching-summary"),
+                "1.0"),
+            RenderedArtifact = new ReportArtifactIdentity(
+                "application/pdf",
+                new ContentFingerprint(
+                    new Coding(
+                        new Uri("https://example.invalid/codes/fingerprint-algorithm"),
+                        "sha-256",
+                        display: "SHA-256"),
+                    new string('b', 64))),
+            Participants =
+            [
+                new ReportParticipation
+                {
+                    Function = new Coding(
+                        new Uri("https://example.invalid/codes/report-participation"),
+                        "author",
+                        display: "作者"),
+                    Actor = student,
+                    ActedAt = time
+                }
+            ]
+        };
+        var reportReference = new VersionedResourceReference(
+            report.Metadata.ResourceId,
+            report.Metadata.VersionId,
+            ArchiveResourceTypes.NutritionReport);
+        var changedConsultation = consultation with { ClinicalResourceReferences = [reportReference] };
+
+        return source with
+        {
+            Bundle = source.Bundle with
+            {
+                Entries = new IArchiveResource[] { patient, changedConsultation, report }
+            }
+        };
+    }
+
+    private static ArchiveDocument CreateScaleAssessmentDocument()
+    {
+        var source = CreateDocument();
+        var patient = source.Bundle.Entries.OfType<PatientResource>().Single();
+        var consultation = source.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var time = consultation.Metadata.CreatedAt;
+        var performer = new ActorReference
+        {
+            Kind = new Coding(
+                new Uri("https://example.invalid/codes/actor-kind"),
+                "practitioner",
+                display: "专业人员"),
+            Display = "虚构量表实施者"
+        };
+        var scaleId = new ResourceId(Guid.Parse("10000000-0000-0000-0000-000000000004"));
+        var scale = new NutritionScaleAssessmentResource
+        {
+            Metadata = Metadata(scaleId, 4, time, consultation.Metadata.SourceApplication) with
+            {
+                Status = ResourceLifecycleStatus.Final,
+                FinalizedAt = time,
+                FinalizedBy = performer
+            },
+            SubjectReference = new LogicalResourceReference(patient.Metadata.ResourceId, ArchiveResourceTypes.Patient),
+            ConsultationReference = new VersionedResourceReference(
+                consultation.Metadata.ResourceId,
+                consultation.Metadata.VersionId,
+                ArchiveResourceTypes.Consultation),
+            EffectiveAt = time,
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    new Uri("https://example.invalid/codes/assessment-instrument"),
+                    "synthetic-screening",
+                    display: "虚构筛查量表"),
+                Version = "1.0-test",
+                Definition = new CanonicalReference(
+                    new Uri("https://example.invalid/assessment-instruments/synthetic-screening"),
+                    "1.0-test"),
+                DefinitionFingerprint = new ContentFingerprint(
+                    new Coding(
+                        new Uri("https://example.invalid/codes/fingerprint-algorithm"),
+                        "sha-256",
+                        display: "SHA-256"),
+                    new string('c', 64))
+            },
+            Responses =
+            [
+                new AssessmentItemResponse
+                {
+                    Item = new Coding(
+                        new Uri("https://example.invalid/codes/synthetic-scale-item"),
+                        "item-a",
+                        display: "虚构条目 A"),
+                    Answer = new BooleanArchiveValue(true),
+                    ScoreContribution = 1.5m
+                },
+                new AssessmentItemResponse
+                {
+                    Item = new Coding(
+                        new Uri("https://example.invalid/codes/synthetic-scale-item"),
+                        "item-b",
+                        display: "虚构条目 B"),
+                    AnswerAbsentReason = DataAbsentReasonCode.NotAsked
+                }
+            ],
+            DerivedResults =
+            [
+                new NamedArchiveValue
+                {
+                    Name = new Coding(
+                        new Uri("https://example.invalid/codes/assessment-result"),
+                        "answered-item-count",
+                        display: "已回答条目数"),
+                    Value = new IntegerArchiveValue(1)
+                }
+            ],
+            ScoringMethod = new AlgorithmIdentity
+            {
+                Method = new Coding(
+                    new Uri("https://example.invalid/codes/algorithm"),
+                    "synthetic-scale-scoring",
+                    "1.0-test",
+                    "虚构量表评分方法"),
+                Implementation = consultation.Metadata.SourceApplication
+            },
+            TotalScore = 1.5m,
+            Interpretation = new Coding(
+                new Uri("https://example.invalid/codes/synthetic-scale-interpretation"),
+                "category-one",
+                display: "虚构分类一"),
+            Performer = performer
+        };
+        var scaleReference = new VersionedResourceReference(
+            scale.Metadata.ResourceId,
+            scale.Metadata.VersionId,
+            ArchiveResourceTypes.NutritionScaleAssessment);
+        var changedConsultation = consultation with { ClinicalResourceReferences = [scaleReference] };
+
+        return source with
+        {
+            Bundle = source.Bundle with
+            {
+                Entries = new IArchiveResource[] { patient, changedConsultation, scale }
             }
         };
     }

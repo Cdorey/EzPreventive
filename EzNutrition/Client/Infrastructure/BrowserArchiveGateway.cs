@@ -164,8 +164,8 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
             await browserModule.InvokeVoidAsync(
                 "downloadDocument",
                 cancellationToken,
-                document.SuggestedFileName,
-                document.MediaType,
+                CreateSuggestedFileName(document),
+                document.Format.MediaType ?? "application/octet-stream",
                 document.Content.ToArray());
         }
         catch (JSException exception)
@@ -213,6 +213,9 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         }
     }
 
+    private static string CreateSuggestedFileName(ArchiveDocumentExport document) =>
+        document.SuggestedFileNameStem + (document.Format.PreferredFileExtension ?? ".archive");
+
     private sealed record BrowserStoredArchiveInfo
     {
         public required string DocumentId { get; init; }
@@ -233,6 +236,10 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
 
         public required string MediaType { get; init; }
 
+        public string? FormatDisplayName { get; init; }
+
+        public string? PreferredFileExtension { get; init; }
+
         public StoredArchiveDocumentInfo ToContract() => new()
         {
             DocumentId = Guid.Parse(DocumentId),
@@ -243,7 +250,9 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
             LastSavedAt = LastSavedAt,
             FormatIdentifier = FormatIdentifier,
             FormatVersion = FormatVersion,
-            MediaType = MediaType
+            MediaType = MediaType,
+            FormatDisplayName = FormatDisplayName,
+            PreferredFileExtension = PreferredFileExtension
         };
 
         public static BrowserStoredArchiveInfo From(StoredArchiveDocumentInfo info) => new()
@@ -256,7 +265,9 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
             LastSavedAt = info.LastSavedAt,
             FormatIdentifier = info.FormatIdentifier,
             FormatVersion = info.FormatVersion,
-            MediaType = info.MediaType
+            MediaType = info.MediaType,
+            FormatDisplayName = info.FormatDisplayName,
+            PreferredFileExtension = info.PreferredFileExtension
         };
     }
 

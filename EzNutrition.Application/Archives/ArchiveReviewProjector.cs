@@ -183,10 +183,7 @@ internal static class ArchiveReviewProjector
 
     private static string FormatDisplay(ArchiveFormatDescriptor format)
     {
-        var formatName = format.MediaType?.EndsWith("+xml", StringComparison.OrdinalIgnoreCase) == true ||
-                         string.Equals(format.MediaType, "application/xml", StringComparison.OrdinalIgnoreCase)
-            ? "XML 档案"
-            : format.MediaType ?? format.Identifier.AbsoluteUri;
+        var formatName = format.DisplayName ?? format.MediaType ?? format.Identifier.AbsoluteUri;
         return $"{formatName} · {format.Version}";
     }
 

@@ -330,6 +330,10 @@ public sealed class XmlArchiveCodec : IArchiveCodec
                 ?? throw new JsonException("SoapNote 资源为空。"),
             "NutritionAdvice" => payload.Deserialize(JsonContext.NutritionAdviceResource)
                 ?? throw new JsonException("NutritionAdvice 资源为空。"),
+            "NutritionReport" => payload.Deserialize(JsonContext.NutritionReportResource)
+                ?? throw new JsonException("NutritionReport 资源为空。"),
+            "NutritionScaleAssessment" => payload.Deserialize(JsonContext.NutritionScaleAssessmentResource)
+                ?? throw new JsonException("NutritionScaleAssessment 资源为空。"),
             _ => throw new UnsupportedXmlArchiveResourceException()
         };
     }
@@ -351,6 +355,12 @@ public sealed class XmlArchiveCodec : IArchiveCodec
         NutritionAdviceResource advice => JsonSerializer.SerializeToElement(
             advice,
             JsonContext.NutritionAdviceResource),
+        NutritionReportResource report => JsonSerializer.SerializeToElement(
+            report,
+            JsonContext.NutritionReportResource),
+        NutritionScaleAssessmentResource scale => JsonSerializer.SerializeToElement(
+            scale,
+            JsonContext.NutritionScaleAssessmentResource),
         _ => throw new UnsupportedXmlArchiveResourceException()
     };
 

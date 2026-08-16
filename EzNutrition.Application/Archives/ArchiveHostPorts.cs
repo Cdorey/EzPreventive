@@ -1,3 +1,5 @@
+using EzNutrition.Archives.Contracts.Serialization;
+
 namespace EzNutrition.Application.Archives;
 
 /// <summary>
@@ -55,6 +57,12 @@ public sealed record StoredArchiveDocumentInfo
 
     /// <summary>获取媒体类型。</summary>
     public required string MediaType { get; init; }
+
+    /// <summary>获取格式实现声明的可选人类可读名称。</summary>
+    public string? FormatDisplayName { get; init; }
+
+    /// <summary>获取格式实现声明的可选首选文件扩展名。</summary>
+    public string? PreferredFileExtension { get; init; }
 }
 
 /// <summary>
@@ -122,11 +130,15 @@ public sealed record ExternalArchiveDocument
 /// </summary>
 public sealed record ArchiveDocumentExport
 {
-    /// <summary>获取不包含患者直接身份信息的建议文件名。</summary>
-    public required string SuggestedFileName { get; init; }
+    /// <summary>
+    /// 获取不包含患者直接身份信息且不带格式扩展名的建议文件名主体。
+    /// </summary>
+    public required string SuggestedFileNameStem { get; init; }
 
-    /// <summary>获取媒体类型。</summary>
-    public required string MediaType { get; init; }
+    /// <summary>
+    /// 获取待导出内容的格式描述；宿主使用其中的媒体类型和首选扩展名完成文件交互。
+    /// </summary>
+    public required ArchiveFormatDescriptor Format { get; init; }
 
     /// <summary>获取完整文档内容。</summary>
     public required ReadOnlyMemory<byte> Content { get; init; }
@@ -140,7 +152,7 @@ public interface IArchiveDocumentTransport
     /// <summary>获取宿主是否支持打开外部文档。</summary>
     bool CanOpen { get; }
 
-    /// <summary>获取宿主是否支持保存外部文档。</summary>
+    /// <summary>获取宿主能力和当前策略是否允许保存外部文档。</summary>
     bool CanSave { get; }
 
     /// <summary>请求用户选择一个外部档案文档；取消时返回空。</summary>

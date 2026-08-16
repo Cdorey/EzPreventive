@@ -25,6 +25,18 @@
                         打开文档
                     </Button>
                 }
+                @if (CanExportStored)
+                {
+                    <Button OnClick="ExportStoredAsync"
+                            AutoLoading
+                            Disabled="@(!selectedDocumentId.HasValue || OperationInProgress)">
+                        @if (!exporting)
+                        {
+                            <Icon Type="download" Theme="IconThemeType.Outline" />
+                        }
+                        @(exporting ? "正在导出…" : "导出所选档案")
+                    </Button>
+                }
                 @if (CanBrowse)
                 {
                     <Button OnClick="LoadRecordsAsync" AutoLoading Disabled="@OperationInProgress">
@@ -153,7 +165,7 @@
     {
         <Alert Type="AlertType.Warning"
                Message="此操作无法撤销"
-               Description="只删除当前浏览器中的这一次咨询档案；已经导出的 XML 文件不受影响。"
+               Description="只删除当前浏览器中的这一次咨询档案；已经导出的档案文件不受影响。"
                ShowIcon="true" />
         <dl class="archive-delete-summary">
             <div><dt>咨询对象</dt><dd>@pendingDelete.SubjectDisplay</dd></div>
@@ -178,7 +190,7 @@
        OnOk="ClearConfirmedAsync">
     <Alert Type="AlertType.Warning"
            Message="将删除当前浏览器中的全部本机档案"
-           Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的 XML 文件不受影响。")"
+           Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的档案文件不受影响。")"
            ShowIcon="true" />
 </Modal>
 
@@ -193,6 +205,7 @@
     private Guid? selectedDocumentId;
     private bool loading;
     private bool opening;
+    private bool exporting;
     private bool mutating;
     private bool deleteDialogVisible;
     private bool clearDialogVisible;
@@ -202,12 +215,15 @@
 
     private bool CanImport => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Import);
 
+    private bool CanExportStored =>
+        ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.ExportStored);
+
     private bool CanDelete => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Delete);
 
     private bool CanClear => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear);
 
     private bool OperationInProgress =>
-        loading || opening || mutating || deleteDialogVisible || clearDialogVisible;
+        loading || opening || exporting || mutating || deleteDialogVisible || clearDialogVisible;
 
     private ButtonProps DestructiveOkButtonProps => new() { Danger = true, Disabled = mutating };
 
@@ -274,6 +290,36 @@
     {
         selectedDocumentId = null;
         await OpenAsync(() => ArchiveWorkflow.ImportAsync(lifetimeCancellation.Token));
+    }
+
+    private async Task ExportStoredAsync()
+    {
+        if (!CanExportStored || OperationInProgress || selectedDocumentId is not { } documentId)
+        {
+            return;
+        }
+
+        exporting = true;
+        try
+        {
+            var result = await ArchiveWorkflow.ExportStoredAsync(documentId, lifetimeCancellation.Token);
+            feedback = result.Notices.Count > 0 ? result : null;
+            if (result.IsSuccess)
+            {
+                await Message.SuccessAsync(result.Message);
+            }
+            else if (result.Status != ArchiveOperationStatus.Cancelled)
+            {
+                await ReportFailureAsync(result);
+            }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            exporting = false;
+        }
     }
 
     private void OpenDeleteDialog(ArchiveRecordSummary record)

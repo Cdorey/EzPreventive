@@ -13,14 +13,14 @@ namespace EzNutrition.Archives.Contracts.Tests.Tests;
 public sealed class ArchiveSampleTests
 {
     /// <summary>
-    /// 验证首轮样本数量、名称和 Bundle 标识均保持稳定且唯一。
+    /// 验证样本数量、名称和 Bundle 标识均保持稳定且唯一。
     /// </summary>
     [Fact]
-    public void Catalog_contains_eight_distinct_samples()
+    public void Catalog_contains_ten_distinct_samples()
     {
-        Assert.Equal(8, ArchiveSamples.All.Count);
-        Assert.Equal(8, ArchiveSamples.All.Select(sample => sample.Key).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(8, ArchiveSamples.All.Select(sample => sample.Bundle.BundleId).Distinct().Count());
+        Assert.Equal(10, ArchiveSamples.All.Count);
+        Assert.Equal(10, ArchiveSamples.All.Select(sample => sample.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(10, ArchiveSamples.All.Select(sample => sample.Bundle.BundleId).Distinct().Count());
         Assert.All(ArchiveSamples.All, sample => Assert.False(string.IsNullOrWhiteSpace(sample.Description)));
     }
 
@@ -74,6 +74,8 @@ public sealed class ArchiveSampleTests
                 DietaryRecallResource => ArchiveResourceTypes.DietaryRecall,
                 SoapNoteResource => ArchiveResourceTypes.SoapNote,
                 NutritionAdviceResource => ArchiveResourceTypes.NutritionAdvice,
+                NutritionReportResource => ArchiveResourceTypes.NutritionReport,
+                NutritionScaleAssessmentResource => ArchiveResourceTypes.NutritionScaleAssessment,
                 _ => throw new Xunit.Sdk.XunitException($"未识别的样本资源类型：{resource.GetType().FullName}")
             };
 
@@ -134,6 +136,41 @@ public sealed class ArchiveSampleTests
         Assert.Single(resources.OfType<DietaryRecallResource>());
         Assert.Single(resources.OfType<SoapNoteResource>());
         Assert.Single(resources.OfType<NutritionAdviceResource>());
+    }
+
+    /// <summary>
+    /// 验证教学报告分别保存作者、复核者、签发者和其机构快照。
+    /// </summary>
+    [Fact]
+    public void Teaching_report_preserves_distinct_participation_and_finalization_facts()
+    {
+        var report = ArchiveSamples.GetRequired("teaching-report")
+            .Bundle.Entries.OfType<NutritionReportResource>().Single();
+
+        Assert.Equal("teaching", report.Purpose.Code);
+        Assert.Equal("学生", report.Participants.Single(item => item.Function.Code == "author").Actor.Kind?.Display);
+        Assert.Equal("教师", report.Participants.Single(item => item.Function.Code == "reviewer").Actor.Kind?.Display);
+        Assert.Equal("虚构营养学院", report.Metadata.FinalizedBy?.Organization?.Display);
+        Assert.Equal("application/pdf", report.RenderedArtifact?.MediaType);
+    }
+
+    /// <summary>
+    /// 验证通用量表样本保存版本化定义、类型化回答、评分结果和实施者事实。
+    /// </summary>
+    [Fact]
+    public void Scale_assessment_preserves_instrument_responses_results_and_provenance()
+    {
+        var scale = ArchiveSamples.GetRequired("synthetic-scale-assessment")
+            .Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
+
+        Assert.Equal("synthetic-nutrition-screening", scale.Instrument.Code.Code);
+        Assert.Equal("1.0-test", scale.Instrument.Version);
+        Assert.Equal(2, scale.Responses.Count);
+        Assert.IsType<CodingArchiveValue>(scale.Responses[0].Answer);
+        Assert.IsType<BooleanArchiveValue>(scale.Responses[1].Answer);
+        Assert.Equal(1m, scale.TotalScore);
+        Assert.Equal("虚构测试医师", scale.Performer?.Display);
+        Assert.Single(scale.InputResourceReferences);
     }
 
     /// <summary>
@@ -291,6 +328,12 @@ public sealed class ArchiveSampleTests
             case NutritionAdviceResource advice:
                 yield return advice.SubjectReference;
                 break;
+            case NutritionReportResource report:
+                yield return report.SubjectReference;
+                break;
+            case NutritionScaleAssessmentResource scale:
+                yield return scale.SubjectReference;
+                break;
         }
     }
 
@@ -334,6 +377,26 @@ public sealed class ArchiveSampleTests
                 }
 
                 foreach (var inputReference in advice.InputResourceReferences)
+                {
+                    yield return inputReference;
+                }
+
+                break;
+            case NutritionReportResource report:
+                yield return report.ConsultationReference;
+                foreach (var inputReference in report.InputResourceReferences)
+                {
+                    yield return inputReference;
+                }
+
+                break;
+            case NutritionScaleAssessmentResource scale:
+                if (scale.ConsultationReference is not null)
+                {
+                    yield return scale.ConsultationReference;
+                }
+
+                foreach (var inputReference in scale.InputResourceReferences)
                 {
                     yield return inputReference;
                 }

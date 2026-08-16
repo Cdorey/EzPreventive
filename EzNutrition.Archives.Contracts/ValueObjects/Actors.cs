@@ -70,6 +70,15 @@ public sealed record ActorReference
     public string? Display { get; init; }
 
     /// <summary>
+    /// 获取当前主体在本次档案行为中代表或所属的可选机构。
+    /// </summary>
+    /// <remarks>
+    /// 该字段保存行为发生时的单层机构快照，不表示当前机构成员关系，也不承载授权或权限声明。
+    /// 机构自身不得继续设置所属机构；组织层级应由独立的机构资料表达。
+    /// </remarks>
+    public ActorReference? Organization { get; init; }
+
+    /// <summary>
     /// 获取无法确认主体时的明确原因。
     /// </summary>
     public DataAbsentReasonCode? AbsentReason { get; init; }

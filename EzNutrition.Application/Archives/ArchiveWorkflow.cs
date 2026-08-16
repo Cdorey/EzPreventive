@@ -75,6 +75,11 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
                 capabilities |= ArchiveWorkflowCapabilities.Export;
             }
 
+            if (store.Capabilities.HasFlag(ArchiveDocumentStoreCapabilities.Browse) && transport.CanSave)
+            {
+                capabilities |= ArchiveWorkflowCapabilities.ExportStored;
+            }
+
             return capabilities;
         }
     }
@@ -117,7 +122,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
                 LastSavedAt = DateTimeOffset.UtcNow,
                 FormatIdentifier = targetFormat.Identifier.AbsoluteUri,
                 FormatVersion = targetFormat.Version,
-                MediaType = targetFormat.MediaType ?? "application/octet-stream"
+                MediaType = targetFormat.MediaType ?? "application/octet-stream",
+                FormatDisplayName = targetFormat.DisplayName,
+                PreferredFileExtension = targetFormat.PreferredFileExtension
             };
 
             await store.SaveAsync(new StoredArchiveDocument
@@ -200,6 +207,49 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         catch (Exception exception) when (IsExpectedHostFailure(exception))
         {
             return new ArchiveOpenResult { Operation = Failed("读取本机档案失败。") };
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ArchiveOperationResult> ExportStoredAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Capabilities.HasFlag(ArchiveWorkflowCapabilities.ExportStored))
+        {
+            return Unavailable("当前运行环境不能导出已保存档案。");
+        }
+
+        try
+        {
+            var stored = await store.GetAsync(documentId, cancellationToken);
+            if (stored is null)
+            {
+                return Failed("没有找到指定档案，它可能已被其他窗口移除。");
+            }
+
+            var info = stored.Info;
+            var format = CreateStoredFormat(info);
+            await transport.SaveAsync(new ArchiveDocumentExport
+            {
+                SuggestedFileNameStem = $"eznutrition-{documentId:N}",
+                Format = format,
+                Content = stored.Content
+            }, cancellationToken);
+
+            return Success("档案文档已导出。");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Denied("当前用户或宿主策略不允许导出这份档案。");
+        }
+        catch (Exception exception) when (IsExpectedHostFailure(exception))
+        {
+            return Failed("导出已保存档案失败，请重试。");
         }
     }
 
@@ -314,8 +364,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
             var consultation = encoded.Document!.Bundle.Entries.OfType<ConsultationResource>().Single();
             await transport.SaveAsync(new ArchiveDocumentExport
             {
-                SuggestedFileName = $"eznutrition-{consultation.Metadata.ResourceId.Value:N}.xml",
-                MediaType = encoded.TargetFormat!.MediaType ?? "application/octet-stream",
+                SuggestedFileNameStem = $"eznutrition-{consultation.Metadata.ResourceId.Value:N}",
+                Format = encoded.TargetFormat!,
                 Content = encoded.Content
             }, cancellationToken);
 
@@ -324,6 +374,10 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Denied("当前用户或宿主策略不允许导出档案文档。");
         }
         catch (Exception exception) when (IsExpectedHostFailure(exception))
         {
@@ -334,6 +388,23 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
     private bool HasWritableCodec => codecs.Any(codec => codec.WritableFormats.Count > 0);
 
     private bool HasReadableCodec => codecs.Any(codec => codec.ReadableFormats.Count > 0);
+
+    private ArchiveFormatDescriptor CreateStoredFormat(StoredArchiveDocumentInfo info)
+    {
+        // 旧版本的本机索引尚未保存显示名和扩展名；能识别该格式时，从 codec 声明补齐即可，
+        // 无需读取或重新编码档案正文。
+        var knownFormat = codecs
+            .SelectMany(codec => codec.ReadableFormats.Concat(codec.WritableFormats))
+            .FirstOrDefault(format =>
+                string.Equals(format.Identifier.AbsoluteUri, info.FormatIdentifier, StringComparison.Ordinal) &&
+                string.Equals(format.Version, info.FormatVersion, StringComparison.Ordinal));
+        return new ArchiveFormatDescriptor(
+            new Uri(info.FormatIdentifier, UriKind.Absolute),
+            info.FormatVersion,
+            info.MediaType,
+            info.FormatDisplayName ?? knownFormat?.DisplayName,
+            info.PreferredFileExtension ?? knownFormat?.PreferredFileExtension);
+    }
 
     private Task<EncodedArchive> EncodeAsync(
         ArchiveDocument document,

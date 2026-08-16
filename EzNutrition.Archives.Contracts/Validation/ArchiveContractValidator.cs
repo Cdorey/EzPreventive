@@ -80,6 +80,12 @@ public sealed class ArchiveContractValidator : IArchiveValidator
             case NutritionAdviceResource advice:
                 ValidateNutritionAdvice(advice, scope, prefix, issues);
                 break;
+            case NutritionReportResource report:
+                ValidateNutritionReport(report, scope, prefix, issues);
+                break;
+            case NutritionScaleAssessmentResource scale:
+                ValidateNutritionScaleAssessment(scale, scope, prefix, issues);
+                break;
         }
     }
 
@@ -906,6 +912,205 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         }
     }
 
+    private static void ValidateNutritionReport(
+        NutritionReportResource report,
+        ArchiveValidationScope scope,
+        string prefix,
+        ICollection<ArchiveValidationIssue> issues)
+    {
+        ValidateAssessmentReferenceTypes(
+            report.SubjectReference,
+            report.ConsultationReference,
+            prefix,
+            report,
+            issues);
+        ValidateDistinctVersionedReferences(
+            report.InputResourceReferences,
+            Path(prefix, "/InputResourceReferences"),
+            report,
+            issues);
+
+        for (var index = 0; index < report.InputResourceReferences.Count; index++)
+        {
+            if (IsSelfReference(report.InputResourceReferences[index], report.Metadata))
+            {
+                AddIssue(
+                    issues,
+                    ArchiveValidationCodes.InvalidTechnicalValue,
+                    ArchiveValidationSeverity.Error,
+                    ArchiveValidationCategory.Integrity,
+                    "报告不能把自身当前版本声明为内容输入。",
+                    $"{prefix}/InputResourceReferences/{index}",
+                    report);
+            }
+        }
+
+        if (report.Participants.Count == 0)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.RequiredSemanticValueMissing,
+                FormalRequirementSeverity(scope),
+                ArchiveValidationCategory.Integrity,
+                "营养报告缺少作者、复核者或监督者等参与事实。",
+                Path(prefix, "/Participants"),
+                report);
+        }
+
+        for (var index = 0; index < report.Participants.Count; index++)
+        {
+            var participant = report.Participants[index];
+            var participantPath = $"{prefix}/Participants/{index}";
+            ValidateActorReference(
+                participant.Actor,
+                participantPath + "/Actor",
+                report,
+                issues);
+            if (participant.ActedAt is { } actedAt && actedAt > report.Metadata.LastModifiedAt)
+            {
+                AddIssue(
+                    issues,
+                    ArchiveValidationCodes.InvalidResourceTimeline,
+                    ArchiveValidationSeverity.Error,
+                    ArchiveValidationCategory.Integrity,
+                    "报告参与时间晚于当前资源版本的最后修改时间。",
+                    participantPath + "/ActedAt",
+                    report);
+            }
+        }
+
+        if (report.Metadata.Status is ResourceLifecycleStatus.Final or ResourceLifecycleStatus.Amended &&
+            report.RenderedArtifact is null)
+        {
+            // 正式签发绑定的是用户实际看到的产物，而不只是可能被重新渲染的输入与模板。
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.RequiredSemanticValueMissing,
+                FormalRequirementSeverity(scope),
+                ArchiveValidationCategory.Integrity,
+                "正式营养报告缺少用于绑定确切输出内容的渲染产物指纹。",
+                Path(prefix, "/RenderedArtifact"),
+                report);
+        }
+    }
+
+    private static void ValidateNutritionScaleAssessment(
+        NutritionScaleAssessmentResource scale,
+        ArchiveValidationScope scope,
+        string prefix,
+        ICollection<ArchiveValidationIssue> issues)
+    {
+        ValidateAssessmentReferenceTypes(
+            scale.SubjectReference,
+            scale.ConsultationReference,
+            prefix,
+            scale,
+            issues);
+        ValidateDistinctVersionedReferences(
+            scale.InputResourceReferences,
+            Path(prefix, "/InputResourceReferences"),
+            scale,
+            issues);
+
+        for (var index = 0; index < scale.InputResourceReferences.Count; index++)
+        {
+            if (IsSelfReference(scale.InputResourceReferences[index], scale.Metadata))
+            {
+                AddIssue(
+                    issues,
+                    ArchiveValidationCodes.InvalidTechnicalValue,
+                    ArchiveValidationSeverity.Error,
+                    ArchiveValidationCategory.Integrity,
+                    "量表评估不能把自身当前版本声明为评分输入。",
+                    $"{prefix}/InputResourceReferences/{index}",
+                    scale);
+            }
+        }
+
+        var instrument = scale.Instrument;
+        if (instrument.Version is null &&
+            instrument.Definition?.Version is null &&
+            instrument.DefinitionFingerprint is null)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.AssessmentInstrumentIdentityIncomplete,
+                scale.Metadata.Status == ResourceLifecycleStatus.Draft
+                    ? ArchiveValidationSeverity.Warning
+                    : FormalRequirementSeverity(scope),
+                ArchiveValidationCategory.Compatibility,
+                "量表身份缺少编码版本、规范版本或定义内容指纹，无法稳定解释历史回答。",
+                Path(prefix, "/Instrument"),
+                scale);
+        }
+
+        if (scale.Responses.Count == 0 && scale.Metadata.Status != ResourceLifecycleStatus.Draft)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.RequiredSemanticValueMissing,
+                FormalRequirementSeverity(scope),
+                ArchiveValidationCategory.Integrity,
+                "正式量表评估缺少题目回答快照。",
+                Path(prefix, "/Responses"),
+                scale);
+        }
+
+        ValidateDistinctCodings(
+            scale.Responses.Select(response => response.Item),
+            Path(prefix, "/Responses"),
+            scale,
+            issues);
+        for (var index = 0; index < scale.Responses.Count; index++)
+        {
+            var response = scale.Responses[index];
+            ValidateValueAbsentReasonChoice(
+                response.Answer,
+                response.AnswerAbsentReason,
+                scope,
+                $"{prefix}/Responses/{index}",
+                scale,
+                issues);
+        }
+
+        ValidateDistinctCodings(
+            scale.DerivedResults.Select(result => result.Name),
+            Path(prefix, "/DerivedResults"),
+            scale,
+            issues);
+
+        if (scale.TotalScore is not null && scale.TotalScoreAbsentReason is not null)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.ValueAndAbsentReasonConflict,
+                ArchiveValidationSeverity.Error,
+                ArchiveValidationCategory.Integrity,
+                "量表总分与其缺失原因不能同时存在。",
+                Path(prefix, "/TotalScore"),
+                scale);
+        }
+        else if (scale.TotalScore is null &&
+                 scale.TotalScoreAbsentReason is null &&
+                 scale.Metadata.Status != ResourceLifecycleStatus.Draft)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.RequiredSemanticValueMissing,
+                FormalRequirementSeverity(scope),
+                ArchiveValidationCategory.Integrity,
+                "正式量表评估缺少总分及其明确缺失原因。",
+                Path(prefix, "/TotalScore"),
+                scale);
+        }
+
+        ValidateActorReference(
+            scale.Performer,
+            Path(prefix, "/Performer"),
+            scale,
+            issues);
+    }
+
     private static void ValidateBundleReferences(
         ArchiveBundle bundle,
         ICollection<ArchiveValidationIssue> issues)
@@ -950,6 +1155,44 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                     {
                         ValidateVersionedReference(
                             advice.InputResourceReferences[referenceIndex],
+                            $"{prefix}/InputResourceReferences/{referenceIndex}",
+                            resource,
+                            entries,
+                            issues);
+                    }
+
+                    break;
+                case NutritionReportResource report:
+                    ValidateAssessmentReferences(
+                        report.SubjectReference,
+                        report.ConsultationReference,
+                        prefix,
+                        resource,
+                        entries,
+                        issues);
+                    for (var referenceIndex = 0; referenceIndex < report.InputResourceReferences.Count; referenceIndex++)
+                    {
+                        ValidateVersionedReference(
+                            report.InputResourceReferences[referenceIndex],
+                            $"{prefix}/InputResourceReferences/{referenceIndex}",
+                            resource,
+                            entries,
+                            issues);
+                    }
+
+                    break;
+                case NutritionScaleAssessmentResource scale:
+                    ValidateAssessmentReferences(
+                        scale.SubjectReference,
+                        scale.ConsultationReference,
+                        prefix,
+                        resource,
+                        entries,
+                        issues);
+                    for (var referenceIndex = 0; referenceIndex < scale.InputResourceReferences.Count; referenceIndex++)
+                    {
+                        ValidateVersionedReference(
+                            scale.InputResourceReferences[referenceIndex],
                             $"{prefix}/InputResourceReferences/{referenceIndex}",
                             resource,
                             entries,
@@ -1601,6 +1844,8 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         DietaryRecallResource recall => recall.SubjectReference,
         SoapNoteResource soap => soap.SubjectReference,
         NutritionAdviceResource advice => advice.SubjectReference,
+        NutritionReportResource report => report.SubjectReference,
+        NutritionScaleAssessmentResource scale => scale.SubjectReference,
         _ => null
     };
 
@@ -1611,6 +1856,8 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         DietaryRecallResource recall => recall.ConsultationReference,
         SoapNoteResource soap => soap.ConsultationReference,
         NutritionAdviceResource advice => advice.ConsultationReference,
+        NutritionReportResource report => report.ConsultationReference,
+        NutritionScaleAssessmentResource scale => scale.ConsultationReference,
         _ => null
     };
 
@@ -1619,7 +1866,9 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         DriAssessmentResource or
         DietaryRecallResource or
         SoapNoteResource or
-        NutritionAdviceResource;
+        NutritionAdviceResource or
+        NutritionReportResource or
+        NutritionScaleAssessmentResource;
 
     private static NutrientAmount? FindNutrient(IEnumerable<NutrientAmount> values, string code) =>
         values.FirstOrDefault(value => string.Equals(value.Nutrient.Code, code, StringComparison.Ordinal));
@@ -1659,7 +1908,8 @@ public sealed class ArchiveContractValidator : IArchiveValidator
         ActorReference? actor,
         string path,
         IArchiveResource resource,
-        ICollection<ArchiveValidationIssue> issues)
+        ICollection<ArchiveValidationIssue> issues,
+        bool allowOrganization = true)
     {
         if (actor is null)
         {
@@ -1693,6 +1943,31 @@ public sealed class ArchiveContractValidator : IArchiveValidator
                 path,
                 resource);
         }
+
+        if (actor.Organization is null)
+        {
+            return;
+        }
+
+        if (!allowOrganization)
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.InvalidTechnicalValue,
+                ArchiveValidationSeverity.Error,
+                ArchiveValidationCategory.Integrity,
+                "行为时机构快照不能继续嵌套所属机构。",
+                path + "/Organization",
+                resource);
+            return;
+        }
+
+        ValidateActorReference(
+            actor.Organization,
+            path + "/Organization",
+            resource,
+            issues,
+            allowOrganization: false);
     }
 
     private static bool HasEnteredInErrorFields(ResourceMetadata metadata) =>

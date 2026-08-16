@@ -22,17 +22,56 @@ internal static class ArchiveSamples
         "EzNutrition 档案契约测试程序",
         "1.0.0-test");
 
+    private static readonly ActorReference SampleClinicalOrganization = new()
+    {
+        Kind = Code("actor-kind", "organization", "机构"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-organizations"),
+            "SYNTHETIC-ORGANIZATION-001"),
+        Display = "虚构社区卫生服务中心"
+    };
+
     private static readonly ActorReference SampleClinician = new()
     {
         Kind = Code("actor-kind", "practitioner", "医师"),
         Identifier = new BusinessIdentifier(
             new Uri(SampleRoot, "identifiers/test-clinicians"),
             "SYNTHETIC-CLINICIAN-001"),
-        Display = "虚构测试医师"
+        Display = "虚构测试医师",
+        Organization = SampleClinicalOrganization
+    };
+
+    private static readonly ActorReference SampleTeachingOrganization = new()
+    {
+        Kind = Code("actor-kind", "organization", "机构"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-organizations"),
+            "SYNTHETIC-ORGANIZATION-002"),
+        Display = "虚构营养学院"
+    };
+
+    private static readonly ActorReference SampleTeacher = new()
+    {
+        Kind = Code("actor-kind", "teacher", "教师"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-users"),
+            "SYNTHETIC-TEACHER-001"),
+        Display = "虚构指导教师",
+        Organization = SampleTeachingOrganization
+    };
+
+    private static readonly ActorReference SampleStudent = new()
+    {
+        Kind = Code("actor-kind", "student", "学生"),
+        Identifier = new BusinessIdentifier(
+            new Uri(SampleRoot, "identifiers/test-users"),
+            "SYNTHETIC-STUDENT-001"),
+        Display = "虚构学生",
+        Organization = SampleTeachingOrganization
     };
 
     /// <summary>
-    /// 获取首轮八种合成档案情境。
+    /// 获取十种合成档案情境。
     /// </summary>
     public static IReadOnlyList<ArchiveSample> All { get; } = Array.AsReadOnly(
         new[]
@@ -44,7 +83,9 @@ internal static class ArchiveSamples
             CreateHistoricalSnapshotSample(),
             CreateSpecialPhysiologySample(),
             CreateAmendmentChainSample(),
-            CreateExtensionsAndIdentifiersSample()
+            CreateExtensionsAndIdentifiersSample(),
+            CreateTeachingReportSample(),
+            CreateSyntheticScaleAssessmentSample()
         });
 
     /// <summary>
@@ -556,6 +597,181 @@ internal static class ArchiveSamples
                     "1.0-test",
                     "application/vnd.eznutrition.synthetic+json")
             });
+    }
+
+    private static ArchiveSample CreateTeachingReportSample()
+    {
+        var patient = new PatientResource
+        {
+            Metadata = Metadata(901, 901, 9),
+            IdentityMode = PatientIdentityMode.Pseudonymous,
+            Names = [new HumanName { Text = "虚构教学对象" }]
+        };
+        var consultationReference = ExactReference(902, 902, ArchiveResourceTypes.Consultation);
+        var consultation = new ConsultationResource
+        {
+            Metadata = Metadata(902, 902, 9),
+            SubjectReference = PatientReference(901),
+            Period = new Period(At(9, 8), At(9, 9)),
+            ClinicalResourceReferences =
+            [
+                ExactReference(903, 903, ArchiveResourceTypes.SoapNote),
+                ExactReference(904, 904, ArchiveResourceTypes.NutritionReport)
+            ],
+            Title = "虚构教学营养咨询",
+            ServiceProvider = SampleTeacher
+        };
+        var soap = new SoapNoteResource
+        {
+            Metadata = Metadata(903, 903, 9),
+            SubjectReference = PatientReference(901),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(9, 8),
+            Assessment = "虚构教学评估。",
+            Plan = "虚构教学计划。"
+        };
+        var report = new NutritionReportResource
+        {
+            Metadata = Metadata(904, 904, 9) with { FinalizedBy = SampleTeacher },
+            SubjectReference = PatientReference(901),
+            ConsultationReference = consultationReference,
+            Purpose = Code("report-purpose", "teaching", "教学"),
+            Title = "虚构教学营养报告",
+            InputResourceReferences =
+            [
+                ExactReference(903, 903, ArchiveResourceTypes.SoapNote)
+            ],
+            PresentationTemplate = new CanonicalReference(
+                new Uri(SampleRoot, "report-templates/teaching-summary"),
+                "1.0"),
+            RenderedArtifact = new ReportArtifactIdentity(
+                "application/pdf",
+                new ContentFingerprint(
+                    Code("fingerprint-algorithm", "sha-256", "SHA-256"),
+                    "1bd33a54f0879d51b727b90b5f3058fce96738ab88c460011cb9606e513b1df4")),
+            Participants =
+            [
+                new ReportParticipation
+                {
+                    Function = Code("report-participation", "author", "作者"),
+                    Actor = SampleStudent,
+                    ActedAt = At(9, 8)
+                },
+                new ReportParticipation
+                {
+                    Function = Code("report-participation", "reviewer", "复核者"),
+                    Actor = SampleTeacher,
+                    ActedAt = At(9, 9)
+                }
+            ]
+        };
+
+        return Sample(
+            "teaching-report",
+            "学生编制、教师复核并签发的虚构教学营养报告，仅保存产物指纹。",
+            9,
+            ArchiveBundleType.ConsultationDocument,
+            9,
+            patient,
+            consultation,
+            soap,
+            report);
+    }
+
+    private static ArchiveSample CreateSyntheticScaleAssessmentSample()
+    {
+        var patient = new PatientResource
+        {
+            Metadata = Metadata(1001, 1001, 10),
+            IdentityMode = PatientIdentityMode.Pseudonymous,
+            Names = [new HumanName { Text = "虚构量表对象" }]
+        };
+        var consultationReference = ExactReference(1002, 1002, ArchiveResourceTypes.Consultation);
+        var consultation = new ConsultationResource
+        {
+            Metadata = Metadata(1002, 1002, 10),
+            SubjectReference = PatientReference(1001),
+            Period = new Period(At(10, 8), At(10, 9)),
+            ClinicalResourceReferences =
+            [
+                ExactReference(1003, 1003, ArchiveResourceTypes.SoapNote),
+                ExactReference(1004, 1004, ArchiveResourceTypes.NutritionScaleAssessment)
+            ],
+            Title = "虚构通用量表评估咨询",
+            ServiceProvider = SampleClinician
+        };
+        var soap = new SoapNoteResource
+        {
+            Metadata = Metadata(1003, 1003, 10),
+            SubjectReference = PatientReference(1001),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(10, 8),
+            Assessment = "用于验证量表输入引用的虚构评估记录。"
+        };
+        var scale = new NutritionScaleAssessmentResource
+        {
+            Metadata = Metadata(1004, 1004, 10),
+            SubjectReference = PatientReference(1001),
+            ConsultationReference = consultationReference,
+            EffectiveAt = At(10, 9),
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    new Uri(SampleRoot, "codes/assessment-instrument"),
+                    "synthetic-nutrition-screening",
+                    display: "虚构营养筛查量表"),
+                Version = "1.0-test",
+                Definition = new CanonicalReference(
+                    new Uri(SampleRoot, "assessment-instruments/synthetic-nutrition-screening"),
+                    "1.0-test"),
+                DefinitionFingerprint = new ContentFingerprint(
+                    Code("fingerprint-algorithm", "sha-256", "SHA-256"),
+                    "3d0ddf920785da54eabe959e5ddec2671c0340094e0e8ea9e953ed57c2c68d0e")
+            },
+            InputResourceReferences =
+            [
+                ExactReference(1003, 1003, ArchiveResourceTypes.SoapNote)
+            ],
+            Responses =
+            [
+                new AssessmentItemResponse
+                {
+                    Item = Code("synthetic-scale-item", "item-a", "虚构条目 A"),
+                    Answer = new CodingArchiveValue(
+                        Code("synthetic-scale-answer", "option-one", "虚构选项一")),
+                    ScoreContribution = 1m
+                },
+                new AssessmentItemResponse
+                {
+                    Item = Code("synthetic-scale-item", "item-b", "虚构条目 B"),
+                    Answer = new BooleanArchiveValue(false),
+                    ScoreContribution = 0m
+                }
+            ],
+            DerivedResults =
+            [
+                new NamedArchiveValue
+                {
+                    Name = Code("assessment-result", "answered-item-count", "已回答条目数"),
+                    Value = new IntegerArchiveValue(2)
+                }
+            ],
+            ScoringMethod = Algorithm("synthetic-scale-scoring", "1.0-test", "虚构量表评分方法"),
+            TotalScore = 1m,
+            Interpretation = Code("synthetic-scale-interpretation", "category-one", "虚构分类一"),
+            Performer = SampleClinician
+        };
+
+        return Sample(
+            "synthetic-scale-assessment",
+            "不对应任何真实量表的通用结构样本，用于验证量表横向扩展能力。",
+            10,
+            ArchiveBundleType.ConsultationDocument,
+            10,
+            patient,
+            consultation,
+            soap,
+            scale);
     }
 
     private static DietaryRecallResource CreateMultiMealRecall(

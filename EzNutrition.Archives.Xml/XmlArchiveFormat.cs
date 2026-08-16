@@ -28,7 +28,9 @@ public static class XmlArchiveFormat
     public static ArchiveFormatDescriptor Current { get; } = new(
         FormatIdentifier,
         CurrentVersion,
-        MediaType);
+        MediaType,
+        "EzNutrition XML 档案",
+        ".xml");
 }
 
 /// <summary>

@@ -1,5 +1,7 @@
 using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Archives.Contracts.Repositories;
+using EzNutrition.Archives.Contracts.Resources;
+using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using System.Reflection;
@@ -218,6 +220,46 @@ public sealed class ValueObjectTests
     }
 
     /// <summary>
+    /// 验证报告产物身份拒绝空媒体类型或空内容指纹。
+    /// </summary>
+    [Fact]
+    public void Report_artifact_identity_requires_media_type_and_fingerprint()
+    {
+        var fingerprint = new ContentFingerprint(
+            new Coding(new Uri("https://example.invalid/codes/fingerprint"), "sha-256"),
+            new string('a', 64));
+
+        var artifact = new ReportArtifactIdentity(" application/pdf ", fingerprint);
+
+        Assert.Equal("application/pdf", artifact.MediaType);
+        Assert.Same(fingerprint, artifact.Fingerprint);
+        Assert.Throws<ArgumentException>(() => new ReportArtifactIdentity(" ", fingerprint));
+        Assert.Throws<ArgumentNullException>(() => new ReportArtifactIdentity("application/pdf", null!));
+    }
+
+    /// <summary>
+    /// 验证量表自身版本独立于代码体系版本，并规范化可选文本。
+    /// </summary>
+    [Fact]
+    public void Assessment_instrument_version_has_independent_normalized_semantics()
+    {
+        var code = new Coding(
+            new Uri("https://example.invalid/codes/assessment-instrument"),
+            "synthetic-scale",
+            "code-system-release");
+        var instrument = new AssessmentInstrumentIdentity
+        {
+            Code = code,
+            Version = "  instrument-edition  "
+        };
+        var unversioned = instrument with { Version = " " };
+
+        Assert.Equal("code-system-release", instrument.Code.Version);
+        Assert.Equal("instrument-edition", instrument.Version);
+        Assert.Null(unversioned.Version);
+    }
+
+    /// <summary>
     /// 验证通用扩展值的判别联合仅由 Contracts 程序集扩展。
     /// </summary>
     [Fact]
@@ -276,6 +318,28 @@ public sealed class ValueObjectTests
         Assert.Throws<ArgumentException>(() => new ArchiveExtension(relative));
         Assert.Throws<ArgumentException>(() => new ApplicationIdentity(relative, "app", "1"));
         Assert.Throws<ArgumentException>(() => new ReferenceDataIdentity(relative, "dataset"));
+    }
+
+    /// <summary>
+    /// 验证格式实现可以声明安全的展示名称和文件扩展名，而不把具体格式固化到调用方。
+    /// </summary>
+    [Fact]
+    public void Archive_format_descriptor_normalizes_file_metadata()
+    {
+        var format = new ArchiveFormatDescriptor(
+            new Uri("https://example.invalid/formats/test"),
+            "1",
+            "application/x-test",
+            "  测试档案  ",
+            "  .test  ");
+
+        Assert.Equal("测试档案", format.DisplayName);
+        Assert.Equal(".test", format.PreferredFileExtension);
+        var exception = Assert.Throws<ArgumentException>(() => new ArchiveFormatDescriptor(
+            new Uri("https://example.invalid/formats/test"),
+            "1",
+            preferredFileExtension: "test"));
+        Assert.Equal("preferredFileExtension", exception.ParamName);
     }
 
     /// <summary>

@@ -73,6 +73,26 @@ public sealed class ArchiveCenterRenderTests
         Assert.Contains("aria-label=\"删除 权限测试咨询\"", mutable, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Stored_export_control_is_rendered_only_for_declared_capability()
+    {
+        var record = CreateRecord(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "导出权限测试对象",
+            "导出权限测试咨询",
+            new DateTimeOffset(2026, 8, 14, 8, 0, 0, TimeSpan.Zero));
+
+        var browseOnly = WebUtility.HtmlDecode(await RenderAsync([record], includeFollowUpCallback: false));
+        var exportable = WebUtility.HtmlDecode(await RenderAsync(
+            [record],
+            includeFollowUpCallback: false,
+            capabilities: ArchiveWorkflowCapabilities.Browse | ArchiveWorkflowCapabilities.ExportStored));
+
+        Assert.DoesNotContain("导出所选档案", browseOnly, StringComparison.Ordinal);
+        Assert.Contains("导出所选档案", exportable, StringComparison.Ordinal);
+    }
+
     private static async Task<string> RenderAsync(
         IReadOnlyList<ArchiveRecordSummary> records,
         bool includeFollowUpCallback,
@@ -140,6 +160,10 @@ public sealed class ArchiveCenterRenderTests
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public ValueTask<ArchiveOpenResult> OpenStoredAsync(
+            Guid documentId,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public ValueTask<ArchiveOperationResult> ExportStoredAsync(
             Guid documentId,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

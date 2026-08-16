@@ -17,7 +17,7 @@ public sealed class ArchiveContractValidatorTests
     private static readonly ArchiveContractValidator Validator = new();
 
     /// <summary>
-    /// 验证既有八个合成正向样本均没有阻断性问题。
+    /// 验证全部合成正向样本均没有阻断性问题。
     /// </summary>
     [Fact]
     public void All_reference_samples_have_no_validation_errors()
@@ -315,6 +315,394 @@ public sealed class ArchiveContractValidatorTests
             issue.Path?.Value.EndsWith("/ServiceProvider", StringComparison.Ordinal) == true);
         Assert.True(result.HasErrors);
     }
+
+    /// <summary>
+    /// 验证草稿报告可以尚未复核和渲染，但仍应保留作者事实。
+    /// </summary>
+    [Fact]
+    public void Draft_report_can_remain_unreviewed_and_unrendered()
+    {
+        var report = TeachingReport();
+        var author = report.Participants.Single(item => item.Function.Code == "author");
+        var changed = report with
+        {
+            Metadata = report.Metadata with
+            {
+                Status = ResourceLifecycleStatus.Draft,
+                FinalizedAt = null,
+                FinalizedBy = null
+            },
+            RenderedArtifact = null,
+            Participants = [author]
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.DraftSave);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证作者具备业务资格时可以自行签发，不强制虚构另一名复核者。
+    /// </summary>
+    [Fact]
+    public void Report_author_may_also_be_the_finalizer()
+    {
+        var report = TeachingReport();
+        var teacher = report.Participants.Single(item => item.Function.Code == "reviewer").Actor;
+        var author = report.Participants.Single(item => item.Function.Code == "author") with
+        {
+            Actor = teacher
+        };
+        var changed = report with
+        {
+            Metadata = report.Metadata with { FinalizedBy = author.Actor },
+            Participants = [author]
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证修订报告可以保留早于当前版本建立时间的原始参与事实。
+    /// </summary>
+    [Fact]
+    public void Amended_report_can_preserve_participation_from_an_earlier_version()
+    {
+        var report = TeachingReport();
+        var changed = report with
+        {
+            Metadata = report.Metadata with
+            {
+                RevisionNumber = new RevisionNumber(2),
+                Status = ResourceLifecycleStatus.Amended,
+                CreatedAt = report.Metadata.CreatedAt.AddMinutes(30),
+                Supersedes = new VersionedResourceReference(
+                    report.Metadata.ResourceId,
+                    new ResourceVersionId(Guid.Parse("90000000-0000-0000-0000-000000000003")),
+                    ArchiveResourceTypes.NutritionReport)
+            }
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证正式报告必须绑定用户实际看到的确切渲染产物。
+    /// </summary>
+    [Fact]
+    public void Final_report_requires_a_rendered_artifact_fingerprint()
+    {
+        var changed = TeachingReport() with { RenderedArtifact = null };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/RenderedArtifact", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证报告输入必须解析到 Bundle 中的确切资源版本。
+    /// </summary>
+    [Fact]
+    public void Report_input_must_resolve_to_an_exact_resource_version()
+    {
+        var sample = ArchiveSamples.GetRequired("teaching-report");
+        var report = sample.Bundle.Entries.OfType<NutritionReportResource>().Single();
+        var input = Assert.Single(report.InputResourceReferences);
+        var changed = report with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    input.ResourceId,
+                    new ResourceVersionId(Guid.Parse("90000000-0000-0000-0000-000000000002")),
+                    input.ExpectedResourceType)
+            ]
+        };
+        var bundle = Replace(sample.Bundle, report, changed);
+
+        var result = Validator.ValidateBundle(bundle, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.UnresolvedReference &&
+            issue.Path?.Value.Contains("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证参与者的机构快照也必须包含身份或明确的缺失原因。
+    /// </summary>
+    [Fact]
+    public void Report_participant_organization_is_validated()
+    {
+        var report = TeachingReport();
+        var participants = report.Participants.ToArray();
+        participants[0] = participants[0] with
+        {
+            Actor = participants[0].Actor with { Organization = new ActorReference() }
+        };
+        var changed = report with { Participants = participants };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/Participants/0/Actor/Organization", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证行为时机构只保存一层快照，避免循环对象和无边界组织树。
+    /// </summary>
+    [Fact]
+    public void Actor_organization_snapshot_cannot_nest_another_organization()
+    {
+        var report = TeachingReport();
+        var participants = report.Participants.ToArray();
+        var organization = Assert.IsType<ActorReference>(participants[0].Actor.Organization);
+        participants[0] = participants[0] with
+        {
+            Actor = participants[0].Actor with
+            {
+                Organization = organization with
+                {
+                    Organization = new ActorReference { Display = "虚构上级机构" }
+                }
+            }
+        };
+        var changed = report with { Participants = participants };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.InvalidTechnicalValue &&
+            issue.Path?.Value.EndsWith(
+                "/Participants/0/Actor/Organization/Organization",
+                StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证报告不能把自身当前版本列为内容来源。
+    /// </summary>
+    [Fact]
+    public void Report_cannot_use_its_current_version_as_an_input()
+    {
+        var report = TeachingReport();
+        var changed = report with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    report.Metadata.ResourceId,
+                    report.Metadata.VersionId,
+                    ArchiveResourceTypes.NutritionReport)
+            ]
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.InvalidTechnicalValue &&
+            issue.Path?.Value.EndsWith("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证量表草稿可以尚未填写回答或形成总分。
+    /// </summary>
+    [Fact]
+    public void Draft_scale_assessment_can_remain_unanswered_and_unscored()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            Metadata = scale.Metadata with
+            {
+                Status = ResourceLifecycleStatus.Draft,
+                FinalizedAt = null,
+                FinalizedBy = null
+            },
+            Responses = [],
+            DerivedResults = [],
+            TotalScore = null
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.DraftSave);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证正式量表必须通过版本或指纹定位确切定义，导入时则保留为兼容性警告。
+    /// </summary>
+    [Fact]
+    public void Final_scale_assessment_requires_an_exact_instrument_identity()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    scale.Instrument.Code.System,
+                    scale.Instrument.Code.Code,
+                    display: scale.Instrument.Code.Display)
+            }
+        };
+
+        var export = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+        var import = Validator.ValidateResource(changed, ArchiveValidationScope.Import);
+
+        Assert.Contains(export.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.AssessmentInstrumentIdentityIncomplete &&
+            issue.Severity == ArchiveValidationSeverity.Error);
+        Assert.Contains(import.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.AssessmentInstrumentIdentityIncomplete &&
+            issue.Severity == ArchiveValidationSeverity.Warning);
+        Assert.True(export.HasErrors);
+        Assert.False(import.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表中的已列出条目必须保存回答或明确缺失原因。
+    /// </summary>
+    [Fact]
+    public void Final_scale_response_requires_an_answer_or_absent_reason()
+    {
+        var scale = SyntheticScale();
+        var responses = scale.Responses.ToArray();
+        responses[0] = responses[0] with { Answer = null };
+        var changed = scale with { Responses = responses };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/Responses/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表不能同时保存总分及其缺失原因。
+    /// </summary>
+    [Fact]
+    public void Scale_total_score_and_absent_reason_are_mutually_exclusive()
+    {
+        var changed = SyntheticScale() with
+        {
+            TotalScoreAbsentReason = DataAbsentReasonCode.Unknown
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.ValueAndAbsentReasonConflict &&
+            issue.Path?.Value.EndsWith("/TotalScore", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证正式量表必须保存总分或无法取得总分的明确原因。
+    /// </summary>
+    [Fact]
+    public void Final_scale_requires_a_total_score_or_absent_reason()
+    {
+        var changed = SyntheticScale() with { TotalScore = null };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.RequiredSemanticValueMissing &&
+            issue.Path?.Value.EndsWith("/TotalScore", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证通用校验器不把所有量表误判为题目分值的简单求和。
+    /// </summary>
+    [Fact]
+    public void Scale_specific_scoring_is_not_inferred_by_the_archive_validator()
+    {
+        var scale = SyntheticScale();
+        var responses = scale.Responses
+            .Select(response => response with { ScoreContribution = 99m })
+            .ToArray();
+        var changed = scale with { Responses = responses, TotalScore = -1m };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Finalization);
+
+        Assert.Empty(result.Issues);
+    }
+
+    /// <summary>
+    /// 验证量表评分输入必须解析到 Bundle 中的确切资源版本。
+    /// </summary>
+    [Fact]
+    public void Scale_input_must_resolve_to_an_exact_resource_version()
+    {
+        var sample = ArchiveSamples.GetRequired("synthetic-scale-assessment");
+        var scale = sample.Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
+        var input = Assert.Single(scale.InputResourceReferences);
+        var changed = scale with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    input.ResourceId,
+                    new ResourceVersionId(Guid.Parse("90000000-0000-0000-0000-000000000004")),
+                    input.ExpectedResourceType)
+            ]
+        };
+        var bundle = Replace(sample.Bundle, scale, changed);
+
+        var result = Validator.ValidateBundle(bundle, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.UnresolvedReference &&
+            issue.Path?.Value.Contains("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    /// <summary>
+    /// 验证量表评估不能把自身当前版本列为评分输入。
+    /// </summary>
+    [Fact]
+    public void Scale_cannot_use_its_current_version_as_an_input()
+    {
+        var scale = SyntheticScale();
+        var changed = scale with
+        {
+            InputResourceReferences =
+            [
+                new VersionedResourceReference(
+                    scale.Metadata.ResourceId,
+                    scale.Metadata.VersionId,
+                    ArchiveResourceTypes.NutritionScaleAssessment)
+            ]
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Export);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.InvalidTechnicalValue &&
+            issue.Path?.Value.EndsWith("/InputResourceReferences/0", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
+    private static NutritionReportResource TeachingReport() =>
+        ArchiveSamples.GetRequired("teaching-report")
+            .Bundle.Entries.OfType<NutritionReportResource>().Single();
+
+    private static NutritionScaleAssessmentResource SyntheticScale() =>
+        ArchiveSamples.GetRequired("synthetic-scale-assessment")
+            .Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
 
     private static ArchiveBundle Replace<TResource>(
         ArchiveBundle bundle,
