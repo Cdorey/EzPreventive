@@ -24,6 +24,7 @@ public sealed class AgeEntryRenderTests
 
         Assert.Equal(new ChronologicalAge(1, 4, 23), client.Age);
         Assert.Contains("1岁4个月23天", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"birth-date\"", html, StringComparison.Ordinal);
         Assert.Contains("type=\"date\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"age\"", html, StringComparison.Ordinal);
     }
@@ -38,7 +39,7 @@ public sealed class AgeEntryRenderTests
         Assert.Null(client.BirthDate);
         Assert.Equal(new ChronologicalAge(25), client.Age);
         Assert.Contains("id=\"age\"", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("type=\"date\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"birth-date\"", html, StringComparison.Ordinal);
     }
 
     private static async Task<string> RenderAsync(ClientInfo client, DateOnly effectiveDate)

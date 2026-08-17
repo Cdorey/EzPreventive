@@ -2,17 +2,21 @@
 @using System.Globalization
 
 <div class="age-entry">
-    <FormItem Label="年龄录入方式">
-        <RadioGroup TValue="string" Value="@mode" ValueChanged="HandleModeChangedAsync">
-            <Radio RadioButton Value="@BirthDateMode">出生日期</Radio>
-            <Radio RadioButton Value="@ReportedYearsMode">直接填写整岁</Radio>
-        </RadioGroup>
-    </FormItem>
+    <div class="age-entry-mode" role="group" aria-label="年龄录入方式">
+        <Segmented TValue="string"
+                   Block
+                   Value="@mode"
+                   ValueChanged="HandleModeChangedAsync">
+            <SegmentedItem TValue="string" Value="@BirthDateMode" Label="出生日期" />
+            <SegmentedItem TValue="string" Value="@ReportedYearsMode" Label="已知整岁" />
+        </Segmented>
+    </div>
 
     @if (mode == BirthDateMode)
     {
         <FormItem Label="出生日期">
             <InputDate TValue="DateOnly?"
+                       id="birth-date"
                        class="ant-input age-date-input"
                        max="@effectiveDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
                        @bind-Value="EnteredBirthDate"
@@ -20,7 +24,10 @@
         </FormItem>
         @if (Client.Age is { } calculatedAge)
         {
-            <p class="age-derived-value">截至 @effectiveDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)：@calculatedAge</p>
+            <p class="age-derived-value">
+                实足年龄：<strong>@calculatedAge</strong>
+                <span>（截至 @effectiveDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)）</span>
+            </p>
         }
     }
     else
@@ -92,6 +99,11 @@
 
     private async Task HandleModeChangedAsync(string selectedMode)
     {
+        if (selectedMode == mode)
+        {
+            return;
+        }
+
         mode = selectedMode;
         if (mode == BirthDateMode)
         {

@@ -2,6 +2,10 @@
     width: 100%;
 }
 
+.age-entry-mode {
+    margin-bottom: 16px;
+}
+
 .age-date-input {
     width: 100%;
 }
@@ -10,4 +14,13 @@
     margin: -8px 0 16px;
     color: rgba(0, 0, 0, 0.65);
     font-size: 0.875rem;
+}
+
+.age-derived-value strong {
+    color: rgba(0, 0, 0, 0.88);
+    font-weight: 500;
+}
+
+.age-derived-value span {
+    color: rgba(0, 0, 0, 0.45);
 }
