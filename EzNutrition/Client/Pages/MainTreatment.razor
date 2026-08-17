@@ -58,7 +58,7 @@
                                                @bind-Value="context.Name" />
                                     </FormItem>
                                 </GridCol>
-                                <GridCol Xs="24" Sm="12">
+                                <GridCol Xs="24">
                                     <FormItem Label="性别">
                                         <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
                                             <Radio RadioButton Value="@("男")">男</Radio>
@@ -66,8 +66,8 @@
                                         </RadioGroup>
                                     </FormItem>
                                 </GridCol>
-                                <GridCol Xs="24" Sm="12">
-                                    <AgeEntry Client="context" />
+                                <GridCol Xs="24">
+                                    <AgeEntry Client="context" Inline />
                                 </GridCol>
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="身高（cm）">
