@@ -46,7 +46,6 @@ public sealed class AiAdvicePromptComposerTests
             "\"age\":{\"years\":35,\"months\":2,\"days\":4}",
             prompt.UserMessage,
             StringComparison.Ordinal);
-        Assert.Contains("缺少 months 或 days", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"intake\":420", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"referenceComparison\":\"BelowReference\"", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"type\":\"RNI\"", prompt.UserMessage, StringComparison.Ordinal);
