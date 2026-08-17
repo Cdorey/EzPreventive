@@ -51,7 +51,49 @@ public sealed class XmlArchiveCodecTests
         Assert.Equal(source.Bundle.BundleId, read.Document?.Bundle.BundleId);
         Assert.Equal(source.Bundle.Entries.Count, read.Document?.Bundle.Entries.Count);
         var patient = Assert.Single(read.Document!.Bundle.Entries.OfType<PatientResource>());
+        var consultation = Assert.Single(read.Document.Bundle.Entries.OfType<ConsultationResource>());
         Assert.Equal("虚构测试对象", Assert.Single(patient.Names).Text);
+        Assert.Null(consultation.SubjectSnapshot?.ChronologicalAgeAtConsultation);
+        Assert.Equal(30m, consultation.SubjectSnapshot?.AgeAtConsultation?.Value);
+    }
+
+    [Fact]
+    public async Task Structured_age_round_trips_without_changing_the_xml_envelope_version()
+    {
+        var codec = CreateCodec();
+        var source = CreateDocument();
+        var consultation = Assert.Single(source.Bundle.Entries.OfType<ConsultationResource>());
+        var snapshot = Assert.IsType<SubjectSnapshot>(consultation.SubjectSnapshot);
+        var legacyAge = Assert.IsType<Quantity>(snapshot.AgeAtConsultation);
+        var changedConsultation = consultation with
+        {
+            SubjectSnapshot = snapshot with
+            {
+                ChronologicalAgeAtConsultation = new ChronologicalAge(1, 4, 23),
+                AgeAtConsultation = new Quantity(1, legacyAge.Unit)
+            }
+        };
+        var changed = source with
+        {
+            Bundle = source.Bundle with
+            {
+                Entries = source.Bundle.Entries
+                    .Select(resource => ReferenceEquals(resource, consultation) ? changedConsultation : resource)
+                    .ToArray()
+            }
+        };
+
+        var bytes = await WriteAsync(codec, changed);
+        await using var stream = new MemoryStream(bytes);
+        var read = await codec.ReadAsync(stream);
+
+        Assert.True(read.IsSuccess);
+        Assert.Contains("formatVersion=\"1.0\"", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+        var roundTripped = Assert.Single(read.Document!.Bundle.Entries.OfType<ConsultationResource>());
+        var age = Assert.IsType<ChronologicalAge>(roundTripped.SubjectSnapshot?.ChronologicalAgeAtConsultation);
+        Assert.Equal(1, age.Years);
+        Assert.Equal(4, age.Months);
+        Assert.Equal(23, age.Days);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using EzNutrition.Application.Ports;
 using EzNutrition.Shared.Data.Entities;
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -19,7 +20,7 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
     public Task<IReadOnlyList<EER>> GetEnergyReferencesAsync(
         NutritionSubjectQuery subject,
         CancellationToken cancellationToken = default) => PostListAsync<EER>(
-            $"Energy/EERs/{Uri.EscapeDataString(subject.Gender)}/{subject.Age}",
+            $"Energy/EERs/{Uri.EscapeDataString(subject.Gender)}/{FormatAge(subject.AgeInYears)}",
             [subject.SpecialPhysiologicalPeriod],
             "能量参考数据加载失败。",
             cancellationToken);
@@ -28,10 +29,13 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
     public Task<IReadOnlyList<DietaryReferenceIntakeValue>> GetDietaryReferenceIntakesAsync(
         NutritionSubjectQuery subject,
         CancellationToken cancellationToken = default) => PostListAsync<DietaryReferenceIntakeValue>(
-            $"Energy/DRIs/{Uri.EscapeDataString(subject.Gender)}/{subject.Age}",
+            $"Energy/DRIs/{Uri.EscapeDataString(subject.Gender)}/{FormatAge(subject.AgeInYears)}",
             [subject.SpecialPhysiologicalPeriod],
             "膳食参考摄入量加载失败。",
             cancellationToken);
+
+    private static string FormatAge(decimal ageInYears) =>
+        ageInYears.ToString(CultureInfo.InvariantCulture);
 
     /// <inheritdoc />
     public Task<IReadOnlyList<Food>> GetFoodsAsync(CancellationToken cancellationToken = default) =>
@@ -63,7 +67,7 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
         try
         {
             using var response = await httpClient.GetAsync(requestUri, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            EnsureSuccessStatusCode(response, errorMessage);
             return await ReadListAsync<T>(response, errorMessage, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -88,7 +92,7 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
                 requestUri,
                 physiologicalPeriods,
                 cancellationToken);
-            response.EnsureSuccessStatusCode();
+            EnsureSuccessStatusCode(response, errorMessage);
             return await ReadListAsync<T>(response, errorMessage, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -108,6 +112,18 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
     {
         var values = await response.Content.ReadFromJsonAsync<List<T>>(cancellationToken);
         return values ?? throw new NutritionDataAccessException(errorMessage);
+    }
+
+    private static void EnsureSuccessStatusCode(HttpResponseMessage response, string errorMessage)
+    {
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            throw new NutritionDataAccessException(
+                errorMessage,
+                NutritionDataAccessFailureKind.NotFound);
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     private static bool IsTransportOrPayloadFailure(Exception exception) => exception is

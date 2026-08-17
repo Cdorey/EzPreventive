@@ -172,6 +172,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         }
 
         AssertPropertyNames(root.GetProperty("patientInfo"), [.. expectedPatientProperties]);
+        AssertPropertyNames(root.GetProperty("patientInfo").GetProperty("age"), "years");
 
         var dietary = root.GetProperty("dietaryRecallSurvey");
         AssertPropertyNames(dietary, "method", "recallDays", "foods", "nutrients");
@@ -263,7 +264,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         {
             Name = $"合成咨询对象·{definition.Key}",
             Gender = "女",
-            Age = 35,
+            Age = new ChronologicalAge(35),
             Height = definition.IncludesMeasurements ? 165m : null,
             Weight = definition.IncludesMeasurements ? 60m : null
         };

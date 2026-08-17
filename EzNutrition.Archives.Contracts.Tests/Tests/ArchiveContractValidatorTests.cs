@@ -696,6 +696,33 @@ public sealed class ArchiveContractValidatorTests
         Assert.True(result.HasErrors);
     }
 
+    /// <summary>
+    /// 验证结构化年龄与供旧读取器使用的整岁降级值不能互相矛盾。
+    /// </summary>
+    [Fact]
+    public void Structured_age_must_match_the_legacy_completed_year_value()
+    {
+        var consultation = ArchiveSamples.GetRequired("comprehensive-adult")
+            .Bundle.Entries.OfType<ConsultationResource>().Single();
+        var snapshot = Assert.IsType<SubjectSnapshot>(consultation.SubjectSnapshot);
+        var legacyAge = Assert.IsType<Quantity>(snapshot.AgeAtConsultation);
+        var changed = consultation with
+        {
+            SubjectSnapshot = snapshot with
+            {
+                ChronologicalAgeAtConsultation = new ChronologicalAge(36, 11, 30),
+                AgeAtConsultation = new Quantity(37, legacyAge.Unit)
+            }
+        };
+
+        var result = Validator.ValidateResource(changed, ArchiveValidationScope.Import);
+
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == ArchiveValidationCodes.InvalidTechnicalValue &&
+            issue.Path?.Value.EndsWith("/SubjectSnapshot/AgeAtConsultation", StringComparison.Ordinal) == true);
+        Assert.True(result.HasErrors);
+    }
+
     private static NutritionReportResource TeachingReport() =>
         ArchiveSamples.GetRequired("teaching-report")
             .Bundle.Entries.OfType<NutritionReportResource>().Single();

@@ -343,6 +343,23 @@ public sealed class ValueObjectTests
     }
 
     /// <summary>
+    /// 验证结构化年龄保留未知精度，并拒绝不规范的年月日组成。
+    /// </summary>
+    [Fact]
+    public void Chronological_age_preserves_precision_and_component_ranges()
+    {
+        var reportedYears = new ChronologicalAge(25);
+        var exactAge = new ChronologicalAge(1, 4, 23);
+
+        Assert.Null(reportedYears.Months);
+        Assert.Null(reportedYears.Days);
+        Assert.Equal("1岁4个月23天", exactAge.ToString());
+        Assert.Throws<ArgumentException>(() => new ChronologicalAge(1, null, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChronologicalAge(1, 12));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChronologicalAge(1, 1, 31));
+    }
+
+    /// <summary>
     /// 验证面向保存流程的错误和严重错误会使校验结果失败，提示和警告不会。
     /// </summary>
     [Theory]

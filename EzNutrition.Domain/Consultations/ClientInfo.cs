@@ -20,7 +20,9 @@ namespace EzNutrition.Domain.Consultations
 
         public string? Gender { get; set; }
 
-        public int Age { get; set; } = 25;
+        public ChronologicalAge? Age { get; set; } = new(25);
+
+        public DateOnly? BirthDate { get; set; }
 
         ////public decimal? PAL { get; set; }
 

@@ -35,9 +35,7 @@
                     </FormItem>
                 </GridCol>
                 <GridCol Xs="24" Md="6">
-                    <FormItem Label="年龄">
-                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" OnChange="OnCriteriaChangedAsync" Min="0" />
-                    </FormItem>
+                    <AgeEntry Client="context" Changed="OnCriteriaChangedAsync" />
                 </GridCol>
                 <GridCol Xs="24" Md="10">
                     <FormItem Label="特殊生理状况">
@@ -141,7 +139,7 @@
         requestCancellation = null;
         previousCancellation?.Cancel();
 
-        if (string.IsNullOrWhiteSpace(Info.Gender) || Info.Age < 0)
+        if (string.IsNullOrWhiteSpace(Info.Gender) || Info.Age is null)
         {
             ClearResults(DriBrowserLoadState.Initial);
             return;
@@ -200,7 +198,7 @@
         var period = string.IsNullOrWhiteSpace(Info.SpecialPhysiologicalPeriod)
             ? "无特殊生理状况"
             : Info.SpecialPhysiologicalPeriod;
-        return $"当前结果：{Info.Gender} · {Info.Age} 岁 · {period}";
+        return $"当前结果：{Info.Gender} · {Info.Age} · {period}";
     }
 
     public void Dispose()

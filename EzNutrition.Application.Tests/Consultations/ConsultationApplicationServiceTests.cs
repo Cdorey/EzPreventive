@@ -34,7 +34,26 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Single(workspace.DietaryRecallSurvey.Nutrients);
         Assert.NotNull(workspace.SubjectiveObjectiveAssessmentPlanInformation);
         Assert.Equal("female", source.LastDriQuery?.Gender);
-        Assert.Equal(35, source.LastDriQuery?.Age);
+        Assert.Equal(35m, source.LastDriQuery?.AgeInYears);
+    }
+
+    /// <summary>
+    /// 验证生日推导的六个月年龄以 0.5 年查询既有参考数据接口。
+    /// </summary>
+    [Fact]
+    public async Task Composite_age_is_projected_to_decimal_years_for_reference_queries()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var client = CreateClient();
+        client.BirthDate = new DateOnly(2025, 2, 17);
+        client.Age = ChronologicalAge.FromBirthDate(client.BirthDate.Value, new DateOnly(2025, 8, 17));
+        var workspace = new ConsultationWorkspace(client);
+
+        await service.InitializeAsync(workspace);
+
+        Assert.Equal(0.5m, source.LastDriQuery?.AgeInYears);
+        Assert.NotNull(workspace.DietaryTower);
     }
 
     /// <summary>
@@ -76,6 +95,22 @@ public sealed class ConsultationApplicationServiceTests
         var record = Assert.Single(calculator.AvailableEERs);
         Assert.Equal(1, record.EERId);
         Assert.Equal("female", source.LastEnergyQuery?.Gender);
+    }
+
+    /// <summary>验证空 EER 结果会作为“无匹配数据”报告，而不是普通连接故障。</summary>
+    [Fact]
+    public async Task LoadEnergyReferencesAsync_reports_missing_reference_data()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        source.EnergyReferences = [];
+        var service = CreateService(source);
+        var calculator = new EnergyCalculator(CreateClient());
+
+        var exception = await Assert.ThrowsAsync<NutritionDataAccessException>(() =>
+            service.LoadEnergyReferencesAsync(calculator));
+
+        Assert.Equal(NutritionDataAccessFailureKind.NotFound, exception.FailureKind);
+        Assert.Empty(calculator.AvailableEERs);
     }
 
     /// <summary>
@@ -191,7 +226,7 @@ public sealed class ConsultationApplicationServiceTests
     private static ClientInfo CreateClient() => new()
     {
         Gender = "female",
-        Age = 35,
+        Age = new ChronologicalAge(35),
         Height = 165,
         Weight = 60,
         SpecialPhysiologicalPeriod = string.Empty
@@ -266,7 +301,7 @@ public sealed class ConsultationApplicationServiceTests
         IDietaryReferenceIntakeDataSource,
         IFoodCompositionDataSource
     {
-        public required IReadOnlyList<EER> EnergyReferences { get; init; }
+        public required IReadOnlyList<EER> EnergyReferences { get; set; }
 
         public required IReadOnlyList<DietaryReferenceIntakeValue> DietaryReferenceIntakes { get; init; }
 

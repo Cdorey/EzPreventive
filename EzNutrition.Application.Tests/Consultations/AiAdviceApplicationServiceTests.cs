@@ -9,6 +9,7 @@ using AdviceEnvironment = EzNutrition.Shared.Data.DTO.PromptDto.EnvironmentDto;
 using AdviceMealOccasion = EzNutrition.Shared.Data.DTO.PromptDto.DietaryMealOccasion;
 using AdviceReferenceComparison = EzNutrition.Shared.Data.DTO.PromptDto.DietaryReferenceComparison;
 using AdviceRequest = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
+using AdvicePatientAge = EzNutrition.Shared.Data.DTO.PromptDto.PatientAge;
 
 namespace EzNutrition.Application.Tests.Consultations;
 
@@ -26,7 +27,7 @@ public sealed class AiAdviceApplicationServiceTests
         Assert.True(prepared);
         var prompt = Assert.IsType<AdviceRequest>(workspace.AdvicePrompt);
         Assert.Equal("female", prompt.PatientInfo.Gender);
-        Assert.Equal(35, prompt.PatientInfo.Age);
+        Assert.Equal(new AdvicePatientAge(35, 2, 4), prompt.PatientInfo.Age);
         Assert.Equal(22.04m, prompt.PatientInfo.BMI);
         Assert.Equal(1.5m, prompt.PatientInfo.PAL);
         Assert.Equal(165m, prompt.PatientInfo.Height);
@@ -379,7 +380,7 @@ public sealed class AiAdviceApplicationServiceTests
         var client = new ClientInfo
         {
             Gender = "female",
-            Age = 35,
+            Age = new ChronologicalAge(35, 2, 4),
             Height = 165m,
             Weight = 60m,
             SpecialPhysiologicalPeriod = "pregnancy"

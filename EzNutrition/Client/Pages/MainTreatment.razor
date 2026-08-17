@@ -58,7 +58,7 @@
                                                @bind-Value="context.Name" />
                                     </FormItem>
                                 </GridCol>
-                                <GridCol Xs="24" Sm="12">
+                                <GridCol Xs="24">
                                     <FormItem Label="性别">
                                         <RadioGroup TValue="string" id="gender" @bind-Value="context.Gender">
                                             <Radio RadioButton Value="@("男")">男</Radio>
@@ -66,10 +66,8 @@
                                         </RadioGroup>
                                     </FormItem>
                                 </GridCol>
-                                <GridCol Xs="24" Sm="12">
-                                    <FormItem Label="年龄（岁）">
-                                        <AntDesign.InputNumber TValue="int" id="age" Style="width:100%" Step="1" @bind-Value="context.Age" Min="0" />
-                                    </FormItem>
+                                <GridCol Xs="24">
+                                    <AgeEntry Client="context" Inline />
                                 </GridCol>
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="身高（cm）">
@@ -142,7 +140,7 @@
 
                         <dl class="client-facts">
                             <div><dt>性别</dt><dd>@CurrentArchive.Client.Gender</dd></div>
-                            <div><dt>年龄</dt><dd>@CurrentArchive.Client.Age 岁</dd></div>
+                            <div><dt>年龄</dt><dd>@CurrentArchive.Client.Age</dd></div>
                             <div><dt>身高</dt><dd>@CurrentArchive.Client.Height cm</dd></div>
                             <div><dt>体重</dt><dd>@CurrentArchive.Client.Weight kg</dd></div>
                             <div class="wide-fact"><dt>生理状况</dt><dd>@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</dd></div>

@@ -99,7 +99,13 @@ public sealed class ConsultationScenarioTests
         Assert.Equal(archive.ContractIdentity.Patient.ResourceId, patient.Metadata.ResourceId);
         Assert.Equal(archive.ContractIdentity.Patient.VersionId, patient.Metadata.VersionId);
         Assert.NotEqual(client.ClientId, patient.Metadata.ResourceId.Value);
-        Assert.Equal((decimal)client.Age, Assert.IsType<Quantity>(snapshot.AgeAtConsultation).Value);
+        var age = Assert.IsType<EzNutrition.Domain.Consultations.ChronologicalAge>(client.Age);
+        var structuredAge = Assert.IsType<EzNutrition.Archives.Contracts.ValueObjects.ChronologicalAge>(
+            snapshot.ChronologicalAgeAtConsultation);
+        Assert.Equal(age.Years, structuredAge.Years);
+        Assert.Equal(age.Months, structuredAge.Months);
+        Assert.Equal(age.Days, structuredAge.Days);
+        Assert.Equal(age.Years, Assert.IsType<Quantity>(snapshot.AgeAtConsultation).Value);
         Assert.Equal(Normalize(client.Name), snapshot.IdentityDisplay);
         Assert.Equal(Normalize(client.Name), patient.Names.SingleOrDefault()?.Text);
         Assert.Equal(
@@ -335,7 +341,7 @@ public sealed class ConsultationScenarioTests
 
         var prompt = Assert.IsType<EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto>(
             scenario.Archive.AdvicePrompt);
-        AssertNamedQuantity(advice, "age", prompt.PatientInfo.Age);
+        AssertNamedText(advice, "age", scenario.Archive.Client.Age!.ToString());
         AssertNamedQuantity(advice, "height", prompt.PatientInfo.Height);
         AssertNamedQuantity(advice, "weight", prompt.PatientInfo.Weight);
         AssertNamedQuantity(advice, "adopted-energy", prompt.PatientInfo.TotalBalanceEnergyViaCalculation);
@@ -355,6 +361,15 @@ public sealed class ConsultationScenarioTests
 
         var value = Assert.IsType<QuantityArchiveValue>(Assert.Single(values).Value);
         Assert.Equal(expected.Value, value.Value.Value);
+    }
+
+    private static void AssertNamedText(
+        NutritionAdviceResource advice,
+        string code,
+        string expected)
+    {
+        var value = Assert.Single(advice.InputSummary, value => value.Name.Code == code);
+        Assert.Equal(expected, Assert.IsType<TextArchiveValue>(value.Value).Value);
     }
 
     private static void AssertReferenceClosure(ArchiveDocument document)

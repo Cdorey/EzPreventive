@@ -27,6 +27,7 @@ namespace EzNutrition.Archives.Xml.Internal;
 [JsonSerializable(typeof(decimal))]
 [JsonSerializable(typeof(DateTimeOffset))]
 [JsonSerializable(typeof(PartialDate))]
+[JsonSerializable(typeof(ChronologicalAge))]
 [JsonSerializable(typeof(Coding))]
 [JsonSerializable(typeof(Quantity))]
 [JsonSerializable(typeof(QuantityRange))]

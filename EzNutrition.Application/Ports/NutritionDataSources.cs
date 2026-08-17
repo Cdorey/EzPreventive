@@ -10,8 +10,8 @@ public sealed record NutritionSubjectQuery
     /// <summary>获取行政登记性别或当前数据源采用的性别分类。</summary>
     public required string Gender { get; init; }
 
-    /// <summary>获取咨询时年龄。</summary>
-    public required int Age { get; init; }
+    /// <summary>获取用于匹配参考数据年龄阈值的十进制年。</summary>
+    public required decimal AgeInYears { get; init; }
 
     /// <summary>获取特殊生理时期；无特殊时期时为空字符串。</summary>
     public string SpecialPhysiologicalPeriod { get; init; } = string.Empty;

@@ -8,7 +8,10 @@
     {
         public string? Gender { get; set; }
 
-        public required long Age { get; set; }
+        /// <summary>
+        /// 获取供建议生成使用的结构化实足年龄。
+        /// </summary>
+        public required PatientAge Age { get; set; }
 
         public decimal? BMI { get; set; }
 
