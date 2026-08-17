@@ -28,12 +28,32 @@ public sealed class HttpNutritionDataSourceTests
             handler.RequestUri?.AbsoluteUri);
     }
 
+    [Fact]
+    public async Task Not_found_response_is_reported_as_missing_reference_data()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.NotFound);
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://example.invalid/")
+        };
+        var source = new HttpNutritionDataSource(new StubHttpClientFactory(client));
+
+        var exception = await Assert.ThrowsAsync<NutritionDataAccessException>(() =>
+            source.GetEnergyReferencesAsync(new NutritionSubjectQuery
+            {
+                Gender = "女",
+                AgeInYears = 0m
+            }));
+
+        Assert.Equal(NutritionDataAccessFailureKind.NotFound, exception.FailureKind);
+    }
+
     private sealed class StubHttpClientFactory(HttpClient client) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => client;
     }
 
-    private sealed class CapturingHandler : HttpMessageHandler
+    private sealed class CapturingHandler(HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
     {
         public Uri? RequestUri { get; private set; }
 
@@ -42,7 +62,7 @@ public sealed class HttpNutritionDataSourceTests
             CancellationToken cancellationToken)
         {
             RequestUri = request.RequestUri;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent("[]", Encoding.UTF8, "application/json")
             });

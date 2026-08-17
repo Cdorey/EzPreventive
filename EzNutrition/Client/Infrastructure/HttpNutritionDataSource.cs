@@ -67,7 +67,7 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
         try
         {
             using var response = await httpClient.GetAsync(requestUri, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            EnsureSuccessStatusCode(response, errorMessage);
             return await ReadListAsync<T>(response, errorMessage, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -92,7 +92,7 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
                 requestUri,
                 physiologicalPeriods,
                 cancellationToken);
-            response.EnsureSuccessStatusCode();
+            EnsureSuccessStatusCode(response, errorMessage);
             return await ReadListAsync<T>(response, errorMessage, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -112,6 +112,18 @@ public sealed class HttpNutritionDataSource(IHttpClientFactory httpClientFactory
     {
         var values = await response.Content.ReadFromJsonAsync<List<T>>(cancellationToken);
         return values ?? throw new NutritionDataAccessException(errorMessage);
+    }
+
+    private static void EnsureSuccessStatusCode(HttpResponseMessage response, string errorMessage)
+    {
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            throw new NutritionDataAccessException(
+                errorMessage,
+                NutritionDataAccessFailureKind.NotFound);
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     private static bool IsTransportOrPayloadFailure(Exception exception) => exception is

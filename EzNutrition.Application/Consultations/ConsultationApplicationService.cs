@@ -199,7 +199,9 @@ public sealed class ConsultationApplicationService(
     {
         if (values is null || values.Count == 0)
         {
-            throw new NutritionDataAccessException(message);
+            throw new NutritionDataAccessException(
+                message,
+                NutritionDataAccessFailureKind.NotFound);
         }
     }
 }

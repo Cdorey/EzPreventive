@@ -20,45 +20,60 @@
 
             @if (string.IsNullOrEmpty(EnergyCalculator.Summary))
             {
-                <Paragraph>请选择适用的 PAL（身体活动水平），再计算推荐能量。</Paragraph>
-                <div class="pal-controls">
-                    @if (IsEerLoading)
-                    {
-                        <Spin Size="SpinSize.Large">
-                            <Indicator>
-                                <Icon Type="loading" Spin />
-                            </Indicator>
-                        </Spin>
-                    }
-                    else
-                    {
-                        <RadioGroup id="pal" @bind-Value="EnergyCalculator.PAL">
-                            @foreach (var eer in EnergyCalculator.AvailableEERs)
-                            {
-                                @if (eer.PAL != null)
+                @if (HasNoEerData)
+                {
+                    <Alert Type="AlertType.Warning"
+                           ShowIcon
+                           Message="没有可用的 EER 数据"
+                           Description="当前年龄、性别及生理状态没有匹配的能量需要量参考值。如确实需要核定能量，请在下方手工填写。" />
+                }
+                else
+                {
+                    <Paragraph>请选择适用的 PAL（身体活动水平），再计算推荐能量。</Paragraph>
+                    <div class="pal-controls">
+                        @if (IsEerLoading)
+                        {
+                            <Spin Size="SpinSize.Large">
+                                <Indicator>
+                                    <Icon Type="loading" Spin />
+                                </Indicator>
+                            </Spin>
+                        }
+                        else
+                        {
+                            <RadioGroup id="pal" @bind-Value="EnergyCalculator.PAL">
+                                @foreach (var eer in EnergyCalculator.AvailableEERs)
                                 {
-                                    <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                                    @if (eer.PAL != null)
+                                    {
+                                        <Radio RadioButton Value="@eer.PAL">@eer.PAL</Radio>
+                                    }
                                 }
-                            }
-                        </RadioGroup>
-                    }
-                    <Button Type="@ButtonType.Primary"
-                            Disabled="@IsEerLoading"
-                            @onclick="OnCalculateBtnClick">
-                        计算推荐能量
-                    </Button>
-                </div>
+                            </RadioGroup>
+                        }
+                        <Button Type="@ButtonType.Primary"
+                                Disabled="@(IsEerLoading || EnergyCalculator.AvailableEERs.Count == 0)"
+                                @onclick="OnCalculateBtnClick">
+                            计算推荐能量
+                        </Button>
+                    </div>
+                }
             }
             else
             {
                 <div class="energy-summary">@EnergyCalculator.Summary</div>
-                @if (EnergyCalculator.Allocation != null)
-                {
-                    <div class="energy-correction">
-                        <label for="corEnergy">营养师核定总能量（kcal）</label>
-                        <AntDesign.InputNumber TValue="int" id="corEnergy" OnChange="OnCorrectEnergyChanged" Step="50" Style="width:100%" Min="1000" />
-                    </div>
-                }
+            }
+            @if (HasNoEerData || EnergyCalculator.Allocation != null)
+            {
+                <div class="energy-correction">
+                    <label for="corEnergy">手工核定总能量（kcal）</label>
+                    <AntDesign.InputNumber TValue="int?"
+                                           id="corEnergy"
+                                           OnChange="OnCorrectEnergyChanged"
+                                           Step="50"
+                                           Style="width:100%"
+                                           Min="1" />
+                </div>
             }
         </section>
 
@@ -246,6 +261,8 @@
 
     private bool IsEerLoading { get; set; } = true;
 
+    private bool HasNoEerData { get; set; }
+
     private EnergyCalculator? loadedCalculator;
 
     private CancellationTokenSource? fetchCancellation;
@@ -295,11 +312,11 @@
         }
     }
 
-    private async Task OnCorrectEnergyChanged(int newEnergy)
+    private async Task OnCorrectEnergyChanged(int? newEnergy)
     {
-        if (EnergyCalculator?.CorrectEnergy(newEnergy) is true)
+        if (newEnergy is { } value && EnergyCalculator?.CorrectEnergy(value) is true)
         {
-            await Message.InfoAsync($"核定总能量{newEnergy}kCal，依据营养师修正。");
+            await Message.InfoAsync($"核定总能量{value}kCal，依据营养师修正。");
         }
     }
 
@@ -341,6 +358,7 @@
         }
 
         IsEerLoading = true;
+        HasNoEerData = false;
         var cancellation = new CancellationTokenSource();
         fetchCancellation = cancellation;
         try
@@ -351,6 +369,12 @@
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+        }
+        catch (NutritionDataAccessException ex)
+            when (ex.FailureKind == NutritionDataAccessFailureKind.NotFound)
+        {
+            HasNoEerData = true;
+            Logger.LogInformation("No matching EER records were found for the current consultation subject.");
         }
         catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
         {

@@ -97,6 +97,22 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Equal("female", source.LastEnergyQuery?.Gender);
     }
 
+    /// <summary>验证空 EER 结果会作为“无匹配数据”报告，而不是普通连接故障。</summary>
+    [Fact]
+    public async Task LoadEnergyReferencesAsync_reports_missing_reference_data()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        source.EnergyReferences = [];
+        var service = CreateService(source);
+        var calculator = new EnergyCalculator(CreateClient());
+
+        var exception = await Assert.ThrowsAsync<NutritionDataAccessException>(() =>
+            service.LoadEnergyReferencesAsync(calculator));
+
+        Assert.Equal(NutritionDataAccessFailureKind.NotFound, exception.FailureKind);
+        Assert.Empty(calculator.AvailableEERs);
+    }
+
     /// <summary>
     /// 验证空食物成分响应会安全失败且不写入空明细。
     /// </summary>
@@ -285,7 +301,7 @@ public sealed class ConsultationApplicationServiceTests
         IDietaryReferenceIntakeDataSource,
         IFoodCompositionDataSource
     {
-        public required IReadOnlyList<EER> EnergyReferences { get; init; }
+        public required IReadOnlyList<EER> EnergyReferences { get; set; }
 
         public required IReadOnlyList<DietaryReferenceIntakeValue> DietaryReferenceIntakes { get; init; }
 
