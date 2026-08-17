@@ -485,7 +485,9 @@ internal static class ConsultationScenarioCatalog
             PatientInfo = new PatientInfo
             {
                 Gender = archive.Client.Gender,
-                Age = archive.Client.Age?.ToReferenceYears() ?? 0m,
+                Age = archive.Client.Age is { } age
+                    ? new PatientAge(age.Years, age.Months, age.Days)
+                    : new PatientAge(0),
                 BMI = archive.CurrentEnergyCalculator?.BMI,
                 PAL = archive.CurrentEnergyCalculator?.PAL,
                 Height = archive.Client.Height,

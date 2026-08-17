@@ -8,7 +8,7 @@ namespace EzNutrition.Shared.Data.DTO.PromptDto;
 /// </summary>
 public sealed class AiAdviceRequestDto
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     [Range(CurrentSchemaVersion, CurrentSchemaVersion)]
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;

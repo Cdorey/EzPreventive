@@ -89,6 +89,10 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Contains("女", request.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("\\u5973", request.Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("\"patientInfo\"", request.Body, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"age\":{\"years\":42,\"months\":6,\"days\":0}",
+            request.Body,
+            StringComparison.Ordinal);
 
         var posted = JsonSerializer.Deserialize<AiAdviceRequestDto>(request.Body!, WebJsonOptions);
         Assert.NotNull(posted);
@@ -328,7 +332,7 @@ public sealed class HttpAiAdviceGatewayTests
         PatientInfo = new PatientInfo
         {
             Gender = "女",
-            Age = 42,
+            Age = new PatientAge(42, 6, 0),
             BMI = 22.4m,
             PAL = 1.6m,
             Height = 165.2m,

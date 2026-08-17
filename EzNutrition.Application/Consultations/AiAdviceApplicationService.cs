@@ -41,8 +41,9 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
                 PatientInfo = new PatientInfo
                 {
                     Gender = workspace.Client.Gender,
-                    Age = workspace.Client.Age?.ToReferenceYears()
-                        ?? throw new InvalidOperationException("Age is required before preparing advice."),
+                    Age = workspace.Client.Age is { } age
+                        ? new PatientAge(age.Years, age.Months, age.Days)
+                        : throw new InvalidOperationException("Age is required before preparing advice."),
                     BMI = workspace.CurrentEnergyCalculator.BMI,
                     PAL = workspace.CurrentEnergyCalculator.PAL,
                     Height = workspace.Client.Height,

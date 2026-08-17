@@ -172,6 +172,7 @@ public sealed class AiAdviceDietaryScenarioTests(ITestOutputHelper output)
         }
 
         AssertPropertyNames(root.GetProperty("patientInfo"), [.. expectedPatientProperties]);
+        AssertPropertyNames(root.GetProperty("patientInfo").GetProperty("age"), "years");
 
         var dietary = root.GetProperty("dietaryRecallSurvey");
         AssertPropertyNames(dietary, "method", "recallDays", "foods", "nutrients");

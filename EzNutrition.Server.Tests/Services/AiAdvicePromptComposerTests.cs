@@ -42,6 +42,11 @@ public sealed class AiAdvicePromptComposerTests
         Assert.Contains("不代表长期摄入或营养诊断", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"method\":\"24-hour-recall\"", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"foodName\":\"牛奶\"", prompt.UserMessage, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"age\":{\"years\":35,\"months\":2,\"days\":4}",
+            prompt.UserMessage,
+            StringComparison.Ordinal);
+        Assert.Contains("缺少 months 或 days", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"intake\":420", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"referenceComparison\":\"BelowReference\"", prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"type\":\"RNI\"", prompt.UserMessage, StringComparison.Ordinal);
@@ -88,7 +93,7 @@ public sealed class AiAdvicePromptComposerTests
     private static PatientInfo CreatePatientInfo() => new()
     {
         Gender = "女",
-        Age = 35,
+        Age = new PatientAge(35, 2, 4),
         BMI = 22m,
         PAL = 1.5m,
         Height = 165m,

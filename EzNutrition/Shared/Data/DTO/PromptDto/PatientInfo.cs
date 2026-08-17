@@ -9,9 +9,9 @@
         public string? Gender { get; set; }
 
         /// <summary>
-        /// 获取供建议生成使用的十进制年龄（年）。
+        /// 获取供建议生成使用的结构化实足年龄。
         /// </summary>
-        public required decimal Age { get; set; }
+        public required PatientAge Age { get; set; }
 
         public decimal? BMI { get; set; }
 

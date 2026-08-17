@@ -178,7 +178,10 @@ internal static class RuntimeArchiveSamples
             PatientInfo = new PatientInfo
             {
                 Gender = archive.Client.Gender,
-                Age = archive.Client.Age!.ToReferenceYears(),
+                Age = new PatientAge(
+                    archive.Client.Age!.Years,
+                    archive.Client.Age.Months,
+                    archive.Client.Age.Days),
                 BMI = 24.34m,
                 PAL = 1.5m,
                 Height = archive.Client.Height,

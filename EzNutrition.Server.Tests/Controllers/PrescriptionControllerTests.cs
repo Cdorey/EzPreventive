@@ -52,7 +52,7 @@ public sealed class PrescriptionControllerTests
         PatientInfo = new PatientInfo
         {
             Gender = "女",
-            Age = 35,
+            Age = new PatientAge(35),
             BMI = 22m,
             PAL = 1.5m,
             Height = 165m,

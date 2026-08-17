@@ -13,6 +13,7 @@ using EzNutrition.Domain.Consultations;
 using EzNutrition.Domain.Dietary;
 using EzNutrition.Shared.Data.Entities;
 using AiAdviceRequestDto = EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto;
+using AdvicePatientAge = EzNutrition.Shared.Data.DTO.PromptDto.PatientAge;
 using AdviceReferenceComparison = EzNutrition.Shared.Data.DTO.PromptDto.DietaryReferenceComparison;
 using RuntimeWorkspace = EzNutrition.Application.Consultations.ConsultationWorkspace;
 
@@ -763,7 +764,7 @@ public sealed class ArchiveContractAssembler
         }
 
         var inputs = new List<NamedArchiveValue>();
-        Add(inputs, "age", "年龄", new QuantityArchiveValue(ArchiveContractCoding.Quantity(prompt.PatientInfo.Age, "a")));
+        Add(inputs, "age", "年龄", new TextArchiveValue(FormatAdviceAge(prompt.PatientInfo.Age)));
         if (!string.IsNullOrWhiteSpace(prompt.PatientInfo.Gender))
         {
             Add(inputs, "administrative-sex", "性别", new CodingArchiveValue(
@@ -821,6 +822,22 @@ public sealed class ArchiveContractAssembler
         }
 
         return inputs;
+    }
+
+    private static string FormatAdviceAge(AdvicePatientAge age)
+    {
+        var value = $"{age.Years}岁";
+        if (age.Months is { } months)
+        {
+            value += $"{months}个月";
+        }
+
+        if (age.Days is { } days)
+        {
+            value += $"{days}天";
+        }
+
+        return value;
     }
 
     private static void Add(

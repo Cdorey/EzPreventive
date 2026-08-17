@@ -341,7 +341,7 @@ public sealed class ConsultationScenarioTests
 
         var prompt = Assert.IsType<EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto>(
             scenario.Archive.AdvicePrompt);
-        AssertNamedQuantity(advice, "age", prompt.PatientInfo.Age);
+        AssertNamedText(advice, "age", scenario.Archive.Client.Age!.ToString());
         AssertNamedQuantity(advice, "height", prompt.PatientInfo.Height);
         AssertNamedQuantity(advice, "weight", prompt.PatientInfo.Weight);
         AssertNamedQuantity(advice, "adopted-energy", prompt.PatientInfo.TotalBalanceEnergyViaCalculation);
@@ -361,6 +361,15 @@ public sealed class ConsultationScenarioTests
 
         var value = Assert.IsType<QuantityArchiveValue>(Assert.Single(values).Value);
         Assert.Equal(expected.Value, value.Value.Value);
+    }
+
+    private static void AssertNamedText(
+        NutritionAdviceResource advice,
+        string code,
+        string expected)
+    {
+        var value = Assert.Single(advice.InputSummary, value => value.Name.Code == code);
+        Assert.Equal(expected, Assert.IsType<TextArchiveValue>(value.Value).Value);
     }
 
     private static void AssertReferenceClosure(ArchiveDocument document)
