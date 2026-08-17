@@ -99,7 +99,13 @@ public sealed class ConsultationScenarioTests
         Assert.Equal(archive.ContractIdentity.Patient.ResourceId, patient.Metadata.ResourceId);
         Assert.Equal(archive.ContractIdentity.Patient.VersionId, patient.Metadata.VersionId);
         Assert.NotEqual(client.ClientId, patient.Metadata.ResourceId.Value);
-        Assert.Equal((decimal)client.Age, Assert.IsType<Quantity>(snapshot.AgeAtConsultation).Value);
+        var age = Assert.IsType<EzNutrition.Domain.Consultations.ChronologicalAge>(client.Age);
+        var structuredAge = Assert.IsType<EzNutrition.Archives.Contracts.ValueObjects.ChronologicalAge>(
+            snapshot.ChronologicalAgeAtConsultation);
+        Assert.Equal(age.Years, structuredAge.Years);
+        Assert.Equal(age.Months, structuredAge.Months);
+        Assert.Equal(age.Days, structuredAge.Days);
+        Assert.Equal(age.Years, Assert.IsType<Quantity>(snapshot.AgeAtConsultation).Value);
         Assert.Equal(Normalize(client.Name), snapshot.IdentityDisplay);
         Assert.Equal(Normalize(client.Name), patient.Names.SingleOrDefault()?.Text);
         Assert.Equal(

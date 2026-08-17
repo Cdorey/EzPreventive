@@ -1,5 +1,6 @@
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.ValueObjects;
+using DomainChronologicalAge = EzNutrition.Domain.Consultations.ChronologicalAge;
 
 namespace EzNutrition.Application.Archives;
 
@@ -18,7 +19,9 @@ public sealed class ArchivePatientContext
             .Trim();
         Name ??= NormalizeOptional(snapshot?.IdentityDisplay);
         Gender = FormatSupportedSex(snapshot?.AdministrativeSex ?? patient.AdministrativeSex);
-        AgeInYears = WholeNumber(snapshot?.AgeAtConsultation, "a");
+        BirthDate = FullBirthDate(patient.BirthDate);
+        Age = MapAge(snapshot);
+        AgeInYears = Age?.Years;
         HeightInCentimeters = UcumValue(snapshot?.Height?.Value, "cm");
         WeightInKilograms = UcumValue(snapshot?.Weight?.Value, "kg");
         PhysiologicalState = FormatSupportedPhysiologicalState(snapshot?.PhysiologicalStates);
@@ -35,7 +38,13 @@ public sealed class ArchivePatientContext
     /// <summary>获取当前工作区能够识别的性别显示值。</summary>
     public string? Gender { get; }
 
-    /// <summary>获取最近一次咨询采用的整岁年龄。</summary>
+    /// <summary>获取患者档案中的可选完整出生日期。</summary>
+    public DateOnly? BirthDate { get; }
+
+    /// <summary>获取最近一次咨询采用的结构化实足年龄。</summary>
+    public DomainChronologicalAge? Age { get; }
+
+    /// <summary>获取最近一次咨询采用的完整年数。</summary>
     public int? AgeInYears { get; }
 
     /// <summary>获取最近一次咨询采用的厘米身高。</summary>
@@ -47,13 +56,40 @@ public sealed class ArchivePatientContext
     /// <summary>获取当前工作区能够识别的最近一次生理状态。</summary>
     public string? PhysiologicalState { get; }
 
-    private static int? WholeNumber(Quantity? quantity, string unitCode)
+    private static DomainChronologicalAge? MapAge(SubjectSnapshot? snapshot)
     {
-        var value = UcumValue(quantity, unitCode);
-        return value is >= int.MinValue and <= int.MaxValue && decimal.Truncate(value.Value) == value.Value
-            ? decimal.ToInt32(value.Value)
-            : null;
+        if (snapshot?.ChronologicalAgeAtConsultation is { } age)
+        {
+            return new DomainChronologicalAge(age.Years, age.Months, age.Days);
+        }
+
+        var legacy = snapshot?.AgeAtConsultation;
+        if (legacy is not { Comparator: QuantityComparator.None } || legacy.Value < 0)
+        {
+            return null;
+        }
+
+        var totalMonths = legacy.Unit.System.AbsoluteUri == "http://unitsofmeasure.org/"
+            ? legacy.Unit.Code switch
+            {
+                "a" => legacy.Value * 12m,
+                "mo" => legacy.Value,
+                _ => -1m
+            }
+            : -1m;
+        if (totalMonths < 0 || decimal.Truncate(totalMonths) != totalMonths || totalMonths > int.MaxValue)
+        {
+            return null;
+        }
+
+        var months = decimal.ToInt32(totalMonths);
+        return new DomainChronologicalAge(months / 12, months % 12);
     }
+
+    private static DateOnly? FullBirthDate(PartialDate? birthDate) =>
+        birthDate is { Precision: PartialDatePrecision.Day, Month: { } month, Day: { } day }
+            ? new DateOnly(birthDate.Year, month, day)
+            : null;
 
     private static decimal? UcumValue(Quantity? quantity, string unitCode) =>
         quantity is { Comparator: QuantityComparator.None } &&

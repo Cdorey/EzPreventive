@@ -379,7 +379,7 @@ public sealed class AiAdviceApplicationServiceTests
         var client = new ClientInfo
         {
             Gender = "female",
-            Age = 35,
+            Age = new ChronologicalAge(35),
             Height = 165m,
             Weight = 60m,
             SpecialPhysiologicalPeriod = "pregnancy"

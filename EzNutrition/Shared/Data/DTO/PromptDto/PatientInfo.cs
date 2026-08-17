@@ -8,7 +8,10 @@
     {
         public string? Gender { get; set; }
 
-        public required long Age { get; set; }
+        /// <summary>
+        /// 获取供建议生成使用的十进制年龄（年）。
+        /// </summary>
+        public required decimal Age { get; set; }
 
         public decimal? BMI { get; set; }
 

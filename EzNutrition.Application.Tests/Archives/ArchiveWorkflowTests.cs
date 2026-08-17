@@ -5,6 +5,7 @@ using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Domain.Consultations;
+using DomainChronologicalAge = EzNutrition.Domain.Consultations.ChronologicalAge;
 
 namespace EzNutrition.Application.Tests.Archives;
 
@@ -36,6 +37,24 @@ public sealed class ArchiveWorkflowTests
     }
 
     [Fact]
+    public async Task Birth_date_and_structured_age_are_available_after_opening_an_archive()
+    {
+        var fixture = CreateFixture();
+        var workspace = CreateWorkspace("合成儿保对象");
+        workspace.Client.BirthDate = new DateOnly(2024, 4, 17);
+        workspace.Client.Age = new DomainChronologicalAge(1, 4, 23);
+
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+        var record = Assert.Single((await fixture.Workflow.BrowseAsync()).Records);
+        var opened = await fixture.Workflow.OpenStoredAsync(record.DocumentId);
+
+        var patient = Assert.IsType<ArchivePatientContext>(opened.Review?.PatientContext);
+        Assert.Equal(new DateOnly(2024, 4, 17), patient.BirthDate);
+        Assert.Equal(new DomainChronologicalAge(1, 4, 23), patient.Age);
+        Assert.Equal(1, patient.AgeInYears);
+    }
+
+    [Fact]
     public async Task Follow_up_consultation_reuses_patient_identity_but_has_an_independent_document()
     {
         var fixture = CreateFixture();
@@ -48,7 +67,7 @@ public sealed class ArchiveWorkflowTests
         {
             Name = patient.Name,
             Gender = patient.Gender,
-            Age = patient.AgeInYears ?? 25,
+            Age = patient.Age ?? new DomainChronologicalAge(25),
             Height = patient.HeightInCentimeters,
             Weight = patient.WeightInKilograms,
             SpecialPhysiologicalPeriod = patient.PhysiologicalState ?? string.Empty
@@ -291,7 +310,7 @@ public sealed class ArchiveWorkflowTests
     {
         Name = name,
         Gender = "女",
-        Age = 30,
+        Age = new DomainChronologicalAge(30),
         Height = 165,
         Weight = 55
     });

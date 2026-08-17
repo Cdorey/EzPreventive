@@ -35,7 +35,8 @@ namespace EzNutrition.Client.Services
             {
                 Name = patientContext.Name,
                 Gender = patientContext.Gender,
-                Age = patientContext.AgeInYears.GetValueOrDefault(),
+                BirthDate = patientContext.BirthDate,
+                Age = patientContext.Age,
                 Height = patientContext.HeightInCentimeters,
                 Weight = patientContext.WeightInKilograms,
                 SpecialPhysiologicalPeriod = patientContext.PhysiologicalState ?? string.Empty
@@ -63,7 +64,7 @@ namespace EzNutrition.Client.Services
                 return;
             }
 
-            if (archive.Client.Age < 0)
+            if (archive.Client.Age is null)
             {
                 await message.ErrorAsync("年龄不符合逻辑");
                 return;

@@ -17,8 +17,17 @@ public sealed record SubjectSnapshot
     private IReadOnlyList<Coding> _physiologicalStates = Array.Empty<Coding>();
 
     /// <summary>
-    /// 获取咨询时采用的年龄及其单位，例如年或月。
+    /// 获取咨询时采用的结构化实足年龄。
     /// </summary>
+    public ChronologicalAge? ChronologicalAgeAtConsultation { get; init; }
+
+    /// <summary>
+    /// 获取旧版咨询快照采用的单一数量年龄。
+    /// </summary>
+    /// <remarks>
+    /// 新档案同时提供结构化年龄和该整岁降级值，以便旧版读取器安全调阅；
+    /// 新代码应优先使用 <see cref="ChronologicalAgeAtConsultation"/>。
+    /// </remarks>
     public Quantity? AgeAtConsultation { get; init; }
 
     /// <summary>

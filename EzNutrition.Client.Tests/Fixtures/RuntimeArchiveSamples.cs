@@ -134,7 +134,7 @@ internal static class RuntimeArchiveSamples
         archive.DietaryRecallSurvey = survey;
         archive.DietaryTower = new DietaryRecallTower(
             survey.RecallEntries,
-            StandardTower.GetStandardTower(archive.Client.Age)
+            StandardTower.GetStandardTower(archive.Client.Age!.ToReferenceYears())
                 ?? throw new InvalidOperationException("没有找到合成样本所需的膳食宝塔。"));
         archive.SubjectiveObjectiveAssessmentPlanInformation = new SubjectiveObjectiveAssessmentPlanInformation
         {
@@ -178,7 +178,7 @@ internal static class RuntimeArchiveSamples
             PatientInfo = new PatientInfo
             {
                 Gender = archive.Client.Gender,
-                Age = archive.Client.Age,
+                Age = archive.Client.Age!.ToReferenceYears(),
                 BMI = 24.34m,
                 PAL = 1.5m,
                 Height = archive.Client.Height,
@@ -260,7 +260,7 @@ internal static class RuntimeArchiveSamples
             ClientId = StableGuid(0x40000000, seed, 1),
             Name = name,
             Gender = gender,
-            Age = age,
+            Age = new ChronologicalAge(age),
             Height = height,
             Weight = weight,
             SpecialPhysiologicalPeriod = physiologicalPeriod
@@ -285,7 +285,7 @@ internal static class RuntimeArchiveSamples
                 new EER
                 {
                     Gender = client.Gender,
-                    AgeStart = client.Age,
+                    AgeStart = client.Age?.ToReferenceYears(),
                     PAL = pal,
                     BEE = bee
                 }

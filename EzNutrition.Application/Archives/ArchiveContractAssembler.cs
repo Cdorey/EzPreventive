@@ -5,6 +5,7 @@ using EzNutrition.Archives.Contracts.Metadata;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.ValueObjects;
+using ContractChronologicalAge = EzNutrition.Archives.Contracts.ValueObjects.ChronologicalAge;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Calculations;
@@ -161,6 +162,9 @@ public sealed class ArchiveContractAssembler
             Names = string.IsNullOrWhiteSpace(name)
                 ? []
                 : [new HumanName { Text = name }],
+            BirthDate = archive.Client.BirthDate is { } birthDate
+                ? new PartialDate(birthDate.Year, birthDate.Month, birthDate.Day)
+                : null,
             AdministrativeSex = string.IsNullOrWhiteSpace(archive.Client.Gender)
                 ? null
                 : ArchiveContractCoding.AdministrativeSex(archive.Client.Gender)
@@ -176,9 +180,16 @@ public sealed class ArchiveContractAssembler
         var physiologicalStates = string.IsNullOrWhiteSpace(archive.Client.SpecialPhysiologicalPeriod)
             ? Array.Empty<Coding>()
             : new[] { ArchiveContractCoding.PhysiologicalState(archive.Client.SpecialPhysiologicalPeriod) };
+        var age = archive.Client.Age;
         var snapshot = new SubjectSnapshot
         {
-            AgeAtConsultation = ArchiveContractCoding.Quantity(archive.Client.Age, "a"),
+            ChronologicalAgeAtConsultation = age is null
+                ? null
+                : new ContractChronologicalAge(age.Years, age.Months, age.Days),
+            // 旧读取器仍可使用完整年数；精确年月日只由上面的结构化字段表达。
+            AgeAtConsultation = age is null
+                ? null
+                : ArchiveContractCoding.Quantity(age.Years, "a"),
             AdministrativeSex = string.IsNullOrWhiteSpace(archive.Client.Gender)
                 ? null
                 : ArchiveContractCoding.AdministrativeSex(archive.Client.Gender),
@@ -396,7 +407,7 @@ public sealed class ArchiveContractAssembler
             new[]
             {
                 NormalizeOptional(dris.Client.Gender) ?? "性别未说明",
-                $"{dris.Client.Age}岁",
+                dris.Client.Age?.ToString() ?? "年龄未说明",
                 NormalizeOptional(dris.Client.SpecialPhysiologicalPeriod)
             }.Where(value => value is not null));
         var population = ArchiveContractCoding.Code(
@@ -820,11 +831,16 @@ public sealed class ArchiveContractAssembler
 
     private IEnumerable<AssessmentInput> CreateCommonAssessmentInputs(IClient client)
     {
-        yield return AssessmentInput(
-            "age",
-            "年龄",
-            new QuantityArchiveValue(ArchiveContractCoding.Quantity(client.Age, "a")),
-            ClinicalValueSourceKind.Reported);
+        if (client.Age is { } age)
+        {
+            yield return AssessmentInput(
+                "age",
+                "年龄",
+                new QuantityArchiveValue(ArchiveContractCoding.Quantity(age.ToReferenceYears(), "a")),
+                client.BirthDate is null
+                    ? ClinicalValueSourceKind.Reported
+                    : ClinicalValueSourceKind.Derived);
+        }
 
         if (!string.IsNullOrWhiteSpace(client.Gender))
         {

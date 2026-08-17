@@ -51,7 +51,7 @@ public sealed class ConsultationApplicationService(
             dris);
         dietaryRecallSurvey.OnCalculate += (_, _) =>
         {
-            var standardTower = StandardTower.GetStandardTower(workspace.Client.Age);
+            var standardTower = StandardTower.GetStandardTower(ReferenceAgeInYears(workspace.Client));
             workspace.DietaryTower = standardTower is null
                 ? null
                 : new DietaryRecallTower(dietaryRecallSurvey.RecallEntries, standardTower);
@@ -60,7 +60,7 @@ public sealed class ConsultationApplicationService(
         workspace.CurrentEnergyCalculator = new EnergyCalculator(workspace.Client);
         workspace.DRIs = dris;
         workspace.DietaryRecallSurvey = dietaryRecallSurvey;
-        workspace.DietaryTower = StandardTower.GetStandardTower(workspace.Client.Age);
+        workspace.DietaryTower = StandardTower.GetStandardTower(subject.AgeInYears);
         workspace.SubjectiveObjectiveAssessmentPlanInformation = new();
         workspace.ClientInfoFormEnabled = false;
     }
@@ -143,7 +143,7 @@ public sealed class ConsultationApplicationService(
 
     private static NutritionSubjectQuery CreateSubjectQuery(IClient client)
     {
-        if (string.IsNullOrWhiteSpace(client.Gender) || client.Age < 0)
+        if (string.IsNullOrWhiteSpace(client.Gender) || client.Age is null)
         {
             throw new InvalidOperationException("性别和年龄信息无效。");
         }
@@ -151,10 +151,14 @@ public sealed class ConsultationApplicationService(
         return new NutritionSubjectQuery
         {
             Gender = client.Gender.Trim(),
-            Age = client.Age,
+            AgeInYears = ReferenceAgeInYears(client),
             SpecialPhysiologicalPeriod = client.SpecialPhysiologicalPeriod ?? string.Empty
         };
     }
+
+    private static decimal ReferenceAgeInYears(IClient client) =>
+        client.Age?.ToReferenceYears()
+        ?? throw new InvalidOperationException("年龄信息无效。");
 
     private static DietaryRecallEntry CreateEntrySnapshot(DietaryRecallEntry entry) => new()
     {

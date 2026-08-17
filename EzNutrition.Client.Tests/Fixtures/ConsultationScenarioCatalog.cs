@@ -314,14 +314,14 @@ internal static class ConsultationScenarioCatalog
             ? new EER
             {
                 Gender = client.Gender,
-                AgeStart = client.Age,
+                AgeStart = client.Age?.ToReferenceYears(),
                 PAL = pal,
                 AvgBwEER = 1450 + ((seed % 8) * 120)
             }
             : new EER
             {
                 Gender = client.Gender,
-                AgeStart = client.Age,
+                AgeStart = client.Age?.ToReferenceYears(),
                 PAL = pal,
                 BEE = 22m + (seed % 6)
             };
@@ -332,7 +332,7 @@ internal static class ConsultationScenarioCatalog
             records.Add(new EER
             {
                 Gender = client.Gender,
-                AgeStart = client.Age,
+                AgeStart = client.Age?.ToReferenceYears(),
                 SpecialPhysiologicalPeriod = client.SpecialPhysiologicalPeriod,
                 OffsetEnergy = offset
             });
@@ -405,7 +405,7 @@ internal static class ConsultationScenarioCatalog
             IsOffset = isOffset,
             Gender = client.Gender,
             SpecialPhysiologicalPeriod = physiologicalPeriod,
-            AgeStart = AgeGroupStart(client.Age),
+            AgeStart = AgeGroupStart(client.Age?.Years ?? 0),
             Detail = "合成场景参考记录"
         };
 
@@ -467,7 +467,9 @@ internal static class ConsultationScenarioCatalog
 
     private static DietaryRecallTower? CreateTower(RuntimeArchive archive)
     {
-        if (archive.DietaryRecallSurvey is null || StandardTower.GetStandardTower(archive.Client.Age) is not { } standard)
+        if (archive.DietaryRecallSurvey is null ||
+            archive.Client.Age is not { } age ||
+            StandardTower.GetStandardTower(age.ToReferenceYears()) is not { } standard)
         {
             return null;
         }
@@ -483,7 +485,7 @@ internal static class ConsultationScenarioCatalog
             PatientInfo = new PatientInfo
             {
                 Gender = archive.Client.Gender,
-                Age = archive.Client.Age,
+                Age = archive.Client.Age?.ToReferenceYears() ?? 0m,
                 BMI = archive.CurrentEnergyCalculator?.BMI,
                 PAL = archive.CurrentEnergyCalculator?.PAL,
                 Height = archive.Client.Height,

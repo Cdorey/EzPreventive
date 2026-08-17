@@ -357,6 +357,23 @@ public sealed class ArchiveContractValidator : IArchiveValidator
             return;
         }
 
+        if (snapshot.ChronologicalAgeAtConsultation is { } age &&
+            snapshot.AgeAtConsultation is { } legacyAge &&
+            (legacyAge.Comparator != QuantityComparator.None ||
+             legacyAge.Unit.System.AbsoluteUri != "http://unitsofmeasure.org/" ||
+             !string.Equals(legacyAge.Unit.Code, "a", StringComparison.Ordinal) ||
+             legacyAge.Value != age.Years))
+        {
+            AddIssue(
+                issues,
+                ArchiveValidationCodes.InvalidTechnicalValue,
+                ArchiveValidationSeverity.Error,
+                ArchiveValidationCategory.Integrity,
+                "结构化年龄与旧版整岁降级值不一致。",
+                Path(prefix, "/SubjectSnapshot/AgeAtConsultation"),
+                consultation);
+        }
+
         ValidateDistinctCodings(
             snapshot.PhysiologicalStates,
             Path(prefix, "/SubjectSnapshot/PhysiologicalStates"),

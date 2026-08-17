@@ -1,0 +1,111 @@
+@using EzNutrition.Domain.Consultations
+@using System.Globalization
+
+<div class="age-entry">
+    <FormItem Label="年龄录入方式">
+        <RadioGroup TValue="string" Value="@mode" ValueChanged="HandleModeChangedAsync">
+            <Radio RadioButton Value="@BirthDateMode">出生日期</Radio>
+            <Radio RadioButton Value="@ReportedYearsMode">直接填写整岁</Radio>
+        </RadioGroup>
+    </FormItem>
+
+    @if (mode == BirthDateMode)
+    {
+        <FormItem Label="出生日期">
+            <InputDate TValue="DateOnly?"
+                       class="ant-input age-date-input"
+                       max="@effectiveDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+                       @bind-Value="EnteredBirthDate"
+                       @bind-Value:after="NotifyChangedAsync" />
+        </FormItem>
+        @if (Client.Age is { } calculatedAge)
+        {
+            <p class="age-derived-value">截至 @effectiveDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)：@calculatedAge</p>
+        }
+    }
+    else
+    {
+        <FormItem Label="年龄（整岁）">
+            <AntDesign.InputNumber TValue="int?"
+                                   id="age"
+                                   Style="width:100%"
+                                   Step="1"
+                                   Min="0"
+                                   @bind-Value="ReportedAgeYears"
+                                   OnChange="NotifyChangedAsync" />
+        </FormItem>
+    }
+</div>
+
+@code {
+    private const string BirthDateMode = "birth-date";
+    private const string ReportedYearsMode = "reported-years";
+    private DateOnly effectiveDate;
+    private string mode = ReportedYearsMode;
+
+    /// <summary>获取或设置接受年龄输入的咨询对象。</summary>
+    [Parameter, EditorRequired]
+    public required IClient Client { get; set; }
+
+    /// <summary>获取年龄计算采用的日期；未提供时使用组件初始化时的本地日期。</summary>
+    [Parameter]
+    public DateOnly? EffectiveDate { get; set; }
+
+    /// <summary>获取年龄或出生日期发生变化后的通知。</summary>
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private DateOnly? EnteredBirthDate
+    {
+        get => Client.BirthDate;
+        set
+        {
+            Client.BirthDate = value;
+            Client.Age = value is { } birthDate && birthDate <= effectiveDate
+                ? ChronologicalAge.FromBirthDate(birthDate, effectiveDate)
+                : null;
+        }
+    }
+
+    private int? ReportedAgeYears
+    {
+        get => Client.BirthDate is null ? Client.Age?.Years : null;
+        set
+        {
+            Client.BirthDate = null;
+            Client.Age = value is >= 0 ? new ChronologicalAge(value.Value) : null;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        effectiveDate = EffectiveDate ?? DateOnly.FromDateTime(DateTime.Now);
+        mode = Client.BirthDate is null ? ReportedYearsMode : BirthDateMode;
+        if (Client.BirthDate is { } birthDate)
+        {
+            Client.Age = birthDate <= effectiveDate
+                ? ChronologicalAge.FromBirthDate(birthDate, effectiveDate)
+                : null;
+        }
+    }
+
+    private async Task HandleModeChangedAsync(string selectedMode)
+    {
+        mode = selectedMode;
+        if (mode == BirthDateMode)
+        {
+            Client.BirthDate = null;
+            Client.Age = null;
+        }
+        else
+        {
+            Client.BirthDate = null;
+            Client.Age = Client.Age is { } age ? new ChronologicalAge(age.Years) : null;
+        }
+
+        await NotifyChangedAsync();
+    }
+
+    private Task NotifyChangedAsync() => Changed.InvokeAsync();
+}

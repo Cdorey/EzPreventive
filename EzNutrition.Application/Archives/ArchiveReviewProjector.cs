@@ -70,7 +70,7 @@ internal static class ArchiveReviewProjector
             DateTimeField("咨询开始", consultation?.Period.Start),
             DateTimeField("咨询结束", consultation?.Period.End),
             Field("性别", snapshot?.AdministrativeSex?.Display ?? patient?.AdministrativeSex?.Display ?? "未提供"),
-            Field("年龄", FormatQuantity(snapshot?.AgeAtConsultation)),
+            Field("年龄", FormatAge(snapshot)),
             Field("身高", FormatMeasurement(snapshot?.Height)),
             Field("体重", FormatMeasurement(snapshot?.Weight)),
             Field("生理状态", JoinDisplays(snapshot?.PhysiologicalStates))
@@ -163,6 +163,10 @@ internal static class ArchiveReviewProjector
 
     private static string FormatMeasurement(ClinicalMeasurement? measurement) =>
         measurement is null ? "未提供" : FormatQuantity(measurement.Value);
+
+    private static string FormatAge(SubjectSnapshot? snapshot) =>
+        snapshot?.ChronologicalAgeAtConsultation?.ToString()
+        ?? FormatQuantity(snapshot?.AgeAtConsultation);
 
     private static string FormatQuantity(Quantity? quantity)
     {
