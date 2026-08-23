@@ -28,7 +28,8 @@
         <blazor:BlazorWebView x:Name="BlazorView"
                               Grid.Row="1"
                               HostPage="wwwroot\hybrid.html"
-                              Services="{DynamicResource BlazorServices}">
+                              Services="{DynamicResource BlazorServices}"
+                              BlazorWebViewInitializing="ConfigureBlazorWebView">
             <blazor:BlazorWebView.RootComponents>
                 <blazor:RootComponent Selector="#app" ComponentType="{x:Type client:App}" />
             </blazor:BlazorWebView.RootComponents>

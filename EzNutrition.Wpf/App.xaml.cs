@@ -29,6 +29,14 @@ public partial class App : System.Windows.Application
 {
     private IHost? host;
 
+    /// <summary>
+    /// 创建桌面应用，并安装进程级异常兜底。
+    /// </summary>
+    public App()
+    {
+        AppDomain.CurrentDomain.UnhandledException += HandleUnhandledException;
+    }
+
     /// <inheritdoc />
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -55,19 +63,25 @@ public partial class App : System.Windows.Application
     /// <inheritdoc />
     protected override void OnExit(ExitEventArgs e)
     {
-        if (host is not null)
+        try
         {
-            try
+            if (host is not null)
             {
-                host.StopAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
-            }
-            finally
-            {
-                host.Dispose();
+                try
+                {
+                    host.StopAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                }
+                finally
+                {
+                    host.Dispose();
+                }
             }
         }
-
-        base.OnExit(e);
+        finally
+        {
+            AppDomain.CurrentDomain.UnhandledException -= HandleUnhandledException;
+            base.OnExit(e);
+        }
     }
 
     /// <summary>
@@ -82,7 +96,9 @@ public partial class App : System.Windows.Application
             ContentRootPath = AppContext.BaseDirectory
         });
         builder.Logging.AddDebug();
+#if DEBUG
         builder.Logging.AddFilter("Microsoft.AspNetCore.Components.WebView", LogLevel.Trace);
+#endif
 
         var settings = WpfHostSettings.Create(builder.Configuration);
         var services = builder.Services;
@@ -165,5 +181,24 @@ public partial class App : System.Windows.Application
             new Uri("https://eznutrition.cdorey.net/applications/wpf-hybrid"),
             "EzNutrition WPF Hybrid",
             version));
+    }
+
+    private void HandleUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        var exception = e.ExceptionObject as Exception;
+        host?.Services
+            .GetService<ILogger<App>>()?
+            .LogCritical(exception, "The WPF Hybrid host terminated because of an unhandled exception.");
+
+#if DEBUG
+        var message = e.ExceptionObject.ToString() ?? "发生未知的未处理异常。";
+#else
+        const string message = "EzNutrition 遇到无法恢复的错误，即将退出。请重新启动应用；若问题持续出现，请联系维护人员。";
+#endif
+        MessageBox.Show(
+            message,
+            "EzNutrition 运行错误",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
     }
 }

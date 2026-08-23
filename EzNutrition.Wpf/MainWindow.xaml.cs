@@ -1,5 +1,6 @@
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Desktop;
+using Microsoft.AspNetCore.Components.WebView;
 using Microsoft.Extensions.Logging;
 using System.Windows;
 
@@ -49,5 +50,12 @@ public partial class MainWindow : Window
     }
 
     private void ExitApplication(object sender, RoutedEventArgs e) => Close();
+
+    private void ConfigureBlazorWebView(object sender, BlazorWebViewInitializingEventArgs e)
+    {
+        var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        e.UserDataFolder = Path.Combine(localApplicationData, "EzSuit", "EzNutrition", "WebView2");
+        Directory.CreateDirectory(e.UserDataFolder);
+    }
 
 }
