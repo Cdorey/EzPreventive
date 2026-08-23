@@ -5,10 +5,9 @@ namespace EzNutrition.Client.Services
 {
     public sealed class CustomAuthorizationMessageHandler(
         UserSessionService userSession,
-        NavigationManager navigation) : DelegatingHandler
+        NavigationManager navigation,
+        ApplicationServerEndpoint serverEndpoint) : DelegatingHandler
     {
-        private readonly Uri baseAddress = new(navigation.BaseUri);
-
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -39,6 +38,6 @@ namespace EzNutrition.Client.Services
 
         private bool IsApplicationRequest(Uri? requestUri) =>
             requestUri is not null
-            && (!requestUri.IsAbsoluteUri || baseAddress.IsBaseOf(requestUri));
+            && (!requestUri.IsAbsoluteUri || serverEndpoint.BaseAddress.IsBaseOf(requestUri));
     }
 }

@@ -26,14 +26,17 @@ namespace EzNutrition.Client
 
             builder.Services.AddAuthorizationCore(PolicyList.RegisterPolicies);
 
-            builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
+            var serverEndpoint = new ApplicationServerEndpoint(
+                new Uri(builder.HostEnvironment.BaseAddress));
+            builder.Services.AddSingleton(serverEndpoint);
+            builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = serverEndpoint.BaseAddress);
             builder.Services
-                .AddHttpClient("Authorize", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress))
+                .AddHttpClient("Authorize", client => client.BaseAddress = serverEndpoint.BaseAddress)
                 .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
             builder.Services
                 .AddHttpClient("AiAuthorize", client =>
                 {
-                    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+                    client.BaseAddress = serverEndpoint.BaseAddress;
                     // AI generation has its own explicit timeout and user cancellation source.
                     client.Timeout = Timeout.InfiniteTimeSpan;
                 })
