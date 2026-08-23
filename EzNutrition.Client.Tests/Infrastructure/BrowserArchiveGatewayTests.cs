@@ -40,7 +40,7 @@ public sealed class BrowserArchiveGatewayTests
         await using var gateway = new BrowserArchiveGateway(new ModuleRuntime(module));
         var content = new byte[] { 1, 2, 3 };
 
-        await gateway.SaveAsync(new ArchiveDocumentExport
+        var saved = await gateway.SaveAsync(new ArchiveDocumentExport
         {
             SuggestedFileNameStem = "eznutrition-safe-id",
             Format = new ArchiveFormatDescriptor(
@@ -52,6 +52,7 @@ public sealed class BrowserArchiveGatewayTests
             Content = content
         });
 
+        Assert.True(saved);
         var call = Assert.Single(module.Calls);
         Assert.Equal("downloadDocument", call.Identifier);
         Assert.Equal("eznutrition-safe-id.archive-test", call.Arguments[0]);

@@ -224,6 +224,19 @@ public sealed class ArchiveWorkflowTests
         Assert.Equal(ArchiveOperationStatus.Denied, deniedResult.Status);
     }
 
+    [Fact]
+    public async Task Export_reports_user_cancellation_without_treating_it_as_a_failure()
+    {
+        var fixture = CreateFixture(cancelExternalSave: true);
+        var current = await fixture.Workflow.ExportCurrentAsync(CreateWorkspace("取消导出对象"));
+        await fixture.Workflow.SaveCurrentAsync(CreateWorkspace("取消已保存档案导出对象"));
+        var storedId = Assert.Single(fixture.Store.Documents).Key;
+        var stored = await fixture.Workflow.ExportStoredAsync(storedId);
+
+        Assert.Equal(ArchiveOperationStatus.Cancelled, current.Status);
+        Assert.Equal(ArchiveOperationStatus.Cancelled, stored.Status);
+    }
+
     /// <summary>
     /// 验证同步占用 CPU 的 codec 不会阻塞发起档案保存的调用线程。
     /// </summary>
@@ -284,14 +297,16 @@ public sealed class ArchiveWorkflowTests
             ArchiveDocumentStoreCapabilities.Clear,
         bool denyMutations = false,
         bool canSaveExternal = true,
-        bool denyExternalSave = false)
+        bool denyExternalSave = false,
+        bool cancelExternalSave = false)
     {
         var codec = new MemoryCodec();
         var store = new MemoryStore(capabilities) { DenyMutations = denyMutations };
         var transport = new MemoryTransport
         {
             CanSave = canSaveExternal,
-            DenySave = denyExternalSave
+            DenySave = denyExternalSave,
+            CancelSave = cancelExternalSave
         };
         var assembler = new ArchiveContractAssembler(new ApplicationIdentity(
             new Uri("https://example.invalid/tests/archive-workflow"),
@@ -427,6 +442,8 @@ public sealed class ArchiveWorkflowTests
 
         public bool DenySave { get; init; }
 
+        public bool CancelSave { get; init; }
+
         public ExternalArchiveDocument? NextInput { get; set; }
 
         public ArchiveDocumentExport? LastExport { get; private set; }
@@ -434,7 +451,7 @@ public sealed class ArchiveWorkflowTests
         public ValueTask<ExternalArchiveDocument?> OpenAsync(
             CancellationToken cancellationToken = default) => ValueTask.FromResult(NextInput);
 
-        public ValueTask SaveAsync(
+        public ValueTask<bool> SaveAsync(
             ArchiveDocumentExport document,
             CancellationToken cancellationToken = default)
         {
@@ -444,7 +461,7 @@ public sealed class ArchiveWorkflowTests
             }
 
             LastExport = document;
-            return ValueTask.CompletedTask;
+            return ValueTask.FromResult(!CancelSave);
         }
     }
 }
