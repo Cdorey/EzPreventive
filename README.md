@@ -30,17 +30,18 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 | --- | --- |
 | `EzNutrition.Domain` | 营养领域模型、状态与纯计算规则 |
 | `EzNutrition.Application` | 咨询用例编排、应用服务及外部能力端口 |
-| `EzNutrition.UI` | 可复用的 Razor 营养工作台组件 |
+| `EzNutrition.UI` | 传输无关、可独立渲染测试的 Razor 营养组件 |
+| `EzNutrition.Presentation` | 多客户端共享的 App、页面、布局、会话、HTTP/SSE 适配与静态资源 |
 | `EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
 | `EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
-| `EzNutrition/Client` | Blazor WebAssembly 宿主、页面、依赖注入和浏览器 HTTP 适配器 |
+| `EzNutrition/Client` | Blazor WebAssembly 启动与组合根、IndexedDB/浏览器文件适配和浏览器入口资源 |
 | `EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、Windows 文档交互与 Shell 集成 |
 | `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
 | `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
 | `EzNutrition/Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
 | `*.Tests` | Application、Archives、Client、WPF 和 Server 的行为、安全流程与架构边界测试 |
 
-依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。
+依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。WASM 与 WPF 是互不引用的并列宿主，共享完整工作台时统一依赖 `EzNutrition.Presentation`。详细边界和各上级类库盘点见[项目与依赖边界](./docs/project-architecture.md)。
 
 ## 本地开发与验证
 
@@ -68,7 +69,7 @@ WPF 默认连接 `https://eznutrition.cdorey.net/`，服务端与档案目录均
 
 ## 近期重要变更
 
-- **2026-08-23 — WPF Blazor Hybrid 本地宿主**：复用现有 Razor 工作台和 Application 档案端口，加入 Windows 文件系统档案、打开/另存为对话框、导出后资源管理器定位、本机目录入口及发布期 WebView2 数据目录；Domain 和服务端计算逻辑保持不变。
+- **2026-08-23 — WPF Blazor Hybrid 本地宿主**：以独立宿主引用共享 Presentation RCL，加入 Windows 文件系统档案、打开/另存为对话框、导出后资源管理器定位、本机目录入口及发布期 WebView2 数据目录；WPF 不引用 WASM，Domain 和服务端计算逻辑保持不变。
 - **2026-08-14 — 本机 XML 档案闭环**：建立格式无关的 Application 档案用例，加入独立 XML codec、浏览器 IndexedDB/文件适配器、桌面优先的保存与只读调阅界面，并保持 UI、格式和宿主存储之间的单向依赖。
 - **2026-08-08 至 09 — 可复用架构分层**：拆分 Domain、Application 和 UI，升级至 .NET 10，并以 `IAiAdviceGateway` 隔离 AI 应用流程与浏览器 HTTP/SSE 传输；补充应用、适配器和架构边界测试。详见 [PR #2](https://github.com/Cdorey/EzPreventive/pull/2)。
 - **2026-08-09 — 仓库聚焦 EzNutrition**：将 EzAttached 迁移至 [独立仓库](https://github.com/Cdorey/EzAttached)，删除废弃的 DataInserter 临时工具和冗余解决方案筛选文件。详见 [PR #3](https://github.com/Cdorey/EzPreventive/pull/3) 和 [PR #4](https://github.com/Cdorey/EzPreventive/pull/4)。
@@ -92,10 +93,10 @@ WPF 默认连接 `https://eznutrition.cdorey.net/`，服务端与档案目录均
    - 根据互操作需求发布 XML 格式说明与兼容样本，并为后续格式迁移保留确定性验证集。
    - 评估导出文档的加密容器、签名和机构审计需求；纯 XML 默认不承担静态加密职责。
 
-3. **P1：继续收窄宿主耦合**
-   - 参考现有 AI port/adapter 模式，把档案流程编排放入 Application，由宿主通过依赖注入提供格式、文件交互和仓储实现。
-   - 逐步减少 Client 页面和会话服务对 Domain、Archives.Contracts 的非必要直接使用，并用架构测试守住依赖方向。
-   - 持续校验 WASM 与 WPF 组合根的一致性；只有出现稳定重复时才提取共享注册代码，避免为多宿主制造新的抽象层。
+3. **P1：继续收窄展示层耦合**
+   - 逐步将 Presentation 页面中已经形成稳定语义的流程下沉为 Application 用例，减少页面对 Domain、Archives.Contracts 的非必要直接操作。
+   - 持续用架构测试保护 UI、Presentation 与并列宿主边界，避免把宿主通用代码重新放回任一可执行宿主。
+   - 为 `EzNutrition.Shared` 的历史性宽职责制定独立迁移方案后再讨论拆分，避免在 WPF 或日常功能迭代中顺带改动服务端协议。
 
 4. **P2：补齐集成验证与部署手册**
    - 增加服务端鉴权、AI 审计、控制器和数据库集成测试。

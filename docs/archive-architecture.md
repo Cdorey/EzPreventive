@@ -8,6 +8,10 @@ EzNutrition 的档案能力遵循“语义、用例、格式、宿主”四个�
 EzNutrition.UI
     -> EzNutrition.Application (IArchiveWorkflow、只读调阅模型)
 
+EzNutrition.Presentation
+    -> EzNutrition.UI + EzNutrition.Application
+    -> 共享 App、页面、会话和客户端 HTTP 适配
+
 EzNutrition.Application
     -> EzNutrition.Archives.Contracts
     -> IArchiveDocumentStore / IArchiveDocumentTransport（宿主端口）
@@ -15,8 +19,8 @@ EzNutrition.Application
 EzNutrition.Archives.Xml
     -> EzNutrition.Archives.Contracts
 
-EzNutrition.Client 或 EzNutrition.Wpf
-    -> Application + UI + Xml
+EzNutrition.Client 或 EzNutrition.Wpf（互不引用）
+    -> Presentation + Application + Xml
     -> 实现宿主存储和文件交互端口
 ```
 

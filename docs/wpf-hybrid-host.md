@@ -2,7 +2,7 @@
 
 `EzNutrition.Wpf` 是 EzNutrition 的 Windows 本地宿主。它使用 WPF 提供窗口、文件对话框和 Windows Shell 集成，使用 `BlazorWebView` 承载现有 Razor 工作台。Razor 组件在桌面进程中的 .NET 运行时执行，不在 WebAssembly 中执行。
 
-宿主的组合根继续复用 `EzNutrition.Application`、`EzNutrition.UI`、`EzNutrition.Archives.Contracts`、`EzNutrition.Archives.Xml` 和现有 Client 页面。WPF 项目只实现文件系统、文档交互、系统时区和窗口生命周期等宿主职责，不复制营养计算，也不改变 Domain 或服务端业务规则。
+宿主的组合根复用 `EzNutrition.Presentation`、`EzNutrition.Application`、`EzNutrition.Archives.Contracts` 和 `EzNutrition.Archives.Xml`。共享 App、页面、布局、会话和 HTTP 适配位于 Presentation Razor 类库；WPF 与 WASM 是互不引用的并列宿主。WPF 项目只实现文件系统、文档交互、系统时区和窗口生命周期等宿主职责，不复制营养计算，也不改变 Domain 或服务端业务规则。
 
 ## 本机档案目录
 
@@ -78,5 +78,7 @@ dotnet publish .\EzNutrition.Wpf\EzNutrition.Wpf.csproj `
 ```
 
 发布产物需要目标机安装兼容的 .NET 10 Desktop Runtime 和 WebView2 Runtime。WebView2 用户数据明确保存在 `%LOCALAPPDATA%\EzSuit\EzNutrition\WebView2`，因此安装到只读的 `Program Files` 不会要求在安装目录写缓存。
+
+WPF 发布只收集 Presentation/UI Razor 类库及桌面运行依赖，不运行 WASM 发布链，也不包含 `EzNutrition.Client.dll` 或 `.wasm` 运行时文件。共享静态资源通过 Razor 类库的 `_content/EzNutrition.Presentation/` 路径提供。
 
 当前仓库尚未决定安装器、代码签名、自动更新和机构级加密容器。这些属于分发与治理决策，不应通过把密钥或静态凭据写入 WPF 项目来临时解决。
