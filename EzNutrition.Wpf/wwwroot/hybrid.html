@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>EzNutrition</title>
+    <base href="/" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="EzNutrition.Client.styles.css" rel="stylesheet" />
+    <link href="_content/AntDesign/css/ant-design-blazor.css" rel="stylesheet" />
+    <script src="_content/AntDesign/js/ant-design-blazor.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="app-boot" role="status" aria-live="polite">
+            <img src="logo.png" alt="" class="app-boot-logo" />
+            <div>
+                <strong>EzNutrition</strong>
+                <span>正在准备桌面营养评估工作台…</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" role="alert">
+        页面运行出现异常，部分操作可能无法继续。
+        <a href="" class="reload">重新加载</a>
+        <button type="button" class="dismiss" aria-label="关闭错误提示">×</button>
+    </div>
+    <script>
+        window.ezNutrition = window.ezNutrition || {};
+        window.ezNutrition.scrubCurrentQuery = () =>
+            window.history.replaceState(window.history.state, document.title, window.location.pathname);
+    </script>
+    <script src="_framework/blazor.webview.js"></script>
+</body>
+
+</html>

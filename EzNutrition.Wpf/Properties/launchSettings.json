@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "EzNutrition.Wpf": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
