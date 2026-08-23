@@ -2,7 +2,7 @@
 
 面向公共卫生与营养专业人员的开源营养评估与咨询工作台。
 
-EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象工作区、能量与膳食营养素评估、24 小时膳食回顾、SOAP 信息录入以及 AI 辅助膳食建议。主要营养计算和咨询状态在浏览器端完成；服务端负责身份认证、参考数据访问、AI 调用及其审计。
+EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提供多咨询对象工作区、能量与膳食营养素评估、24 小时膳食回顾、SOAP 信息录入以及 AI 辅助膳食建议。主要营养计算和咨询状态在浏览器或桌面进程中完成；服务端负责身份认证、参考数据访问、AI 调用及其审计。
 
 > EzNutrition 的输出仅用于辅助专业判断，不替代诊断、治疗或个体化医学建议。AI 生成内容可能存在遗漏或错误，必须由具备相应资质和知识的人员复核。
 
@@ -13,13 +13,14 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 - **膳食调查**：支持 24 小时膳食回顾及相关膳食结构分析。
 - **AI 辅助建议**：通过服务端调用生成式 AI，并以流式方式呈现推理和建议；供应商能力由可替换适配器隔离，支持取消、失败反馈与重新发送。
 - **身份与权限**：提供邮箱确认与重发、密码修改与邮箱找回、邮箱/手机号码修改、专业身份相关流程和受权限保护的功能入口。
-- **本机档案**：提供格式无关的档案模型、校验与工作流，支持在浏览器本机保存和只读调阅咨询档案，以及 XML 文档导入导出。
+- **本机档案**：提供格式无关的档案模型、校验与工作流；WASM 使用 IndexedDB，WPF 使用当前用户的应用数据目录，并支持 XML 文档导入、另存为及资源管理器定位。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
 ## 数据与隐私边界
 
-- 多数营养计算在浏览器端执行，以减少不必要的数据上传；身份认证、参考数据查询和 AI 建议仍需要访问服务端。
-- 当前咨询工作区仍以浏览器会话为运行边界；完成咨询后应主动保存到本机档案库或导出 XML 文档。浏览器本机档案不会上传到服务端，但其可用性仍受当前设备、浏览器配置和站点数据保留策略影响，不能替代医疗机构正式档案系统的备份、审计与保留制度。
+- 多数营养计算在当前客户端执行，以减少不必要的数据上传；身份认证、参考数据查询和 AI 建议仍需要访问服务端。
+- 当前咨询工作区以客户端会话为运行边界；完成咨询后应主动保存到本机档案库或导出 XML 文档。浏览器档案受站点数据保留策略影响；WPF 档案默认位于 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives`，不会默认进入可能由 OneDrive 同步的文档目录。两者都不能替代医疗机构正式档案系统的备份、审计与保留制度。
+- WPF 的 XML 与调阅索引未做静态加密。文件名不包含患者姓名，但索引和 XML 正文仍可能包含敏感信息；应依赖受控 Windows 账户、磁盘保护和机构策略，并谨慎配置任何自定义或同步目录。
 - 使用 AI 建议功能时，请求会被发送至服务端及其配置的外部模型服务。服务端会保存登录用户标识、完整请求、模型返回的推理与建议内容以及处理时间，用于安全审计和防止接口滥用。
 - AI 请求可能包含咨询对象信息、膳食回顾和临床信息。请只提交完成任务所必需的数据，避免输入不必要的姓名、证件号码、联系方式等直接身份标识，并遵守适用的数据保护和医疗信息管理要求。
 
@@ -33,12 +34,13 @@ EzNutrition 基于 Blazor WebAssembly 与 ASP.NET Core，提供多咨询对象�
 | `EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
 | `EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
 | `EzNutrition/Client` | Blazor WebAssembly 宿主、页面、依赖注入和浏览器 HTTP 适配器 |
+| `EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、Windows 文档交互与 Shell 集成 |
 | `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
 | `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
 | `EzNutrition/Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
-| `*.Tests` | Application、Archives.Contracts、Client 和 Server 的行为、安全流程与架构边界测试 |
+| `*.Tests` | Application、Archives、Client、WPF 和 Server 的行为、安全流程与架构边界测试 |
 
-依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、未来桌面客户端或其他宿主在组合根中提供具体实现。
+依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。
 
 ## 本地开发与验证
 
@@ -50,6 +52,14 @@ dotnet build .\EzPreventive.sln -c Release --no-restore
 dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 ```
 
+Windows 上可直接运行 Hybrid 宿主：
+
+```powershell
+dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
+```
+
+WPF 默认连接 `https://eznutrition.cdorey.net/`，服务端与档案目录均可通过配置覆盖。路径选择、备份边界与发布命令见 [WPF Hybrid 宿主说明](./docs/wpf-hybrid-host.md)。
+
 运行服务端还需要配置两个 SQL Server 连接、JWT、邮件服务和 AI 供应商凭据。首次执行 `AuthInitialize` 创建管理员时，还必须通过受控配置提供 `AuthBootstrap:AdminPassword`（环境变量形式为 `AuthBootstrap__AdminPassword`）。请使用用户机密、环境变量或受控配置源，不要把真实凭据提交到仓库或日志。
 
 生产部署还应按实际拓扑配置[受信任的反向代理](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)，确保登录和账户恢复的 IP 限流取得真实客户端地址；容器或多实例部署则应[持久化并共享 Data Protection 密钥环](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)，避免邮箱确认和密码重置令牌因重启或实例切换而失效。
@@ -58,6 +68,7 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 
 ## 近期重要变更
 
+- **2026-08-23 — WPF Blazor Hybrid 本地宿主**：复用现有 Razor 工作台和 Application 档案端口，加入 Windows 文件系统档案、打开/另存为对话框、导出后资源管理器定位、本机目录入口及发布期 WebView2 数据目录；Domain 和服务端计算逻辑保持不变。
 - **2026-08-14 — 本机 XML 档案闭环**：建立格式无关的 Application 档案用例，加入独立 XML codec、浏览器 IndexedDB/文件适配器、桌面优先的保存与只读调阅界面，并保持 UI、格式和宿主存储之间的单向依赖。
 - **2026-08-08 至 09 — 可复用架构分层**：拆分 Domain、Application 和 UI，升级至 .NET 10，并以 `IAiAdviceGateway` 隔离 AI 应用流程与浏览器 HTTP/SSE 传输；补充应用、适配器和架构边界测试。详见 [PR #2](https://github.com/Cdorey/EzPreventive/pull/2)。
 - **2026-08-09 — 仓库聚焦 EzNutrition**：将 EzAttached 迁移至 [独立仓库](https://github.com/Cdorey/EzAttached)，删除废弃的 DataInserter 临时工具和冗余解决方案筛选文件。详见 [PR #3](https://github.com/Cdorey/EzPreventive/pull/3) 和 [PR #4](https://github.com/Cdorey/EzPreventive/pull/4)。
@@ -76,7 +87,7 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
    - 明确 AI 审计数据的最小字段、访问权限、脱敏方式和保留策略，并为策略调整补充针对性测试。
 
 2. **P1：加固本机档案与继续编辑流程**
-   - 在更多浏览器和发布裁剪配置中验证 IndexedDB、文件导入导出和大文档取消行为，并明确本机档案保留与清理提示。
+   - 在更多浏览器和 WPF 发布配置中验证 IndexedDB、文件导入导出和大文档取消行为，并明确本机档案保留、迁移与清理提示。
    - 完成从 `ArchiveDocument` 恢复咨询工作区的受控反向映射，在保留资源身份、并发上下文和未知源内容的前提下提供“继续编辑”。
    - 根据互操作需求发布 XML 格式说明与兼容样本，并为后续格式迁移保留确定性验证集。
    - 评估导出文档的加密容器、签名和机构审计需求；纯 XML 默认不承担静态加密职责。
@@ -84,7 +95,7 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 3. **P1：继续收窄宿主耦合**
    - 参考现有 AI port/adapter 模式，把档案流程编排放入 Application，由宿主通过依赖注入提供格式、文件交互和仓储实现。
    - 逐步减少 Client 页面和会话服务对 Domain、Archives.Contracts 的非必要直接使用，并用架构测试守住依赖方向。
-   - 为未来可能的桌面宿主复用 Application、Domain 和 UI 做准备；若引入桌面端，可优先承接本地文件与档案管理，而不复制营养业务逻辑。
+   - 持续校验 WASM 与 WPF 组合根的一致性；只有出现稳定重复时才提取共享注册代码，避免为多宿主制造新的抽象层。
 
 4. **P2：补齐集成验证与部署手册**
    - 增加服务端鉴权、AI 审计、控制器和数据库集成测试。
