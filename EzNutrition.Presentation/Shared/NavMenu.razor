@@ -1,0 +1,89 @@
+﻿@using EzNutrition.Presentation.Pages
+@using EzNutrition.Presentation.Services;
+@using EzNutrition.Shared.Policies
+@implements IDisposable
+@inject UserSessionService UserSession
+@inject ConsultationWorkspaceManager WorkspaceManager
+@inject NavigationManager Navigator
+<nav class="primary-navigation" aria-label="主要导航">
+    <Menu Class="primary-menu" OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode="@MenuMode.Inline">
+        <MenuItem RouterLink="">
+            <Icon Type="home" Theme="IconThemeType.Outline" />
+            <span>首页</span>
+        </MenuItem>
+        <AuthorizeView>
+            <SubMenu Key="maintreatments">
+                <TitleTemplate>
+                    <Icon Type="schedule" Theme="IconThemeType.Outline" />
+                    <span>门诊咨询</span>
+                </TitleTemplate>
+                <ChildContent>
+                    <MenuItem OnClick="OpenWorkspace">
+                        <Icon Type="plus" Theme="IconThemeType.Outline" />
+                        <span>新建咨询</span>
+                    </MenuItem>
+                    <MenuItemGroup>
+                        <TitleTemplate>
+                            <Icon Type="read" Theme="IconThemeType.Outline" />
+                            <span>当前咨询</span>
+                        </TitleTemplate>
+                        <ChildContent>
+                            @foreach (var archive in WorkspaceManager)
+                            {
+                                <MenuItem RouterLink="@($"maintreatment/{archive.Key}")">
+                                    <span class="archive-label">@(string.IsNullOrWhiteSpace(archive.Value.Client.Name) ? archive.Key : archive.Value.Client.Name)</span>
+                                </MenuItem>
+                            }
+                        </ChildContent>
+                    </MenuItemGroup>
+                </ChildContent>
+            </SubMenu>
+            <MenuItem Class="desktop-archive-menu" RouterLink="archives">
+                <Icon Type="folder-open" Theme="IconThemeType.Outline" />
+                <span>本机档案</span>
+            </MenuItem>
+            <MenuItem RouterLink="drisinsights">
+                <Icon Type="medicine-box" Theme="IconThemeType.Outline" />
+                <span>DRIs 速查</span>
+            </MenuItem>
+            <MenuItem RouterLink="usercenter">
+                <Icon Type="user" Theme="IconThemeType.Outline" />
+                <span>用户中心</span>
+            </MenuItem>
+        </AuthorizeView>
+        <AuthorizeView Policy="@PolicyList.Admin">
+            <Authorized>
+                <MenuItem RouterLink="administrators">
+                    <Icon Type="key" Theme="IconThemeType.Outline" />
+                    <span>站点管理</span>
+                </MenuItem>
+            </Authorized>
+        </AuthorizeView>
+    </Menu>
+</nav>
+
+@code {
+    protected override void OnInitialized()
+    {
+        UserSession.AuthenticationStateChanged += HandleAuthenticationStateChanged;
+        WorkspaceManager.ClientNameChanged += HandleClientNameChanged;
+        base.OnInitialized();
+    }
+
+    private void HandleAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    private void HandleClientNameChanged(object? sender, EventArgs e) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    private void OpenWorkspace()
+    {
+        Navigator.NavigateTo($"maintreatment/{WorkspaceManager.NewWorkspace()}");
+    }
+
+    public void Dispose()
+    {
+        UserSession.AuthenticationStateChanged -= HandleAuthenticationStateChanged;
+        WorkspaceManager.ClientNameChanged -= HandleClientNameChanged;
+    }
+}

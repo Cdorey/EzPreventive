@@ -1,4 +1,4 @@
-using EzNutrition.Client.Services;
+using EzNutrition.Presentation.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;

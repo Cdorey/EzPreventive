@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 using EzNutrition.Application.Ports;
-using EzNutrition.Client.Infrastructure;
+using EzNutrition.Presentation.Infrastructure;
 
 namespace EzNutrition.Client.Tests.Infrastructure;
 

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EzNutrition\Server\EzNutrition.Server.csproj" />
+    <ProjectReference Include="..\EzNutrition.Presentation\EzNutrition.Presentation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

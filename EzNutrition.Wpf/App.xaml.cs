@@ -1,20 +1,13 @@
 using System.Reflection;
-using AntDesign;
 using EzNutrition.Application.Archives;
-using EzNutrition.Application.Consultations;
-using EzNutrition.Application.Ports;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Xml;
-using EzNutrition.Client.Infrastructure;
-using EzNutrition.Client.Services;
-using EzNutrition.Shared.Policies;
-using EzNutrition.UI.Services;
+using EzNutrition.Presentation;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -104,46 +97,12 @@ public partial class App : System.Windows.Application
         var services = builder.Services;
         services.AddSingleton(settings);
         services.AddSingleton(settings.ArchiveStorage);
-        services.AddSingleton(new ApplicationServerEndpoint(settings.ServerBaseAddress));
 
         services.AddWpfBlazorWebView();
 #if DEBUG
         services.AddBlazorWebViewDeveloperTools();
 #endif
-        services.AddAuthorizationCore(PolicyList.RegisterPolicies);
-        services.AddOptions();
-        services.AddAntDesign();
-
-        services.AddHttpClient("Anonymous", client => client.BaseAddress = settings.ServerBaseAddress);
-        services
-            .AddHttpClient("Authorize", client => client.BaseAddress = settings.ServerBaseAddress)
-            .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
-        services
-            .AddHttpClient("AiAuthorize", client =>
-            {
-                client.BaseAddress = settings.ServerBaseAddress;
-                client.Timeout = Timeout.InfiniteTimeSpan;
-            })
-            .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
-        services.AddTransient<CustomAuthorizationMessageHandler>();
-
-        services.AddSingleton<UserSessionService>();
-        services.AddScoped<AuthenticationStateProvider>(provider =>
-            provider.GetRequiredService<UserSessionService>());
-        services.AddScoped<HttpNutritionDataSource>();
-        services.AddScoped<IAiAdviceGateway, HttpAiAdviceGateway>();
-        services.AddScoped<IEnergyReferenceDataSource>(provider =>
-            provider.GetRequiredService<HttpNutritionDataSource>());
-        services.AddScoped<IDietaryReferenceIntakeDataSource>(provider =>
-            provider.GetRequiredService<HttpNutritionDataSource>());
-        services.AddScoped<IFoodCompositionDataSource>(provider =>
-            new SessionCachedFoodCatalogDataSource(
-                provider.GetRequiredService<HttpNutritionDataSource>()));
-        services.AddScoped<AiAdviceApplicationService>();
-        services.AddScoped<ConsultationApplicationService>();
-        services.AddScoped<ConsultationWorkspaceManager>();
-        services.AddScoped<AccountService>();
-        services.AddScoped<CertificateUploadService>();
+        services.AddEzNutritionPresentation(settings.ServerBaseAddress, TimeZoneInfo.Local);
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
@@ -155,8 +114,6 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IArchiveDocumentTransport>(provider =>
             provider.GetRequiredService<WpfArchiveDocumentTransport>());
         services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
-        services.AddSingleton<ILocalDateTimeFormatter>(
-            new LocalDateTimeFormatter(TimeZoneInfo.Local));
 
         services.AddSingleton<DesktopFileLauncher>();
         services.AddSingleton<MainWindow>();

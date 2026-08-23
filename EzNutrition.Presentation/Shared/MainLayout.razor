@@ -1,0 +1,126 @@
+﻿@using EzNutrition.Presentation.Services
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject UserSessionService UserSession
+@inject NavigationManager Navigation
+
+<a class="skip-link" href="#main-content">跳到主要内容</a>
+
+<div class="app-shell-root">
+    <Layout Class="app-shell">
+        <Sider Width="240" Class="desktop-sidebar">
+            <div class="brand-block" aria-label="EzNutrition 首页">
+                <img src="_content/EzNutrition.Presentation/logo.png" alt="" class="brand-logo" />
+                <div>
+                    <strong>EzNutrition</strong>
+                    <span>营养评估工作台</span>
+                </div>
+            </div>
+            <NavMenu />
+        </Sider>
+
+        <Layout Class="app-main-layout">
+            <Header Class="mobile-header">
+                <Button Class="mobile-menu-button"
+                        Shape="ButtonShape.Circle"
+                        OnClick="OpenMobileNavigation">
+                    <Icon Type="menu" Theme="IconThemeType.Outline" />
+                    <span class="visually-hidden">打开导航菜单</span>
+                </Button>
+                <div class="mobile-brand">
+                    <img src="_content/EzNutrition.Presentation/logo.png" alt="" />
+                    <div>
+                        <strong>EzNutrition</strong>
+                        <span>营养评估工作台</span>
+                    </div>
+                </div>
+            </Header>
+
+            <Content Class="app-content">
+                <main id="main-content" class="page-surface" tabindex="-1" @ontouchstart="DetectTouch">
+                    @Body
+                </main>
+            </Content>
+
+            <Footer Class="app-footer">
+                <span>EzNutrition · 公共卫生营养评估工具</span>
+                @if (!string.IsNullOrEmpty(UserSession.CaseNumber))
+                {
+                    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">@UserSession.CaseNumber</a>
+                }
+            </Footer>
+        </Layout>
+    </Layout>
+
+    @if (mobileNavigationOpen)
+    {
+        <div class="mobile-navigation-overlay"
+             role="presentation"
+             tabindex="-1"
+             @onclick="CloseMobileNavigation"
+             @onkeydown="HandleMobileNavigationKeyDown">
+            <aside class="mobile-navigation-panel" role="dialog" aria-modal="true" aria-label="移动端导航" @onclick:stopPropagation>
+                <div class="mobile-navigation-heading">
+                    <div class="mobile-brand">
+                        <img src="_content/EzNutrition.Presentation/logo.png" alt="" />
+                        <div>
+                            <strong>EzNutrition</strong>
+                            <span>营养评估工作台</span>
+                        </div>
+                    </div>
+                    <button type="button" class="mobile-navigation-close" autofocus aria-label="关闭导航菜单" @onclick="CloseMobileNavigation">×</button>
+                </div>
+                <NavMenu />
+            </aside>
+        </div>
+    }
+
+    <BackTop VisibilityHeight="700" />
+</div>
+
+@code {
+    private bool mobileNavigationOpen;
+
+    private void OpenMobileNavigation() => mobileNavigationOpen = true;
+
+    private void CloseMobileNavigation() => mobileNavigationOpen = false;
+
+    private void HandleMobileNavigationKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            mobileNavigationOpen = false;
+        }
+    }
+
+    private void DetectTouch(TouchEventArgs e)
+    {
+        if (!UserSession.IsTouchDetected)
+        {
+            UserSession.IsTouchDetected = true;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+        await UserSession.GetSystemInfoAsync();
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (mobileNavigationOpen)
+        {
+            _ = InvokeAsync(() =>
+            {
+                mobileNavigationOpen = false;
+                StateHasChanged();
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+}
