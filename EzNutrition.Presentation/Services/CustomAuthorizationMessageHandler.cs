@@ -29,7 +29,11 @@ namespace EzNutrition.Presentation.Services
                 && userSession.TryGetAccessToken(out var currentToken)
                 && string.Equals(attachedToken, currentToken, StringComparison.Ordinal))
             {
-                await userSession.SignOutAsync();
+                // 访问令牌失效不等同于用户主动退出；保留安全存储的登录信息，
+                // 以便下次启动重新向服务端换取短期令牌。
+                await userSession.SignOutAsync(
+                    forgetSavedLogin: false,
+                    cancellationToken);
                 navigation.NavigateTo("", replace: true);
             }
 

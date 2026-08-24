@@ -94,6 +94,35 @@
     margin-bottom: 20px;
 }
 
+.session-warning {
+    margin-bottom: 20px;
+}
+
+.remember-login-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--ez-text-primary);
+    cursor: pointer;
+}
+
+.remember-login-option input {
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+}
+
+.remember-login-option span {
+    display: grid;
+    gap: 2px;
+}
+
+.remember-login-option small {
+    color: var(--ez-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
 .login-actions {
     display: flex;
     flex-wrap: wrap;

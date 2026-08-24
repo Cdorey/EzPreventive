@@ -11,6 +11,13 @@
 <AuthorizeView>
     <Authorized>
         <section class="home-page">
+            @if (!string.IsNullOrEmpty(UserSession.CredentialPersistenceWarning))
+            {
+                <Alert Class="session-warning"
+                       Message="@UserSession.CredentialPersistenceWarning"
+                       Type="@AlertType.Error"
+                       ShowIcon="true" />
+            }
             <header class="page-heading">
                 <span class="eyebrow">专业工作台</span>
                 <h1>营养评估与膳食干预</h1>
@@ -79,6 +86,29 @@
                            Description="请注册账户并完成专业身份认证，以使用 AI 辅助拟定健康教育与膳食指导草稿等受限功能。"
                            ShowIcon="true" />
 
+                    @if (UserSession.IsAutomaticSignInInProgress)
+                    {
+                        <Alert Class="account-notice"
+                               Type="@AlertType.Info"
+                               Message="正在使用 Windows 保存的登录信息…"
+                               ShowIcon="true" />
+                    }
+                    else if (!string.IsNullOrEmpty(UserSession.AutomaticSignInError))
+                    {
+                        <Alert Class="account-notice"
+                               Type="@AlertType.Warning"
+                               Message="@UserSession.AutomaticSignInError"
+                               ShowIcon="true" />
+                    }
+
+                    @if (!string.IsNullOrEmpty(UserSession.CredentialPersistenceWarning))
+                    {
+                        <Alert Class="account-notice"
+                               Type="@AlertType.Error"
+                               Message="@UserSession.CredentialPersistenceWarning"
+                               ShowIcon="true" />
+                    }
+
                     <Form Model="@innerModel" Layout="FormLayout.Vertical">
                         <ChildContent Context="formContext">
                             <FormItem Label="用户名">
@@ -91,9 +121,27 @@
                                     <a href="account/resend-confirmation">重新发送确认邮件</a>
                                 </div>
                             </FormItem>
+                            @if (UserSession.CanRememberLogin)
+                            {
+                                <FormItem>
+                                    <label class="remember-login-option">
+                                        <input type="checkbox" @bind="rememberLogin" />
+                                        <span>
+                                            在此 Windows 账户中记住登录
+                                            <small>登录信息由 Windows 当前用户范围的数据保护机制加密。</small>
+                                        </span>
+                                    </label>
+                                </FormItem>
+                            }
                             <FormItem>
                                 <div class="login-actions">
-                                    <Button Class="login-button" Type="@ButtonType.Primary" OnClick="Login" AutoLoading>登录</Button>
+                                    <Button Class="login-button"
+                                            Type="@ButtonType.Primary"
+                                            OnClick="Login"
+                                            Disabled="@UserSession.IsAutomaticSignInInProgress"
+                                            AutoLoading>
+                                        登录
+                                    </Button>
                                     <Button OnClick="@(()=>{Navigator.NavigateTo("register");})">注册新账户</Button>
                                 </div>
                             </FormItem>
@@ -133,7 +181,8 @@
 </AuthorizeView>
 
 @code {
-    public class Model
+    /// <summary>承载登录表单中的短期输入。</summary>
+    public sealed class Model
     {
         [Required, DisplayName("用户名")]
         public string? Username { get; set; }
@@ -150,6 +199,8 @@
 
     private bool loginInProgress;
 
+    private bool rememberLogin;
+
     private async Task Login()
     {
         if (loginInProgress)
@@ -164,7 +215,9 @@
             await UserSession.SignInAsync(
                 innerModel.Username ?? string.Empty,
                 innerModel.Password ?? string.Empty,
+                rememberLogin,
                 lifetimeCancellation.Token);
+            innerModel.Password = null;
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -190,7 +243,16 @@
         base.OnInitialized();
     }
 
-    private void HandleSessionStateChanged() => _ = InvokeAsync(StateHasChanged);
+    private void HandleSessionStateChanged()
+    {
+        if (string.IsNullOrWhiteSpace(innerModel.Username) &&
+            !string.IsNullOrWhiteSpace(UserSession.SuggestedUserName))
+        {
+            innerModel.Username = UserSession.SuggestedUserName;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     public void Dispose()
     {

@@ -104,7 +104,7 @@
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += HandleLocationChanged;
-        await UserSession.GetSystemInfoAsync();
+        await UserSession.InitializeAsync();
     }
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
