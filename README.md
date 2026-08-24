@@ -13,6 +13,8 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 - **膳食调查**：支持 24 小时膳食回顾及相关膳食结构分析。
 - **AI 辅助建议**：通过服务端调用生成式 AI，并以流式方式呈现推理和建议；供应商能力由可替换适配器隔离，支持取消、失败反馈与重新发送。
 - **身份与权限**：提供邮箱确认与重发、密码修改与邮箱找回、邮箱/手机号码修改、专业身份相关流程和受权限保护的功能入口。
+- **机构服务连接**：WPF 可连接机构自行部署的兼容后端，默认执行严格 HTTPS 验证；用户主动确认风险后也可使用自签名 HTTPS 或不加密 HTTP。
+- **桌面免登录**：WPF 可按“端点 + 安全策略”使用 Windows 当前用户范围的 DPAPI 保存登录信息，重启后换取新的短期访问令牌。
 - **本机档案**：提供格式无关的档案模型、校验与工作流；WASM 使用 IndexedDB，WPF 使用当前用户的应用数据目录，并支持 XML 文档导入、另存为及资源管理器定位。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
@@ -21,6 +23,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 - 多数营养计算在当前客户端执行，以减少不必要的数据上传；身份认证、参考数据查询和 AI 建议仍需要访问服务端。
 - 当前咨询工作区以客户端会话为运行边界；完成咨询后应主动保存到本机档案库或导出 XML 文档。浏览器档案受站点数据保留策略影响；WPF 档案默认位于 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives`，不会默认进入可能由 OneDrive 同步的文档目录。两者都不能替代医疗机构正式档案系统的备份、审计与保留制度。
 - WPF 的 XML 与调阅索引未做静态加密。文件名不包含患者姓名，但索引和 XML 正文仍可能包含敏感信息；应依赖受控 Windows 账户、磁盘保护和机构策略，并谨慎配置任何自定义或同步目录。
+- WPF 保存的登录信息与档案分离并由 DPAPI 当前用户范围加密；这不能抵御已取得该 Windows 用户执行权限的恶意程序。显式退出会清除当前连接保存的副本。
 - 使用 AI 建议功能时，请求会被发送至服务端及其配置的外部模型服务。服务端会保存登录用户标识、完整请求、模型返回的推理与建议内容以及处理时间，用于安全审计和防止接口滥用。
 - AI 请求可能包含咨询对象信息、膳食回顾和临床信息。请只提交完成任务所必需的数据，避免输入不必要的姓名、证件号码、联系方式等直接身份标识，并遵守适用的数据保护和医疗信息管理要求。
 
@@ -35,7 +38,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 | `EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
 | `EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
 | `EzNutrition/Client` | Blazor WebAssembly 启动与组合根、IndexedDB/浏览器文件适配和浏览器入口资源 |
-| `EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、Windows 文档交互与 Shell 集成 |
+| `EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、用户连接设置、DPAPI、桌面证书策略、Windows 文档交互与 Shell 集成 |
 | `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
 | `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
 | `EzNutrition/Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
@@ -59,7 +62,7 @@ Windows 上可直接运行 Hybrid 宿主：
 dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
-WPF 默认连接 `https://eznutrition.cdorey.net/`，服务端与档案目录均可通过配置覆盖。路径选择、备份边界与发布命令见 [WPF Hybrid 宿主说明](./docs/wpf-hybrid-host.md)。
+WPF 默认以严格 HTTPS 连接 `https://eznutrition.cdorey.net/`，服务端、安全策略与档案目录均可配置。路径选择、风险边界、免登录行为与发布命令见 [WPF Hybrid 宿主说明](./docs/wpf-hybrid-host.md)。
 
 运行服务端还需要配置两个 SQL Server 连接、JWT、邮件服务和 AI 供应商凭据。首次执行 `AuthInitialize` 创建管理员时，还必须通过受控配置提供 `AuthBootstrap:AdminPassword`（环境变量形式为 `AuthBootstrap__AdminPassword`）。请使用用户机密、环境变量或受控配置源，不要把真实凭据提交到仓库或日志。
 
@@ -69,6 +72,7 @@ WPF 默认连接 `https://eznutrition.cdorey.net/`，服务端与档案目录均
 
 ## 近期重要变更
 
+- **2026-08-24 — WPF 机构连接与安全免登录**：增加原生连接设置窗口、默认严格 HTTPS、自签名/HTTP 显式风险模式、持续安全警示、端点级 DPAPI 登录信息和重启自动登录；登录流程的共享端口仍位于 Presentation，具体保护与证书策略只属于 WPF。
 - **2026-08-23 — WPF Blazor Hybrid 本地宿主**：以独立宿主引用共享 Presentation RCL，加入 Windows 文件系统档案、打开/另存为对话框、导出后资源管理器定位、本机目录入口及发布期 WebView2 数据目录；WPF 不引用 WASM，Domain 和服务端计算逻辑保持不变。
 - **2026-08-14 — 本机 XML 档案闭环**：建立格式无关的 Application 档案用例，加入独立 XML codec、浏览器 IndexedDB/文件适配器、桌面优先的保存与只读调阅界面，并保持 UI、格式和宿主存储之间的单向依赖。
 - **2026-08-08 至 09 — 可复用架构分层**：拆分 Domain、Application 和 UI，升级至 .NET 10，并以 `IAiAdviceGateway` 隔离 AI 应用流程与浏览器 HTTP/SSE 传输；补充应用、适配器和架构边界测试。详见 [PR #2](https://github.com/Cdorey/EzPreventive/pull/2)。

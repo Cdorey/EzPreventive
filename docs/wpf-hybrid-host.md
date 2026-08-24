@@ -2,7 +2,7 @@
 
 `EzNutrition.Wpf` 是 EzNutrition 的 Windows 本地宿主。它使用 WPF 提供窗口、文件对话框和 Windows Shell 集成，使用 `BlazorWebView` 承载现有 Razor 工作台。Razor 组件在桌面进程中的 .NET 运行时执行，不在 WebAssembly 中执行。
 
-宿主的组合根复用 `EzNutrition.Presentation`、`EzNutrition.Application`、`EzNutrition.Archives.Contracts` 和 `EzNutrition.Archives.Xml`。共享 App、页面、布局、会话和 HTTP 适配位于 Presentation Razor 类库；WPF 与 WASM 是互不引用的并列宿主。WPF 项目只实现文件系统、文档交互、系统时区和窗口生命周期等宿主职责，不复制营养计算，也不改变 Domain 或服务端业务规则。
+宿主的组合根复用 `EzNutrition.Presentation`、`EzNutrition.Application`、`EzNutrition.Archives.Contracts` 和 `EzNutrition.Archives.Xml`。共享 App、页面、布局、会话和 HTTP 适配位于 Presentation Razor 类库；WPF 与 WASM 是互不引用的并列宿主。WPF 项目只实现文件系统、文档交互、用户级连接配置、Windows 凭据保护、证书策略、系统时区和窗口生命周期等宿主职责，不复制营养计算，也不改变 Domain 或服务端业务规则。
 
 ## 本机档案目录
 
@@ -48,16 +48,54 @@ dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 
 ## 服务端与认证
 
-WPF 页面来源是 WebView 的本地内部地址，HTTP 请求则发送到独立配置的 EzNutrition 服务端。`EzNutrition:ServerBaseAddress` 必须是绝对 HTTP(S) 地址；当前默认和开发配置均指向 `https://eznutrition.cdorey.net/`。
+WPF 页面来源是 WebView 的本地内部地址，HTTP 请求则发送到独立配置的 EzNutrition 服务端。当前默认和开发配置均指向 `https://eznutrition.cdorey.net/`，使用正常的 Windows HTTPS 验证。机构可以部署兼容后端，然后从 WPF 菜单 **设置 → 服务连接…** 修改端点；设置窗口是原生 XAML，即使服务端不可达也能打开。
+
+用户设置保存在：
+
+```text
+%LOCALAPPDATA%\EzSuit\EzNutrition\settings.json
+```
+
+该文件只包含端点与传输安全策略，不含用户名、密码、令牌或档案内容。配置优先级从低到高为：
+
+1. 随应用发布的 `appsettings.json` 和环境专用配置；
+2. 设置窗口写入的当前用户 `settings.json`；
+3. 环境变量；
+4. 命令行参数。
+
+端点必须是绝对 HTTP(S) 地址，可以包含后端部署所需的基础路径，但不能嵌入用户名、密码、查询参数或片段。设置窗口保存后需要重启应用，因为地址、证书回调和命名 `HttpClient` 都在组合根创建时固定。WPF 主 HTTP 处理器不自动跟随 3xx，避免登录表单或其他敏感请求经 307/308 被转发到配置端点之外。
+
+### 传输安全策略
+
+| 策略 | 地址要求 | 行为 |
+| --- | --- | --- |
+| `StrictHttps` | `https://` | 默认值；只接受 Windows 正常信任、域名匹配且在有效期内的证书 |
+| `AllowSelfSignedHttps` | `https://` | 接受正常证书，或仅对当前端点接受域名匹配、未过期、确实以自身作为唯一受信根且可用于服务器认证的自签名证书 |
+| `InsecureHttp` | `http://` | 完全放弃 TLS；用户名、密码、令牌和业务内容都可能被读取或篡改 |
+
+后两种策略必须在设置窗口额外勾选红色风险确认才能保存，并会在每次运行的主窗口顶部持续显示红色警示。自签名例外不是“接受任意证书错误”：域名错误、过期、证书缺失、组合错误和由未知私有 CA 签发但并非自签名的叶证书仍会被拒绝。机构若有自己的 CA，更合适的做法是通过受控 Windows 策略信任该 CA，然后继续使用 `StrictHttps`。
 
 可用环境变量临时覆盖服务端：
 
 ```powershell
 $env:EzNutrition__ServerBaseAddress = 'https://eznutrition.cdorey.net/'
+$env:EzNutrition__TransportSecurity = 'StrictHttps'
 dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
-访问令牌只保存在当前桌面进程内存中。宿主不会把用户名、密码或 JWT 写入配置、WebView 本地存储或档案目录；关闭应用后需要重新登录。参考数据、账户操作和 AI 能力仍遵循服务端各自的网络与审计边界，本机档案操作本身不会上传 XML。
+环境变量和命令行属于机构部署入口，不经过设置窗口的风险确认；非严格模式仍会显示运行期红色警示。
+
+### 记住登录
+
+访问令牌始终只保存在当前桌面进程内存中，不会长期保存 JWT。用户主动勾选“在此 Windows 账户中记住登录”后，WPF 保存用户名与密码，以便后续启动时向服务端换取新的短期令牌：
+
+- 登录信息先在内存中序列化，再使用 Windows DPAPI `CurrentUser` 范围加密；磁盘和同目录原子写入临时文件只出现密文。
+- 密文位于 `%LOCALAPPDATA%\EzSuit\EzNutrition\Credentials`，文件名是“规范端点 + 传输安全策略”的 SHA-256 摘要，不包含用户名。
+- 每个端点和安全策略相互隔离。切换机构、从严格 HTTPS 降级到自签名，或改用 HTTP，都不会自动复用旧连接保存的登录信息。
+- 临时网络故障不会删除密文；服务端明确拒绝保存的用户名/密码时，宿主会清除该副本并要求手动登录。
+- 用户中心的“退出登录并清除本机登录信息”会同时结束进程会话并删除当前连接的密文。设置窗口也可以只清除密文，而不立即结束当前进程会话。
+
+DPAPI 不是独立密码库，也不抵御已经取得当前 Windows 用户执行权限的恶意程序；密文通常不能迁移到另一 Windows 用户或未加载原用户配置文件的环境。登录信息不会写入 `settings.json`、WebView 本地存储、档案 XML 或调阅索引。参考数据、账户操作和 AI 能力仍遵循服务端各自的网络与审计边界，本机档案操作本身不会上传 XML。
 
 ## 构建、运行与发布
 

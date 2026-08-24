@@ -5,7 +5,7 @@
 ## 总体原则
 
 - WASM、WPF 和后续可执行客户端是并列宿主，彼此不能建立项目或程序集引用。
-- 真正跨宿主一致的代码进入具有明确职责的类库；平台存储、文件交互、启动生命周期和入口资源留在各自宿主。
+- 真正跨宿主一致的代码进入具有明确职责的类库；平台存储、凭据保护、证书策略、文件交互、启动生命周期和入口资源留在各自宿主。
 - Domain 和 Application 不感知 WPF、WASM、HTTP、WebView、文件对话框或 IndexedDB。
 - `EzNutrition.UI` 保持传输无关；完整路由工作台和两个客户端共同使用的远程服务适配由 `EzNutrition.Presentation` 承担。
 - `EzNutrition/Shared` 是历史形成的客户端/服务端协议与参考数据共享项目，不是通用代码收容箱。
@@ -40,9 +40,9 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 | `EzNutrition.Domain` | 咨询、评估、膳食与营养计算规则 | 网络、持久化、UI 和具体档案格式 |
 | `EzNutrition.Application` | 用例编排、咨询工作区、档案流程与外部能力端口 | HTTP、WebView、IndexedDB、Windows 文件系统 |
 | `EzNutrition.UI` | 可单独复用和渲染测试的传输无关 Razor 组件 | HttpClient、认证令牌、具体宿主或 XML codec |
-| `EzNutrition.Presentation` | 共享 App/Router、页面、布局、会话、客户端 HTTP/SSE 适配与公共静态资源 | IndexedDB、文件对话框、WPF Shell、宿主启动代码 |
+| `EzNutrition.Presentation` | 共享 App/Router、页面、布局、会话、可选登录信息存储端口、客户端 HTTP/SSE 适配与公共静态资源 | DPAPI、证书绕过、IndexedDB、文件对话框、WPF Shell、宿主启动代码 |
 | `EzNutrition/Client` | WASM 启动与组合根、IndexedDB/浏览器文件交互、浏览器入口页和 JavaScript | WPF 类型、共享页面和共享 HTTP 实现 |
-| `EzNutrition.Wpf` | WPF 启动与组合根、本机档案、Windows 对话框、Shell 和 WebView2 生命周期 | WASM 类型、浏览器存储、领域计算复制品 |
+| `EzNutrition.Wpf` | WPF 启动与组合根、本机档案、用户连接设置、DPAPI、桌面证书策略、Windows 对话框、Shell 和 WebView2 生命周期 | WASM 类型、浏览器存储、领域计算复制品 |
 | `EzNutrition.Server` | API、认证、参考数据访问、AI 调用与审计；托管 WASM 静态发布资源 | WPF 或本地档案实现 |
 | `EzNutrition.AiAgency` | 服务端模型供应商适配 | 客户端页面、宿主档案和领域计算 |
 
@@ -62,6 +62,7 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 - Presentation 不引用 Client、WPF、Server 或 WebAssembly 运行时；
 - WPF 引用 Presentation 而不引用 Client；
 - WASM 引用 Presentation 而不引用 WPF；
+- DPAPI、用户设置文件和自签名证书策略只由 WPF 提供；
 - 浏览器与桌面档案适配器继续分别归属各自宿主。
 
 新增跨宿主能力时，应先判断它属于 Domain 规则、Application 用例、UI 组件、Presentation 工作台，还是宿主适配器，再选择项目；项目名称中的 `Shared` 本身不是归属依据。
