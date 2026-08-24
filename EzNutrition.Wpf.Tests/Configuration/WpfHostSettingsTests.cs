@@ -19,6 +19,7 @@ public sealed class WpfHostSettingsTests
         var settings = WpfHostSettings.Create(configuration);
 
         Assert.Equal(new Uri("https://example.test/api/"), settings.ServerBaseAddress);
+        Assert.Equal(ServerTransportSecurity.StrictHttps, settings.TransportSecurity);
         Assert.Equal(archiveRoot, settings.ArchiveStorage.RootPath);
     }
 
@@ -38,6 +39,59 @@ public sealed class WpfHostSettingsTests
         {
             _ = WpfHostSettings.Create(configuration);
         });
+    }
+
+    [Theory]
+    [InlineData("StrictHttps")]
+    [InlineData("AllowSelfSignedHttps")]
+    public void Https_security_modes_require_an_https_address(string transportSecurity)
+    {
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["EzNutrition:ServerBaseAddress"] = "http://example.test/",
+            ["EzNutrition:TransportSecurity"] = transportSecurity
+        });
+
+        Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
+    }
+
+    [Fact]
+    public void Insecure_http_mode_requires_an_http_address()
+    {
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["EzNutrition:ServerBaseAddress"] = "https://example.test/",
+            ["EzNutrition:TransportSecurity"] = "InsecureHttp"
+        });
+
+        Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
+    }
+
+    [Theory]
+    [InlineData("https://user:password@example.test/")]
+    [InlineData("https://example.test/?tenant=one")]
+    [InlineData("https://example.test/#section")]
+    public void Embedded_credentials_query_and_fragment_are_rejected(string serverAddress)
+    {
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["EzNutrition:ServerBaseAddress"] = serverAddress,
+            ["EzNutrition:TransportSecurity"] = "StrictHttps"
+        });
+
+        Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
+    }
+
+    [Fact]
+    public void Unknown_transport_security_mode_is_rejected()
+    {
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["EzNutrition:ServerBaseAddress"] = "https://example.test/",
+            ["EzNutrition:TransportSecurity"] = "TrustEverything"
+        });
+
+        Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
     }
 
     private static IConfiguration BuildConfiguration(Dictionary<string, string?> values) =>
