@@ -92,7 +92,7 @@
                             </Button>
                             <Button Class="sign-out-action" OnClick="SignOutAsync" AutoLoading>
                                 <Icon Type="logout" Theme="IconThemeType.Outline" />
-                                退出登录并清除本机登录信息
+                                @(UserSession.CanRememberLogin ? "退出登录并清除本机登录信息" : "退出登录")
                             </Button>
                         </div>
                         <Alert Class="phone-verification-note"
