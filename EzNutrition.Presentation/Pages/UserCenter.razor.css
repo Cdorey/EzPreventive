@@ -91,6 +91,18 @@
     text-align: left;
 }
 
+.account-security-actions ::deep .sign-out-action {
+    grid-column: 1 / -1;
+    color: #a8071a;
+    border-color: #ffa39e;
+}
+
+.account-security-actions ::deep .sign-out-action:hover,
+.account-security-actions ::deep .sign-out-action:focus-visible {
+    color: #cf1322;
+    border-color: #ff4d4f;
+}
+
 ::deep .phone-verification-note {
     margin-top: 16px;
 }

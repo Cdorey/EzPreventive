@@ -90,6 +90,10 @@
                                 <Icon Type="key" Theme="IconThemeType.Outline" />
                                 修改密码
                             </Button>
+                            <Button Class="sign-out-action" OnClick="SignOutAsync" AutoLoading>
+                                <Icon Type="logout" Theme="IconThemeType.Outline" />
+                                退出登录并清除本机登录信息
+                            </Button>
                         </div>
                         <Alert Class="phone-verification-note"
                                Type="AlertType.Info"
@@ -311,7 +315,7 @@
                 lifetimeCancellation.Token);
             await Message.SuccessAsync(result.Message);
             ClosePasswordChange();
-            await SignOutAfterSecurityChangeAsync();
+            await SignOutAsync();
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -412,7 +416,7 @@
                 lifetimeCancellation.Token);
             await Message.SuccessAsync(result.Message);
             ClosePhoneChange();
-            await SignOutAfterSecurityChangeAsync();
+            await SignOutAsync();
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -428,7 +432,7 @@
         }
     }
 
-    private async Task SignOutAfterSecurityChangeAsync()
+    private async Task SignOutAsync()
     {
         await UserSession.SignOutAsync();
         Navigator.NavigateTo("", replace: true);
