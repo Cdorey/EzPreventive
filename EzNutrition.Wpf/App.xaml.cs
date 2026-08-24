@@ -8,6 +8,9 @@ using EzNutrition.Presentation;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
+using EzNutrition.Wpf.Networking;
+using EzNutrition.Wpf.Security;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -93,16 +96,43 @@ public partial class App : System.Windows.Application
         builder.Logging.AddFilter("Microsoft.AspNetCore.Components.WebView", LogLevel.Trace);
 #endif
 
+        var userDataPaths = WpfUserDataPaths.CreateDefault();
+        var userOverrides = WpfUserSettingsStore.ReadConfigurationOverrides(
+            userDataPaths.SettingsFilePath,
+            out var userSettingsWarning);
+        if (userOverrides.Count > 0)
+        {
+            builder.Configuration.AddInMemoryCollection(userOverrides);
+        }
+
+        // 用户设置覆盖随应用发布的默认值；环境变量与命令行仍保留最高优先级，
+        // 便于机构通过受控部署系统临时纠正端点。
+        builder.Configuration.AddEnvironmentVariables();
+        if (args.Length > 0)
+        {
+            builder.Configuration.AddCommandLine(args);
+        }
+
         var settings = WpfHostSettings.Create(builder.Configuration);
+        var userSettingsStore = new WpfUserSettingsStore(userDataPaths, settings);
+        var credentialStore = new DpapiLoginCredentialStore(userDataPaths, settings);
+        var httpMessageHandlerFactory = new WpfHttpMessageHandlerFactory(settings);
         var services = builder.Services;
+        services.AddSingleton(userDataPaths);
         services.AddSingleton(settings);
+        services.AddSingleton(userSettingsStore);
+        services.AddSingleton(credentialStore);
         services.AddSingleton(settings.ArchiveStorage);
 
         services.AddWpfBlazorWebView();
 #if DEBUG
         services.AddBlazorWebViewDeveloperTools();
 #endif
-        services.AddEzNutritionPresentation(settings.ServerBaseAddress, TimeZoneInfo.Local);
+        services.AddEzNutritionPresentation(
+            settings.ServerBaseAddress,
+            TimeZoneInfo.Local,
+            credentialStore,
+            httpMessageHandlerFactory.Create);
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
@@ -117,7 +147,15 @@ public partial class App : System.Windows.Application
 
         services.AddSingleton<DesktopFileLauncher>();
         services.AddSingleton<MainWindow>();
-        return builder.Build();
+        var builtHost = builder.Build();
+        if (!string.IsNullOrWhiteSpace(userSettingsWarning))
+        {
+            builtHost.Services
+                .GetRequiredService<ILogger<App>>()
+                .LogWarning("{UserSettingsWarning}", userSettingsWarning);
+        }
+
+        return builtHost;
     }
 
     /// <summary>
