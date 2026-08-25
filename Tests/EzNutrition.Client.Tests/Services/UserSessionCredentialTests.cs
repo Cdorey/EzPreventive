@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace EzNutrition.Client.Tests.Services;
 
@@ -86,7 +87,44 @@ public sealed class UserSessionCredentialTests
         Assert.Equal(1, credentialStore.ReadCount);
         Assert.Equal(1, handler.LoginCount);
         Assert.Equal(3, handler.SystemInfoRequestCount);
+        Assert.Equal("test-case-number", session.CaseNumber);
+        Assert.Equal("2.1.0.0", session.ClientVersion);
+        Assert.Equal("2.1.0.0", session.ServerVersion);
+        Assert.False(session.HasVersionCompatibilityWarning);
         Assert.Null(session.AutomaticSignInError);
+    }
+
+    [Theory]
+    [InlineData("2.1.0.0", "2.1.99.42", false)]
+    [InlineData("2.1.0.0", "2.2.0.0", true)]
+    [InlineData("2.1.0.0", "3.1.0.0", true)]
+    [InlineData("", "2.1.0.0", false)]
+    [InlineData("2.1.0.0", "invalid", false)]
+    public void Compatibility_warning_compares_only_product_and_contract_segments(
+        string clientVersion,
+        string serverVersion,
+        bool expectedWarning)
+    {
+        Assert.Equal(
+            expectedWarning,
+            UserSessionService.IsCompatibilityMismatch(clientVersion, serverVersion));
+    }
+
+    [Fact]
+    public async Task Missing_public_information_remains_hidden_without_a_warning()
+    {
+        var credentialStore = new RecordingCredentialStore();
+        var handler = new SessionEndpointHandler(
+            caseNumber: null,
+            serverVersion: null,
+            publicInfoStatusCode: HttpStatusCode.ServiceUnavailable);
+        var session = CreateSession(handler, credentialStore);
+
+        await session.GetSystemInfoAsync();
+
+        Assert.Empty(session.CaseNumber);
+        Assert.Empty(session.ServerVersion);
+        Assert.False(session.HasVersionCompatibilityWarning);
     }
 
     [Fact]
@@ -132,7 +170,8 @@ public sealed class UserSessionCredentialTests
         return new UserSessionService(
             new StaticHttpClientFactory(client),
             NullLogger<UserSessionService>.Instance,
-            credentialStore);
+            credentialStore,
+            clientVersion: "2.1.0.0");
     }
 
     private static string CreateToken(string userName)
@@ -189,6 +228,8 @@ public sealed class UserSessionCredentialTests
     {
         private readonly HttpStatusCode loginStatusCode;
         private readonly string? loginToken;
+        private readonly string publicInfoContent;
+        private readonly HttpStatusCode publicInfoStatusCode;
         private readonly bool throwOnLogin;
         private int loginCount;
         private int systemInfoRequestCount;
@@ -196,11 +237,16 @@ public sealed class UserSessionCredentialTests
         internal SessionEndpointHandler(
             string? loginToken = null,
             HttpStatusCode loginStatusCode = HttpStatusCode.OK,
-            bool throwOnLogin = false)
+            bool throwOnLogin = false,
+            string? caseNumber = "test-case-number",
+            string? serverVersion = "2.1.0.0",
+            HttpStatusCode publicInfoStatusCode = HttpStatusCode.OK)
         {
             this.loginToken = loginToken;
             this.loginStatusCode = loginStatusCode;
             this.throwOnLogin = throwOnLogin;
+            this.publicInfoStatusCode = publicInfoStatusCode;
+            publicInfoContent = JsonSerializer.Serialize(new { caseNumber, serverVersion });
         }
 
         internal int LoginCount => Volatile.Read(ref loginCount);
@@ -228,9 +274,16 @@ public sealed class UserSessionCredentialTests
             }
 
             Interlocked.Increment(ref systemInfoRequestCount);
+            if (string.Equals(relativePath, "SystemInfo/PublicInfo/", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(publicInfoStatusCode)
+                {
+                    Content = new StringContent(publicInfoContent)
+                });
+            }
+
             var content = relativePath switch
             {
-                "SystemInfo/CaseNumber/" => "test-case-number",
                 "SystemInfo/CoverLetter/" => """{"description":"test-cover-letter"}""",
                 "SystemInfo/Notice/" => """{"description":"test-notice"}""",
                 _ => throw new InvalidOperationException($"Unexpected request path: {relativePath}")

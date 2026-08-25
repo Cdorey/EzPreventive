@@ -1,8 +1,10 @@
 using EzNutrition.Presentation.Models;
+using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Security.Claims;
 
 namespace EzNutrition.Presentation.Services;
@@ -27,15 +29,22 @@ public sealed class UserSessionService : AuthenticationStateProvider
     /// <param name="httpClientFactory">用于创建匿名登录与系统信息客户端的工厂。</param>
     /// <param name="logger">用于记录不包含凭据内容的运行故障。</param>
     /// <param name="credentialStore">宿主可选提供的安全登录信息存储。</param>
+    /// <param name="clientVersion">测试或特殊宿主可显式提供的前端产品版本。</param>
     public UserSessionService(
         IHttpClientFactory httpClientFactory,
         ILogger<UserSessionService> logger,
-        ILoginCredentialStore? credentialStore = null)
+        ILoginCredentialStore? credentialStore = null,
+        string? clientVersion = null)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         client = httpClientFactory.CreateClient("Anonymous");
         this.credentialStore = credentialStore ?? UnavailableLoginCredentialStore.Instance;
+        ClientVersion = NormalizeOptional(clientVersion);
+        if (ClientVersion.Length == 0)
+        {
+            ClientVersion = ResolveClientVersion();
+        }
     }
 
     /// <summary>在会话可见状态变化时通知 Razor 页面。</summary>
@@ -58,6 +67,16 @@ public sealed class UserSessionService : AuthenticationStateProvider
 
     /// <summary>获取备案编号。</summary>
     public string CaseNumber { get; private set; } = string.Empty;
+
+    /// <summary>获取当前运行的前端宿主产品发行版本。</summary>
+    public string ClientVersion { get; }
+
+    /// <summary>获取当前连接的服务端产品发行版本。</summary>
+    public string ServerVersion { get; private set; } = string.Empty;
+
+    /// <summary>获取前后端产品代际或接口契约代际是否不一致。</summary>
+    public bool HasVersionCompatibilityWarning =>
+        IsCompatibilityMismatch(ClientVersion, ServerVersion);
 
     /// <summary>获取产品说明。</summary>
     public string CoverLetter { get; private set; } = string.Empty;
@@ -108,13 +127,15 @@ public sealed class UserSessionService : AuthenticationStateProvider
     {
         try
         {
-            var caseNumberTask = TryGetStringAsync("SystemInfo/CaseNumber/", cancellationToken);
+            var publicInfoTask = TryGetPublicSystemInfoAsync(cancellationToken);
             var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
             var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
 
-            await Task.WhenAll(caseNumberTask, coverLetterTask, noticeTask);
+            await Task.WhenAll(publicInfoTask, coverLetterTask, noticeTask);
 
-            CaseNumber = await caseNumberTask;
+            var publicInfo = await publicInfoTask;
+            CaseNumber = NormalizeOptional(publicInfo.CaseNumber);
+            ServerVersion = NormalizeOptional(publicInfo.ServerVersion);
             CoverLetter = await coverLetterTask;
             Notice = await noticeTask;
         }
@@ -420,21 +441,50 @@ public sealed class UserSessionService : AuthenticationStateProvider
     private static bool IsTransientServerFailure(HttpStatusCode statusCode) =>
         (int)statusCode is 500 or 502 or 503 or 504;
 
-    private async Task<string> TryGetStringAsync(string requestUri, CancellationToken cancellationToken)
+    internal static bool IsCompatibilityMismatch(
+        string? clientVersion,
+        string? serverVersion)
+    {
+        if (!Version.TryParse(clientVersion, out var parsedClientVersion) ||
+            !Version.TryParse(serverVersion, out var parsedServerVersion))
+        {
+            return false;
+        }
+
+        return parsedClientVersion.Major != parsedServerVersion.Major ||
+            parsedClientVersion.Minor != parsedServerVersion.Minor;
+    }
+
+    private static string ResolveClientVersion()
+    {
+        var version = Assembly.GetEntryAssembly()?.GetName().Version
+            ?? typeof(UserSessionService).Assembly.GetName().Version;
+        return version?.ToString(4) ?? string.Empty;
+    }
+
+    private static string NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
+    private async Task<PublicSystemInfoDto> TryGetPublicSystemInfoAsync(
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await client.GetStringAsync(requestUri, cancellationToken);
+            return await client.GetFromJsonAsync<PublicSystemInfoDto>(
+                "SystemInfo/PublicInfo/",
+                cancellationToken)
+                ?? new PublicSystemInfoDto(null, null);
         }
-        catch (Exception exception) when (exception is HttpRequestException or NotSupportedException)
+        catch (Exception exception) when (
+            exception is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
         {
-            logger.LogWarning(exception, "Unable to load system information from {RequestUri}.", requestUri);
-            return string.Empty;
+            logger.LogWarning(exception, "Unable to load public server information.");
+            return new PublicSystemInfoDto(null, null);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(exception, "Loading system information from {RequestUri} timed out.", requestUri);
-            return string.Empty;
+            logger.LogWarning(exception, "Loading public server information timed out.");
+            return new PublicSystemInfoDto(null, null);
         }
     }
 
