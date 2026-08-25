@@ -112,6 +112,17 @@
     text-align: center;
 }
 
+.version-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.version-status-warning {
+    color: #cf1322;
+    font-weight: 600;
+}
+
 .mobile-brand {
     display: flex;
     align-items: center;

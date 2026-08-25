@@ -1,4 +1,5 @@
 ﻿using EzNutrition.Server.Data;
+using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,12 +10,15 @@ namespace EzNutrition.Server.Controllers
     [Route("[controller]/[action]")]
     public class SystemInfoController(IConfiguration configuration, ApplicationDbContext db) : ControllerBase
     {
+        private static readonly string? ServerVersion = ResolveServerVersion();
+
+        /// <summary>
+        /// 获取当前服务端的公开部署信息。
+        /// </summary>
         [HttpGet]
-        public IActionResult CaseNumber()
-        {
-            var caseNumber = configuration.GetSection("CaseNumber").Value ?? "备案号缺失";
-            return Ok(caseNumber);
-        }
+        [ProducesResponseType<PublicSystemInfoDto>(StatusCodes.Status200OK)]
+        public ActionResult<PublicSystemInfoDto> PublicInfo() =>
+            Ok(new PublicSystemInfoDto(GetCaseNumber(), ServerVersion));
 
         [HttpGet]
         public async Task<IActionResult> CoverLetter(CancellationToken cancellationToken)
@@ -38,6 +42,18 @@ namespace EzNutrition.Server.Controllers
                 .FirstOrDefaultAsync(cancellationToken);
 
             return notice is not null ? Ok(notice) : NotFound();
+        }
+
+        private string? GetCaseNumber()
+        {
+            var caseNumber = configuration["CaseNumber"];
+            return string.IsNullOrWhiteSpace(caseNumber) ? null : caseNumber.Trim();
+        }
+
+        private static string? ResolveServerVersion()
+        {
+            var version = typeof(SystemInfoController).Assembly.GetName().Version;
+            return version?.ToString(4);
         }
     }
 
