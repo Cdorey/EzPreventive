@@ -46,8 +46,9 @@ public sealed class DesktopFileLauncher
     {
         try
         {
-            _ = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("Windows Shell 没有接受打开请求。");
+            // Shell 可能把请求交给已有的资源管理器进程，此时调用成功但不返回
+            // 可关联的 Process 实例；是否为 null 不能用来判断 Shell 请求失败。
+            _ = Process.Start(startInfo);
         }
         catch (Win32Exception exception)
         {
