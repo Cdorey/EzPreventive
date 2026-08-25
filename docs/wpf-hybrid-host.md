@@ -32,7 +32,7 @@ Archives\
 
 ```powershell
 $env:EzNutrition__ArchiveRootPath = 'D:\ProtectedData\EzNutrition\Archives'
-dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
+dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
 如果机构策略会同步或备份该目录，应先确认目的地、访问控制、保留期限和数据处理依据。
@@ -80,7 +80,7 @@ WPF 页面来源是 WebView 的本地内部地址，HTTP 请求则发送到独�
 ```powershell
 $env:EzNutrition__ServerBaseAddress = 'https://eznutrition.cdorey.net/'
 $env:EzNutrition__TransportSecurity = 'StrictHttps'
-dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
+dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
 环境变量和命令行属于机构部署入口，不经过设置窗口的风险确认；非严格模式仍会显示运行期红色警示。
@@ -103,15 +103,15 @@ DPAPI 不是独立密码库，也不抵御已经取得当前 Windows 用户执�
 
 ```powershell
 dotnet restore .\EzPreventive.sln
-dotnet build .\EzNutrition.Wpf\EzNutrition.Wpf.csproj -c Release --no-restore
-dotnet test .\EzNutrition.Wpf.Tests\EzNutrition.Wpf.Tests.csproj -c Release --no-restore
-dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
+dotnet build .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj -c Release --no-restore
+dotnet test .\Tests\EzNutrition.Wpf.Tests\EzNutrition.Wpf.Tests.csproj -c Release --no-restore
+dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
 框架依赖发布示例：
 
 ```powershell
-dotnet publish .\EzNutrition.Wpf\EzNutrition.Wpf.csproj `
+dotnet publish .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj `
   -c Release -r win-x64 --self-contained false
 ```
 
