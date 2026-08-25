@@ -3,48 +3,48 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33414.496
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Server", "EzNutrition\Server\EzNutrition.Server.csproj", "{8F4D4FAA-39C0-4AA4-B0B9-CEE4F2D053E7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Server", "EzNutrition.Server\EzNutrition.Server.csproj", "{8F4D4FAA-39C0-4AA4-B0B9-CEE4F2D053E7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Client", "EzNutrition\Client\EzNutrition.Client.csproj", "{A1E9CEB7-C7EE-4356-A53E-7ACF2F423DE9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Client", "Hosts\EzNutrition.Client\EzNutrition.Client.csproj", "{A1E9CEB7-C7EE-4356-A53E-7ACF2F423DE9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Shared", "EzNutrition\Shared\EzNutrition.Shared.csproj", "{1312F350-6925-4B07-9C4B-8166AE318799}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzNutrition.Shared", "Libraries\EzNutrition.Shared\EzNutrition.Shared.csproj", "{1312F350-6925-4B07-9C4B-8166AE318799}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.AiAgency", "EzNutrition.AiAgency\EzNutrition.AiAgency.csproj", "{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.AiAgency", "Libraries\EzNutrition.AiAgency\EzNutrition.AiAgency.csproj", "{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{1312F350-6925-4B07-9C4B-8166AE318799} = {1312F350-6925-4B07-9C4B-8166AE318799}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts", "EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj", "{E23AEABE-E9BE-4AED-A358-ED9B1E264E30}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts", "Libraries\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj", "{E23AEABE-E9BE-4AED-A358-ED9B1E264E30}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml", "EzNutrition.Archives.Xml\EzNutrition.Archives.Xml.csproj", "{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml", "Libraries\EzNutrition.Archives.Xml\EzNutrition.Archives.Xml.csproj", "{B54DCC72-CE50-4F0A-A38D-E0B3860737BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts.Tests", "EzNutrition.Archives.Contracts.Tests\EzNutrition.Archives.Contracts.Tests.csproj", "{4A7B381C-7B7A-44B5-9C7E-213D49CD7D67}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Contracts.Tests", "Tests\EzNutrition.Archives.Contracts.Tests\EzNutrition.Archives.Contracts.Tests.csproj", "{4A7B381C-7B7A-44B5-9C7E-213D49CD7D67}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml.Tests", "EzNutrition.Archives.Xml.Tests\EzNutrition.Archives.Xml.Tests.csproj", "{C65E54A1-B5F1-4C89-A074-E54D472CB572}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Archives.Xml.Tests", "Tests\EzNutrition.Archives.Xml.Tests\EzNutrition.Archives.Xml.Tests.csproj", "{C65E54A1-B5F1-4C89-A074-E54D472CB572}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Client.Tests", "EzNutrition.Client.Tests\EzNutrition.Client.Tests.csproj", "{0EBB4324-26A7-44DA-B6A5-92B3A6EF6C04}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Client.Tests", "Tests\EzNutrition.Client.Tests\EzNutrition.Client.Tests.csproj", "{0EBB4324-26A7-44DA-B6A5-92B3A6EF6C04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Domain", "EzNutrition.Domain\EzNutrition.Domain.csproj", "{D7760065-EC3D-444C-A307-CBFB4BEBA521}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Domain", "Libraries\EzNutrition.Domain\EzNutrition.Domain.csproj", "{D7760065-EC3D-444C-A307-CBFB4BEBA521}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EzNutrition", "EzNutrition", "{F5620D7C-AD28-898F-4948-C6E32F6D0A8D}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hosts", "Hosts", "{F5620D7C-AD28-898F-4948-C6E32F6D0A8D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{60160E24-2A99-2FED-D74E-ABEEA9CF62DB}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{60160E24-2A99-2FED-D74E-ABEEA9CF62DB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Application", "EzNutrition.Application\EzNutrition.Application.csproj", "{88579AA3-5559-46D6-8CDB-4E625F1607EB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Application", "Libraries\EzNutrition.Application\EzNutrition.Application.csproj", "{88579AA3-5559-46D6-8CDB-4E625F1607EB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Application.Tests", "EzNutrition.Application.Tests\EzNutrition.Application.Tests.csproj", "{222E5E12-A473-4906-9CA6-F304E6D07048}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Application.Tests", "Tests\EzNutrition.Application.Tests\EzNutrition.Application.Tests.csproj", "{222E5E12-A473-4906-9CA6-F304E6D07048}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.UI", "EzNutrition.UI\EzNutrition.UI.csproj", "{C7BC9D44-3781-4070-94D4-3E721D460A86}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.UI", "Libraries\EzNutrition.UI\EzNutrition.UI.csproj", "{C7BC9D44-3781-4070-94D4-3E721D460A86}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Server.Tests", "EzNutrition.Server.Tests\EzNutrition.Server.Tests.csproj", "{A0EFB532-D00D-4A9E-BF43-18862B22D608}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Server.Tests", "Tests\EzNutrition.Server.Tests\EzNutrition.Server.Tests.csproj", "{A0EFB532-D00D-4A9E-BF43-18862B22D608}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Wpf", "EzNutrition.Wpf\EzNutrition.Wpf.csproj", "{13F2867A-3B17-4D6B-A0A0-1A3DACBDCF1A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Wpf", "Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj", "{13F2867A-3B17-4D6B-A0A0-1A3DACBDCF1A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Wpf.Tests", "EzNutrition.Wpf.Tests\EzNutrition.Wpf.Tests.csproj", "{DF6BAA66-F653-47B1-9173-B626B7D2DFE4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Wpf.Tests", "Tests\EzNutrition.Wpf.Tests\EzNutrition.Wpf.Tests.csproj", "{DF6BAA66-F653-47B1-9173-B626B7D2DFE4}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{4F52FD11-658E-A102-6CD3-7D7C16FFA15B}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{4F52FD11-658E-A102-6CD3-7D7C16FFA15B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Presentation", "EzNutrition.Presentation\EzNutrition.Presentation.csproj", "{F364AAE8-ED89-42C5-BCEF-AC4CA4E9C8E8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Presentation", "Libraries\EzNutrition.Presentation\EzNutrition.Presentation.csproj", "{F364AAE8-ED89-42C5-BCEF-AC4CA4E9C8E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -265,8 +265,22 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{60160E24-2A99-2FED-D74E-ABEEA9CF62DB} = {F5620D7C-AD28-898F-4948-C6E32F6D0A8D}
-		{F364AAE8-ED89-42C5-BCEF-AC4CA4E9C8E8} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{A1E9CEB7-C7EE-4356-A53E-7ACF2F423DE9} = {F5620D7C-AD28-898F-4948-C6E32F6D0A8D}
+		{13F2867A-3B17-4D6B-A0A0-1A3DACBDCF1A} = {F5620D7C-AD28-898F-4948-C6E32F6D0A8D}
+		{1312F350-6925-4B07-9C4B-8166AE318799} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{7D23B2BA-DDBF-4ED6-9DB6-4DF85E27C3C3} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{E23AEABE-E9BE-4AED-A358-ED9B1E264E30} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{B54DCC72-CE50-4F0A-A38D-E0B3860737BF} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{D7760065-EC3D-444C-A307-CBFB4BEBA521} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{88579AA3-5559-46D6-8CDB-4E625F1607EB} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{C7BC9D44-3781-4070-94D4-3E721D460A86} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{F364AAE8-ED89-42C5-BCEF-AC4CA4E9C8E8} = {60160E24-2A99-2FED-D74E-ABEEA9CF62DB}
+		{4A7B381C-7B7A-44B5-9C7E-213D49CD7D67} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{C65E54A1-B5F1-4C89-A074-E54D472CB572} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{0EBB4324-26A7-44DA-B6A5-92B3A6EF6C04} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{222E5E12-A473-4906-9CA6-F304E6D07048} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{A0EFB532-D00D-4A9E-BF43-18862B22D608} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{DF6BAA66-F653-47B1-9173-B626B7D2DFE4} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6ED879B3-3AF1-41CA-AC9D-CB9B51DAB97B}

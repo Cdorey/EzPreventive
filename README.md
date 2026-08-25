@@ -31,18 +31,18 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 
 | 项目 | 主要职责 |
 | --- | --- |
-| `EzNutrition.Domain` | 营养领域模型、状态与纯计算规则 |
-| `EzNutrition.Application` | 咨询用例编排、应用服务及外部能力端口 |
-| `EzNutrition.UI` | 传输无关、可独立渲染测试的 Razor 营养组件 |
-| `EzNutrition.Presentation` | 多客户端共享的 App、页面、布局、会话、HTTP/SSE 适配与静态资源 |
-| `EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
-| `EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
-| `EzNutrition/Client` | Blazor WebAssembly 启动与组合根、IndexedDB/浏览器文件适配和浏览器入口资源 |
-| `EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、用户连接设置、DPAPI、桌面证书策略、Windows 文档交互与 Shell 集成 |
-| `EzNutrition/Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
-| `EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
-| `EzNutrition/Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
-| `*.Tests` | Application、Archives、Client、WPF 和 Server 的行为、安全流程与架构边界测试 |
+| `Libraries/EzNutrition.Domain` | 营养领域模型、状态与纯计算规则 |
+| `Libraries/EzNutrition.Application` | 咨询用例编排、应用服务及外部能力端口 |
+| `Libraries/EzNutrition.UI` | 传输无关、可独立渲染测试的 Razor 营养组件 |
+| `Libraries/EzNutrition.Presentation` | 多客户端共享的 App、页面、布局、会话、HTTP/SSE 适配与静态资源 |
+| `Libraries/EzNutrition.Archives.Contracts` | 格式无关的档案模型、校验、编解码与仓储契约 |
+| `Libraries/EzNutrition.Archives.Xml` | 仅依赖档案契约的版本化 XML codec、安全读取与未知内容往返保留 |
+| `Hosts/EzNutrition.Client` | Blazor WebAssembly 启动与组合根、IndexedDB/浏览器文件适配和浏览器入口资源 |
+| `Hosts/EzNutrition.Wpf` | WPF Blazor Hybrid 组合根、文件系统档案、用户连接设置、DPAPI、桌面证书策略、Windows 文档交互与 Shell 集成 |
+| `EzNutrition.Server` | ASP.NET Core API、认证授权、参考数据访问、AI 调用与审计 |
+| `Libraries/EzNutrition.AiAgency` | 生成式 AI 供应商适配 |
+| `Libraries/EzNutrition.Shared` | 客户端与服务端共享的传输 DTO、参考数据实体和授权策略 |
+| `Tests/*.Tests` | Application、Archives、Client、WPF 和 Server 的行为、安全流程与架构边界测试 |
 
 依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。WASM 与 WPF 是互不引用的并列宿主，共享完整工作台时统一依赖 `EzNutrition.Presentation`。详细边界和各上级类库盘点见[项目与依赖边界](./docs/project-architecture.md)。
 
@@ -59,7 +59,7 @@ dotnet test .\EzPreventive.sln -c Release --no-build --no-restore
 Windows 上可直接运行 Hybrid 宿主：
 
 ```powershell
-dotnet run --project .\EzNutrition.Wpf\EzNutrition.Wpf.csproj
+dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 ```
 
 WPF 默认以严格 HTTPS 连接 `https://eznutrition.cdorey.net/`，服务端、安全策略与档案目录均可配置。路径选择、风险边界、免登录行为与发布命令见 [WPF Hybrid 宿主说明](./docs/wpf-hybrid-host.md)。
