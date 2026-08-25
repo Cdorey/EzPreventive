@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj" />
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Archives.Xml\EzNutrition.Archives.Xml.csproj" />
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Application\EzNutrition.Application.csproj" />
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Presentation\EzNutrition.Presentation.csproj" />
+  </ItemGroup>
+
+</Project>
