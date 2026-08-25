@@ -15,7 +15,7 @@
             <div>
                 <span>本机档案</span>
                 <h2>档案调阅</h2>
-                <p>档案保存在当前浏览器中，也可以打开外部档案文档；这些操作不会把文档上传到服务端。</p>
+                <p>档案保存在当前应用的本机档案库中，也可以打开外部档案文档；这些操作不会把文档上传到服务端。</p>
             </div>
             <div class="archive-toolbar-actions">
                 @if (CanImport)
@@ -165,7 +165,7 @@
     {
         <Alert Type="AlertType.Warning"
                Message="此操作无法撤销"
-               Description="只删除当前浏览器中的这一次咨询档案；已经导出的档案文件不受影响。"
+               Description="只删除当前应用中的这一次咨询档案；已经导出的档案文件不受影响。"
                ShowIcon="true" />
         <dl class="archive-delete-summary">
             <div><dt>咨询对象</dt><dd>@pendingDelete.SubjectDisplay</dd></div>
@@ -189,7 +189,7 @@
        OnCancel="CloseClearDialog"
        OnOk="ClearConfirmedAsync">
     <Alert Type="AlertType.Warning"
-           Message="将删除当前浏览器中的全部本机档案"
+           Message="将删除当前应用中的全部本机档案"
            Description="@($"共 {records.Count} 份档案，删除后无法恢复；已经导出的档案文件不受影响。")"
            ShowIcon="true" />
 </Modal>

@@ -1,5 +1,5 @@
 using EzNutrition.Application.Ports;
-using EzNutrition.Client.Infrastructure;
+using EzNutrition.Presentation.Infrastructure;
 using EzNutrition.Shared.Data.Entities;
 
 namespace EzNutrition.Client.Tests.Infrastructure;

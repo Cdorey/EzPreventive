@@ -1,0 +1,26 @@
+@page "/archives"
+@using EzNutrition.Application.Archives
+@using EzNutrition.Presentation.Services
+@attribute [Authorize]
+@inject ConsultationWorkspaceManager WorkspaceManager
+@inject NavigationManager Navigation
+
+<PageTitle>本机档案</PageTitle>
+
+<section class="archives-page">
+    <header class="page-heading">
+        <span>档案工作区</span>
+        <h1>本机档案</h1>
+        <p>保存和调阅当前设备中的营养咨询档案，或与外部档案文档交换。</p>
+    </header>
+
+    <ArchiveCenter OnStartFollowUp="StartFollowUp" />
+</section>
+
+@code {
+    private void StartFollowUp(ArchivePatientContext patientContext)
+    {
+        var workspaceId = WorkspaceManager.NewWorkspace(patientContext);
+        Navigation.NavigateTo($"maintreatment/{workspaceId}");
+    }
+}

@@ -230,12 +230,17 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
             var info = stored.Info;
             var format = CreateStoredFormat(info);
-            await transport.SaveAsync(new ArchiveDocumentExport
+            var saved = await transport.SaveAsync(new ArchiveDocumentExport
             {
                 SuggestedFileNameStem = $"eznutrition-{documentId:N}",
                 Format = format,
                 Content = stored.Content
             }, cancellationToken);
+
+            if (!saved)
+            {
+                return Cancelled("已取消导出档案。");
+            }
 
             return Success("档案文档已导出。");
         }
@@ -362,12 +367,17 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
             }
 
             var consultation = encoded.Document!.Bundle.Entries.OfType<ConsultationResource>().Single();
-            await transport.SaveAsync(new ArchiveDocumentExport
+            var saved = await transport.SaveAsync(new ArchiveDocumentExport
             {
                 SuggestedFileNameStem = $"eznutrition-{consultation.Metadata.ResourceId.Value:N}",
                 Format = encoded.TargetFormat!,
                 Content = encoded.Content
             }, cancellationToken);
+
+            if (!saved)
+            {
+                return Cancelled("已取消导出档案。");
+            }
 
             return Success("档案文档已导出。", encoded.Notices);
         }

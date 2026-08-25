@@ -1,12 +1,16 @@
 # 档案架构
 
-EzNutrition 的档案能力遵循“语义、用例、格式、宿主”四个边界，避免 UI 或 XML 实现决定未来 WPF Hybrid 和医疗机构适配器的形状。
+EzNutrition 的档案能力遵循“语义、用例、格式、宿主”四个边界，避免 UI 或 XML 实现决定 WPF Hybrid 和医疗机构适配器的形状。
 
 ## 依赖方向
 
 ```text
 EzNutrition.UI
     -> EzNutrition.Application (IArchiveWorkflow、只读调阅模型)
+
+EzNutrition.Presentation
+    -> EzNutrition.UI + EzNutrition.Application
+    -> 共享 App、页面、会话和客户端 HTTP 适配
 
 EzNutrition.Application
     -> EzNutrition.Archives.Contracts
@@ -15,8 +19,8 @@ EzNutrition.Application
 EzNutrition.Archives.Xml
     -> EzNutrition.Archives.Contracts
 
-EzNutrition.Client 或未来 WPF 宿主
-    -> Application + UI + Xml
+EzNutrition.Client 或 EzNutrition.Wpf（互不引用）
+    -> Presentation + Application + Xml
     -> 实现宿主存储和文件交互端口
 ```
 
@@ -24,21 +28,23 @@ EzNutrition.Client 或未来 WPF 宿主
 
 ## 操作语义
 
-- **保存档案**：由 `IArchiveWorkflow` 将当前咨询映射成契约文档、校验、编码后交给 `IArchiveDocumentStore`。WASM 当前使用 IndexedDB；未来 WPF 或机构适配器可以使用文件目录、SQLite 或医院数据源。
+- **保存档案**：由 `IArchiveWorkflow` 将当前咨询映射成契约文档、校验、编码后交给 `IArchiveDocumentStore`。WASM 使用 IndexedDB，WPF 使用当前用户的本地应用数据目录；机构适配器仍可使用受控文件目录、SQLite 或医院数据源。
 - **档案调阅**：列出宿主管理的档案摘要，解码选中文档并投影为格式无关的只读模型。当前不会把历史文档恢复成可编辑计算工作区。
 - **打开文档**：由 `IArchiveDocumentTransport` 取得外部文档，再选择可读 codec。它不会自动写入本机档案库。
 - **导出文档**：把当前咨询写成外部文档；文件名不包含患者姓名或业务标识。
-- **删除或清空**：属于宿主可选能力，不由 XML codec 决定。UI 只在宿主声明能力时提供入口，Application 在每次调用时仍处理权限拒绝；浏览器宿主用同一个 IndexedDB 事务同时删除摘要和 XML 字节。
+- **删除或清空**：属于宿主可选能力，不由 XML codec 决定。UI 只在宿主声明能力时提供入口，Application 在每次调用时仍处理权限拒绝；浏览器宿主用同一个 IndexedDB 事务同时删除摘要和 XML 字节，WPF 只删除文件名与索引均属于其管理边界的内容。
 
 XML 文档和浏览器 IndexedDB 都不会因为档案操作而上传到服务端。应用中参考数据查询与 AI 建议仍有各自独立的网络和隐私边界。
 
 WASM 宿主在 IndexedDB 中将轻量文档摘要与 XML 字节分别保存。浏览档案只读取摘要，选择具体咨询或开始后续咨询时才读取并解码对应 XML；两个部分由同一个 IndexedDB 事务原子写入。旧版内联保存的文档在数据库升级时原子迁移，不改变 Application、UI 或 XML codec 的接口和语义。
 
+WPF 宿主在 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives` 保存以文档 GUID 命名的 XML，并在隐藏的 `.catalog` 目录保存调阅摘要。外部打开使用 Windows 文件选择器；导出使用“另存为”，成功后由资源管理器选中新文件。详细运行和备份边界见 [WPF Hybrid 宿主](./wpf-hybrid-host.md)。
+
 ## 时间语义
 
 档案契约使用 `DateTimeOffset` 表示绝对时刻；应用新建的审计时间使用 UTC，导入文档中已有的明确偏移则被忠实保留。XML、存储和 Application 不按当前设备时区改写档案时间。
 
-本地时间转换只发生在最终 UI 渲染阶段。`EzNutrition.UI` 通过 `ILocalDateTimeFormatter` 获取宿主选择的显示时区；WASM 默认使用浏览器设备时区，未来 WPF 或机构宿主可以注入系统时区或机构配置时区。机器可读的 HTML `datetime` 属性仍使用 UTC，面向医务人员的可见文本只显示转换后的当地日期和时间，不额外展示 UTC 偏移。
+本地时间转换只发生在最终 UI 渲染阶段。`EzNutrition.UI` 通过 `ILocalDateTimeFormatter` 获取宿主选择的显示时区；WASM 使用浏览器设备时区，WPF 注入 Windows 系统时区，机构宿主可以注入机构配置时区。机器可读的 HTML `datetime` 属性仍使用 UTC，面向医务人员的可见文本只显示转换后的当地日期和时间，不额外展示 UTC 偏移。
 
 ## 年龄与出生日期
 

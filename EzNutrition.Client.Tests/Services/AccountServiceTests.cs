@@ -1,4 +1,4 @@
-using EzNutrition.Client.Services;
+using EzNutrition.Presentation.Services;
 using EzNutrition.Shared.Data.DTO;
 using System.ComponentModel.DataAnnotations;
 using System.Net;

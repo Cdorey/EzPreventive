@@ -158,6 +158,11 @@ public interface IArchiveDocumentTransport
     /// <summary>请求用户选择一个外部档案文档；取消时返回空。</summary>
     ValueTask<ExternalArchiveDocument?> OpenAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>请求宿主保存一个外部档案文档。</summary>
-    ValueTask SaveAsync(ArchiveDocumentExport document, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// 请求宿主保存一个外部档案文档。
+    /// </summary>
+    /// <returns>文档已经写出时为 <see langword="true"/>；用户取消保存时为 <see langword="false"/>。</returns>
+    ValueTask<bool> SaveAsync(
+        ArchiveDocumentExport document,
+        CancellationToken cancellationToken = default);
 }

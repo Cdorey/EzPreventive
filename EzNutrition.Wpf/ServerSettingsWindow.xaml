@@ -1,0 +1,152 @@
+<Window x:Class="EzNutrition.Wpf.ServerSettingsWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="服务连接设置"
+        Width="680"
+        Height="650"
+        MinWidth="620"
+        MinHeight="610"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="#12324A"
+                       Text="营养服务连接" />
+            <TextBlock Margin="0,6,0,0"
+                       Foreground="#526474"
+                       TextWrapping="Wrap"
+                       Text="机构可以自行部署兼容的 EzNutrition 后端，并在这里指定桌面宿主要连接的服务地址。设置在下次启动时生效。" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,18">
+            <TextBlock Margin="0,0,0,6"
+                       FontWeight="SemiBold"
+                       Text="服务端基地址" />
+            <TextBox x:Name="ServerAddressTextBox"
+                     automation:AutomationProperties.Name="服务端基地址"
+                     MinHeight="34"
+                     Padding="8,5"
+                     SpellCheck.IsEnabled="False" />
+            <TextBlock Margin="0,5,0,0"
+                       Foreground="#667788"
+                       Text="可以包含部署所需的基础路径，但不能包含用户名、密码、查询参数或 # 片段。" />
+        </StackPanel>
+
+        <GroupBox Grid.Row="2"
+                  Margin="0,0,0,16"
+                  Padding="14,10"
+                  Header="传输安全策略">
+            <StackPanel>
+                <RadioButton x:Name="StrictHttpsRadio"
+                             Margin="0,3"
+                             GroupName="TransportSecurity"
+                             Checked="TransportSecurityChanged">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="严格 HTTPS（推荐）" />
+                        <TextBlock Foreground="#526474"
+                                   Text="只接受 Windows 正常信任、域名匹配且在有效期内的证书。" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="SelfSignedHttpsRadio"
+                             Margin="0,10,0,3"
+                             GroupName="TransportSecurity"
+                             Checked="TransportSecurityChanged">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="允许自签名 HTTPS" />
+                        <TextBlock Foreground="#526474"
+                                   Text="仍检查域名和有效期，只放宽当前端点的自签名根信任。" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="InsecureHttpRadio"
+                             Margin="0,10,0,3"
+                             GroupName="TransportSecurity"
+                             Checked="TransportSecurityChanged">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="不加密 HTTP" />
+                        <TextBlock Foreground="#526474"
+                                   Text="用户名、密码、访问令牌和业务数据都不再受 TLS 保护。" />
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </GroupBox>
+
+        <Border x:Name="RiskPanel"
+                Grid.Row="3"
+                Margin="0,0,0,16"
+                Padding="14"
+                Background="#FFF1F0"
+                BorderBrush="#CF1322"
+                BorderThickness="1"
+                CornerRadius="4"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock x:Name="RiskWarningText"
+                           FontWeight="SemiBold"
+                           Foreground="#A8071A"
+                           TextWrapping="Wrap" />
+                <CheckBox x:Name="RiskAcknowledgement"
+                          Margin="0,12,0,0"
+                          Foreground="#A8071A"
+                          Checked="RiskAcknowledgementChanged"
+                          Unchecked="RiskAcknowledgementChanged">
+                    我理解并主动承担该连接策略可能造成的凭据和业务数据泄露风险
+                </CheckBox>
+            </StackPanel>
+        </Border>
+
+        <GroupBox Grid.Row="4"
+                  Margin="0,0,0,16"
+                  Padding="14,10"
+                  Header="本机保存的登录信息">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right"
+                        Margin="16,0,0,0"
+                        Padding="12,5"
+                        Click="ClearSavedCredential"
+                        Content="清除当前连接" />
+                <TextBlock x:Name="CredentialStatusText"
+                           VerticalAlignment="Center"
+                           Foreground="#526474"
+                           TextWrapping="Wrap" />
+            </DockPanel>
+        </GroupBox>
+
+        <TextBlock x:Name="ValidationMessage"
+                   Grid.Row="5"
+                   Margin="0,0,0,12"
+                   VerticalAlignment="Top"
+                   Foreground="#A8071A"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="6"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button MinWidth="92"
+                    Margin="0,0,10,0"
+                    Padding="12,6"
+                    IsCancel="True"
+                    Content="取消" />
+            <Button x:Name="SaveButton"
+                    MinWidth="126"
+                    Padding="12,6"
+                    IsDefault="True"
+                    Click="SaveSettings"
+                    Content="保存设置" />
+        </StackPanel>
+    </Grid>
+</Window>

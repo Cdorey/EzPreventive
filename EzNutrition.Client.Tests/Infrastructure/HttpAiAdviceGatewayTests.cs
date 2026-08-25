@@ -1,5 +1,5 @@
 using EzNutrition.Application.Ports;
-using EzNutrition.Client.Infrastructure;
+using EzNutrition.Presentation.Infrastructure;
 using EzNutrition.Shared.Data.DTO.PromptDto;
 using System.Net;
 using System.Net.Http.Headers;
@@ -11,7 +11,7 @@ using PromptDietaryRecallSurvey = EzNutrition.Shared.Data.DTO.PromptDto.DietaryR
 namespace EzNutrition.Client.Tests.Infrastructure;
 
 /// <summary>
-/// Locks the WASM AI adapter to the existing Prescription HTTP and SSE protocol.
+/// 固定共享客户端 HTTP 适配器所使用的 Prescription 与 SSE 协议。
 /// </summary>
 public sealed class HttpAiAdviceGatewayTests
 {
@@ -54,7 +54,7 @@ public sealed class HttpAiAdviceGatewayTests
     }
 
     [Fact]
-    public async Task Generate_posts_prompt_enables_browser_streaming_and_maps_sse_until_done()
+    public async Task Generate_posts_prompt_and_maps_sse_until_done()
     {
         var reasoning = JsonSerializer.Serialize(new AiResultDto("reasoning-fragment", true));
         var recommendation = JsonSerializer.Serialize(new AiResultDto("recommendation-fragment", false));
@@ -130,10 +130,7 @@ public sealed class HttpAiAdviceGatewayTests
         Assert.Equal(800m, calciumReference.Value);
         Assert.Equal("mg/d", calciumReference.Unit);
 
-        Assert.True(
-            request.Options.TryGetValue("WebAssemblyEnableStreamingResponse", out var streamingValue),
-            "The WASM adapter did not set the browser response-streaming request option.");
-        Assert.True(Assert.IsType<bool>(streamingValue));
+        Assert.DoesNotContain("WebAssemblyEnableStreamingResponse", request.Options.Keys);
 
         Assert.Collection(
             updates,

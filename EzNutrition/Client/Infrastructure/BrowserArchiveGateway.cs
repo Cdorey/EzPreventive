@@ -153,7 +153,7 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
     }
 
     /// <inheritdoc />
-    public async ValueTask SaveAsync(
+    public async ValueTask<bool> SaveAsync(
         ArchiveDocumentExport document,
         CancellationToken cancellationToken = default)
     {
@@ -167,6 +167,7 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
                 CreateSuggestedFileName(document),
                 document.Format.MediaType ?? "application/octet-stream",
                 document.Content.ToArray());
+            return true;
         }
         catch (JSException exception)
         {

@@ -1,4 +1,4 @@
-using EzNutrition.Client.Services;
+using EzNutrition.Presentation.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;
@@ -92,6 +92,22 @@ public sealed class CustomAuthorizationMessageHandlerTests
         Assert.Equal(0, navigation.NavigationCount);
     }
 
+    [Fact]
+    public async Task Api_endpoint_is_independent_from_the_hybrid_navigation_origin()
+    {
+        var token = CreateToken("desktop-user");
+        var session = CreateSession(token);
+        await session.SignInAsync("desktop-user", "password");
+        var navigation = new RecordingNavigationManager(new Uri("https://0.0.0.0/"));
+        var terminal = new StatusCodeHandler(HttpStatusCode.OK);
+        using var client = CreateAuthorizedClient(session, navigation, terminal);
+
+        using var response = await client.GetAsync("User/Profile");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(token, terminal.Authorization?.Parameter);
+    }
+
     private static UserSessionService CreateSession(params string[] loginTokens)
     {
         var loginHandler = new QueuedLoginHandler(loginTokens);
@@ -109,7 +125,10 @@ public sealed class CustomAuthorizationMessageHandlerTests
         RecordingNavigationManager navigation,
         HttpMessageHandler terminal)
     {
-        var authorization = new CustomAuthorizationMessageHandler(session, navigation)
+        var authorization = new CustomAuthorizationMessageHandler(
+            session,
+            navigation,
+            new ApplicationServerEndpoint(RecordingNavigationManager.ApplicationBaseAddress))
         {
             InnerHandler = terminal
         };
@@ -194,8 +213,13 @@ public sealed class CustomAuthorizationMessageHandlerTests
         internal static readonly Uri ApplicationBaseAddress = new("https://app.example.test/");
 
         internal RecordingNavigationManager()
+            : this(ApplicationBaseAddress)
         {
-            Initialize(ApplicationBaseAddress.AbsoluteUri, ApplicationBaseAddress.AbsoluteUri);
+        }
+
+        internal RecordingNavigationManager(Uri baseAddress)
+        {
+            Initialize(baseAddress.AbsoluteUri, baseAddress.AbsoluteUri);
         }
 
         internal int NavigationCount { get; private set; }
