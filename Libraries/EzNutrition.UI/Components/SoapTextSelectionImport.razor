@@ -1,0 +1,231 @@
+@using Microsoft.JSInterop
+@namespace EzNutrition.UI.Components
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject IMessageService Message
+
+<div class="soap-selection-import">
+    <div class="soap-selection-source" @ref="selectionSource">
+        @ChildContent
+    </div>
+
+    @if (CanImport)
+    {
+        <div class="soap-selection-toolbar" role="group" aria-label="将选中的 AI 文本引入 SOAP">
+            <div class="soap-selection-guidance">
+                <Icon Type="select" Theme="IconThemeType.Outline" />
+                <span>先划选上方 AI 文本，再选择写入位置</span>
+            </div>
+            <div class="soap-selection-actions">
+                @if (OnAssessmentConfirmed.HasDelegate)
+                {
+                    <span @onpointerdown:preventDefault="true"
+                          @onmousedown:preventDefault="true">
+                        <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Assessment))"
+                                AriaLabel="将选中的 AI 文本引入问题评估">
+                            引入 A · 问题评估
+                        </Button>
+                    </span>
+                }
+                @if (OnPlanConfirmed.HasDelegate)
+                {
+                    <span @onpointerdown:preventDefault="true"
+                          @onmousedown:preventDefault="true">
+                        <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Plan))"
+                                AriaLabel="将选中的 AI 文本引入处理计划">
+                            引入 P · 处理计划
+                        </Button>
+                    </span>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<Modal Title="@DialogTitle"
+       @bind-Visible="dialogVisible"
+       Width="@("min(720px, calc(100vw - 32px))")"
+       MaxBodyHeight="calc(100dvh - 190px)"
+       BodyStyle="overflow-y: auto;"
+       Centered="true"
+       MaskClosable="false"
+       ConfirmLoading="@isConfirming"
+       OkText="@("确认引入")"
+       CancelText="@("取消")"
+       OkButtonProps="@ConfirmButtonProps"
+       CancelButtonProps="@CancelButtonProps"
+       OnCancel="CloseDialog"
+       OnOk="ConfirmAsync">
+    <div class="soap-selection-review">
+        <Alert Type="AlertType.Info"
+               ShowIcon="true"
+               Message="请在写入前复核"
+               Description="这里显示的是从 AI 草稿中划选的文字。可以继续修改；只有确认后的内容才会追加到 SOAP，AI 草稿本身不会被改动。" />
+
+        <div class="soap-selection-field">
+            <label for="@reviewInputId">@DialogFieldLabel</label>
+            <TextArea id="@reviewInputId"
+                      @bind-Value="reviewText"
+                      BindOnInput="true"
+                      MinRows="7"
+                      MaxRows="16"
+                      Placeholder="请复核并编辑准备写入 SOAP 的内容" />
+        </div>
+    </div>
+</Modal>
+
+@code {
+    private const string SelectionModulePath =
+        "./_content/EzNutrition.UI/js/soap-text-selection.js";
+
+    private readonly string reviewInputId = $"soap-selection-review-{Guid.NewGuid():N}";
+    private ElementReference selectionSource;
+    private Task<IJSObjectReference>? selectionModuleTask;
+    private ReviewTarget reviewTarget;
+    private bool dialogVisible;
+    private bool isConfirming;
+    private string reviewText = string.Empty;
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+
+    [Parameter]
+    public bool Enabled { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnAssessmentConfirmed { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnPlanConfirmed { get; set; }
+
+    private bool CanImport => Enabled
+        && (OnAssessmentConfirmed.HasDelegate || OnPlanConfirmed.HasDelegate);
+
+    private string DialogTitle => reviewTarget switch
+    {
+        ReviewTarget.Assessment => "确认引入问题评估（A）",
+        ReviewTarget.Plan => "确认引入处理计划（P）",
+        _ => "确认引入 SOAP"
+    };
+
+    private string DialogFieldLabel => reviewTarget switch
+    {
+        ReviewTarget.Assessment => "问题评估（A）",
+        ReviewTarget.Plan => "处理计划（P）",
+        _ => "SOAP 文本"
+    };
+
+    private ButtonProps ConfirmButtonProps => new()
+    {
+        Disabled = isConfirming || string.IsNullOrWhiteSpace(reviewText)
+    };
+
+    private ButtonProps CancelButtonProps => new()
+    {
+        Disabled = isConfirming
+    };
+
+    private async Task OpenReviewAsync(ReviewTarget target)
+    {
+        var module = await GetSelectionModuleAsync();
+        var selectedText = await module.InvokeAsync<string>(
+            "getSelectedTextWithin",
+            selectionSource);
+        if (string.IsNullOrWhiteSpace(selectedText))
+        {
+            await Message.InfoAsync("请先在上方 AI 输出中划选需要引入的文字。");
+            return;
+        }
+
+        reviewTarget = target;
+        reviewText = selectedText.Trim();
+        dialogVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        if (isConfirming)
+        {
+            return;
+        }
+
+        dialogVisible = false;
+        ClearDraft();
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (isConfirming || string.IsNullOrWhiteSpace(reviewText))
+        {
+            return;
+        }
+
+        isConfirming = true;
+        try
+        {
+            if (reviewTarget == ReviewTarget.Assessment)
+            {
+                await OnAssessmentConfirmed.InvokeAsync(reviewText);
+            }
+            else if (reviewTarget == ReviewTarget.Plan)
+            {
+                await OnPlanConfirmed.InvokeAsync(reviewText);
+            }
+            else
+            {
+                return;
+            }
+
+            dialogVisible = false;
+            ClearDraft();
+        }
+        finally
+        {
+            isConfirming = false;
+        }
+    }
+
+    private void ClearDraft()
+    {
+        reviewTarget = ReviewTarget.None;
+        reviewText = string.Empty;
+    }
+
+    private async Task<IJSObjectReference> GetSelectionModuleAsync()
+    {
+        selectionModuleTask ??= JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            SelectionModulePath).AsTask();
+        return await selectionModuleTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (selectionModuleTask is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var module = await selectionModuleTask;
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private enum ReviewTarget
+    {
+        None,
+        Assessment,
+        Plan
+    }
+}

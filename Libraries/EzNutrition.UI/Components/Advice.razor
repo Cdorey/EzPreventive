@@ -90,29 +90,37 @@
                         </Result>
                     }
 
-                    @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.ReasoningContent))
+                    @if (HasGeneratedOutput)
                     {
-                        <section class="advice-output-section reasoning-output">
-                            <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "供专业人员复核" : "正在生成 · 内容可能不完整")</span>
-                            <h2>助理的分析过程</h2>
-                            <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.ReasoningContent</div>
-                        </section>
-                    }
+                        <SoapTextSelectionImport @key="CurrentArchive"
+                                                 Enabled="@CanImportSelection"
+                                                 OnAssessmentConfirmed="OnSoapAssessmentConfirmed"
+                                                 OnPlanConfirmed="OnSoapPlanConfirmed">
+                            @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.ReasoningContent))
+                            {
+                                <section class="advice-output-section reasoning-output">
+                                    <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "供专业人员复核" : "正在生成 · 内容可能不完整")</span>
+                                    <h2>助理的分析过程</h2>
+                                    <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.ReasoningContent</div>
+                                </section>
+                            }
 
-                    @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.Content))
-                    {
-                        <section class="advice-output-section recommendation-output">
-                            <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "草稿" : "正在生成 · 内容可能不完整")</span>
-                            <h2>膳食建议与健康教育</h2>
-                            @if (CurrentArchive.AiGeneratedAdvice.IsReady)
+                            @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.Content))
                             {
-                                <div class="output-content markdown-output">@SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)</div>
+                                <section class="advice-output-section recommendation-output">
+                                    <span class="section-eyebrow">@(CurrentArchive.AiGeneratedAdvice.IsReady ? "草稿" : "正在生成 · 内容可能不完整")</span>
+                                    <h2>膳食建议与健康教育</h2>
+                                    @if (CurrentArchive.AiGeneratedAdvice.IsReady)
+                                    {
+                                        <div class="output-content markdown-output">@SafeMarkdown.Render(CurrentArchive.AiGeneratedAdvice.Content)</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.Content</div>
+                                    }
+                                </section>
                             }
-                            else
-                            {
-                                <div class="output-content streaming-text">@CurrentArchive.AiGeneratedAdvice.Content</div>
-                            }
-                        </section>
+                        </SoapTextSelectionImport>
                     }
                 }
             }
@@ -184,6 +192,20 @@
 
     [Parameter, EditorRequired]
     public required ConsultationWorkspace CurrentArchive { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnSoapAssessmentConfirmed { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnSoapPlanConfirmed { get; set; }
+
+    private bool HasGeneratedOutput =>
+        !string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice?.ReasoningContent)
+        || !string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice?.Content);
+
+    private bool CanImportSelection =>
+        CurrentArchive.AiGeneratedAdvice?.IsReady == true
+        && CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null;
 
     private Task GenerateAsync()
     {
