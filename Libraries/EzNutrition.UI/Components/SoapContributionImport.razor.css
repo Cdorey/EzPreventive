@@ -1,0 +1,38 @@
+.soap-contribution-review {
+    display: grid;
+    gap: 18px;
+}
+
+.soap-contribution-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.soap-contribution-field {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 7px;
+}
+
+.soap-contribution-field label {
+    color: var(--ez-navy);
+    font-weight: 650;
+}
+
+.soap-contribution-field > span {
+    color: var(--ez-text-secondary);
+    font-size: 0.8rem;
+}
+
+.soap-contribution-field ::deep textarea {
+    line-height: 1.6;
+    resize: vertical;
+}
+
+@media (max-width: 767.98px) {
+    .soap-contribution-fields {
+        grid-template-columns: 1fr;
+    }
+}

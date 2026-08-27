@@ -1,0 +1,148 @@
+@using EzNutrition.Domain.Consultations
+@namespace EzNutrition.UI.Components
+
+@if (CanImport)
+{
+    <Button OnClick="OpenDialog" AriaLabel="预览并引入 SOAP 记录">
+        <Icon Type="file-text" Theme="IconThemeType.Outline" />
+        引入 SOAP
+    </Button>
+}
+
+<Modal Title="@("确认引入 SOAP 记录")"
+       @bind-Visible="dialogVisible"
+       Width="@("min(960px, calc(100vw - 32px))")"
+       MaxBodyHeight="calc(100dvh - 190px)"
+       BodyStyle="overflow-y: auto;"
+       Centered="true"
+       MaskClosable="false"
+       OkText="@("确认引入")"
+       CancelText="@("取消")"
+       OkButtonProps="@ConfirmButtonProps"
+       CancelButtonProps="@CancelButtonProps"
+       OnCancel="CloseDialog"
+       OnOk="ConfirmAsync">
+    <div class="soap-contribution-review">
+        <Alert Type="AlertType.Info"
+               ShowIcon="true"
+               Message="请在写入前复核"
+               Description="以下是核算结果生成的候选文本，尚未写入 SOAP。可以直接修改或删除任一部分；留空的部分不会改动现有记录。" />
+
+        <div class="soap-contribution-fields">
+            <div class="soap-contribution-field">
+                <label for="@subjectiveInputId">主观资料（S）</label>
+                <span>咨询对象报告、表达或回顾的资料</span>
+                <TextArea id="@subjectiveInputId"
+                          @bind-Value="subjective"
+                          BindOnInput="true"
+                          MinRows="6"
+                          MaxRows="14"
+                          Placeholder="留空则不写入主观资料" />
+            </div>
+
+            <div class="soap-contribution-field">
+                <label for="@objectiveInputId">客观资料（O）</label>
+                <span>测量、核算与评估产生的资料</span>
+                <TextArea id="@objectiveInputId"
+                          @bind-Value="objective"
+                          BindOnInput="true"
+                          MinRows="6"
+                          MaxRows="14"
+                          Placeholder="留空则不写入客观资料" />
+            </div>
+        </div>
+    </div>
+</Modal>
+
+@code {
+    private readonly string subjectiveInputId = $"soap-subjective-{Guid.NewGuid():N}";
+    private readonly string objectiveInputId = $"soap-objective-{Guid.NewGuid():N}";
+    private bool dialogVisible;
+    private bool isConfirming;
+    private string subjective = string.Empty;
+    private string objective = string.Empty;
+
+    [Parameter, EditorRequired]
+    public ISoapContributor Contributor { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnConfirmed { get; set; }
+
+    private bool CanImport
+    {
+        get
+        {
+            if (!OnConfirmed.HasDelegate || Contributor is null)
+            {
+                return false;
+            }
+
+            var contribution = Contributor.ToSoapContribution();
+            return HasContent(contribution.Subjective, contribution.Objective);
+        }
+    }
+
+    private ButtonProps ConfirmButtonProps => new()
+    {
+        Disabled = isConfirming || !HasContent(subjective, objective)
+    };
+
+    private ButtonProps CancelButtonProps => new()
+    {
+        Disabled = isConfirming
+    };
+
+    private void OpenDialog()
+    {
+        var contribution = Contributor.ToSoapContribution();
+        if (!HasContent(contribution.Subjective, contribution.Objective))
+        {
+            return;
+        }
+
+        subjective = contribution.Subjective;
+        objective = contribution.Objective;
+        dialogVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        if (isConfirming)
+        {
+            return;
+        }
+
+        dialogVisible = false;
+        ClearDraft();
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (isConfirming || !HasContent(subjective, objective))
+        {
+            return;
+        }
+
+        isConfirming = true;
+        try
+        {
+            await OnConfirmed.InvokeAsync(new SoapContribution(subjective, objective));
+            dialogVisible = false;
+            ClearDraft();
+        }
+        finally
+        {
+            isConfirming = false;
+        }
+    }
+
+    private void ClearDraft()
+    {
+        subjective = string.Empty;
+        objective = string.Empty;
+    }
+
+    private static bool HasContent(string subjectiveText, string objectiveText) =>
+        !string.IsNullOrWhiteSpace(subjectiveText)
+        || !string.IsNullOrWhiteSpace(objectiveText);
+}

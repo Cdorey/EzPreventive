@@ -2,12 +2,15 @@
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Presentation.Services
 @using EzNutrition.Domain.Calculations
+@using EzNutrition.Domain.Consultations
 @using EzNutrition.Shared.Data.Entities
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 @inject ConsultationWorkspaceManager WorkspaceManager
+@inject ConsultationApplicationService ConsultationService
+@inject IMessageService Message
 
 <PageTitle>营养咨询</PageTitle>
 
@@ -175,7 +178,9 @@
                                 <TabPane Key="1" Tab="能量评估">
                                     @if (CurrentArchive.CurrentEnergyCalculator is not null)
                                     {
-                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" IsTouchDetected="@UserSession.IsTouchDetected" />
+                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator"
+                                                                   IsTouchDetected="@UserSession.IsTouchDetected"
+                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                     }
                                 </TabPane>
                                 <TabPane Key="2" Tab="参考摄入量">
@@ -187,7 +192,9 @@
                                 <TabPane Key="3" Tab="膳食调查">
                                     @if (CurrentArchive.DietaryRecallSurvey is not null)
                                     {
-                                        <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
+                                        <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
+                                                       OnCalculationCompleted="DietarySurveyCalculationCompleted"
+                                                       OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                     }
                                 </TabPane>
                             </ChildContent>
@@ -195,7 +202,8 @@
                     </section>
 
                     <section id="nutrition-summary" class="surface-card summary-card">
-                        <Summary Archive="@CurrentArchive" />
+                        <Summary Archive="@CurrentArchive"
+                                 OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                     </section>
 
                     @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
@@ -269,6 +277,17 @@
     private void DietarySurveyCalculationCompleted()
     {
         StateHasChanged();
+    }
+
+    private async Task AppendSoapContributionAsync(SoapContribution contribution)
+    {
+        if (CurrentArchive is null
+            || !ConsultationService.AppendSoapContribution(CurrentArchive, contribution))
+        {
+            return;
+        }
+
+        await Message.SuccessAsync("已将复核后的内容加入 SOAP 记录。");
     }
 
     public void Dispose()
