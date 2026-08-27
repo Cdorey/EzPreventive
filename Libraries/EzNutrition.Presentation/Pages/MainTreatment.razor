@@ -158,11 +158,11 @@
                         <span>本次咨询</span>
                         <Anchor Affix="false" Bounds="16" TargetOffset="24">
                             <AnchorLink Href="#nutrition-workspace" Title="专业核算" />
+                            <AnchorLink Href="#nutrition-summary" Title="综合结果" />
                             @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
                             {
                                 <AnchorLink Href="#nutrition-diagnosis" Title="营养问题与诊断" />
                             }
-                            <AnchorLink Href="#nutrition-summary" Title="综合结果" />
                             <AnchorLink Href="#nutrition-advice" Title="膳食建议" />
                         </Anchor>
                     </nav>
@@ -194,16 +194,16 @@
                         </Tabs>
                     </section>
 
+                    <section id="nutrition-summary" class="surface-card summary-card">
+                        <Summary Archive="@CurrentArchive" />
+                    </section>
+
                     @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
                     {
                         <section id="nutrition-diagnosis" class="surface-card diagnosis-card" aria-label="营养问题与诊断">
                             <MedicalInformation Information="medicalInformation" />
                         </section>
                     }
-
-                    <section id="nutrition-summary" class="surface-card summary-card">
-                        <Summary Archive="@CurrentArchive" />
-                    </section>
 
                     <section id="nutrition-advice" class="surface-card advice-card">
                         <div class="section-heading compact-heading">
@@ -241,7 +241,7 @@
     {
         true when CurrentArchive.IsFollowUp => "核对本次人体测量与生理信息后，开始一份新的独立咨询记录。",
         true => "先录入必要的人体测量与生理信息，再进入各项专业核算。",
-        _ => "依次完成专业核算、营养问题与诊断、综合结果与膳食建议。"
+        _ => "依次完成专业核算、综合结果、营养问题与诊断，以及膳食建议。"
     };
 
     protected override void OnParametersSet()
