@@ -1,6 +1,7 @@
 ﻿using EzNutrition.Shared.Data.Entities;
 using EzNutrition.Domain.Calculations;
 using EzNutrition.Domain.Consultations;
+using System.Globalization;
 using System.Text;
 
 namespace EzNutrition.Domain.Assessments
@@ -21,7 +22,7 @@ namespace EzNutrition.Domain.Assessments
         PopulationAverage = 1
     }
 
-    public class EnergyCalculator(IClient client) : ITreatment
+    public class EnergyCalculator(IClient client) : ITreatment, ISoapContributor
     {
         public IClient Client => client;
 
@@ -168,6 +169,77 @@ namespace EzNutrition.Domain.Assessments
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
             return true;
         }
+
+        public SoapContribution ToSoapContribution()
+        {
+            var objectiveItems = new List<string>();
+
+            if (Client.Height is > 0)
+            {
+                objectiveItems.Add($"身高：{FormatNumber(Client.Height.Value)} cm");
+            }
+
+            if (Client.Weight is > 0)
+            {
+                objectiveItems.Add($"体重：{FormatNumber(Client.Weight.Value)} kg");
+            }
+
+            var heightInMeters = (Client.Height ?? 0) / 100;
+            if (heightInMeters > 0 && Client.Weight is > 0)
+            {
+                var bmi = Client.Weight.Value / heightInMeters / heightInMeters;
+                objectiveItems.Add($"BMI：{FormatNumber(bmi)} kg/m²");
+            }
+
+            if (PAL is > 0)
+            {
+                objectiveItems.Add($"身体活动水平（PAL）：{FormatNumber(PAL.Value)}");
+            }
+
+            if (Energy is > 0)
+            {
+                if (IsEnergyManuallyAdjusted)
+                {
+                    objectiveItems.Add($"专业人员核定的每日总能量：{Energy.Value} kcal");
+
+                    if (CalculatedEnergy is > 0 && CalculatedEnergy != Energy)
+                    {
+                        objectiveItems.Add($"程序原始估算的每日总能量需要量：{CalculatedEnergy.Value} kcal");
+                    }
+                }
+                else
+                {
+                    var calculationBasis = CalculationMethod switch
+                    {
+                        EnergyCalculationMethod.IdealBodyWeightBeePal =>
+                            "（依据身高推算的理想体重、基础能量系数与 PAL 计算）",
+                        EnergyCalculationMethod.PopulationAverage =>
+                            "（采用与当前 PAL 匹配的参考人群平均体重估计能量需要量〔EER〕）",
+                        _ => string.Empty
+                    };
+                    objectiveItems.Add(
+                        $"程序估算的每日总能量需要量：{Energy.Value} kcal{calculationBasis}");
+                }
+            }
+
+            if (AppliedOffsetEnergy > 0)
+            {
+                var estimatedValue = IsEnergyManuallyAdjusted
+                    ? "程序原始估算值"
+                    : "上述程序估算值";
+                objectiveItems.Add(
+                    $"{estimatedValue}已计入特殊生理阶段能量附加量：{AppliedOffsetEnergy} kcal");
+            }
+
+            return objectiveItems.Count == 0
+                ? new SoapContribution()
+                : new SoapContribution(
+                    Objective: $"人体测量与能量评估：{Environment.NewLine}- "
+                        + string.Join($"{Environment.NewLine}- ", objectiveItems));
+        }
+
+        private static string FormatNumber(decimal value) =>
+            value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
 }
