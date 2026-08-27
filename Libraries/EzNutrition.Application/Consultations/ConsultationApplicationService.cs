@@ -141,6 +141,33 @@ public sealed class ConsultationApplicationService(
         survey.ApplyCalculation(result);
     }
 
+    /// <summary>
+    /// 将专业人员已经复核的 S/O 文本追加到当前 SOAP 记录。
+    /// </summary>
+    /// <returns>实际追加了至少一段有效文本时返回 <see langword="true" />。</returns>
+    public bool AppendSoapContribution(
+        ConsultationWorkspace workspace,
+        SoapContribution contribution)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        ArgumentNullException.ThrowIfNull(contribution);
+
+        var information = workspace.SubjectiveObjectiveAssessmentPlanInformation
+            ?? throw new InvalidOperationException("SOAP 记录尚未初始化。");
+        var subjective = AppendConfirmedText(information.Subjective, contribution.Subjective);
+        var objective = AppendConfirmedText(information.Objective, contribution.Objective);
+        var changed = !string.Equals(subjective, information.Subjective, StringComparison.Ordinal)
+            || !string.Equals(objective, information.Objective, StringComparison.Ordinal);
+
+        if (changed)
+        {
+            information.Subjective = subjective;
+            information.Objective = objective;
+        }
+
+        return changed;
+    }
+
     private static NutritionSubjectQuery CreateSubjectQuery(IClient client)
     {
         if (string.IsNullOrWhiteSpace(client.Gender) || client.Age is null)
@@ -193,6 +220,25 @@ public sealed class ConsultationApplicationService(
         }
 
         return true;
+    }
+
+    private static string AppendConfirmedText(string current, string addition)
+    {
+        if (string.IsNullOrWhiteSpace(addition))
+        {
+            return current;
+        }
+
+        if (current.Length == 0
+            || current.EndsWith('\r')
+            || current.EndsWith('\n')
+            || addition.StartsWith('\r')
+            || addition.StartsWith('\n'))
+        {
+            return current + addition;
+        }
+
+        return current + "\n" + addition;
     }
 
     private static void EnsureNotEmpty<T>(IReadOnlyCollection<T>? values, string message)
