@@ -197,6 +197,13 @@
                                                        OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                     }
                                 </TabPane>
+                                @if (CurrentArchive.NutritionAssessments.Count > 0)
+                                {
+                                    <TabPane Key="4" Tab="筛查量表">
+                                        <NutritionAssessmentScales Assessments="CurrentArchive.NutritionAssessments"
+                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                    </TabPane>
+                                }
                             </ChildContent>
                         </Tabs>
                     </section>

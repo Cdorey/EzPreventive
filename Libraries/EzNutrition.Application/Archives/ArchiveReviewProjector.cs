@@ -125,6 +125,18 @@ internal static class ArchiveReviewProjector
                 Field("记录总能量", FormatQuantity(recall.EnergyConsistency?.RecordedTotalEnergy))
             ]
         },
+        NutritionScaleAssessmentResource scale => new ArchiveReviewSection
+        {
+            Title = scale.Instrument.Code.Display ?? "营养筛查与评估量表",
+            Description = scale.Interpretation?.Display ?? "量表尚未形成完整解释",
+            Fields =
+            [
+                DateTimeField("评估时间", scale.EffectiveAt),
+                Field("量表版本", scale.Instrument.Version ?? scale.Instrument.Definition?.Version ?? "未提供"),
+                Field("已回答题目", scale.Responses.Count.ToString(CultureInfo.InvariantCulture)),
+                Field("总分", scale.TotalScore?.ToString(CultureInfo.InvariantCulture) ?? "不适用或尚未形成")
+            ]
+        },
         SoapNoteResource soap => new ArchiveReviewSection
         {
             Title = "SOAP 病史",

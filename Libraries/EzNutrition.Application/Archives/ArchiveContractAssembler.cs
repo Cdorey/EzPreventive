@@ -94,6 +94,15 @@ public sealed class ArchiveContractAssembler
                 captured));
         }
 
+        foreach (var assessment in archive.NutritionAssessments.Where(run => run.Answers.Count > 0))
+        {
+            clinicalResources.Add(CreateNutritionScaleAssessment(
+                assessment,
+                subjectReference,
+                consultationReference,
+                captured));
+        }
+
         if (archive.SubjectiveObjectiveAssessmentPlanInformation is not null)
         {
             clinicalResources.Add(CreateSoapNote(
@@ -692,6 +701,90 @@ public sealed class ArchiveContractAssembler
             Plan = NormalizeOptional(information.Plan)
         };
 
+    private NutritionScaleAssessmentResource CreateNutritionScaleAssessment(
+        NutritionAssessmentRun run,
+        LogicalResourceReference subjectReference,
+        VersionedResourceReference consultationReference,
+        DateTimeOffset capturedAt)
+    {
+        var definition = run.Definition;
+        var evaluation = run.Evaluation;
+        var responses = definition.Items
+            .Where(item => evaluation.ApplicableItemCodes.Contains(item.Code))
+            .Select(item =>
+            {
+                if (!run.Answers.TryGetValue(item.Code, out var answerCode))
+                {
+                    return null;
+                }
+
+                var option = item.Options.Single(option =>
+                    string.Equals(option.Code, answerCode, StringComparison.Ordinal));
+                return new AssessmentItemResponse
+                {
+                    Item = AssessmentCoding(
+                        definition,
+                        $"{definition.Code}/item/{item.Code}",
+                        item.Prompt),
+                    Answer = new CodingArchiveValue(AssessmentCoding(
+                        definition,
+                        $"{definition.Code}/item/{item.Code}/answer/{option.Code}",
+                        option.Display)),
+                    ScoreContribution = option.Score
+                };
+            })
+            .Where(response => response is not null)
+            .Cast<AssessmentItemResponse>()
+            .ToArray();
+
+        return new NutritionScaleAssessmentResource
+        {
+            Metadata = Metadata(run.ArchiveIdentity, capturedAt, run.CreatedAt),
+            SubjectReference = subjectReference,
+            ConsultationReference = consultationReference,
+            EffectiveAt = run.CompletedAt ?? run.LastModifiedAt,
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    definition.CodeSystem,
+                    definition.Code,
+                    definition.Version,
+                    definition.DisplayName),
+                Version = definition.Version,
+                Definition = new CanonicalReference(definition.DefinitionUri, definition.Version)
+            },
+            Responses = responses,
+            DerivedResults = evaluation.Metrics.Select(metric => new NamedArchiveValue
+            {
+                Name = AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/result/{metric.Code}",
+                    metric.Display),
+                Value = new DecimalArchiveValue(metric.Value)
+            }).ToArray(),
+            ScoringMethod = new AlgorithmIdentity
+            {
+                Method = AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/scoring",
+                    $"{definition.DisplayName}确定性计分"),
+                Implementation = sourceApplication
+            },
+            TotalScore = evaluation.TotalScore,
+            TotalScoreAbsentReason = evaluation.TotalScore is null
+                ? evaluation.IsComplete
+                    ? DataAbsentReasonCode.NotApplicable
+                    : DataAbsentReasonCode.NotEstablished
+                : null,
+            Interpretation = evaluation.Interpretation is { } interpretation
+                ? AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/interpretation/{interpretation.Code}",
+                    interpretation.Display)
+                : null
+        };
+    }
+
     private NutritionAdviceResource CreateNutritionAdvice(
         RuntimeWorkspace archive,
         ArchiveContractIdentity identity,
@@ -918,6 +1011,15 @@ public sealed class ArchiveContractAssembler
         Name = ArchiveContractCoding.Code("named-value", code, display),
         Value = value
     };
+
+    private static Coding AssessmentCoding(
+        NutritionAssessmentDefinition definition,
+        string code,
+        string display) => new(
+            definition.CodeSystem,
+            code,
+            definition.Version,
+            display);
 
     private ResourceMetadata Metadata(
         ArchiveResourceIdentity identity,
