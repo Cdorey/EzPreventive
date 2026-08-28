@@ -221,7 +221,7 @@ public sealed class ConsultationApplicationServiceTests
     }
 
     /// <summary>
-    /// 验证经专业人员确认的 S/O 文本会分别追加，且不改动 A/P。
+    /// 验证仅提供 S/O 的旧贡献会分别追加，且不改动 A/P。
     /// </summary>
     [Fact]
     public void AppendSoapContribution_appends_confirmed_text_to_matching_sections()
@@ -249,6 +249,39 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Equal("原有客观资料\n新增客观资料", information.Objective);
         Assert.Equal("原有评估", information.Assessment);
         Assert.Equal("原有计划", information.Plan);
+    }
+
+    /// <summary>
+    /// 验证经专业人员确认的完整 SOAP 候选文本会分别追加到对应部分。
+    /// </summary>
+    [Fact]
+    public void AppendSoapContribution_appends_assessment_and_plan_when_offered()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var workspace = new ConsultationWorkspace(CreateClient())
+        {
+            SubjectiveObjectiveAssessmentPlanInformation = new()
+            {
+                Subjective = "原有主观资料",
+                Objective = "原有客观资料",
+                Assessment = "原有问题评估",
+                Plan = "原有处理计划\n"
+            }
+        };
+
+        var changed = service.AppendSoapContribution(
+            workspace,
+            new SoapContribution(
+                Assessment: "新增问题评估",
+                Plan: "新增处理计划"));
+
+        var information = workspace.SubjectiveObjectiveAssessmentPlanInformation;
+        Assert.True(changed);
+        Assert.Equal("原有主观资料", information.Subjective);
+        Assert.Equal("原有客观资料", information.Objective);
+        Assert.Equal("原有问题评估\n新增问题评估", information.Assessment);
+        Assert.Equal("原有处理计划\n新增处理计划", information.Plan);
     }
 
     /// <summary>
@@ -290,13 +323,15 @@ public sealed class ConsultationApplicationServiceTests
             SubjectiveObjectiveAssessmentPlanInformation = new()
             {
                 Subjective = "保留的主观资料",
-                Objective = "保留的客观资料"
+                Objective = "保留的客观资料",
+                Assessment = "保留的问题评估",
+                Plan = "保留的处理计划"
             }
         };
 
         var changed = service.AppendSoapContribution(
             workspace,
-            new SoapContribution("  ", "\t"));
+            new SoapContribution("  ", "\t", "\r\n", " \t"));
 
         Assert.False(changed);
         Assert.Equal(
@@ -305,6 +340,12 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Equal(
             "保留的客观资料",
             workspace.SubjectiveObjectiveAssessmentPlanInformation.Objective);
+        Assert.Equal(
+            "保留的问题评估",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Assessment);
+        Assert.Equal(
+            "保留的处理计划",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Plan);
     }
 
     /// <summary>

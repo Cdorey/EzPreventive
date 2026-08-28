@@ -26,7 +26,7 @@
         <Alert Type="AlertType.Info"
                ShowIcon="true"
                Message="请在写入前复核"
-               Description="以下是核算结果生成的候选文本，尚未写入 SOAP。可以直接修改或删除任一部分；留空的部分不会改动现有记录。" />
+               Description="以下是当前模块生成的候选文本，尚未写入 SOAP。可以直接修改或清空任一部分；清空的部分不会改动现有记录。" />
 
         <div class="soap-contribution-fields">
             <div class="soap-contribution-field">
@@ -50,6 +50,34 @@
                           MaxRows="14"
                           Placeholder="留空则不写入客观资料" />
             </div>
+
+            @if (showAssessment)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@assessmentInputId">问题评估（A）</label>
+                    <span>专业判断、营养问题及其判断依据</span>
+                    <TextArea id="@assessmentInputId"
+                              @bind-Value="assessment"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入问题评估" />
+                </div>
+            }
+
+            @if (showPlan)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@planInputId">处理计划（P）</label>
+                    <span>营养目标、干预措施、监测与随访安排</span>
+                    <TextArea id="@planInputId"
+                              @bind-Value="plan"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入处理计划" />
+                </div>
+            }
         </div>
     </div>
 </Modal>
@@ -57,10 +85,16 @@
 @code {
     private readonly string subjectiveInputId = $"soap-subjective-{Guid.NewGuid():N}";
     private readonly string objectiveInputId = $"soap-objective-{Guid.NewGuid():N}";
+    private readonly string assessmentInputId = $"soap-assessment-{Guid.NewGuid():N}";
+    private readonly string planInputId = $"soap-plan-{Guid.NewGuid():N}";
     private bool dialogVisible;
     private bool isConfirming;
+    private bool showAssessment;
+    private bool showPlan;
     private string subjective = string.Empty;
     private string objective = string.Empty;
+    private string assessment = string.Empty;
+    private string plan = string.Empty;
 
     [Parameter, EditorRequired]
     public ISoapContributor Contributor { get; set; } = default!;
@@ -78,13 +112,13 @@
             }
 
             var contribution = Contributor.ToSoapContribution();
-            return HasContent(contribution.Subjective, contribution.Objective);
+            return HasContent(contribution);
         }
     }
 
     private ButtonProps ConfirmButtonProps => new()
     {
-        Disabled = isConfirming || !HasContent(subjective, objective)
+        Disabled = isConfirming || !HasDraftContent
     };
 
     private ButtonProps CancelButtonProps => new()
@@ -95,13 +129,17 @@
     private void OpenDialog()
     {
         var contribution = Contributor.ToSoapContribution();
-        if (!HasContent(contribution.Subjective, contribution.Objective))
+        if (!HasContent(contribution))
         {
             return;
         }
 
         subjective = contribution.Subjective;
         objective = contribution.Objective;
+        showAssessment = contribution.Assessment is not null;
+        showPlan = contribution.Plan is not null;
+        assessment = contribution.Assessment ?? string.Empty;
+        plan = contribution.Plan ?? string.Empty;
         dialogVisible = true;
     }
 
@@ -118,7 +156,7 @@
 
     private async Task ConfirmAsync()
     {
-        if (isConfirming || !HasContent(subjective, objective))
+        if (isConfirming || !HasDraftContent)
         {
             return;
         }
@@ -126,7 +164,11 @@
         isConfirming = true;
         try
         {
-            await OnConfirmed.InvokeAsync(new SoapContribution(subjective, objective));
+            await OnConfirmed.InvokeAsync(new SoapContribution(
+                Subjective: subjective,
+                Objective: objective,
+                Assessment: showAssessment ? assessment : null,
+                Plan: showPlan ? plan : null));
             dialogVisible = false;
             ClearDraft();
         }
@@ -140,9 +182,21 @@
     {
         subjective = string.Empty;
         objective = string.Empty;
+        assessment = string.Empty;
+        plan = string.Empty;
+        showAssessment = false;
+        showPlan = false;
     }
 
-    private static bool HasContent(string subjectiveText, string objectiveText) =>
-        !string.IsNullOrWhiteSpace(subjectiveText)
-        || !string.IsNullOrWhiteSpace(objectiveText);
+    private bool HasDraftContent =>
+        !string.IsNullOrWhiteSpace(subjective)
+        || !string.IsNullOrWhiteSpace(objective)
+        || (showAssessment && !string.IsNullOrWhiteSpace(assessment))
+        || (showPlan && !string.IsNullOrWhiteSpace(plan));
+
+    private static bool HasContent(SoapContribution contribution) =>
+        !string.IsNullOrWhiteSpace(contribution.Subjective)
+        || !string.IsNullOrWhiteSpace(contribution.Objective)
+        || !string.IsNullOrWhiteSpace(contribution.Assessment)
+        || !string.IsNullOrWhiteSpace(contribution.Plan);
 }

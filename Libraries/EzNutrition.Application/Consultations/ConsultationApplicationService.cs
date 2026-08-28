@@ -142,7 +142,7 @@ public sealed class ConsultationApplicationService(
     }
 
     /// <summary>
-    /// 将专业人员已经复核的 S/O 文本追加到当前 SOAP 记录。
+    /// 将专业人员已经复核的候选文本追加到当前 SOAP 记录的对应部分。
     /// </summary>
     /// <returns>实际追加了至少一段有效文本时返回 <see langword="true" />。</returns>
     public bool AppendSoapContribution(
@@ -155,13 +155,19 @@ public sealed class ConsultationApplicationService(
         var information = GetSoapInformation(workspace);
         var subjective = AppendConfirmedText(information.Subjective, contribution.Subjective);
         var objective = AppendConfirmedText(information.Objective, contribution.Objective);
+        var assessment = AppendConfirmedText(information.Assessment, contribution.Assessment);
+        var plan = AppendConfirmedText(information.Plan, contribution.Plan);
         var changed = !string.Equals(subjective, information.Subjective, StringComparison.Ordinal)
-            || !string.Equals(objective, information.Objective, StringComparison.Ordinal);
+            || !string.Equals(objective, information.Objective, StringComparison.Ordinal)
+            || !string.Equals(assessment, information.Assessment, StringComparison.Ordinal)
+            || !string.Equals(plan, information.Plan, StringComparison.Ordinal);
 
         if (changed)
         {
             information.Subjective = subjective;
             information.Objective = objective;
+            information.Assessment = assessment;
+            information.Plan = plan;
         }
 
         return changed;
@@ -255,7 +261,7 @@ public sealed class ConsultationApplicationService(
         return true;
     }
 
-    private static string AppendConfirmedText(string current, string addition)
+    private static string AppendConfirmedText(string current, string? addition)
     {
         if (string.IsNullOrWhiteSpace(addition))
         {
