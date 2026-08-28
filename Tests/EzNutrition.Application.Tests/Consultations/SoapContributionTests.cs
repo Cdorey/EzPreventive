@@ -14,6 +14,7 @@ public sealed class SoapContributionTests
 
         Assert.Empty(emptyProjection.Subjective);
         Assert.Empty(emptyProjection.Objective);
+        AssertNoAssessmentOrPlan(emptyProjection);
 
         var calculator = new EnergyCalculator(new ClientInfo
         {
@@ -31,6 +32,7 @@ public sealed class SoapContributionTests
         Assert.Contains("身体活动水平（PAL）：1.5", projection.Objective);
         Assert.Contains("专业人员核定的每日总能量：2000 kcal", projection.Objective);
         Assert.DoesNotContain("未记录", projection.Objective);
+        AssertNoAssessmentOrPlan(projection);
     }
 
     [Fact]
@@ -82,6 +84,7 @@ public sealed class SoapContributionTests
         Assert.Contains("高于可接受宏量营养素分布范围上限（AMDR） 35 %E", projection.Objective);
         Assert.DoesNotContain("可耐受最高摄入量（UL）", projection.Objective);
         Assert.Contains("不代表通常摄入水平", projection.Objective);
+        AssertNoAssessmentOrPlan(projection);
     }
 
     [Fact]
@@ -93,6 +96,7 @@ public sealed class SoapContributionTests
 
         Assert.Empty(projection.Subjective);
         Assert.Empty(projection.Objective);
+        AssertNoAssessmentOrPlan(projection);
     }
 
     [Fact]
@@ -101,6 +105,7 @@ public sealed class SoapContributionTests
         var standard = StandardTower.GetStandardTower(18m)!;
         var emptyProjection = new DietaryRecallTower(standard).ToSoapContribution();
         Assert.Empty(emptyProjection.Objective);
+        AssertNoAssessmentOrPlan(emptyProjection);
 
         var food = new Food
         {
@@ -128,6 +133,13 @@ public sealed class SoapContributionTests
         Assert.Contains("水产品", projection.Objective);
         Assert.Contains("本次回顾折算量 100g", projection.Objective);
         Assert.DoesNotContain("实际食用量", projection.Objective);
+        AssertNoAssessmentOrPlan(projection);
+    }
+
+    private static void AssertNoAssessmentOrPlan(SoapContribution contribution)
+    {
+        Assert.Null(contribution.Assessment);
+        Assert.Null(contribution.Plan);
     }
 
     private static Nutrient Nutrient(int id, string name, string unit) => new()

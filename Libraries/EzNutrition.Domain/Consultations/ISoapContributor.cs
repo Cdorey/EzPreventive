@@ -6,8 +6,8 @@ namespace EzNutrition.Domain.Consultations;
 public interface ISoapContributor
 {
     /// <summary>
-    /// 创建当前对象对 SOAP 主观资料和客观资料的确定性贡献。
+    /// 创建当前对象对 SOAP 记录的确定性候选贡献。
     /// </summary>
-    /// <returns>不包含专业评估和处理计划的 SOAP 资料贡献。</returns>
+    /// <returns>当前对象能够生成的 SOAP 候选文本；不适用的部分可为 <see langword="null"/>。</returns>
     SoapContribution ToSoapContribution();
 }
