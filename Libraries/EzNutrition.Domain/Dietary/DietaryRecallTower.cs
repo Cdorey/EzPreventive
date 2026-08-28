@@ -1,13 +1,17 @@
-﻿namespace EzNutrition.Domain.Dietary
+﻿using EzNutrition.Domain.Consultations;
+using System.Text;
+
+namespace EzNutrition.Domain.Dietary
 {
     /// <summary>
     /// 这是一个根据膳食回顾调查核算的膳食宝塔，用于和标准膳食平衡宝塔比较
     /// </summary>
-    public class DietaryRecallTower(StandardTower comparedWith) : DietaryTower
+    public class DietaryRecallTower(StandardTower comparedWith) : DietaryTower, ISoapContributor
     {
 
         private readonly decimal[] towerValues = new decimal[8];
         private readonly static List<int> indexInStandardTower = [1, 2, 4, 7, 12, 13, 15, 17];
+        private bool hasClassifiedRecallEntries;
 
         private static decimal ConvertedWeight(DietaryRecallEntry originalRecord)
         {
@@ -89,6 +93,49 @@
             return [.. dictionary.Values];
         }
 
+        public SoapContribution ToSoapContribution()
+        {
+            if (!hasClassifiedRecallEntries)
+            {
+                return new SoapContribution();
+            }
+
+            var objectiveBuilder = new StringBuilder();
+            objectiveBuilder.AppendLine("本次 24 小时膳食回顾折算量与适用年龄段膳食宝塔建议量：");
+            foreach (var layer in RenderTower())
+            {
+                AppendLayer(objectiveBuilder, layer, depth: 0);
+            }
+            objectiveBuilder.Append(
+                "注：宝塔建议量可能采用每日或每周口径；本结果仅描述本次回顾，不能据此直接判断通常摄入水平。");
+
+            return new SoapContribution(Objective: objectiveBuilder.ToString());
+        }
+
+        private static void AppendLayer(StringBuilder builder, TowerLayer layer, int depth)
+        {
+            var values = new List<string>();
+            if (!string.IsNullOrWhiteSpace(layer.StandardTowerValue))
+            {
+                values.Add($"适用年龄段建议量 {layer.StandardTowerValue}");
+            }
+            if (!string.IsNullOrWhiteSpace(layer.DietaryRecallTower))
+            {
+                values.Add($"本次回顾折算量 {layer.DietaryRecallTower}");
+            }
+
+            if (values.Count > 0)
+            {
+                builder.Append(' ', depth * 2);
+                builder.AppendLine($"- {layer.LayerName}：{string.Join("；", values)}");
+            }
+
+            foreach (var child in layer.Children ?? [])
+            {
+                AppendLayer(builder, child, depth + 1);
+            }
+        }
+
         public DietaryRecallTower(IEnumerable<DietaryRecallEntry> dietaryRecallEntries, StandardTower comparedWith) : this(comparedWith)
         {
             foreach (DietaryRecallEntry entry in dietaryRecallEntries)
@@ -100,6 +147,7 @@
                 }
                 if (index > -1)
                 {
+                    hasClassifiedRecallEntries = true;
                     towerValues[index] += ConvertedWeight(entry);
                 }
             }

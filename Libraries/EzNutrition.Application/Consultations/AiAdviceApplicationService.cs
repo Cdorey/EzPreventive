@@ -140,7 +140,10 @@ public sealed class AiAdviceApplicationService(IAiAdviceGateway gateway)
         _ => throw new ArgumentOutOfRangeException(nameof(meal), meal, null)
     };
 
-    /// <summary>Discards the prepared disclosure and resets generated advice.</summary>
+    /// <summary>
+    /// Discards the prepared disclosure and any generated output, returning the AI workflow
+    /// to its initial state.
+    /// </summary>
     public void DiscardPreparedAdvice(ConsultationWorkspace workspace)
     {
         ArgumentNullException.ThrowIfNull(workspace);

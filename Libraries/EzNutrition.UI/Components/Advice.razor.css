@@ -87,6 +87,11 @@
     margin-top: 0;
 }
 
+.advice-result-actions {
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
 .generation-status {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;

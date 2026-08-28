@@ -45,6 +45,36 @@ public sealed class EnergyCalculatorTreatmentRenderTests
         Assert.DoesNotContain("计算推荐能量", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Adopted_energy_offers_confirmed_soap_import()
+    {
+        await using var services = BuildServiceProvider();
+        await using var renderer = new HtmlRenderer(
+            services,
+            services.GetRequiredService<ILoggerFactory>());
+        var calculator = new EnergyCalculator(new ClientInfo
+        {
+            Height = 165m,
+            Weight = 60m
+        });
+        Assert.True(calculator.CorrectEnergy(1800));
+
+        var html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var output = await renderer.RenderComponentAsync<EnergyCalculatorTreatment>(
+                ParameterView.FromDictionary(new Dictionary<string, object?>
+                {
+                    [nameof(EnergyCalculatorTreatment.EnergyCalculator)] = calculator,
+                    [nameof(EnergyCalculatorTreatment.OnSoapContributionConfirmed)] =
+                        EventCallback.Factory.Create<SoapContribution>(new object(), _ => { })
+                }));
+            return WebUtility.HtmlDecode(output.ToHtmlString());
+        });
+
+        Assert.Contains("引入 SOAP", html, StringComparison.Ordinal);
+        Assert.Contains("预览并引入 SOAP 记录", html, StringComparison.Ordinal);
+    }
+
     private static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();

@@ -1,34 +1,34 @@
 ﻿@using EzNutrition.Domain.Consultations
 @namespace EzNutrition.UI.Components
 <div class="medical-information">
-<div class="component-heading">
-    <div>
-        <span>临床资料</span>
-        <h3>SOAP 病史</h3>
+    <div class="component-heading">
+        <div>
+            <span>SOAP 记录</span>
+            <h2>营养问题与诊断</h2>
+        </div>
+        <Icon Type="file-text" Theme="IconThemeType.Outline" />
     </div>
-    <Icon Type="file-text" Theme="IconThemeType.Outline" />
-</div>
-<Paragraph>如需使用 AI 辅助生成见解，请仅录入必要资料；更完整、结构化的病史有助于改善草稿质量。</Paragraph>
-@* 主诉与症状 *@
-@* 现病史 *@
-@* 查体 *@
-@* 既往史 *@
-@* 辅助检查 *@
-@* 诊断 *@
-<Form Model="Information" Layout="FormLayout.Vertical">
-    <FormItem Label="主观资料">
-        <TextArea @bind-Value="context.Subjective" Placeholder="主诉与症状；现病史；以及既往史等主观资料" Rows="5" />
-    </FormItem>
-    <FormItem Label="客观资料">
-        <TextArea @bind-Value="context.Objective" Placeholder="体格检查；辅助检查；营养学评估量表结果等客观资料" Rows="5" />
-    </FormItem>
-    <FormItem Label="问题评估">
-        <TextArea @bind-Value="context.Assessment" Placeholder="诊断及诊断依据；鉴别诊断及鉴别诊断依据；" Rows="2" />
-    </FormItem>
-    <FormItem Label="处理计划">
-        <TextArea @bind-Value="context.Plan" Placeholder="问题处理计划；营养治疗计划等；" Rows="5" />
-    </FormItem>
-</Form>
+    <Paragraph>如需使用 AI 辅助生成见解，请仅录入必要资料；更完整、结构化的病史有助于改善草稿质量。</Paragraph>
+    @* 主诉与症状 *@
+    @* 现病史 *@
+    @* 查体 *@
+    @* 既往史 *@
+    @* 辅助检查 *@
+    @* 诊断 *@
+    <Form Model="Information" Layout="FormLayout.Vertical">
+        <FormItem Label="主观资料">
+            <TextArea @bind-Value="context.Subjective" Placeholder="主诉与症状；现病史；以及既往史等主观资料" Rows="5" />
+        </FormItem>
+        <FormItem Label="客观资料">
+            <TextArea @bind-Value="context.Objective" Placeholder="体格检查；辅助检查；营养学评估量表结果等客观资料" Rows="5" />
+        </FormItem>
+        <FormItem Label="问题评估">
+            <TextArea @bind-Value="context.Assessment" Placeholder="诊断及诊断依据；鉴别诊断及鉴别诊断依据；" Rows="2" />
+        </FormItem>
+        <FormItem Label="处理计划">
+            <TextArea @bind-Value="context.Plan" Placeholder="问题处理计划；营养治疗计划等；" Rows="5" />
+        </FormItem>
+    </Form>
 </div>
 
 @code {

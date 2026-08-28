@@ -19,13 +19,34 @@
     font-size: 1.2rem;
 }
 
+.summary-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .summary-heading ::deep .anticon {
     color: var(--ez-primary);
     font-size: 1.25rem;
+}
+
+.summary-heading-actions ::deep .ant-btn .anticon {
+    font-size: 1rem;
 }
 
 .tower-title {
     margin: 0 0 10px;
     color: var(--ez-navy);
     font-size: 1rem;
+}
+
+@media (max-width: 575.98px) {
+    .summary-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .summary-heading-actions {
+        justify-content: space-between;
+    }
 }

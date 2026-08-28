@@ -110,6 +110,64 @@ public sealed class DietarySurveyRenderTests
         Assert.Contains("不单独构成营养诊断", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Calculated_recall_offers_confirmed_soap_import()
+    {
+        await using var serviceProvider = BuildServiceProvider();
+        await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(
+            serviceProvider,
+            serviceProvider.GetRequiredService<ILoggerFactory>());
+        var client = new ClientInfo { Gender = "女" };
+        var energy = new Nutrient
+        {
+            NutrientId = 1,
+            FriendlyName = "能量",
+            DefaultMeasureUnit = "kCal"
+        };
+        var food = new Food
+        {
+            FoodId = Guid.NewGuid(),
+            FriendlyCode = "TEST-SOAP",
+            FriendlyName = "测试食物"
+        };
+        food.FoodNutrientValues =
+        [
+            new FoodNutrientValue
+            {
+                Food = food,
+                FoodId = food.FoodId,
+                Nutrient = energy,
+                NutrientId = energy.NutrientId,
+                MeasureUnit = energy.DefaultMeasureUnit,
+                Value = 100m
+            }
+        ];
+        var survey = new DietaryRecallSurvey(client, [food], [energy], new DRIs(client));
+        survey.RecallEntries.Add(new DietaryRecallEntry
+        {
+            Food = food,
+            Weight = 100m,
+            MealOccasion = MealOccasion.Lunch
+        });
+        survey.SummaryCalculationTable = new SummaryCalculationTable(
+            survey.RecallEntries,
+            [energy]);
+
+        var html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var output = await renderer.RenderComponentAsync<DietarySurvey>(
+                ParameterView.FromDictionary(new Dictionary<string, object?>
+                {
+                    [nameof(DietarySurvey.DietaryRecallSurvey)] = survey,
+                    [nameof(DietarySurvey.OnSoapContributionConfirmed)] =
+                        EventCallback.Factory.Create<SoapContribution>(new object(), _ => { })
+                }));
+            return WebUtility.HtmlDecode(output.ToHtmlString());
+        });
+
+        Assert.Contains("引入 SOAP", html, StringComparison.Ordinal);
+    }
+
     private static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();

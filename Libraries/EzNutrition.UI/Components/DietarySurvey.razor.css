@@ -204,6 +204,10 @@
     min-width: 0;
 }
 
+.result-toolbar .result-toolbar-actions {
+    flex: 0 0 auto;
+}
+
 .result-interpretation-note {
     display: flex;
     align-items: flex-start;
@@ -345,13 +349,24 @@
     }
 
     .result-toolbar {
-        align-items: flex-start;
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .result-toolbar > div {
         align-items: flex-start;
         flex-direction: column;
         gap: 6px;
+    }
+
+    .result-toolbar .result-toolbar-actions {
+        align-items: stretch;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .result-toolbar-actions > ::deep .ant-btn {
+        flex: 1 1 150px;
     }
 
     .summary-metrics {

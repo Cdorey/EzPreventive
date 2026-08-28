@@ -1,0 +1,63 @@
+.soap-selection-import {
+    min-width: 0;
+}
+
+.soap-selection-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    color: var(--ez-navy);
+    background: #f7fbff;
+    border: 1px solid #c8ddf0;
+    border-radius: var(--ez-radius-sm);
+}
+
+.soap-selection-guidance,
+.soap-selection-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.soap-selection-guidance {
+    min-width: 0;
+    color: var(--ez-text-secondary);
+    font-size: 0.84rem;
+}
+
+.soap-selection-guidance ::deep .anticon {
+    flex: 0 0 auto;
+    color: var(--ez-primary);
+}
+
+.soap-selection-actions {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+@media (max-width: 767.98px) {
+    .soap-selection-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .soap-selection-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .soap-selection-actions > span,
+    .soap-selection-actions > span ::deep .ant-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .soap-selection-actions {
+        grid-template-columns: 1fr;
+    }
+}
