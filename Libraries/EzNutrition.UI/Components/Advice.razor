@@ -121,6 +121,18 @@
                                 </section>
                             }
                         </SoapTextSelectionImport>
+
+                        @if (CanRestartAdvice)
+                        {
+                            <div class="advice-actions advice-result-actions">
+                                <Popconfirm Title="将清除当前 AI 草稿并返回数据汇总步骤，已写入 SOAP 的内容不受影响。继续吗？"
+                                            OkText="重新汇总"
+                                            CancelText="保留草稿"
+                                            OnConfirm="RestartAdvice">
+                                    <Button>重新汇总数据</Button>
+                                </Popconfirm>
+                            </div>
+                        }
                     }
                 }
             }
@@ -203,6 +215,15 @@
     private bool CanImportSelection =>
         CurrentArchive.AiGeneratedAdvice?.IsReady == true
         && CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null;
+
+    private bool CanRestartAdvice =>
+        CurrentArchive.AiGeneratedAdvice is
+        {
+            IsReady: true,
+            Sending: false,
+            GenerationStatus: AiAdviceGenerationStatus.Completed
+        }
+        && !IsGenerationBusy;
 
     private Task GenerateAsync()
     {
@@ -399,9 +420,7 @@
     {
         if (AdviceService.PreparePrompt(CurrentArchive))
         {
-            generationState = GenerationState.ReadyToSend;
-            generationStatusMessage = string.Empty;
-            receivedCharacterCount = 0;
+            ResetPresentationState();
             StateHasChanged();
         }
     }
@@ -409,9 +428,7 @@
     private void CancelSend()
     {
         AdviceService.DiscardPreparedAdvice(CurrentArchive);
-        generationState = GenerationState.ReadyToSend;
-        generationStatusMessage = string.Empty;
-        receivedCharacterCount = 0;
+        ResetPresentationState();
     }
 
     private void CancelGeneration()
@@ -433,6 +450,22 @@
         }
 
         AdviceService.ResetForPreview(CurrentArchive);
+        ResetPresentationState();
+    }
+
+    private void RestartAdvice()
+    {
+        if (!CanRestartAdvice)
+        {
+            return;
+        }
+
+        AdviceService.DiscardPreparedAdvice(CurrentArchive);
+        ResetPresentationState();
+    }
+
+    private void ResetPresentationState()
+    {
         generationState = GenerationState.ReadyToSend;
         generationStatusMessage = string.Empty;
         receivedCharacterCount = 0;
