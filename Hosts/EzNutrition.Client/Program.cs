@@ -25,6 +25,13 @@ namespace EzNutrition.Client
                 new Uri(builder.HostEnvironment.BaseAddress),
                 TimeZoneInfo.Local);
             builder.Services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();
+            builder.Services.AddSingleton<
+                INutritionAssessmentInstrument,
+                WsT552ElderlyMalnutritionRiskInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
             builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
             builder.Services.AddSingleton<IArchiveCodec, XmlArchiveCodec>();

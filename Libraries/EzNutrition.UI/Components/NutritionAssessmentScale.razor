@@ -123,7 +123,7 @@
                 @if (Assessment.Evaluation.TotalScore is { } totalScore)
                 {
                     <Tag Color="@ResultColor(Assessment.Evaluation)">
-                        总分 @totalScore.ToString("0", CultureInfo.InvariantCulture)
+                        总分 @totalScore.ToString("0.##", CultureInfo.InvariantCulture)
                     </Tag>
                 }
             </div>

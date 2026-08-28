@@ -5,11 +5,11 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Assessments.Common;
 
 /// <summary>
-/// 按 WS/T 888—2026 附录 B.19 实现医疗机构老年人微营养评估（MNA-SF）。
+/// 按 WS/T 888—2026 附录 B 表 B.19 实现医疗机构老年人微营养评定法（简表）（MNA-SF）。
 /// </summary>
 /// <remarks>
 /// 题目、分值与风险阈值依据 WS/T 888—2026《医疗机构老年综合评估技术操作标准》
-/// 表 B.19。能够从评估对象快照计算 BMI 时直接采用该值，否则显示标准规定的小腿围替代项。
+/// 附录 B 表 B.19。能够从评估对象快照计算 BMI 时直接采用该值，否则显示标准规定的小腿围替代项。
 /// </remarks>
 public sealed class MnaSfInstrument : INutritionAssessmentInstrument
 {
@@ -37,14 +37,14 @@ public sealed class MnaSfInstrument : INutritionAssessmentInstrument
         Version = "WS/T 888—2026",
         DefinitionUri = new Uri(
             "https://www.nhc.gov.cn/wjw/c100310/202603/33c0253d16864df88f36215f186ec13f/files/WST%20888%E2%80%942026-20260318100233155.pdf"),
-        DisplayName = "微营养评估 MNA-SF",
+        DisplayName = "微营养评定法（简表）MNA-SF",
         Description =
-            "本量表依据 WS/T 888—2026《医疗机构老年综合评估技术操作标准》附录 B.19。用于医疗机构老年综合评估中的营养风险筛查；总分 ≤11 分提示有营养不良风险。",
+            "本量表依据 WS/T 888—2026《医疗机构老年综合评估技术操作标准》附录 B 表 B.19《微营养评定法（简表）》。用于医疗机构老年综合评估中的营养不良风险筛查；总分 ≤11 分提示有营养不良风险。",
         Sections =
         [
             new NutritionAssessmentSection(
                 "mna-sf",
-                "微营养评估",
+                "微营养评定法（简表）",
                 [
                     Item(
                         IntakeCode,
@@ -54,28 +54,28 @@ public sealed class MnaSfInstrument : INutritionAssessmentInstrument
                         ("unchanged", "食量没有改变", 2)),
                     Item(
                         WeightLossCode,
-                        "过去 3 个月体重下降情况",
-                        ("over-three-kilograms", "体重下降 >3 kg", 0),
+                        "过去 3 个月体质量丢失",
+                        ("over-three-kilograms", "体质量丢失 >3 kg", 0),
                         ("unknown", "不知道", 1),
-                        ("one-to-three-kilograms", "体重下降 1 kg～3 kg", 2),
-                        ("none", "体重无下降", 3)),
+                        ("one-to-three-kilograms", "体质量丢失 1 kg～3 kg", 2),
+                        ("none", "无", 3)),
                     Item(
                         MobilityCode,
                         "活动能力",
-                        ("bed-or-chair-bound", "卧床或长期坐着", 0),
-                        ("indoors-only", "能下床或离开座椅，但不能外出", 1),
-                        ("goes-out", "能独立外出", 2)),
+                        ("bed-or-chair-bound", "长期卧床或坐轮椅", 0),
+                        ("indoors-only", "可以下床或离开轮椅，但不能外出", 1),
+                        ("goes-out", "可以外出", 2)),
                     Item(
                         StressCode,
-                        "过去 3 个月是否受到心理创伤或患急性疾病？",
+                        "过去 3 个月是否受到心理创伤或有急性疾病？",
                         ("yes", "是", 0),
                         ("no", "否", 2)),
                     Item(
                         NeuropsychologicalCode,
-                        "神经精神问题",
+                        "精神心理问题",
                         ("severe", "严重痴呆或抑郁", 0),
                         ("mild-dementia", "轻度痴呆", 1),
-                        ("none", "无神经精神问题", 2)),
+                        ("none", "无精神心理问题", 2)),
                     Item(
                         BmiCode,
                         "体质指数（BMI）",
@@ -168,7 +168,7 @@ public sealed class MnaSfInstrument : INutritionAssessmentInstrument
             SoapContribution = new SoapContribution
             {
                 Objective =
-                    $"微营养评估（MNA-SF，WS/T 888—2026 附录 B.19）总分 {totalText} 分。",
+                    $"微营养评定法（简表）（MNA-SF，WS/T 888—2026 附录 B 表 B.19）总分 {totalText} 分。",
                 Assessment = $"MNA-SF 结果：{interpretation.Display}。",
                 Plan = atRisk ? "建议进一步进行营养评估并结合临床情况处理。" : null
             }

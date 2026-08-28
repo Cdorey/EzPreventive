@@ -57,6 +57,11 @@ public sealed class NutritionAssessmentTypedAnswerTests
             ["nausea", "dry-mouth"],
             multipleChoice.Values.Select(value => value.Code.Split('/')[^1]));
         Assert.Equal(
+            2m,
+            resource.Responses.Single(response =>
+                response.Item.Code.EndsWith("/symptoms", StringComparison.Ordinal))
+                .ScoreContribution);
+        Assert.Equal(
             65.5m,
             Assert.IsType<DecimalArchiveValue>(resource.Responses.Single(response =>
                 response.Item.Code.EndsWith("/previous-weight", StringComparison.Ordinal)).Answer).Value);

@@ -1041,14 +1041,32 @@ public sealed class ArchiveContractAssembler
 
     private static decimal? AssessmentScoreContribution(
         NutritionAssessmentItem item,
-        NutritionAssessmentAnswer answer) =>
-        answer is NutritionAssessmentSingleChoiceAnswer singleChoice
-            ? item.Options.Single(option => string.Equals(
+        NutritionAssessmentAnswer answer) => answer switch
+        {
+            NutritionAssessmentSingleChoiceAnswer singleChoice =>
+                item.Options.Single(option => string.Equals(
                     option.Code,
                     singleChoice.OptionCode,
                     StringComparison.Ordinal))
-                .Score
-            : null;
+                .Score,
+            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
+                MultipleChoiceScoreContribution(item, multipleChoice),
+            _ => null
+        };
+
+    private static decimal? MultipleChoiceScoreContribution(
+        NutritionAssessmentItem item,
+        NutritionAssessmentMultipleChoiceAnswer answer)
+    {
+        var selectedOptions = item.Options
+            .Where(option => answer.OptionCodes.Contains(
+                option.Code,
+                StringComparer.Ordinal))
+            .ToArray();
+        return selectedOptions.Any(option => option.Score is null)
+            ? null
+            : selectedOptions.Sum(option => option.Score!.Value);
+    }
 
     private static Coding AssessmentOptionCoding(
         NutritionAssessmentDefinition definition,

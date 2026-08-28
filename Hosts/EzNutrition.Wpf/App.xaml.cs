@@ -136,6 +136,13 @@ public partial class App : System.Windows.Application
             credentialStore,
             httpMessageHandlerFactory.Create);
         services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();
+        services.AddSingleton<
+            INutritionAssessmentInstrument,
+            WsT552ElderlyMalnutritionRiskInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();

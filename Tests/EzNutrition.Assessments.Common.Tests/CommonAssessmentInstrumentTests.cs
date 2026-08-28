@@ -16,7 +16,7 @@ public sealed class CommonAssessmentInstrumentTests
         AssertDefinition(
             new MnaSfInstrument(),
             "WS/T 888—2026",
-            "附录 B.19");
+            "附录 B 表 B.19");
         AssertDefinition(
             new MustInstrument(),
             "BAPEN MUST",
@@ -24,7 +24,7 @@ public sealed class CommonAssessmentInstrumentTests
         AssertDefinition(
             new SgaInstrument(),
             "国卫办医函〔2021〕552号",
-            "表 2-2、表 2-3");
+            "表 27-2《主观全面评定（SGA）评价表格》及表 27-3");
         AssertDefinition(
             new PgSgaInstrument(),
             "WS/T 555—2017",
@@ -258,6 +258,32 @@ public sealed class CommonAssessmentInstrumentTests
             Assert.Single(evaluation.Metrics, metric => metric.Code == "age-score").Value);
     }
 
+    /// <summary>
+    /// 验证腰围恰好达到第 3.5.2 条阈值时，既保留表 A.1 的 1 分，
+    /// 又进入超重/肥胖型营养不良或风险的结果分支。
+    /// </summary>
+    [Fact]
+    public void Wst_552_distinguishes_the_exact_waist_threshold_for_interpretation()
+    {
+        var instrument = new WsT552ElderlyMalnutritionRiskInstrument();
+        var answers = Wst552ScreeningAnswers(
+            bmi: "below-19",
+            weight: "over-three-kilograms",
+            mobility: "bedridden",
+            dental: "full-or-half-missing",
+            neuropsychological: "severe",
+            intake: "severe");
+        AddWst552AssessmentAnswers(answers);
+        answers["waist-circumference"] = Single("exactly-threshold");
+
+        var evaluation = instrument.Evaluate(answers, Subject(70));
+
+        Assert.Equal(17m, evaluation.TotalScore);
+        Assert.Equal(
+            "possible-overweight-obese-malnutrition-or-risk",
+            evaluation.Interpretation?.Code);
+    }
+
     private static void AssertDefinition(
         INutritionAssessmentInstrument instrument,
         string version,
@@ -301,7 +327,7 @@ public sealed class CommonAssessmentInstrumentTests
         answers["daily-cooking-oil"] = Single("at-most-25-grams");
         answers["daily-fruit-and-vegetables"] = Single("yes");
         answers["calf-circumference"] = Single("at-least-31");
-        answers["waist-circumference"] = Single("within-threshold");
+        answers["waist-circumference"] = Single("below-threshold");
     }
 
     private static NutritionAssessmentSingleChoiceAnswer Single(string optionCode) =>

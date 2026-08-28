@@ -191,7 +191,8 @@ public sealed class WsT552ElderlyMalnutritionRiskInstrument :
                         WaistCircumferenceCode,
                         "20. 腰围",
                         ("above-threshold", "男性 >90 cm；女性 >80 cm", 0m),
-                        ("within-threshold", "男性 ≤90 cm；女性 ≤80 cm", 1m))
+                        ("exactly-threshold", "男性 =90 cm；女性 =80 cm", 1m),
+                        ("below-threshold", "男性 <90 cm；女性 <80 cm", 1m))
                 ],
                 "初筛与后续评估得分相加；年龄 ≥70 岁时总分另加 1 分。")
         ]
@@ -302,7 +303,7 @@ public sealed class WsT552ElderlyMalnutritionRiskInstrument :
             answers,
             WaistCircumferenceCode);
         return bmi is "exactly-24" or "above-24-to-26" or "above-26-to-28" or "above-28"
-            || waist == "above-threshold";
+            || waist is "above-threshold" or "exactly-threshold";
     }
 
     private static NutritionAssessmentInterpretation FullInterpretation(

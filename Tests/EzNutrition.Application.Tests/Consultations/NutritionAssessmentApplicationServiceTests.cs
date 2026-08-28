@@ -28,6 +28,36 @@ public sealed class NutritionAssessmentApplicationServiceTests
     }
 
     /// <summary>
+    /// 验证通用实现库中的量表均可进入按需新增目录，且不会预先创建任何量表实例。
+    /// </summary>
+    [Fact]
+    public void Common_instruments_form_the_complete_on_demand_catalog()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService(
+        [
+            new Nrs2002Instrument(),
+            new MnaSfInstrument(),
+            new MustInstrument(),
+            new WsT552ElderlyMalnutritionRiskInstrument(),
+            new SgaInstrument(),
+            new PgSgaInstrument()
+        ]);
+
+        Assert.Equal(
+        [
+            "nrs-2002",
+            "mna-sf",
+            "must",
+            "ws-t-552-elderly-malnutrition-risk",
+            "sga",
+            "pg-sga"
+        ],
+            service.Definitions.Select(definition => definition.Code));
+        Assert.Empty(workspace.NutritionAssessments);
+    }
+
+    /// <summary>
     /// 验证同一代码体系、量表编码和版本不能被宿主重复注册。
     /// </summary>
     [Fact]

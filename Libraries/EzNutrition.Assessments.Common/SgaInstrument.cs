@@ -4,10 +4,10 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Assessments.Common;
 
 /// <summary>
-/// 按国家卫生健康委《血液净化标准操作规程（2021版）》实现主观综合营养评估（SGA）。
+/// 按国家卫生健康委《血液净化标准操作规程（2021版）》实现主观全面评定（SGA）。
 /// </summary>
 /// <remarks>
-/// 评价内容与 A/B/C 判断依据该规程第二篇第 2 章表 2-2、表 2-3。
+/// 评价内容与 A/B/C 判断依据该规程表 27-2、表 27-3。
 /// SGA 不采用数值相加；最终等级由专业人员综合病史和体格检查作出。
 /// </remarks>
 public sealed class SgaInstrument : INutritionAssessmentInstrument
@@ -51,9 +51,9 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
         Version = "国卫办医函〔2021〕552号",
         DefinitionUri = new Uri(
             "https://www.nhc.gov.cn/wjw/c100175/202111/0f854f7e65cf49bebd930a0f95c8efad/files/1645425894461_83578.pdf"),
-        DisplayName = "主观综合营养评估 SGA",
+        DisplayName = "主观全面评定 SGA",
         Description =
-            "本量表依据国家卫生健康委《血液净化标准操作规程（2021版）》第二篇第 2 章表 2-2、表 2-3。用于血液透析患者营养管理；最终 A/B/C 等级由专业人员综合判断，不采用数值相加。",
+            "本量表依据国家卫生健康委《血液净化标准操作规程（2021版）》表 27-2《主观全面评定（SGA）评价表格》及表 27-3《主观全面评定（SGA）评价标准》。用于血液透析患者营养管理；最终 A/B/C 等级由专业人员综合判断，不采用数值相加。",
         Sections =
         [
             new NutritionAssessmentSection(
@@ -76,7 +76,7 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
                         IntakeChangeCode,
                         "摄食变化",
                         "良好、无变化，或仅有轻度短期变化",
-                        "正常下限但在减少；较差但在增加；或较差且无变化",
+                        "正常下限但在减少；较差但在增加；或较差且无变化（取决于初始状态）",
                         "较差并继续减少，或较差且无变化"),
                     ClassifiedItem(
                         IntakeDurationCode,
@@ -184,8 +184,8 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
             SoapContribution = new SoapContribution
             {
                 Objective =
-                    "已按《血液净化标准操作规程（2021版）》表 2-2、表 2-3 完成 SGA 病史及体格检查。",
-                Assessment = $"主观综合营养评估（SGA）：{interpretation.Display}。"
+                    "已按《血液净化标准操作规程（2021版）》表 27-2、表 27-3 完成 SGA 病史及体格检查。",
+                Assessment = $"主观全面评定（SGA）：{interpretation.Display}。"
             }
         };
     }
