@@ -45,27 +45,69 @@
                         {
                             <p class="assessment-help">@item.HelpText</p>
                         }
-                        <div class="assessment-options">
-                            @foreach (var option in item.Options)
-                            {
-                                var inputId = InputId(item, option);
-                                <label class="assessment-option" for="@inputId">
-                                    <input id="@inputId"
-                                           type="radio"
-                                           name="@InputName(item)"
-                                           value="@option.Code"
-                                           checked="@IsSelected(item, option)"
-                                           @onchange="@(() => SelectAnswer(item, option))" />
-                                    <span class="assessment-option-text">@option.Display</span>
-                                    @if (option.Score is { } score)
+                        @switch (item.ResponseType)
+                        {
+                            case NutritionAssessmentResponseType.SingleChoice:
+                                <div class="assessment-options">
+                                    @foreach (var option in item.Options)
                                     {
-                                        <span class="assessment-option-score">
-                                            @score.ToString("0", CultureInfo.InvariantCulture) 分
-                                        </span>
+                                        var inputId = InputId(item, option);
+                                        <label class="assessment-option" for="@inputId">
+                                            <input id="@inputId"
+                                                   type="radio"
+                                                   name="@InputName(item)"
+                                                   value="@option.Code"
+                                                   checked="@IsSelected(item, option)"
+                                                   @onchange="@(() => SelectAnswer(item, option))" />
+                                            <span class="assessment-option-text">@option.Display</span>
+                                            @if (option.Score is { } score)
+                                            {
+                                                <span class="assessment-option-score">
+                                                    @score.ToString("0.##", CultureInfo.InvariantCulture) 分
+                                                </span>
+                                            }
+                                        </label>
+                                    }
+                                </div>
+                                break;
+                            case NutritionAssessmentResponseType.MultipleChoice:
+                                <div class="assessment-options">
+                                    @foreach (var option in item.Options)
+                                    {
+                                        var inputId = InputId(item, option);
+                                        <label class="assessment-option" for="@inputId">
+                                            <input id="@inputId"
+                                                   type="checkbox"
+                                                   name="@InputName(item)"
+                                                   value="@option.Code"
+                                                   checked="@IsMultipleChoiceSelected(item, option)"
+                                                   @onchange="@(args => ToggleMultipleChoice(item, option, args))" />
+                                            <span class="assessment-option-text">@option.Display</span>
+                                            @if (option.Score is { } score)
+                                            {
+                                                <span class="assessment-option-score">
+                                                    @score.ToString("0.##", CultureInfo.InvariantCulture) 分
+                                                </span>
+                                            }
+                                        </label>
+                                    }
+                                </div>
+                                break;
+                            case NutritionAssessmentResponseType.Decimal:
+                                <label class="assessment-number">
+                                    <input type="number"
+                                           step="any"
+                                           min="@FormatOptionalNumber(item.MinimumValue)"
+                                           max="@FormatOptionalNumber(item.MaximumValue)"
+                                           value="@FormatOptionalNumber(Assessment.GetDecimalAnswer(item.Code))"
+                                           @onchange="@(args => ChangeDecimalAnswer(item, args))" />
+                                    @if (!string.IsNullOrWhiteSpace(item.Unit))
+                                    {
+                                        <span>@item.Unit</span>
                                     }
                                 </label>
-                            }
-                        </div>
+                                break;
+                        }
                     </fieldset>
                 }
             </section>
@@ -116,6 +158,77 @@
     private void SelectAnswer(
         NutritionAssessmentItem item,
         NutritionAssessmentOption option) => Assessment.SetAnswer(item.Code, option.Code);
+
+    private bool IsMultipleChoiceSelected(
+        NutritionAssessmentItem item,
+        NutritionAssessmentOption option) => Assessment
+            .GetMultipleChoiceAnswer(item.Code)
+            .Contains(option.Code, StringComparer.Ordinal);
+
+    private void ToggleMultipleChoice(
+        NutritionAssessmentItem item,
+        NutritionAssessmentOption option,
+        ChangeEventArgs args)
+    {
+        var isSelected = args.Value is true
+            || bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
+        var selected = Assessment
+            .GetMultipleChoiceAnswer(item.Code)
+            .ToHashSet(StringComparer.Ordinal);
+        if (isSelected)
+        {
+            if (option.IsExclusive)
+            {
+                selected.Clear();
+            }
+            else
+            {
+                foreach (var exclusive in item.Options.Where(candidate => candidate.IsExclusive))
+                {
+                    selected.Remove(exclusive.Code);
+                }
+            }
+
+            selected.Add(option.Code);
+        }
+        else
+        {
+            selected.Remove(option.Code);
+        }
+
+        if (selected.Count == 0)
+        {
+            Assessment.ClearAnswer(item.Code);
+        }
+        else
+        {
+            Assessment.SetMultipleChoiceAnswer(item.Code, selected);
+        }
+    }
+
+    private void ChangeDecimalAnswer(
+        NutritionAssessmentItem item,
+        ChangeEventArgs args)
+    {
+        var text = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            Assessment.ClearAnswer(item.Code);
+            return;
+        }
+
+        if (decimal.TryParse(
+                text,
+                NumberStyles.Number,
+                CultureInfo.InvariantCulture,
+                out var value))
+        {
+            Assessment.SetDecimalAnswer(item.Code, value);
+        }
+    }
+
+    private static string? FormatOptionalNumber(decimal? value) =>
+        value?.ToString("0.##", CultureInfo.InvariantCulture);
 
     private string InputName(NutritionAssessmentItem item) =>
         $"assessment-{Assessment.RunId:N}-{item.Code}";

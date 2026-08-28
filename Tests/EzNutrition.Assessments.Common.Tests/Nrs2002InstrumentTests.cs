@@ -111,7 +111,7 @@ public sealed class Nrs2002InstrumentTests
     public void Screening_requires_all_four_standard_scored_items()
     {
         var evaluation = instrument.Evaluate(
-            new Dictionary<string, string>(StringComparer.Ordinal),
+            new Dictionary<string, NutritionAssessmentAnswer>(StringComparer.Ordinal),
             Subject(69));
 
         Assert.False(evaluation.IsComplete);
@@ -229,7 +229,7 @@ public sealed class Nrs2002InstrumentTests
     public void Unknown_answer_is_rejected()
     {
         var answers = StandardAnswers();
-        answers["disease-severity"] = "unknown";
+        answers["disease-severity"] = Answer("unknown");
 
         Assert.Throws<ArgumentException>(() => instrument.Evaluate(answers, Subject(69)));
     }
@@ -246,18 +246,21 @@ public sealed class Nrs2002InstrumentTests
         Assert.Contains(text, option.Display, StringComparison.Ordinal);
     }
 
-    private static Dictionary<string, string> StandardAnswers(
+    private static Dictionary<string, NutritionAssessmentAnswer> StandardAnswers(
         string bmiStatus = "bmi-at-least-18-5",
         string weightLoss = "no-scored-weight-loss",
         string intakeReduction = "no-scored-intake-reduction",
         string diseaseSeverity = "no-scored-disease-severity") =>
         new(StringComparer.Ordinal)
         {
-            ["bmi-status"] = bmiStatus,
-            ["recent-weight-loss"] = weightLoss,
-            ["last-week-intake-reduction"] = intakeReduction,
-            ["disease-severity"] = diseaseSeverity
+            ["bmi-status"] = Answer(bmiStatus),
+            ["recent-weight-loss"] = Answer(weightLoss),
+            ["last-week-intake-reduction"] = Answer(intakeReduction),
+            ["disease-severity"] = Answer(diseaseSeverity)
         };
+
+    private static NutritionAssessmentSingleChoiceAnswer Answer(string optionCode) =>
+        new(optionCode);
 
     private static NutritionAssessmentSubject Subject(int ageInYears) => new()
     {

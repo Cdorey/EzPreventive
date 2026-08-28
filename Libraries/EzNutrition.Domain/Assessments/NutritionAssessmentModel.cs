@@ -8,23 +8,49 @@ namespace EzNutrition.Domain.Assessments;
 /// <param name="Code">选项在当前量表版本内的稳定编码。</param>
 /// <param name="Display">向专业人员展示的选项文本。</param>
 /// <param name="Score">该选项直接贡献的分值；不直接参与总分时为空。</param>
+/// <param name="IsExclusive">多选题选择该项时是否排除同题其他选项。</param>
 public sealed record NutritionAssessmentOption(
     string Code,
     string Display,
-    decimal? Score = null);
+    decimal? Score = null,
+    bool IsExclusive = false);
 
 /// <summary>
-/// 表示一个由单选选项回答的量表题目。
+/// 指定量表题目接受的结构化回答类型。
+/// </summary>
+public enum NutritionAssessmentResponseType
+{
+    /// <summary>从预定义选项中选择一项。</summary>
+    SingleChoice = 0,
+
+    /// <summary>从预定义选项中选择一项或多项。</summary>
+    MultipleChoice = 1,
+
+    /// <summary>输入一个十进制数值。</summary>
+    Decimal = 2
+}
+
+/// <summary>
+/// 表示一个具有稳定编码和明确回答类型的量表题目。
 /// </summary>
 /// <param name="Code">题目在当前量表版本内的稳定编码。</param>
 /// <param name="Prompt">向专业人员展示的题目文本。</param>
 /// <param name="Options">该题允许选择的选项。</param>
 /// <param name="HelpText">不参与计分的可选说明。</param>
+/// <param name="ResponseType">题目接受的结构化回答类型。</param>
+/// <param name="Unit">数值题的显示单位；其他题型为空。</param>
+/// <param name="MinimumValue">数值题允许的可选下界。</param>
+/// <param name="MaximumValue">数值题允许的可选上界。</param>
 public sealed record NutritionAssessmentItem(
     string Code,
     string Prompt,
     IReadOnlyList<NutritionAssessmentOption> Options,
-    string? HelpText = null);
+    string? HelpText = null,
+    NutritionAssessmentResponseType ResponseType =
+        NutritionAssessmentResponseType.SingleChoice,
+    string? Unit = null,
+    decimal? MinimumValue = null,
+    decimal? MaximumValue = null);
 
 /// <summary>
 /// 表示量表中具有共同临床含义的一组题目。

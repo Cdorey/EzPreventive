@@ -713,24 +713,19 @@ public sealed class ArchiveContractAssembler
             .Where(item => evaluation.ApplicableItemCodes.Contains(item.Code))
             .Select(item =>
             {
-                if (!run.Answers.TryGetValue(item.Code, out var answerCode))
+                if (!run.Answers.TryGetValue(item.Code, out var answer))
                 {
                     return null;
                 }
 
-                var option = item.Options.Single(option =>
-                    string.Equals(option.Code, answerCode, StringComparison.Ordinal));
                 return new AssessmentItemResponse
                 {
                     Item = AssessmentCoding(
                         definition,
                         $"{definition.Code}/item/{item.Code}",
                         item.Prompt),
-                    Answer = new CodingArchiveValue(AssessmentCoding(
-                        definition,
-                        $"{definition.Code}/item/{item.Code}/answer/{option.Code}",
-                        option.Display)),
-                    ScoreContribution = option.Score
+                    Answer = AssessmentAnswer(definition, item, answer),
+                    ScoreContribution = AssessmentScoreContribution(item, answer)
                 };
             })
             .Where(response => response is not null)
@@ -1020,6 +1015,55 @@ public sealed class ArchiveContractAssembler
             code,
             definition.Version,
             display);
+
+    private static ArchiveValue AssessmentAnswer(
+        NutritionAssessmentDefinition definition,
+        NutritionAssessmentItem item,
+        NutritionAssessmentAnswer answer) => answer switch
+        {
+            NutritionAssessmentSingleChoiceAnswer singleChoice =>
+                new CodingArchiveValue(AssessmentOptionCoding(
+                    definition,
+                    item,
+                    singleChoice.OptionCode)),
+            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
+                new CodingCollectionArchiveValue(item.Options
+                    .Where(option => multipleChoice.OptionCodes.Contains(
+                        option.Code,
+                        StringComparer.Ordinal))
+                    .Select(option => AssessmentOptionCoding(
+                        definition,
+                        item,
+                        option.Code))),
+            NutritionAssessmentDecimalAnswer number => new DecimalArchiveValue(number.Value),
+            _ => throw new InvalidOperationException("量表包含无法映射的回答类型。")
+        };
+
+    private static decimal? AssessmentScoreContribution(
+        NutritionAssessmentItem item,
+        NutritionAssessmentAnswer answer) =>
+        answer is NutritionAssessmentSingleChoiceAnswer singleChoice
+            ? item.Options.Single(option => string.Equals(
+                    option.Code,
+                    singleChoice.OptionCode,
+                    StringComparison.Ordinal))
+                .Score
+            : null;
+
+    private static Coding AssessmentOptionCoding(
+        NutritionAssessmentDefinition definition,
+        NutritionAssessmentItem item,
+        string optionCode)
+    {
+        var option = item.Options.Single(candidate => string.Equals(
+            candidate.Code,
+            optionCode,
+            StringComparison.Ordinal));
+        return AssessmentCoding(
+            definition,
+            $"{definition.Code}/item/{item.Code}/answer/{option.Code}",
+            option.Display);
+    }
 
     private ResourceMetadata Metadata(
         ArchiveResourceIdentity identity,

@@ -10,8 +10,9 @@ namespace EzNutrition.Application.Consultations;
 public sealed class NutritionAssessmentRun
 {
     private readonly INutritionAssessmentInstrument instrument;
-    private readonly Dictionary<string, string> answers = new(StringComparer.Ordinal);
-    private readonly ReadOnlyDictionary<string, string> readOnlyAnswers;
+    private readonly Dictionary<string, NutritionAssessmentAnswer> answers =
+        new(StringComparer.Ordinal);
+    private readonly ReadOnlyDictionary<string, NutritionAssessmentAnswer> readOnlyAnswers;
 
     internal NutritionAssessmentRun(
         INutritionAssessmentInstrument instrument,
@@ -31,7 +32,8 @@ public sealed class NutritionAssessmentRun
         RunId = runId ?? Guid.NewGuid();
         CreatedAt = createdAt;
         LastModifiedAt = createdAt;
-        readOnlyAnswers = new ReadOnlyDictionary<string, string>(answers);
+        readOnlyAnswers =
+            new ReadOnlyDictionary<string, NutritionAssessmentAnswer>(answers);
         Evaluation = instrument.Evaluate(readOnlyAnswers, subject);
     }
 
@@ -45,7 +47,7 @@ public sealed class NutritionAssessmentRun
     public NutritionAssessmentSubject Subject { get; }
 
     /// <summary>获取当前已保存回答的只读视图。</summary>
-    public IReadOnlyDictionary<string, string> Answers => readOnlyAnswers;
+    public IReadOnlyDictionary<string, NutritionAssessmentAnswer> Answers => readOnlyAnswers;
 
     /// <summary>获取当前回答对应的量表结果。</summary>
     public NutritionAssessmentEvaluation Evaluation { get; private set; }
@@ -66,7 +68,25 @@ public sealed class NutritionAssessmentRun
     /// 获取指定题目的当前选项编码。
     /// </summary>
     public string? GetAnswer(string itemCode) =>
-        answers.TryGetValue(itemCode, out var value) ? value : null;
+        answers.TryGetValue(itemCode, out var value)
+            ? (value as NutritionAssessmentSingleChoiceAnswer)?.OptionCode
+            : null;
+
+    /// <summary>
+    /// 获取指定多选题当前选择的稳定选项编码。
+    /// </summary>
+    public IReadOnlyList<string> GetMultipleChoiceAnswer(string itemCode) =>
+        answers.TryGetValue(itemCode, out var value)
+            ? (value as NutritionAssessmentMultipleChoiceAnswer)?.OptionCodes ?? []
+            : [];
+
+    /// <summary>
+    /// 获取指定数值题的当前回答。
+    /// </summary>
+    public decimal? GetDecimalAnswer(string itemCode) =>
+        answers.TryGetValue(itemCode, out var value)
+            ? (value as NutritionAssessmentDecimalAnswer)?.Value
+            : null;
 
     /// <summary>
     /// 更新一道当前适用题目的回答并重新计算量表状态。
@@ -83,12 +103,10 @@ public sealed class NutritionAssessmentRun
         ArgumentException.ThrowIfNullOrWhiteSpace(itemCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(optionCode);
 
-        var item = Definition.Items.SingleOrDefault(candidate =>
-            string.Equals(candidate.Code, itemCode, StringComparison.Ordinal))
-            ?? throw new ArgumentException("当前量表不存在指定题目。", nameof(itemCode));
-        if (!Evaluation.ApplicableItemCodes.Contains(item.Code))
+        var item = GetApplicableItem(itemCode);
+        if (item.ResponseType != NutritionAssessmentResponseType.SingleChoice)
         {
-            throw new InvalidOperationException("当前作答路径不适用指定题目。");
+            throw new InvalidOperationException("指定题目不是单选题。");
         }
 
         if (!item.Options.Any(option =>
@@ -97,12 +115,131 @@ public sealed class NutritionAssessmentRun
             throw new ArgumentException("指定选项不属于当前题目。", nameof(optionCode));
         }
 
-        if (answers.TryGetValue(item.Code, out var current)
-            && string.Equals(current, optionCode, StringComparison.Ordinal))
+        return SetTypedAnswer(
+            item,
+            new NutritionAssessmentSingleChoiceAnswer(optionCode),
+            modifiedAt);
+    }
+
+    /// <summary>
+    /// 更新一道当前适用多选题的完整选择集合并重新计算量表状态。
+    /// </summary>
+    public bool SetMultipleChoiceAnswer(
+        string itemCode,
+        IEnumerable<string> optionCodes,
+        DateTimeOffset? modifiedAt = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemCode);
+        ArgumentNullException.ThrowIfNull(optionCodes);
+
+        var item = GetApplicableItem(itemCode);
+        if (item.ResponseType != NutritionAssessmentResponseType.MultipleChoice)
+        {
+            throw new InvalidOperationException("指定题目不是多选题。");
+        }
+
+        var answer = new NutritionAssessmentMultipleChoiceAnswer(optionCodes);
+        var selectedOptions = answer.OptionCodes
+            .Select(optionCode => item.Options.SingleOrDefault(option =>
+                string.Equals(option.Code, optionCode, StringComparison.Ordinal))
+                ?? throw new ArgumentException(
+                    "指定选项不属于当前题目。",
+                    nameof(optionCodes)))
+            .ToArray();
+        if (selectedOptions.Length > 1 && selectedOptions.Any(option => option.IsExclusive))
+        {
+            throw new ArgumentException(
+                "互斥选项不能与其他选项同时选择。",
+                nameof(optionCodes));
+        }
+
+        return SetTypedAnswer(item, answer, modifiedAt);
+    }
+
+    /// <summary>
+    /// 更新一道当前适用数值题的回答并重新计算量表状态。
+    /// </summary>
+    public bool SetDecimalAnswer(
+        string itemCode,
+        decimal value,
+        DateTimeOffset? modifiedAt = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemCode);
+
+        var item = GetApplicableItem(itemCode);
+        if (item.ResponseType != NutritionAssessmentResponseType.Decimal)
+        {
+            throw new InvalidOperationException("指定题目不是数值题。");
+        }
+
+        if (item.MinimumValue is { } minimum && value < minimum
+            || item.MaximumValue is { } maximum && value > maximum)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "数值回答超出当前题目允许的范围。");
+        }
+
+        return SetTypedAnswer(
+            item,
+            new NutritionAssessmentDecimalAnswer(value),
+            modifiedAt);
+    }
+
+    /// <summary>
+    /// 清除一道当前适用题目的回答并重新计算量表状态。
+    /// </summary>
+    public bool ClearAnswer(string itemCode, DateTimeOffset? modifiedAt = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemCode);
+        var item = GetApplicableItem(itemCode);
+        if (!answers.Remove(item.Code))
         {
             return false;
         }
 
+        var changedAt = ValidateModifiedAt(modifiedAt);
+        ReevaluateAndDiscardInapplicableAnswers();
+        LastModifiedAt = changedAt;
+        CompletedAt = Evaluation.IsComplete ? changedAt : null;
+        return true;
+    }
+
+    private NutritionAssessmentItem GetApplicableItem(string itemCode)
+    {
+        var item = Definition.Items.SingleOrDefault(candidate =>
+            string.Equals(candidate.Code, itemCode, StringComparison.Ordinal))
+            ?? throw new ArgumentException("当前量表不存在指定题目。", nameof(itemCode));
+        if (!Evaluation.ApplicableItemCodes.Contains(item.Code))
+        {
+            throw new InvalidOperationException("当前作答路径不适用指定题目。");
+        }
+
+        return item;
+    }
+
+    private bool SetTypedAnswer(
+        NutritionAssessmentItem item,
+        NutritionAssessmentAnswer answer,
+        DateTimeOffset? modifiedAt)
+    {
+        if (answers.TryGetValue(item.Code, out var current)
+            && AnswersEqual(current, answer))
+        {
+            return false;
+        }
+
+        var changedAt = ValidateModifiedAt(modifiedAt);
+        answers[item.Code] = answer;
+        ReevaluateAndDiscardInapplicableAnswers();
+        LastModifiedAt = changedAt;
+        CompletedAt = Evaluation.IsComplete ? changedAt : null;
+        return true;
+    }
+
+    private DateTimeOffset ValidateModifiedAt(DateTimeOffset? modifiedAt)
+    {
         var changedAt = modifiedAt ?? DateTimeOffset.UtcNow;
         if (changedAt < CreatedAt)
         {
@@ -112,12 +249,23 @@ public sealed class NutritionAssessmentRun
                 "量表修改时间不能早于量表建立时间。");
         }
 
-        answers[item.Code] = optionCode;
-        ReevaluateAndDiscardInapplicableAnswers();
-        LastModifiedAt = changedAt;
-        CompletedAt = Evaluation.IsComplete ? changedAt : null;
-        return true;
+        return changedAt;
     }
+
+    private static bool AnswersEqual(
+        NutritionAssessmentAnswer left,
+        NutritionAssessmentAnswer right) => (left, right) switch
+        {
+            (NutritionAssessmentSingleChoiceAnswer first,
+                NutritionAssessmentSingleChoiceAnswer second) =>
+                string.Equals(first.OptionCode, second.OptionCode, StringComparison.Ordinal),
+            (NutritionAssessmentMultipleChoiceAnswer first,
+                NutritionAssessmentMultipleChoiceAnswer second) =>
+                first.OptionCodes.SequenceEqual(second.OptionCodes, StringComparer.Ordinal),
+            (NutritionAssessmentDecimalAnswer first,
+                NutritionAssessmentDecimalAnswer second) => first.Value == second.Value,
+            _ => false
+        };
 
     private void ReevaluateAndDiscardInapplicableAnswers()
     {

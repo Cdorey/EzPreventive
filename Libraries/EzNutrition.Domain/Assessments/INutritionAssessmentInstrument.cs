@@ -20,6 +20,6 @@ public interface INutritionAssessmentInstrument
     /// <param name="subject">开始本次量表时取得的评估对象快照。</param>
     /// <returns>当前回答对应的完整或未完成评估结果。</returns>
     NutritionAssessmentEvaluation Evaluate(
-        IReadOnlyDictionary<string, string> answers,
+        IReadOnlyDictionary<string, NutritionAssessmentAnswer> answers,
         NutritionAssessmentSubject subject);
 }

@@ -143,16 +143,40 @@ public sealed class NutritionAssessmentApplicationService
             || definition.Sections.Select(section => section.Code)
                 .Distinct(StringComparer.Ordinal).Count() != definition.Sections.Count
             || items.Length == 0
-            || items.Any(item => string.IsNullOrWhiteSpace(item.Code)
-                || string.IsNullOrWhiteSpace(item.Prompt)
-                || item.Options.Count == 0
-                || item.Options.Any(option => string.IsNullOrWhiteSpace(option.Code)
-                    || string.IsNullOrWhiteSpace(option.Display)))
+            || items.Any(IsInvalidItem)
             || items.Select(item => item.Code).Distinct(StringComparer.Ordinal).Count() != items.Length
             || items.Any(item => item.Options.Select(option => option.Code)
                 .Distinct(StringComparer.Ordinal).Count() != item.Options.Count))
         {
             throw new InvalidOperationException("量表题目或选项定义无效，或存在重复编码。");
         }
+    }
+
+    private static bool IsInvalidItem(NutritionAssessmentItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Code) || string.IsNullOrWhiteSpace(item.Prompt))
+        {
+            return true;
+        }
+
+        var invalidOptions = item.Options.Any(option =>
+            string.IsNullOrWhiteSpace(option.Code)
+            || string.IsNullOrWhiteSpace(option.Display));
+        return item.ResponseType switch
+        {
+            NutritionAssessmentResponseType.SingleChoice or
+                NutritionAssessmentResponseType.MultipleChoice =>
+                item.Options.Count == 0
+                || invalidOptions
+                || item.Unit is not null
+                || item.MinimumValue is not null
+                || item.MaximumValue is not null,
+            NutritionAssessmentResponseType.Decimal =>
+                item.Options.Count != 0
+                || item.MinimumValue is { } minimum
+                    && item.MaximumValue is { } maximum
+                    && minimum > maximum,
+            _ => true
+        };
     }
 }

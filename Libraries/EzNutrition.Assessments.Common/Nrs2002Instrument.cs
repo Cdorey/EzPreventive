@@ -144,7 +144,7 @@ public sealed class Nrs2002Instrument : INutritionAssessmentInstrument
 
     /// <inheritdoc />
     public NutritionAssessmentEvaluation Evaluate(
-        IReadOnlyDictionary<string, string> answers,
+        IReadOnlyDictionary<string, NutritionAssessmentAnswer> answers,
         NutritionAssessmentSubject subject)
     {
         ArgumentNullException.ThrowIfNull(answers);
@@ -159,9 +159,11 @@ public sealed class Nrs2002Instrument : INutritionAssessmentInstrument
             return Incomplete(missingItems);
         }
 
-        var bmiScore = Score(BmiStatusCode, answers[BmiStatusCode]);
-        var weightLossScore = Score(WeightLossCode, answers[WeightLossCode]);
-        var intakeReductionScore = Score(IntakeReductionCode, answers[IntakeReductionCode]);
+        var bmiScore = Score(BmiStatusCode, AnswerCode(answers[BmiStatusCode]));
+        var weightLossScore = Score(WeightLossCode, AnswerCode(answers[WeightLossCode]));
+        var intakeReductionScore = Score(
+            IntakeReductionCode,
+            AnswerCode(answers[IntakeReductionCode]));
         var nutritionalStatusScore = new[]
         {
             bmiScore,
@@ -170,7 +172,7 @@ public sealed class Nrs2002Instrument : INutritionAssessmentInstrument
         }.Max();
         var diseaseSeverityScore = Score(
             DiseaseSeverityCode,
-            answers[DiseaseSeverityCode]);
+            AnswerCode(answers[DiseaseSeverityCode]));
         var ageScore = subject.AgeInYears >= 70 ? 1m : 0m;
         var totalScore = nutritionalStatusScore + diseaseSeverityScore + ageScore;
         var atRisk = totalScore >= 3m;
@@ -247,10 +249,17 @@ public sealed class Nrs2002Instrument : INutritionAssessmentInstrument
             .Score
         ?? throw new InvalidOperationException($"NRS 2002 题目 {itemCode} 的选项缺少分值。");
 
-    private static void ValidateAnswers(IReadOnlyDictionary<string, string> answers)
+    private static string AnswerCode(NutritionAssessmentAnswer answer) =>
+        answer is NutritionAssessmentSingleChoiceAnswer singleChoice
+            ? singleChoice.OptionCode
+            : throw new ArgumentException("NRS 2002 只接受单选回答。", nameof(answer));
+
+    private static void ValidateAnswers(
+        IReadOnlyDictionary<string, NutritionAssessmentAnswer> answers)
     {
-        foreach (var (itemCode, optionCode) in answers)
+        foreach (var (itemCode, answer) in answers)
         {
+            var optionCode = AnswerCode(answer);
             var item = InstrumentDefinition.Items.SingleOrDefault(candidate =>
                 string.Equals(candidate.Code, itemCode, StringComparison.Ordinal));
             if (item is null || !item.Options.Any(option =>
