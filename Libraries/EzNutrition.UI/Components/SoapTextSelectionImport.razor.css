@@ -39,26 +39,6 @@
     justify-content: flex-end;
 }
 
-.soap-selection-review {
-    display: grid;
-    gap: 18px;
-}
-
-.soap-selection-field {
-    display: grid;
-    gap: 8px;
-}
-
-.soap-selection-field label {
-    color: var(--ez-navy);
-    font-weight: 650;
-}
-
-.soap-selection-field ::deep textarea {
-    line-height: 1.65;
-    resize: vertical;
-}
-
 @media (max-width: 767.98px) {
     .soap-selection-toolbar {
         align-items: stretch;

@@ -222,8 +222,7 @@
                             <Icon Type="solution" Theme="IconThemeType.Outline" />
                         </div>
                         <Advice CurrentArchive="@CurrentArchive"
-                                OnSoapAssessmentConfirmed="AppendSoapAssessmentAsync"
-                                OnSoapPlanConfirmed="AppendSoapPlanAsync" />
+                                OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                     </section>
                 </div>
             </div>
@@ -290,28 +289,6 @@
         }
 
         await Message.SuccessAsync("已将复核后的内容加入 SOAP 记录。");
-    }
-
-    private async Task AppendSoapAssessmentAsync(string assessment)
-    {
-        if (CurrentArchive is null
-            || !ConsultationService.AppendSoapAssessment(CurrentArchive, assessment))
-        {
-            return;
-        }
-
-        await Message.SuccessAsync("已将复核后的文字加入问题评估（A）。");
-    }
-
-    private async Task AppendSoapPlanAsync(string plan)
-    {
-        if (CurrentArchive is null
-            || !ConsultationService.AppendSoapPlan(CurrentArchive, plan))
-        {
-            return;
-        }
-
-        await Message.SuccessAsync("已将复核后的文字加入处理计划（P）。");
     }
 
     public void Dispose()

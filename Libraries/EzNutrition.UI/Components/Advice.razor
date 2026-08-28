@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Ports
+@using EzNutrition.Domain.Consultations
 @using EzNutrition.Shared.Data.DTO.PromptDto
 @using EzNutrition.Shared.Policies
 @using EzNutrition.UI.Services
@@ -94,8 +95,7 @@
                     {
                         <SoapTextSelectionImport @key="CurrentArchive"
                                                  Enabled="@CanImportSelection"
-                                                 OnAssessmentConfirmed="OnSoapAssessmentConfirmed"
-                                                 OnPlanConfirmed="OnSoapPlanConfirmed">
+                                                 OnConfirmed="OnSoapContributionConfirmed">
                             @if (!string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice.ReasoningContent))
                             {
                                 <section class="advice-output-section reasoning-output">
@@ -194,10 +194,7 @@
     public required ConsultationWorkspace CurrentArchive { get; set; }
 
     [Parameter]
-    public EventCallback<string> OnSoapAssessmentConfirmed { get; set; }
-
-    [Parameter]
-    public EventCallback<string> OnSoapPlanConfirmed { get; set; }
+    public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
 
     private bool HasGeneratedOutput =>
         !string.IsNullOrWhiteSpace(CurrentArchive.AiGeneratedAdvice?.ReasoningContent)

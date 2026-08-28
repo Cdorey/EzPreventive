@@ -173,40 +173,6 @@ public sealed class ConsultationApplicationService(
         return changed;
     }
 
-    /// <summary>
-    /// 将专业人员已经复核的文本追加到 SOAP 问题评估（A）。
-    /// </summary>
-    /// <returns>实际追加了有效文本时返回 <see langword="true" />。</returns>
-    public bool AppendSoapAssessment(ConsultationWorkspace workspace, string assessment)
-    {
-        var information = GetSoapInformation(workspace);
-        var updated = AppendConfirmedText(information.Assessment, assessment);
-        if (string.Equals(updated, information.Assessment, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        information.Assessment = updated;
-        return true;
-    }
-
-    /// <summary>
-    /// 将专业人员已经复核的文本追加到 SOAP 处理计划（P）。
-    /// </summary>
-    /// <returns>实际追加了有效文本时返回 <see langword="true" />。</returns>
-    public bool AppendSoapPlan(ConsultationWorkspace workspace, string plan)
-    {
-        var information = GetSoapInformation(workspace);
-        var updated = AppendConfirmedText(information.Plan, plan);
-        if (string.Equals(updated, information.Plan, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        information.Plan = updated;
-        return true;
-    }
-
     private static NutritionSubjectQuery CreateSubjectQuery(IClient client)
     {
         if (string.IsNullOrWhiteSpace(client.Gender) || client.Age is null)

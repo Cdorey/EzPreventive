@@ -1,5 +1,6 @@
 using System.Net;
 using AntDesign;
+using EzNutrition.Domain.Consultations;
 using EzNutrition.UI.Components;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -27,10 +28,8 @@ public sealed class SoapTextSelectionImportRenderTests
                 {
                     [nameof(SoapTextSelectionImport.Enabled)] = true,
                     [nameof(SoapTextSelectionImport.ChildContent)] = SourceContent("AI 草稿正文"),
-                    [nameof(SoapTextSelectionImport.OnAssessmentConfirmed)] =
-                        EventCallback.Factory.Create<string>(new object(), _ => { }),
-                    [nameof(SoapTextSelectionImport.OnPlanConfirmed)] =
-                        EventCallback.Factory.Create<string>(new object(), _ => { })
+                    [nameof(SoapTextSelectionImport.OnConfirmed)] =
+                        EventCallback.Factory.Create<SoapContribution>(new object(), _ => { })
                 }));
             return WebUtility.HtmlDecode(output.ToHtmlString());
         });
@@ -56,10 +55,8 @@ public sealed class SoapTextSelectionImportRenderTests
                 {
                     [nameof(SoapTextSelectionImport.Enabled)] = false,
                     [nameof(SoapTextSelectionImport.ChildContent)] = SourceContent("尚未完成的 AI 草稿"),
-                    [nameof(SoapTextSelectionImport.OnAssessmentConfirmed)] =
-                        EventCallback.Factory.Create<string>(new object(), _ => { }),
-                    [nameof(SoapTextSelectionImport.OnPlanConfirmed)] =
-                        EventCallback.Factory.Create<string>(new object(), _ => { })
+                    [nameof(SoapTextSelectionImport.OnConfirmed)] =
+                        EventCallback.Factory.Create<SoapContribution>(new object(), _ => { })
                 }));
             return WebUtility.HtmlDecode(output.ToHtmlString());
         });

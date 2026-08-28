@@ -9,6 +9,10 @@
     gap: 18px;
 }
 
+.soap-contribution-fields.single-field {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .soap-contribution-field {
     min-width: 0;
     display: grid;

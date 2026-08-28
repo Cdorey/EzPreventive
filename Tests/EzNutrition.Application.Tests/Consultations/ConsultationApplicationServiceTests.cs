@@ -348,64 +348,6 @@ public sealed class ConsultationApplicationServiceTests
             workspace.SubjectiveObjectiveAssessmentPlanInformation.Plan);
     }
 
-    /// <summary>
-    /// 验证经专业人员确认的文本会追加到 A/P，且不改动 S/O。
-    /// </summary>
-    [Fact]
-    public void AppendSoapAssessment_and_plan_append_to_matching_sections()
-    {
-        var source = StubNutritionDataSource.CreateValid();
-        var service = CreateService(source);
-        var workspace = new ConsultationWorkspace(CreateClient())
-        {
-            SubjectiveObjectiveAssessmentPlanInformation = new()
-            {
-                Subjective = "保留的主观资料",
-                Objective = "保留的客观资料",
-                Assessment = "原有问题评估",
-                Plan = "原有处理计划\n"
-            }
-        };
-
-        var assessmentChanged = service.AppendSoapAssessment(workspace, "新增问题评估");
-        var planChanged = service.AppendSoapPlan(workspace, "新增处理计划");
-
-        var information = workspace.SubjectiveObjectiveAssessmentPlanInformation;
-        Assert.True(assessmentChanged);
-        Assert.True(planChanged);
-        Assert.Equal("保留的主观资料", information.Subjective);
-        Assert.Equal("保留的客观资料", information.Objective);
-        Assert.Equal("原有问题评估\n新增问题评估", information.Assessment);
-        Assert.Equal("原有处理计划\n新增处理计划", information.Plan);
-    }
-
-    /// <summary>
-    /// 验证空白的 A/P 复核文本不会改动现有记录。
-    /// </summary>
-    [Fact]
-    public void AppendSoapAssessment_and_plan_ignore_blank_text()
-    {
-        var source = StubNutritionDataSource.CreateValid();
-        var service = CreateService(source);
-        var workspace = new ConsultationWorkspace(CreateClient())
-        {
-            SubjectiveObjectiveAssessmentPlanInformation = new()
-            {
-                Assessment = "保留的问题评估",
-                Plan = "保留的处理计划"
-            }
-        };
-
-        Assert.False(service.AppendSoapAssessment(workspace, "  "));
-        Assert.False(service.AppendSoapPlan(workspace, "\t"));
-        Assert.Equal(
-            "保留的问题评估",
-            workspace.SubjectiveObjectiveAssessmentPlanInformation.Assessment);
-        Assert.Equal(
-            "保留的处理计划",
-            workspace.SubjectiveObjectiveAssessmentPlanInformation.Plan);
-    }
-
     private static ConsultationApplicationService CreateService(StubNutritionDataSource source) =>
         new(source, source, source);
 

@@ -1,4 +1,5 @@
 @using Microsoft.JSInterop
+@using EzNutrition.Domain.Consultations
 @namespace EzNutrition.UI.Components
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -17,74 +18,42 @@
                 <span>先划选上方 AI 文本，再选择写入位置</span>
             </div>
             <div class="soap-selection-actions">
-                @if (OnAssessmentConfirmed.HasDelegate)
-                {
-                    <span @onpointerdown:preventDefault="true"
-                          @onmousedown:preventDefault="true">
-                        <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Assessment))"
-                                AriaLabel="将选中的 AI 文本引入问题评估">
-                            引入 A · 问题评估
-                        </Button>
-                    </span>
-                }
-                @if (OnPlanConfirmed.HasDelegate)
-                {
-                    <span @onpointerdown:preventDefault="true"
-                          @onmousedown:preventDefault="true">
-                        <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Plan))"
-                                AriaLabel="将选中的 AI 文本引入处理计划">
-                            引入 P · 处理计划
-                        </Button>
-                    </span>
-                }
+                <span @onpointerdown:preventDefault="true"
+                      @onmousedown:preventDefault="true">
+                    <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Assessment))"
+                            AriaLabel="将选中的 AI 文本引入问题评估">
+                        引入 A · 问题评估
+                    </Button>
+                </span>
+                <span @onpointerdown:preventDefault="true"
+                      @onmousedown:preventDefault="true">
+                    <Button OnClick="@(() => OpenReviewAsync(ReviewTarget.Plan))"
+                            AriaLabel="将选中的 AI 文本引入处理计划">
+                        引入 P · 处理计划
+                    </Button>
+                </span>
             </div>
         </div>
     }
 </div>
 
-<Modal Title="@DialogTitle"
-       @bind-Visible="dialogVisible"
-       Width="@("min(720px, calc(100vw - 32px))")"
-       MaxBodyHeight="calc(100dvh - 190px)"
-       BodyStyle="overflow-y: auto;"
-       Centered="true"
-       MaskClosable="false"
-       ConfirmLoading="@isConfirming"
-       OkText="@("确认引入")"
-       CancelText="@("取消")"
-       OkButtonProps="@ConfirmButtonProps"
-       CancelButtonProps="@CancelButtonProps"
-       OnCancel="CloseDialog"
-       OnOk="ConfirmAsync">
-    <div class="soap-selection-review">
-        <Alert Type="AlertType.Info"
-               ShowIcon="true"
-               Message="请在写入前复核"
-               Description="这里显示的是从 AI 草稿中划选的文字。可以继续修改；只有确认后的内容才会追加到 SOAP，AI 草稿本身不会被改动。" />
-
-        <div class="soap-selection-field">
-            <label for="@reviewInputId">@DialogFieldLabel</label>
-            <TextArea id="@reviewInputId"
-                      @bind-Value="reviewText"
-                      BindOnInput="true"
-                      MinRows="7"
-                      MaxRows="16"
-                      Placeholder="请复核并编辑准备写入 SOAP 的内容" />
-        </div>
-    </div>
-</Modal>
+<SoapContributionReviewModal @bind-Visible="DialogVisible"
+                             Candidate="reviewCandidate"
+                             IncludeSubjective="false"
+                             IncludeObjective="false"
+                             Title="@dialogTitle"
+                             Description="这里显示的是从 AI 草稿中划选的文字。可以继续修改；只有确认后的内容才会追加到 SOAP，AI 草稿本身不会被改动。"
+                             OnConfirmed="OnConfirmed" />
 
 @code {
     private const string SelectionModulePath =
         "./_content/EzNutrition.UI/js/soap-text-selection.js";
 
-    private readonly string reviewInputId = $"soap-selection-review-{Guid.NewGuid():N}";
     private ElementReference selectionSource;
     private Task<IJSObjectReference>? selectionModuleTask;
-    private ReviewTarget reviewTarget;
     private bool dialogVisible;
-    private bool isConfirming;
-    private string reviewText = string.Empty;
+    private string dialogTitle = "确认引入 SOAP";
+    private SoapContribution? reviewCandidate;
 
     [Parameter, EditorRequired]
     public RenderFragment ChildContent { get; set; } = default!;
@@ -93,37 +62,23 @@
     public bool Enabled { get; set; }
 
     [Parameter]
-    public EventCallback<string> OnAssessmentConfirmed { get; set; }
+    public EventCallback<SoapContribution> OnConfirmed { get; set; }
 
-    [Parameter]
-    public EventCallback<string> OnPlanConfirmed { get; set; }
-
-    private bool CanImport => Enabled
-        && (OnAssessmentConfirmed.HasDelegate || OnPlanConfirmed.HasDelegate);
-
-    private string DialogTitle => reviewTarget switch
+    private bool DialogVisible
     {
-        ReviewTarget.Assessment => "确认引入问题评估（A）",
-        ReviewTarget.Plan => "确认引入处理计划（P）",
-        _ => "确认引入 SOAP"
-    };
+        get => dialogVisible;
+        set
+        {
+            dialogVisible = value;
+            if (!value)
+            {
+                reviewCandidate = null;
+                dialogTitle = "确认引入 SOAP";
+            }
+        }
+    }
 
-    private string DialogFieldLabel => reviewTarget switch
-    {
-        ReviewTarget.Assessment => "问题评估（A）",
-        ReviewTarget.Plan => "处理计划（P）",
-        _ => "SOAP 文本"
-    };
-
-    private ButtonProps ConfirmButtonProps => new()
-    {
-        Disabled = isConfirming || string.IsNullOrWhiteSpace(reviewText)
-    };
-
-    private ButtonProps CancelButtonProps => new()
-    {
-        Disabled = isConfirming
-    };
+    private bool CanImport => Enabled && OnConfirmed.HasDelegate;
 
     private async Task OpenReviewAsync(ReviewTarget target)
     {
@@ -137,58 +92,19 @@
             return;
         }
 
-        reviewTarget = target;
-        reviewText = selectedText.Trim();
-        dialogVisible = true;
-    }
-
-    private void CloseDialog()
-    {
-        if (isConfirming)
+        var text = selectedText.Trim();
+        if (target == ReviewTarget.Assessment)
         {
-            return;
+            reviewCandidate = new SoapContribution(Assessment: text);
+            dialogTitle = "确认引入问题评估（A）";
+        }
+        else
+        {
+            reviewCandidate = new SoapContribution(Plan: text);
+            dialogTitle = "确认引入处理计划（P）";
         }
 
-        dialogVisible = false;
-        ClearDraft();
-    }
-
-    private async Task ConfirmAsync()
-    {
-        if (isConfirming || string.IsNullOrWhiteSpace(reviewText))
-        {
-            return;
-        }
-
-        isConfirming = true;
-        try
-        {
-            if (reviewTarget == ReviewTarget.Assessment)
-            {
-                await OnAssessmentConfirmed.InvokeAsync(reviewText);
-            }
-            else if (reviewTarget == ReviewTarget.Plan)
-            {
-                await OnPlanConfirmed.InvokeAsync(reviewText);
-            }
-            else
-            {
-                return;
-            }
-
-            dialogVisible = false;
-            ClearDraft();
-        }
-        finally
-        {
-            isConfirming = false;
-        }
-    }
-
-    private void ClearDraft()
-    {
-        reviewTarget = ReviewTarget.None;
-        reviewText = string.Empty;
+        DialogVisible = true;
     }
 
     private async Task<IJSObjectReference> GetSelectionModuleAsync()
@@ -224,7 +140,6 @@
 
     private enum ReviewTarget
     {
-        None,
         Assessment,
         Plan
     }
