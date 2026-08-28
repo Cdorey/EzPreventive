@@ -1,9 +1,11 @@
 using System.Reflection;
 using EzNutrition.Application.Archives;
+using EzNutrition.Assessments.Nrs2002;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Xml;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
@@ -133,6 +135,7 @@ public partial class App : System.Windows.Application
             TimeZoneInfo.Local,
             credentialStore,
             httpMessageHandlerFactory.Create);
+        services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();

@@ -44,5 +44,6 @@ public sealed class ArchitectureBoundaryTests
         Assert.DoesNotContain("AntDesign", references);
         Assert.DoesNotContain("Microsoft.EntityFrameworkCore", references);
         Assert.DoesNotContain("EzNutrition.Client", references);
+        Assert.DoesNotContain("EzNutrition.Assessments.Nrs2002", references);
     }
 }
