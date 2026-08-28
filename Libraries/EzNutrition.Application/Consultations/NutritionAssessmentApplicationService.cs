@@ -6,11 +6,12 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Application.Consultations;
 
 /// <summary>
-/// 发现宿主注册的营养量表，并为咨询工作区建立通用量表运行实例。
+/// 发现宿主注册的营养量表，并管理咨询工作区中的量表运行实例。
 /// </summary>
 public sealed class NutritionAssessmentApplicationService
 {
     private readonly IReadOnlyList<INutritionAssessmentInstrument> instruments;
+    private readonly IReadOnlyList<NutritionAssessmentDefinition> definitions;
 
     /// <summary>
     /// 使用宿主显式注册的量表实现建立服务。
@@ -41,47 +42,67 @@ public sealed class NutritionAssessmentApplicationService
         }
 
         this.instruments = Array.AsReadOnly(registered);
+        definitions = Array.AsReadOnly(
+            registered.Select(instrument => instrument.Definition).ToArray());
     }
 
-    /// <summary>获取当前宿主注册的全部量表实现。</summary>
-    public IReadOnlyList<INutritionAssessmentInstrument> Instruments => instruments;
+    /// <summary>获取当前宿主注册、可由用户选用的量表目录。</summary>
+    public IReadOnlyList<NutritionAssessmentDefinition> Definitions => definitions;
 
     /// <summary>
-    /// 确保工作区为每个已注册量表保留一个当前运行实例。
+    /// 根据宿主注册的量表定义，在工作区中开始一次量表评估。
     /// </summary>
-    /// <remarks>
-    /// 当前版本在一次咨询内为每个量表建立一个实例；集合结构仍保留未来支持重复测量的空间。
-    /// </remarks>
-    public void EnsureRuns(
+    /// <returns>新建立并已加入当前工作区的量表运行实例。</returns>
+    public NutritionAssessmentRun StartRun(
         ConsultationWorkspace workspace,
+        NutritionAssessmentDefinition definition,
         DateTimeOffset? createdAt = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
-        var subject = CreateSubject(workspace.Client);
-        var startedAt = createdAt ?? DateTimeOffset.UtcNow;
+        ArgumentNullException.ThrowIfNull(definition);
 
-        foreach (var instrument in instruments)
+        var instrument = instruments.SingleOrDefault(candidate =>
+            HasSameIdentity(candidate.Definition, definition))
+            ?? throw new ArgumentException("指定量表没有在当前宿主中注册。", nameof(definition));
+        if (workspace.NutritionAssessments.Any(run =>
+                HasSameIdentity(run.Definition, instrument.Definition)))
         {
-            var definition = instrument.Definition;
-            if (workspace.NutritionAssessments.Any(run =>
-                    run.Definition.CodeSystem == definition.CodeSystem
-                    && string.Equals(run.Definition.Code, definition.Code, StringComparison.Ordinal)
-                    && string.Equals(run.Definition.Version, definition.Version, StringComparison.Ordinal)))
-            {
-                continue;
-            }
-
-            workspace.NutritionAssessments.Add(new NutritionAssessmentRun(
-                instrument,
-                subject,
-                new ArchiveResourceIdentity
-                {
-                    ResourceId = new ResourceId(Guid.NewGuid()),
-                    VersionId = new ResourceVersionId(Guid.NewGuid())
-                },
-                startedAt));
+            throw new InvalidOperationException("当前咨询已经添加了该量表。");
         }
+
+        var startedAt = createdAt ?? DateTimeOffset.UtcNow;
+        var run = new NutritionAssessmentRun(
+            instrument,
+            CreateSubject(workspace.Client),
+            new ArchiveResourceIdentity
+            {
+                ResourceId = new ResourceId(Guid.NewGuid()),
+                VersionId = new ResourceVersionId(Guid.NewGuid())
+            },
+            startedAt);
+        workspace.NutritionAssessments.Add(run);
+        return run;
     }
+
+    /// <summary>
+    /// 从工作区移除一次量表运行及其回答，使其不再参与后续档案快照。
+    /// </summary>
+    /// <remarks>已经由专业人员确认并加入 SOAP 的文本属于独立记录，不在此处追溯删除。</remarks>
+    /// <returns>找到并移除了指定运行实例时返回 <see langword="true" />。</returns>
+    public bool RemoveRun(ConsultationWorkspace workspace, Guid runId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        var run = workspace.NutritionAssessments.SingleOrDefault(candidate =>
+            candidate.RunId == runId);
+        return run is not null && workspace.NutritionAssessments.Remove(run);
+    }
+
+    private static bool HasSameIdentity(
+        NutritionAssessmentDefinition left,
+        NutritionAssessmentDefinition right) =>
+        left.CodeSystem == right.CodeSystem
+        && string.Equals(left.Code, right.Code, StringComparison.Ordinal)
+        && string.Equals(left.Version, right.Version, StringComparison.Ordinal);
 
     private static NutritionAssessmentSubject CreateSubject(IClient client)
     {

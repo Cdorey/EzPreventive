@@ -1,0 +1,135 @@
+@using System.Globalization
+@using EzNutrition.Domain.Assessments
+@using EzNutrition.Domain.Consultations
+@namespace EzNutrition.UI.Components
+
+<article class="assessment-card">
+    <header class="assessment-header">
+        <div>
+            <span>结构化量表</span>
+            <h3>@Assessment.Definition.DisplayName</h3>
+            <p>@Assessment.Definition.Description</p>
+        </div>
+        <Tag Color="@("blue")">版本 @Assessment.Definition.Version</Tag>
+    </header>
+
+    @if (Assessment.Subject.BodyMassIndex is { } bodyMassIndex)
+    {
+        <div class="assessment-context">
+            本次咨询资料计算的 BMI：
+            <strong>@bodyMassIndex.ToString("0.0", CultureInfo.InvariantCulture) kg/m²</strong>
+        </div>
+    }
+
+    @foreach (var section in Assessment.Definition.Sections)
+    {
+        var applicableItems = section.Items
+            .Where(item => Assessment.Evaluation.ApplicableItemCodes.Contains(item.Code))
+            .ToArray();
+        if (applicableItems.Length > 0)
+        {
+            <section class="assessment-section">
+                <div class="assessment-section-heading">
+                    <h4>@section.Title</h4>
+                    @if (!string.IsNullOrWhiteSpace(section.Description))
+                    {
+                        <p>@section.Description</p>
+                    }
+                </div>
+
+                @foreach (var item in applicableItems)
+                {
+                    <fieldset class="assessment-item">
+                        <legend>@item.Prompt</legend>
+                        @if (!string.IsNullOrWhiteSpace(item.HelpText))
+                        {
+                            <p class="assessment-help">@item.HelpText</p>
+                        }
+                        <div class="assessment-options">
+                            @foreach (var option in item.Options)
+                            {
+                                var inputId = InputId(item, option);
+                                <label class="assessment-option" for="@inputId">
+                                    <input id="@inputId"
+                                           type="radio"
+                                           name="@InputName(item)"
+                                           value="@option.Code"
+                                           checked="@IsSelected(item, option)"
+                                           @onchange="@(() => SelectAnswer(item, option))" />
+                                    <span class="assessment-option-text">@option.Display</span>
+                                    @if (option.Score is { } score)
+                                    {
+                                        <span class="assessment-option-score">
+                                            @score.ToString("0", CultureInfo.InvariantCulture) 分
+                                        </span>
+                                    }
+                                </label>
+                            }
+                        </div>
+                    </fieldset>
+                }
+            </section>
+        }
+    }
+
+    @if (Assessment.Evaluation.IsComplete)
+    {
+        <footer class="assessment-result">
+            <div>
+                <span>量表结果</span>
+                <strong>@(Assessment.Evaluation.Interpretation?.Display ?? "已完成")</strong>
+                @if (Assessment.Evaluation.TotalScore is { } totalScore)
+                {
+                    <Tag Color="@ResultColor(Assessment.Evaluation)">
+                        总分 @totalScore.ToString("0", CultureInfo.InvariantCulture)
+                    </Tag>
+                }
+            </div>
+            <SoapContributionImport Contributor="Assessment.Evaluation"
+                                    OnConfirmed="OnSoapContributionConfirmed" />
+        </footer>
+    }
+    else
+    {
+        <div class="assessment-progress" role="status">
+            尚有 @Assessment.Evaluation.MissingItemCodes.Count 项必答内容未完成，结果会在作答后自动计算。
+        </div>
+    }
+</article>
+
+@code {
+    /// <summary>获取当前页签承载的量表运行实例。</summary>
+    [Parameter, EditorRequired]
+    public NutritionAssessmentRun Assessment { get; set; } = null!;
+
+    /// <summary>获取专业人员复核量表候选文本后的回调。</summary>
+    [Parameter]
+    public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
+
+    private bool IsSelected(
+        NutritionAssessmentItem item,
+        NutritionAssessmentOption option) => string.Equals(
+            Assessment.GetAnswer(item.Code),
+            option.Code,
+            StringComparison.Ordinal);
+
+    private void SelectAnswer(
+        NutritionAssessmentItem item,
+        NutritionAssessmentOption option) => Assessment.SetAnswer(item.Code, option.Code);
+
+    private string InputName(NutritionAssessmentItem item) =>
+        $"assessment-{Assessment.RunId:N}-{item.Code}";
+
+    private string InputId(
+        NutritionAssessmentItem item,
+        NutritionAssessmentOption option) =>
+        $"{InputName(item)}-{option.Code}";
+
+    internal static string ResultColor(NutritionAssessmentEvaluation evaluation) =>
+        evaluation.Interpretation?.AttentionLevel switch
+        {
+            NutritionAssessmentAttentionLevel.Routine => "green",
+            NutritionAssessmentAttentionLevel.RequiresAttention => "red",
+            _ => "blue"
+        };
+}

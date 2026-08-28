@@ -8,10 +8,25 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Application.Tests.Consultations;
 
 /// <summary>
-/// 验证通用量表运行态的分支清理和档案映射。
+/// 验证通用量表运行态的重新计分和档案映射。
 /// </summary>
 public sealed class NutritionAssessmentApplicationServiceTests
 {
+    /// <summary>
+    /// 验证宿主注册只形成可选目录，不会替任意咨询预先建立运行实例。
+    /// </summary>
+    [Fact]
+    public void Registered_instruments_remain_a_catalog_until_selected()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+
+        var definition = Assert.Single(service.Definitions);
+
+        Assert.Equal("nrs-2002", definition.Code);
+        Assert.Empty(workspace.NutritionAssessments);
+    }
+
     /// <summary>
     /// 验证同一代码体系、量表编码和版本不能被宿主重复注册。
     /// </summary>
@@ -24,26 +39,44 @@ public sealed class NutritionAssessmentApplicationServiceTests
     }
 
     /// <summary>
-    /// 验证上游答案改变后，不再适用的终筛答案不会残留在工作区。
+    /// 验证营养状况小结改变后，运行态重新取三个小结中的最高分。
     /// </summary>
     [Fact]
-    public void Changing_initial_path_discards_inapplicable_final_answers()
+    public void Changing_nutritional_subscore_recomputes_the_highest_score()
     {
         var workspace = CreateWorkspace();
         var run = CreateRun(workspace);
-        CompleteInitialScreen(run, bmiBelow205: true);
-        run.SetAnswer("impaired-nutritional-status", "3");
-        run.SetAnswer("disease-severity", "2");
-        Assert.True(run.Evaluation.IsComplete);
-        Assert.Equal(6, run.Answers.Count);
-
-        run.SetAnswer("initial-bmi-below-20-5", "no");
+        CompleteScreening(
+            run,
+            weightLoss: "over-five-percent-within-two-months",
+            intakeReduction: "reduced-25-to-50-percent");
 
         Assert.True(run.Evaluation.IsComplete);
-        Assert.Equal("negative-initial-screening", run.Evaluation.Interpretation?.Code);
+        Assert.Equal(3m, run.Evaluation.TotalScore);
         Assert.Equal(4, run.Answers.Count);
-        Assert.DoesNotContain("impaired-nutritional-status", run.Answers.Keys);
-        Assert.DoesNotContain("disease-severity", run.Answers.Keys);
+
+        run.SetAnswer("recent-weight-loss", "no-scored-weight-loss");
+
+        Assert.True(run.Evaluation.IsComplete);
+        Assert.Equal(2m, run.Evaluation.TotalScore);
+        Assert.Equal("no-current-nutritional-risk", run.Evaluation.Interpretation?.Code);
+        Assert.Equal(4, run.Answers.Count);
+    }
+
+    /// <summary>
+    /// 验证同一量表在当前咨询中只能保留一个活动运行实例。
+    /// </summary>
+    [Fact]
+    public void Starting_an_already_open_instrument_is_rejected()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var definition = Assert.Single(service.Definitions);
+        service.StartRun(workspace, definition, workspace.ContractIdentity.CreatedAt);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            service.StartRun(workspace, definition, workspace.ContractIdentity.CreatedAt));
+        Assert.Single(workspace.NutritionAssessments);
     }
 
     /// <summary>
@@ -54,9 +87,10 @@ public sealed class NutritionAssessmentApplicationServiceTests
     {
         var workspace = CreateWorkspace();
         var run = CreateRun(workspace);
-        CompleteInitialScreen(run, bmiBelow205: true);
-        run.SetAnswer("impaired-nutritional-status", "1");
-        run.SetAnswer("disease-severity", "1");
+        CompleteScreening(
+            run,
+            weightLoss: "over-five-percent-within-three-months",
+            diseaseSeverity: "mild");
         var assembler = new ArchiveContractAssembler(new ApplicationIdentity(
             new Uri("https://eznutrition.cdorey.net/applications/assessment-test"),
             "量表集成测试",
@@ -69,12 +103,47 @@ public sealed class NutritionAssessmentApplicationServiceTests
             document.Bundle.Entries.OfType<NutritionScaleAssessmentResource>());
 
         Assert.Equal("nrs-2002", resource.Instrument.Code.Code);
-        Assert.Equal("2002", resource.Instrument.Version);
+        Assert.Equal("WS/T 427—2013", resource.Instrument.Version);
         Assert.Equal(3m, resource.TotalScore);
         Assert.Equal("nrs-2002/interpretation/nutritional-risk", resource.Interpretation?.Code);
-        Assert.Equal(6, resource.Responses.Count);
-        Assert.Equal(3, resource.DerivedResults.Count);
+        Assert.Equal(4, resource.Responses.Count);
+        Assert.Equal(6, resource.DerivedResults.Count);
         Assert.Equal(run.ArchiveIdentity.ResourceId, resource.Metadata.ResourceId);
+    }
+
+    /// <summary>
+    /// 验证关闭量表会删除运行态回答并阻止归档，但不追溯删除已经确认的 SOAP 文本。
+    /// </summary>
+    [Fact]
+    public void Removing_run_excludes_it_from_archive_without_rewriting_soap()
+    {
+        var workspace = CreateWorkspace();
+        workspace.SubjectiveObjectiveAssessmentPlanInformation = new()
+        {
+            Objective = "已由专业人员确认的量表摘要"
+        };
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var run = service.StartRun(
+            workspace,
+            Assert.Single(service.Definitions),
+            workspace.ContractIdentity.CreatedAt);
+        CompleteScreening(run);
+
+        var removed = service.RemoveRun(workspace, run.RunId);
+        var document = new ArchiveContractAssembler(new ApplicationIdentity(
+                new Uri("https://eznutrition.cdorey.net/applications/assessment-removal-test"),
+                "量表移除测试",
+                "2.1-test"))
+            .CreateDocument(workspace, workspace.ContractIdentity.CreatedAt.AddMinutes(5));
+
+        Assert.True(removed);
+        Assert.Empty(workspace.NutritionAssessments);
+        Assert.DoesNotContain(
+            document.Bundle.Entries,
+            entry => entry is NutritionScaleAssessmentResource);
+        Assert.Equal(
+            "已由专业人员确认的量表摘要",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Objective);
     }
 
     private static ConsultationWorkspace CreateWorkspace() => new(new ClientInfo
@@ -88,17 +157,22 @@ public sealed class NutritionAssessmentApplicationServiceTests
     private static NutritionAssessmentRun CreateRun(ConsultationWorkspace workspace)
     {
         var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
-        service.EnsureRuns(workspace, workspace.ContractIdentity.CreatedAt);
-        return Assert.Single(workspace.NutritionAssessments);
+        return service.StartRun(
+            workspace,
+            Assert.Single(service.Definitions),
+            workspace.ContractIdentity.CreatedAt);
     }
 
-    private static void CompleteInitialScreen(
+    private static void CompleteScreening(
         NutritionAssessmentRun run,
-        bool bmiBelow205)
+        string bmiStatus = "bmi-at-least-18-5",
+        string weightLoss = "no-scored-weight-loss",
+        string intakeReduction = "no-scored-intake-reduction",
+        string diseaseSeverity = "no-scored-disease-severity")
     {
-        run.SetAnswer("initial-bmi-below-20-5", bmiBelow205 ? "yes" : "no");
-        run.SetAnswer("initial-weight-loss-within-three-months", "no");
-        run.SetAnswer("initial-reduced-intake-last-week", "no");
-        run.SetAnswer("initial-severe-illness", "no");
+        run.SetAnswer("bmi-status", bmiStatus);
+        run.SetAnswer("recent-weight-loss", weightLoss);
+        run.SetAnswer("last-week-intake-reduction", intakeReduction);
+        run.SetAnswer("disease-severity", diseaseSeverity);
     }
 }

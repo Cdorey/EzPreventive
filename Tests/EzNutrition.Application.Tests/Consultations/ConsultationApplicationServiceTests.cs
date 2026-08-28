@@ -32,6 +32,7 @@ public sealed class ConsultationApplicationServiceTests
         Assert.NotNull(workspace.DietaryRecallSurvey);
         Assert.Single(workspace.DietaryRecallSurvey.Foods);
         Assert.Single(workspace.DietaryRecallSurvey.Nutrients);
+        Assert.Empty(workspace.NutritionAssessments);
         Assert.NotNull(workspace.SubjectiveObjectiveAssessmentPlanInformation);
         Assert.Equal("female", source.LastDriQuery?.Gender);
         Assert.Equal(35m, source.LastDriQuery?.AgeInYears);

@@ -111,11 +111,34 @@ public sealed record NutritionAssessmentSubject
 public sealed record NutritionAssessmentMetric(string Code, string Display, decimal Value);
 
 /// <summary>
+/// 表示一项量表解释对专业人员关注程度的领域语义。
+/// </summary>
+/// <remarks>
+/// 本枚举不规定任何具体颜色或视觉样式；展示层负责将其映射为适合当前界面的提示。
+/// </remarks>
+public enum NutritionAssessmentAttentionLevel
+{
+    /// <summary>量表没有声明关注程度。</summary>
+    Unspecified = 0,
+
+    /// <summary>结果属于常规状态，无需额外强调。</summary>
+    Routine = 1,
+
+    /// <summary>结果需要专业人员关注或处理。</summary>
+    RequiresAttention = 2
+}
+
+/// <summary>
 /// 表示量表结果的编码化临床解释。
 /// </summary>
 /// <param name="Code">解释在当前量表版本内的稳定编码。</param>
 /// <param name="Display">面向专业人员的解释文本。</param>
-public sealed record NutritionAssessmentInterpretation(string Code, string Display);
+/// <param name="AttentionLevel">结果对专业人员关注程度的领域语义。</param>
+public sealed record NutritionAssessmentInterpretation(
+    string Code,
+    string Display,
+    NutritionAssessmentAttentionLevel AttentionLevel =
+        NutritionAssessmentAttentionLevel.Unspecified);
 
 /// <summary>
 /// 表示当前回答经具体量表规则求得的状态和结果。

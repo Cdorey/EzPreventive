@@ -53,7 +53,7 @@ public sealed class UiArchitectureBoundaryTests
         Assert.Equal(uiAssembly, typeof(DRIsInSightTable).Assembly);
         Assert.Equal(uiAssembly, typeof(EnergyCalculatorTreatment).Assembly);
         Assert.Equal(uiAssembly, typeof(MedicalInformation).Assembly);
-        Assert.Equal(uiAssembly, typeof(NutritionAssessmentScales).Assembly);
+        Assert.Equal(uiAssembly, typeof(NutritionAssessmentScale).Assembly);
         Assert.Equal(uiAssembly, typeof(Summary).Assembly);
         Assert.Equal(uiAssembly, typeof(ArchiveActions).Assembly);
         Assert.Equal(uiAssembly, typeof(ArchiveCenter).Assembly);
