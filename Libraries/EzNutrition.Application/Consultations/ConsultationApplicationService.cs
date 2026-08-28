@@ -12,8 +12,24 @@ namespace EzNutrition.Application.Consultations;
 public sealed class ConsultationApplicationService(
     IEnergyReferenceDataSource energyReferenceDataSource,
     IDietaryReferenceIntakeDataSource dietaryReferenceIntakeDataSource,
-    IFoodCompositionDataSource foodCompositionDataSource)
+    IFoodCompositionDataSource foodCompositionDataSource,
+    NutritionAssessmentApplicationService nutritionAssessmentService)
 {
+    /// <summary>
+    /// 建立不配置扩展量表的咨询服务，供只使用基础核算能力的宿主或测试使用。
+    /// </summary>
+    public ConsultationApplicationService(
+        IEnergyReferenceDataSource energyReferenceDataSource,
+        IDietaryReferenceIntakeDataSource dietaryReferenceIntakeDataSource,
+        IFoodCompositionDataSource foodCompositionDataSource)
+        : this(
+            energyReferenceDataSource,
+            dietaryReferenceIntakeDataSource,
+            foodCompositionDataSource,
+            new NutritionAssessmentApplicationService([]))
+    {
+    }
+
     /// <summary>
     /// 读取 DRIs 与食物成分目录，并在全部数据可用后一次性初始化工作区。
     /// </summary>
@@ -61,6 +77,7 @@ public sealed class ConsultationApplicationService(
         workspace.DRIs = dris;
         workspace.DietaryRecallSurvey = dietaryRecallSurvey;
         workspace.DietaryTower = StandardTower.GetStandardTower(subject.AgeInYears);
+        nutritionAssessmentService.EnsureRuns(workspace);
         workspace.SubjectiveObjectiveAssessmentPlanInformation = new();
         workspace.ClientInfoFormEnabled = false;
     }

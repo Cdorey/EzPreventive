@@ -84,6 +84,7 @@ public static class PresentationServiceCollectionExtensions
             new SessionCachedFoodCatalogDataSource(
                 provider.GetRequiredService<HttpNutritionDataSource>()));
         services.AddScoped<AiAdviceApplicationService>();
+        services.AddScoped<NutritionAssessmentApplicationService>();
         services.AddScoped<ConsultationApplicationService>();
         services.AddScoped<ConsultationWorkspaceManager>();
         services.AddScoped<AccountService>();
