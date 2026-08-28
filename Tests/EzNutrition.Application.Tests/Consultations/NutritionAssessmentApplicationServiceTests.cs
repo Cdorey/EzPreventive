@@ -2,7 +2,7 @@ using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.ValueObjects;
-using EzNutrition.Assessments.Nrs2002;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Domain.Consultations;
 
 namespace EzNutrition.Application.Tests.Consultations;

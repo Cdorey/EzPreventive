@@ -15,7 +15,7 @@ public sealed class UiArchitectureBoundaryTests
     private static readonly HashSet<string> ForbiddenUiAssemblyReferences =
     [
         "EzNutrition.Client",
-        "EzNutrition.Assessments.Nrs2002",
+        "EzNutrition.Assessments.Common",
         "EzNutrition.Presentation",
         "EzNutrition.Server",
         "Microsoft.AspNetCore.Components.WebAssembly",
@@ -26,7 +26,7 @@ public sealed class UiArchitectureBoundaryTests
     private static readonly HashSet<string> ForbiddenPresentationAssemblyReferences =
     [
         "EzNutrition.Client",
-        "EzNutrition.Assessments.Nrs2002",
+        "EzNutrition.Assessments.Common",
         "EzNutrition.Wpf",
         "EzNutrition.Server",
         "Microsoft.AspNetCore.Components.WebAssembly",

@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Libraries\EzNutrition.Assessments.Nrs2002\EzNutrition.Assessments.Nrs2002.csproj" />
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Assessments.Common\EzNutrition.Assessments.Common.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Application\EzNutrition.Application.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Domain\EzNutrition.Domain.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Shared\EzNutrition.Shared.csproj" />

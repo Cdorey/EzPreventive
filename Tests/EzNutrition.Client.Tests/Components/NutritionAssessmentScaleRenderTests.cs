@@ -1,7 +1,7 @@
 using System.Net;
 using AntDesign;
 using EzNutrition.Application.Consultations;
-using EzNutrition.Assessments.Nrs2002;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
 using EzNutrition.UI.Components;

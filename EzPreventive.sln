@@ -46,9 +46,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{4F52FD11
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Presentation", "Libraries\EzNutrition.Presentation\EzNutrition.Presentation.csproj", "{F364AAE8-ED89-42C5-BCEF-AC4CA4E9C8E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Assessments.Nrs2002", "Libraries\EzNutrition.Assessments.Nrs2002\EzNutrition.Assessments.Nrs2002.csproj", "{CF864D79-C78A-40DC-808A-36BEB4223B9E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Assessments.Common", "Libraries\EzNutrition.Assessments.Common\EzNutrition.Assessments.Common.csproj", "{CF864D79-C78A-40DC-808A-36BEB4223B9E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Assessments.Nrs2002.Tests", "Tests\EzNutrition.Assessments.Nrs2002.Tests\EzNutrition.Assessments.Nrs2002.Tests.csproj", "{485D59AD-4687-40A5-A66C-38BED3671BC5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzNutrition.Assessments.Common.Tests", "Tests\EzNutrition.Assessments.Common.Tests\EzNutrition.Assessments.Common.Tests.csproj", "{485D59AD-4687-40A5-A66C-38BED3671BC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

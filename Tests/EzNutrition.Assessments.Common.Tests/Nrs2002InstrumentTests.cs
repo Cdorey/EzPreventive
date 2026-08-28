@@ -1,7 +1,7 @@
-using EzNutrition.Assessments.Nrs2002;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Domain.Assessments;
 
-namespace EzNutrition.Assessments.Nrs2002.Tests;
+namespace EzNutrition.Assessments.Common.Tests;
 
 /// <summary>
 /// 验证 NRS 2002 实现与 WS/T 427—2013 的题目、计分和结果判定一致。

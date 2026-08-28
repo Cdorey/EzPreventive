@@ -1,6 +1,6 @@
 using System.Reflection;
 using EzNutrition.Application.Archives;
-using EzNutrition.Assessments.Nrs2002;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;

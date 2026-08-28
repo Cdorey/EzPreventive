@@ -2,7 +2,7 @@ using System.Globalization;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
 
-namespace EzNutrition.Assessments.Nrs2002;
+namespace EzNutrition.Assessments.Common;
 
 /// <summary>
 /// 按 WS/T 427—2013 实现成年住院患者临床营养风险筛查的题目、计分和结果判定。
