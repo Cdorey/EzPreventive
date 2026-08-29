@@ -1,5 +1,6 @@
 ﻿@page "/administrators"
 @using EzNutrition.Shared.Data.DTO
+@using EzNutrition.Shared.Identities
 @using EzNutrition.Shared.Policies
 @using System.ComponentModel.DataAnnotations
 @attribute [Authorize(Policy = PolicyList.Admin)]
@@ -527,8 +528,8 @@
         {
             userInfoDto.Roles.Add(requestDto.IdentityType);
         }
-        AddClaimIfMissing(userInfoDto, "InstitutionName", requestDto.InstitutionName);
-        AddClaimIfMissing(userInfoDto, "RealName", userInfoExtension.RealName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, requestDto.InstitutionName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.RealName, userInfoExtension.RealName);
 
         if (userInfoExtension.PracticingType is not null)
         {

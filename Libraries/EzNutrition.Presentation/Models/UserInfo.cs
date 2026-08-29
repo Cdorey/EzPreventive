@@ -13,11 +13,17 @@ namespace EzNutrition.Presentation.Models
 
         public string Token { get; }
 
+        public string UserId { get; }
+
         public string UserName { get; }
 
         public string[] Roles { get; }
 
         public string Email { get; }
+
+        public string? RealName { get; }
+
+        public string? InstitutionName { get; }
 
         public DateTimeOffset? ExpiresAt { get; }
 
@@ -36,6 +42,12 @@ namespace EzNutrition.Presentation.Models
             var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(Token);
             claims = jwtToken.Claims.ToArray();
 
+            UserId = FindClaimValue(
+                JwtRegisteredClaimNames.Sub,
+                "nameid",
+                "upn",
+                ClaimTypes.NameIdentifier,
+                ClaimTypes.Upn);
             UserName = FindClaimValue(JwtRegisteredClaimNames.UniqueName, ClaimTypes.Name);
             Roles = claims
                 .Where(claim => claim.Type is "role" || claim.Type == ClaimTypes.Role)
@@ -43,11 +55,15 @@ namespace EzNutrition.Presentation.Models
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
             Email = FindClaimValue(JwtRegisteredClaimNames.Email, ClaimTypes.Email);
+            RealName = FindOptionalClaimValue(UserClaimTypes.RealName);
+            InstitutionName = FindOptionalClaimValue(UserClaimTypes.InstitutionName);
             ExpiresAt = jwtToken.ValidTo == DateTime.MinValue
                 ? null
                 : new DateTimeOffset(DateTime.SpecifyKind(jwtToken.ValidTo, DateTimeKind.Utc));
 
-            if (string.IsNullOrWhiteSpace(UserName) || ExpiresAt is null)
+            if (string.IsNullOrWhiteSpace(UserId)
+                || string.IsNullOrWhiteSpace(UserName)
+                || ExpiresAt is null)
             {
                 throw new ArgumentException("Token is missing required identity claims.", nameof(token));
             }
@@ -56,5 +72,12 @@ namespace EzNutrition.Presentation.Models
         private string FindClaimValue(params string[] claimTypes) =>
             claims.FirstOrDefault(claim => claimTypes.Contains(claim.Type, StringComparer.Ordinal))?.Value
             ?? string.Empty;
+
+        private string? FindOptionalClaimValue(params string[] claimTypes)
+        {
+            var value = claims.FirstOrDefault(claim =>
+                claimTypes.Contains(claim.Type, StringComparer.Ordinal))?.Value;
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
     }
 }

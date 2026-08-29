@@ -1,4 +1,6 @@
+using EzNutrition.Presentation.Models;
 using EzNutrition.Presentation.Services;
+using EzNutrition.Shared.Identities;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
@@ -13,6 +15,26 @@ namespace EzNutrition.Client.Tests.Services;
 public sealed class UserSessionCredentialTests
 {
     private static readonly Uri ServerBaseAddress = new("https://app.example.test/");
+
+    [Fact]
+    public void User_info_exposes_stable_and_optional_professional_identity()
+    {
+        var professional = new UserInfo(CreateToken(
+            "professional-user",
+            "professional-id",
+            "  测试医师  ",
+            "  测试医疗机构  "));
+        var generalUser = new UserInfo(CreateToken("general-user", "general-id"));
+        var serverIssued = new UserInfo(CreateServerStyleToken());
+
+        Assert.Equal("professional-id", professional.UserId);
+        Assert.Equal("测试医师", professional.RealName);
+        Assert.Equal("测试医疗机构", professional.InstitutionName);
+        Assert.Equal("general-id", generalUser.UserId);
+        Assert.Null(generalUser.RealName);
+        Assert.Null(generalUser.InstitutionName);
+        Assert.Equal("server-user-id", serverIssued.UserId);
+    }
 
     [Fact]
     public async Task Remembered_sign_in_saves_the_normalized_credential()
@@ -174,10 +196,42 @@ public sealed class UserSessionCredentialTests
             clientVersion: "2.1.0.0");
     }
 
-    private static string CreateToken(string userName)
+    private static string CreateToken(
+        string userName,
+        string? userId = null,
+        string? realName = null,
+        string? institutionName = null)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId ?? $"{userName}-id"),
+            new(JwtRegisteredClaimNames.UniqueName, userName)
+        };
+        if (realName is not null)
+        {
+            claims.Add(new Claim(UserClaimTypes.RealName, realName));
+        }
+
+        if (institutionName is not null)
+        {
+            claims.Add(new Claim(UserClaimTypes.InstitutionName, institutionName));
+        }
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1));
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string CreateServerStyleToken()
     {
         var token = new JwtSecurityToken(
-            claims: [new Claim(JwtRegisteredClaimNames.UniqueName, userName)],
+            claims:
+            [
+                new Claim(ClaimTypes.NameIdentifier, "server-user-id"),
+                new Claim(ClaimTypes.Upn, "server-user-id"),
+                new Claim(ClaimTypes.Name, "server-user")
+            ],
             expires: DateTime.UtcNow.AddHours(1));
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
