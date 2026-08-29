@@ -26,6 +26,10 @@ public sealed class CommonAssessmentInstrumentTests
             "国卫办医函〔2021〕552号",
             "表 27-2《主观全面评定（SGA）评价表格》及表 27-3");
         AssertDefinition(
+            new ChasSgaInstrument(),
+            "T/CHAS 10-2-29—2020",
+            "附录 A6《主观整体评估表（SGA）》");
+        AssertDefinition(
             new PgSgaInstrument(),
             "WS/T 555—2017",
             "附录 A 表 A.1 及附录 B");
@@ -62,6 +66,28 @@ public sealed class CommonAssessmentInstrumentTests
         Assert.Equal(
             "B：力气、精力中度下降但正在改善；通常活动部分减少；或严重下降但正在改善",
             Assert.Single(function.Options, option => option.Code == "b").Display);
+
+        var chasSgaItems = new ChasSgaInstrument().Definition.Items;
+        var weightLoss = Assert.Single(
+            chasSgaItems,
+            item => item.Code == "weight-loss");
+        Assert.Equal(
+            "A：近6个月内体重无下降；或近6个月内体重下降＞10%，但近1月内体重又恢复",
+            Assert.Single(weightLoss.Options, option => option.Code == "a").Display);
+
+        var activity = Assert.Single(
+            chasSgaItems,
+            item => item.Code == "functional-capacity");
+        Assert.Equal(
+            "C：活动明显受限，仅能卧床或坐椅子；或大部分时间卧床，很少下床活动",
+            Assert.Single(activity.Options, option => option.Code == "c").Display);
+
+        var globalRating = Assert.Single(
+            chasSgaItems,
+            item => item.Code == "global-rating");
+        Assert.Equal(
+            "上述8项中，至少5项属于C或B级者，才可分别判定为重或中度营养不良。",
+            globalRating.HelpText);
     }
 
     /// <summary>
@@ -168,6 +194,48 @@ public sealed class CommonAssessmentInstrumentTests
         Assert.Null(evaluation.TotalScore);
         Assert.Empty(evaluation.Metrics);
         Assert.Equal("mild-to-moderate-malnutrition", evaluation.Interpretation?.Code);
+        Assert.All(
+            instrument.Definition.Items.SelectMany(item => item.Options),
+            option => Assert.Null(option.Score));
+    }
+
+    /// <summary>
+    /// 验证团标版 SGA 保留 8 项分类计数，并采用专业人员确认的整体等级。
+    /// </summary>
+    [Fact]
+    public void Chas_sga_preserves_classification_counts_and_the_confirmed_global_rating()
+    {
+        var instrument = new ChasSgaInstrument();
+        var answers = instrument.Definition.Items.ToDictionary(
+            item => item.Code,
+            item => (NutritionAssessmentAnswer)Single(
+                item.Code == "global-rating"
+                    ? "b"
+                    : item.Code is "muscle-wasting" or "subcutaneous-fat-loss" or "ankle-edema"
+                        ? "a"
+                        : "b"),
+            StringComparer.Ordinal);
+
+        var evaluation = instrument.Evaluate(answers, Subject(70));
+
+        Assert.True(evaluation.IsComplete);
+        Assert.Null(evaluation.TotalScore);
+        Assert.Equal("mild-to-moderate-malnutrition", evaluation.Interpretation?.Code);
+        Assert.Equal(
+            3m,
+            Assert.Single(
+                evaluation.Metrics,
+                metric => metric.Code == "class-a-item-count").Value);
+        Assert.Equal(
+            5m,
+            Assert.Single(
+                evaluation.Metrics,
+                metric => metric.Code == "class-b-item-count").Value);
+        Assert.Equal(
+            0m,
+            Assert.Single(
+                evaluation.Metrics,
+                metric => metric.Code == "class-c-item-count").Value);
         Assert.All(
             instrument.Definition.Items.SelectMany(item => item.Options),
             option => Assert.Null(option.Score));

@@ -31,6 +31,7 @@ namespace EzNutrition.Client
                 INutritionAssessmentInstrument,
                 WsT552ElderlyMalnutritionRiskInstrument>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
             builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();

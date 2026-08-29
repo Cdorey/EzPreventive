@@ -142,6 +142,7 @@ public partial class App : System.Windows.Application
             INutritionAssessmentInstrument,
             WsT552ElderlyMalnutritionRiskInstrument>();
         services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
         services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
 
         services.AddSingleton(CreateArchiveContractAssembler());

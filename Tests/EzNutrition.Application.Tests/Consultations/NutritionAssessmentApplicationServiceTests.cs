@@ -41,6 +41,7 @@ public sealed class NutritionAssessmentApplicationServiceTests
             new MustInstrument(),
             new WsT552ElderlyMalnutritionRiskInstrument(),
             new SgaInstrument(),
+            new ChasSgaInstrument(),
             new PgSgaInstrument()
         ]);
 
@@ -51,6 +52,7 @@ public sealed class NutritionAssessmentApplicationServiceTests
             "must",
             "ws-t-552-elderly-malnutrition-risk",
             "sga",
+            "sga-chas-2020",
             "pg-sga"
         ],
             service.Definitions.Select(definition => definition.Code));
