@@ -36,6 +36,35 @@ public sealed class CommonAssessmentInstrumentTests
     }
 
     /// <summary>
+    /// 验证 MNA-SF 与 SGA 对边界条件有影响的展示文字保持规范原文。
+    /// </summary>
+    [Fact]
+    public void Definitions_preserve_normative_question_and_option_wording()
+    {
+        var mnaIntake = Assert.Single(
+            new MnaSfInstrument().Definition.Items,
+            item => item.Code == "food-intake-decline");
+        Assert.Equal(
+            "过去 3 个月是否因食欲减退、消化不良、咀嚼或吞咽困难而使食量减少？",
+            mnaIntake.Prompt);
+
+        var sgaItems = new SgaInstrument().Definition.Items;
+        var intakeDuration = Assert.Single(
+            sgaItems,
+            item => item.Code == "intake-change-duration");
+        Assert.Equal(
+            "A：≤2 周，变化少或无变化",
+            Assert.Single(intakeDuration.Options, option => option.Code == "a").Display);
+
+        var function = Assert.Single(
+            sgaItems,
+            item => item.Code == "functional-capacity");
+        Assert.Equal(
+            "B：力气、精力中度下降但正在改善；通常活动部分减少；或严重下降但正在改善",
+            Assert.Single(function.Options, option => option.Code == "b").Display);
+    }
+
+    /// <summary>
     /// 验证 MNA-SF 有 BMI 时直接采用快照计算第 6 项，并按 11 分阈值判定风险。
     /// </summary>
     [Fact]

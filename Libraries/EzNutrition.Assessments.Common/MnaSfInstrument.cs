@@ -48,7 +48,7 @@ public sealed class MnaSfInstrument : INutritionAssessmentInstrument
                 [
                     Item(
                         IntakeCode,
-                        "过去 3 个月是否因食欲减退、消化问题、咀嚼或吞咽困难而使食量减少？",
+                        "过去 3 个月是否因食欲减退、消化不良、咀嚼或吞咽困难而使食量减少？",
                         ("severe", "食量严重减少", 0),
                         ("moderate", "食量中度减少", 1),
                         ("unchanged", "食量没有改变", 2)),

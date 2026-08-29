@@ -81,7 +81,7 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
                     ClassifiedItem(
                         IntakeDurationCode,
                         "摄食变化持续时间",
-                        "<2 周，变化少或无变化",
+                        "≤2 周，变化少或无变化",
                         ">2 周，轻至中度低于理想摄食量",
                         ">2 周，不能进食或处于饥饿状态"),
                     ClassifiedItem(
@@ -94,7 +94,7 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
                         FunctionCode,
                         "功能异常",
                         "无受损；或力气、精力轻至中度下降但正在改善",
-                        "力气、精力中度下降；通常活动部分减少；或严重下降但正在改善",
+                        "力气、精力中度下降但正在改善；通常活动部分减少；或严重下降但正在改善",
                         "力气、精力严重下降或卧床"),
                     ClassifiedItem(
                         DiseaseStressCode,
