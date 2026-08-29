@@ -1,10 +1,12 @@
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Resources;
+using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Assessments.Common;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
+using EzNutrition.Shared.Identities;
 
 namespace EzNutrition.Application.Tests.Consultations;
 
@@ -169,6 +171,97 @@ public sealed class NutritionAssessmentApplicationServiceTests
     }
 
     /// <summary>
+    /// 验证量表开始时复制当前用户身份，后续账号资料变化不会改写既有调查人，并可完整归档。
+    /// </summary>
+    [Fact]
+    public void Assessment_performer_is_snapshotted_and_mapped_to_archive()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var currentUser = new MutableUserInfo
+        {
+            UserId = "professional-user-id",
+            UserName = "professional-user",
+            RealName = "  测试营养医师  ",
+            InstitutionName = "  测试营养中心  "
+        };
+        var run = service.StartRun(
+            workspace,
+            Assert.Single(service.Definitions),
+            workspace.ContractIdentity.CreatedAt,
+            currentUser);
+
+        currentUser.RealName = "变更后的姓名";
+        currentUser.InstitutionName = "变更后的机构";
+        CompleteScreening(run);
+
+        var document = new ArchiveContractAssembler(new ApplicationIdentity(
+                new Uri("https://eznutrition.cdorey.net/applications/assessment-performer-test"),
+                "量表调查人测试",
+                "2.1-test"))
+            .CreateDocument(workspace, workspace.ContractIdentity.CreatedAt.AddMinutes(5));
+        var resource = Assert.Single(
+            document.Bundle.Entries.OfType<NutritionScaleAssessmentResource>());
+
+        Assert.NotNull(run.Performer);
+        Assert.Equal("professional-user-id", run.Performer!.UserId);
+        Assert.Equal("测试营养医师", run.Performer.RealName);
+        Assert.Equal("测试营养中心", run.Performer.InstitutionName);
+        Assert.NotNull(resource.Performer);
+        Assert.Equal("测试营养医师", resource.Performer!.Display);
+        Assert.Equal(
+            "https://eznutrition.cdorey.net/identifiers/users",
+            resource.Performer.Identifier?.System.AbsoluteUri);
+        Assert.Equal("professional-user-id", resource.Performer.Identifier?.Value);
+        Assert.Equal("eznutrition-user-id", resource.Performer.Identifier?.Type?.Code);
+        Assert.Equal("测试营养中心", resource.Performer.Organization?.Display);
+        Assert.Equal("organization", resource.Performer.Organization?.Kind?.Code);
+        var validation = new ArchiveContractValidator().ValidateBundle(
+            document.Bundle,
+            ArchiveValidationScope.DraftSave);
+        Assert.False(
+            validation.HasErrors,
+            string.Join(" | ", validation.Issues.Select(issue => issue.Code)));
+    }
+
+    /// <summary>
+    /// 验证缺少专业认证声明不会阻止量表建立，缺失资料在调查人快照中保持为空。
+    /// </summary>
+    [Fact]
+    public void Missing_professional_claims_remain_optional_in_performer_snapshot()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var run = service.StartRun(
+            workspace,
+            Assert.Single(service.Definitions),
+            workspace.ContractIdentity.CreatedAt,
+            new MutableUserInfo
+            {
+                UserId = "general-user-id",
+                UserName = "general-user"
+            });
+
+        Assert.NotNull(run.Performer);
+        Assert.Equal("general-user", run.Performer!.UserName);
+        Assert.Null(run.Performer.RealName);
+        Assert.Null(run.Performer.InstitutionName);
+
+        run.SetAnswer("bmi-status", "bmi-at-least-18-5");
+        var document = new ArchiveContractAssembler(new ApplicationIdentity(
+                new Uri("https://eznutrition.cdorey.net/applications/optional-performer-test"),
+                "可选调查人资料测试",
+                "2.1-test"))
+            .CreateDocument(workspace, workspace.ContractIdentity.CreatedAt.AddMinutes(5));
+        var resource = Assert.Single(
+            document.Bundle.Entries.OfType<NutritionScaleAssessmentResource>());
+
+        Assert.Equal("general-user", resource.Performer?.Display);
+        Assert.Equal("general-user-id", resource.Performer?.Identifier?.Value);
+        Assert.Null(resource.Performer?.Organization);
+    }
+
+    /// <summary>
     /// 验证关闭量表会删除运行态回答并阻止归档，但不追溯删除已经确认的 SOAP 文本。
     /// </summary>
     [Fact]
@@ -231,5 +324,20 @@ public sealed class NutritionAssessmentApplicationServiceTests
         run.SetAnswer("recent-weight-loss", weightLoss);
         run.SetAnswer("last-week-intake-reduction", intakeReduction);
         run.SetAnswer("disease-severity", diseaseSeverity);
+    }
+
+    private sealed class MutableUserInfo : IUserInfo
+    {
+        public required string UserId { get; init; }
+
+        public required string UserName { get; init; }
+
+        public string[] Roles { get; init; } = [];
+
+        public string Email { get; init; } = string.Empty;
+
+        public string? RealName { get; set; }
+
+        public string? InstitutionName { get; set; }
     }
 }

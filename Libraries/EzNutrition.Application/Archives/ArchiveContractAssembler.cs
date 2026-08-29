@@ -24,6 +24,9 @@ namespace EzNutrition.Application.Archives;
 /// </summary>
 public sealed class ArchiveContractAssembler
 {
+    private static readonly Uri UserIdentifierSystem =
+        new("https://eznutrition.cdorey.net/identifiers/users");
+
     private readonly ApplicationIdentity sourceApplication;
 
     /// <summary>
@@ -776,7 +779,36 @@ public sealed class ArchiveContractAssembler
                     definition,
                     $"{definition.Code}/interpretation/{interpretation.Code}",
                     interpretation.Display)
-                : null
+                : null,
+            Performer = AssessmentPerformer(run.Performer)
+        };
+    }
+
+    private static ActorReference? AssessmentPerformer(
+        NutritionAssessmentPerformerSnapshot? performer)
+    {
+        if (performer is null)
+        {
+            return null;
+        }
+
+        return new ActorReference
+        {
+            Identifier = new BusinessIdentifier(
+                UserIdentifierSystem,
+                performer.UserId,
+                ArchiveContractCoding.Code(
+                    "identifier-type",
+                    "eznutrition-user-id",
+                    "EzNutrition 用户标识")),
+            Display = performer.RealName ?? performer.UserName,
+            Organization = performer.InstitutionName is null
+                ? null
+                : new ActorReference
+                {
+                    Kind = ArchiveContractCoding.Code("actor-kind", "organization", "机构"),
+                    Display = performer.InstitutionName
+                }
         };
     }
 

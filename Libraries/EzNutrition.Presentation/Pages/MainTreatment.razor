@@ -349,7 +349,10 @@
         var existing = CurrentArchive.NutritionAssessments.SingleOrDefault(assessment =>
             HasSameIdentity(assessment.Definition, definition));
         var assessment = existing
-            ?? NutritionAssessmentService.StartRun(CurrentArchive, definition);
+            ?? NutritionAssessmentService.StartRun(
+                CurrentArchive,
+                definition,
+                currentUser: UserSession.UserInfo is { IsExpired: false } user ? user : null);
         activeWorkspaceTabKey = AssessmentTabKey(assessment);
     }
 

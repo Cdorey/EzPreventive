@@ -2,6 +2,7 @@ using EzNutrition.Application.Archives;
 using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
+using EzNutrition.Shared.Identities;
 
 namespace EzNutrition.Application.Consultations;
 
@@ -52,11 +53,16 @@ public sealed class NutritionAssessmentApplicationService
     /// <summary>
     /// 根据宿主注册的量表定义，在工作区中开始一次量表评估。
     /// </summary>
+    /// <param name="workspace">接收本次量表运行的咨询工作区。</param>
+    /// <param name="definition">待开始的已注册量表定义。</param>
+    /// <param name="createdAt">可选的建立时间；未提供时采用当前 UTC 时间。</param>
+    /// <param name="currentUser">可选的当前认证用户；提供时立即形成调查人员身份快照。</param>
     /// <returns>新建立并已加入当前工作区的量表运行实例。</returns>
     public NutritionAssessmentRun StartRun(
         ConsultationWorkspace workspace,
         NutritionAssessmentDefinition definition,
-        DateTimeOffset? createdAt = null)
+        DateTimeOffset? createdAt = null,
+        IUserInfo? currentUser = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(definition);
@@ -71,6 +77,9 @@ public sealed class NutritionAssessmentApplicationService
         var run = CreateRun(
             instrument,
             CreateSubject(workspace.Client),
+            currentUser is null
+                ? null
+                : NutritionAssessmentPerformerSnapshot.FromUserInfo(currentUser),
             createdAt ?? DateTimeOffset.UtcNow);
         workspace.NutritionAssessments.Add(run);
         return run;
@@ -94,6 +103,7 @@ public sealed class NutritionAssessmentApplicationService
         return CreateRun(
             FindInstrument(definition),
             subject,
+            null,
             createdAt ?? DateTimeOffset.UtcNow);
     }
 
@@ -125,9 +135,11 @@ public sealed class NutritionAssessmentApplicationService
     private static NutritionAssessmentRun CreateRun(
         INutritionAssessmentInstrument instrument,
         NutritionAssessmentSubject subject,
+        NutritionAssessmentPerformerSnapshot? performer,
         DateTimeOffset createdAt) => new(
             instrument,
             subject,
+            performer,
             new ArchiveResourceIdentity
             {
                 ResourceId = new ResourceId(Guid.NewGuid()),

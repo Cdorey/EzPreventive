@@ -17,6 +17,7 @@ public sealed class NutritionAssessmentRun
     internal NutritionAssessmentRun(
         INutritionAssessmentInstrument instrument,
         NutritionAssessmentSubject subject,
+        NutritionAssessmentPerformerSnapshot? performer,
         ArchiveResourceIdentity archiveIdentity,
         DateTimeOffset createdAt,
         Guid? runId = null)
@@ -28,6 +29,7 @@ public sealed class NutritionAssessmentRun
         this.instrument = instrument;
         Definition = instrument.Definition;
         Subject = subject;
+        Performer = performer;
         ArchiveIdentity = archiveIdentity;
         RunId = runId ?? Guid.NewGuid();
         CreatedAt = createdAt;
@@ -45,6 +47,9 @@ public sealed class NutritionAssessmentRun
 
     /// <summary>获取开始本次量表时采用的评估对象快照。</summary>
     public NutritionAssessmentSubject Subject { get; }
+
+    /// <summary>获取开始本次量表时取得的可选调查人员身份快照。</summary>
+    public NutritionAssessmentPerformerSnapshot? Performer { get; }
 
     /// <summary>获取当前已保存回答的只读视图。</summary>
     public IReadOnlyDictionary<string, NutritionAssessmentAnswer> Answers => readOnlyAnswers;
