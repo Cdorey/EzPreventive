@@ -6,7 +6,7 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Application.Consultations;
 
 /// <summary>
-/// 发现宿主注册的营养量表，并管理咨询工作区中的量表运行实例。
+/// 发现宿主注册的营养量表，并建立咨询内或独立速查使用的量表运行实例。
 /// </summary>
 public sealed class NutritionAssessmentApplicationService
 {
@@ -61,27 +61,40 @@ public sealed class NutritionAssessmentApplicationService
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(definition);
 
-        var instrument = instruments.SingleOrDefault(candidate =>
-            HasSameIdentity(candidate.Definition, definition))
-            ?? throw new ArgumentException("指定量表没有在当前宿主中注册。", nameof(definition));
+        var instrument = FindInstrument(definition);
         if (workspace.NutritionAssessments.Any(run =>
                 HasSameIdentity(run.Definition, instrument.Definition)))
         {
             throw new InvalidOperationException("当前咨询已经添加了该量表。");
         }
 
-        var startedAt = createdAt ?? DateTimeOffset.UtcNow;
-        var run = new NutritionAssessmentRun(
+        var run = CreateRun(
             instrument,
             CreateSubject(workspace.Client),
-            new ArchiveResourceIdentity
-            {
-                ResourceId = new ResourceId(Guid.NewGuid()),
-                VersionId = new ResourceVersionId(Guid.NewGuid())
-            },
-            startedAt);
+            createdAt ?? DateTimeOffset.UtcNow);
         workspace.NutritionAssessments.Add(run);
         return run;
+    }
+
+    /// <summary>
+    /// 建立一个不隶属于咨询工作区的独立量表运行实例。
+    /// </summary>
+    /// <remarks>
+    /// 调用方持有并管理该实例的生命周期；它不会自动加入咨询、SOAP 或档案，
+    /// 适用于量表速查等临时计算场景。
+    /// </remarks>
+    public NutritionAssessmentRun CreateStandaloneRun(
+        NutritionAssessmentDefinition definition,
+        NutritionAssessmentSubject subject,
+        DateTimeOffset? createdAt = null)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(subject);
+
+        return CreateRun(
+            FindInstrument(definition),
+            subject,
+            createdAt ?? DateTimeOffset.UtcNow);
     }
 
     /// <summary>
@@ -103,6 +116,24 @@ public sealed class NutritionAssessmentApplicationService
         left.CodeSystem == right.CodeSystem
         && string.Equals(left.Code, right.Code, StringComparison.Ordinal)
         && string.Equals(left.Version, right.Version, StringComparison.Ordinal);
+
+    private INutritionAssessmentInstrument FindInstrument(
+        NutritionAssessmentDefinition definition) => instruments.SingleOrDefault(candidate =>
+            HasSameIdentity(candidate.Definition, definition))
+            ?? throw new ArgumentException("指定量表没有在当前宿主中注册。", nameof(definition));
+
+    private static NutritionAssessmentRun CreateRun(
+        INutritionAssessmentInstrument instrument,
+        NutritionAssessmentSubject subject,
+        DateTimeOffset createdAt) => new(
+            instrument,
+            subject,
+            new ArchiveResourceIdentity
+            {
+                ResourceId = new ResourceId(Guid.NewGuid()),
+                VersionId = new ResourceVersionId(Guid.NewGuid())
+            },
+            createdAt);
 
     private static NutritionAssessmentSubject CreateSubject(IClient client)
     {

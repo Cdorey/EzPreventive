@@ -127,8 +127,11 @@
                     </Tag>
                 }
             </div>
-            <SoapContributionImport Contributor="Assessment.Evaluation"
-                                    OnConfirmed="OnSoapContributionConfirmed" />
+            @if (OnSoapContributionConfirmed.HasDelegate)
+            {
+                <SoapContributionImport Contributor="Assessment.Evaluation"
+                                        OnConfirmed="OnSoapContributionConfirmed" />
+            }
         </footer>
     }
     else

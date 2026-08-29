@@ -5,7 +5,7 @@ using EzNutrition.Domain.Assessments;
 namespace EzNutrition.Application.Consultations;
 
 /// <summary>
-/// 保存一次具体量表在咨询工作区中的回答、评估结果和稳定档案身份。
+/// 保存一次具体量表运行的回答、评估结果和可供咨询归档使用的稳定身份。
 /// </summary>
 public sealed class NutritionAssessmentRun
 {

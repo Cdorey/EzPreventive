@@ -65,6 +65,25 @@ public sealed class NutritionAssessmentScaleRenderTests
     }
 
     /// <summary>
+    /// 验证独立速查未提供 SOAP 回调时只复用作答和计分界面，不显示无效入口。
+    /// </summary>
+    [Fact]
+    public async Task Standalone_render_omits_the_soap_import_action()
+    {
+        var workspace = CreateWorkspace();
+        var run = Assert.Single(workspace.NutritionAssessments);
+        run.SetAnswer("bmi-status", "bmi-at-least-18-5");
+        run.SetAnswer("recent-weight-loss", "no-scored-weight-loss");
+        run.SetAnswer("last-week-intake-reduction", "no-scored-intake-reduction");
+        run.SetAnswer("disease-severity", "no-scored-disease-severity");
+
+        var html = await RenderAsync(workspace, includeSoapCallback: false);
+
+        Assert.Contains("目前没有营养风险", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("引入 SOAP", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// 验证结果颜色由通用关注程度决定，而不解释任何具体量表的结果编码。
     /// </summary>
     [Theory]
@@ -111,7 +130,9 @@ public sealed class NutritionAssessmentScaleRenderTests
         return workspace;
     }
 
-    private static async Task<string> RenderAsync(ConsultationWorkspace workspace)
+    private static async Task<string> RenderAsync(
+        ConsultationWorkspace workspace,
+        bool includeSoapCallback = true)
     {
         await using var services = new ServiceCollection()
             .AddLogging()
@@ -124,14 +145,19 @@ public sealed class NutritionAssessmentScaleRenderTests
 
         return await renderer.Dispatcher.InvokeAsync(async () =>
         {
+            var parameters = new Dictionary<string, object?>
+            {
+                [nameof(NutritionAssessmentScale.Assessment)] =
+                    Assert.Single(workspace.NutritionAssessments)
+            };
+            if (includeSoapCallback)
+            {
+                parameters[nameof(NutritionAssessmentScale.OnSoapContributionConfirmed)] =
+                    EventCallback.Factory.Create<SoapContribution>(new object(), _ => { });
+            }
+
             var output = await renderer.RenderComponentAsync<NutritionAssessmentScale>(
-                ParameterView.FromDictionary(new Dictionary<string, object?>
-                {
-                    [nameof(NutritionAssessmentScale.Assessment)] =
-                        Assert.Single(workspace.NutritionAssessments),
-                    [nameof(NutritionAssessmentScale.OnSoapContributionConfirmed)] =
-                        EventCallback.Factory.Create<SoapContribution>(new object(), _ => { })
-                }));
+                ParameterView.FromDictionary(parameters));
             return WebUtility.HtmlDecode(output.ToHtmlString());
         });
     }

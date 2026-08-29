@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using EzNutrition.Application.Archives;
 using EzNutrition.Archives.Contracts.ValueObjects;
+using EzNutrition.Assessments.Common;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
 using EzNutrition.Presentation.Services;
 using EzNutrition.Presentation.Shared;
@@ -26,11 +29,63 @@ public sealed class MainLayoutRenderTests
     public async Task Footer_renders_resolved_client_and_server_versions()
     {
         await using var services = BuildServiceProvider();
+        var html = await RenderLayoutAsync(services);
+
+        Assert.Contains("前端 v2.1.0.0", html, StringComparison.Ordinal);
+        Assert.Contains("后端 v2.1.0.0", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("v@UserSession", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 验证导航根据当前宿主注册目录生成量表速查二级菜单，而不硬编码具体量表。
+    /// </summary>
+    [Fact]
+    public async Task Navigation_renders_registered_assessments_as_second_level_links()
+    {
+        await using var services = BuildServiceProvider();
+
+        var html = await RenderLayoutAsync(services);
+
+        Assert.Contains("量表速查", html, StringComparison.Ordinal);
+        Assert.Contains("临床营养风险筛查 NRS 2002", html, StringComparison.Ordinal);
+        Assert.Contains("主观整体评估 SGA（团标版）", html, StringComparison.Ordinal);
+        Assert.Contains("assessmentinsights/nrs-2002?system=", html, StringComparison.Ordinal);
+        Assert.Contains("version=WS%2FT%20427", html, StringComparison.Ordinal);
+    }
+
+    private static ServiceProvider BuildServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddEzNutritionPresentation(
+            new Uri("https://app.example.test/"),
+            TimeZoneInfo.Utc,
+            primaryHttpMessageHandlerFactory: static () => new PublicSystemInfoHandler());
+        services.AddSingleton(provider => new UserSessionService(
+            provider.GetRequiredService<IHttpClientFactory>(),
+            provider.GetRequiredService<ILogger<UserSessionService>>(),
+            credentialStore: null,
+            clientVersion: "2.1.0.0"));
+        services.AddCascadingAuthenticationState();
+        services.AddScoped<AuthenticationStateProvider, AuthenticatedStateProvider>();
+        services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
+        services.AddSingleton<NavigationManager, TestNavigationManager>();
+        services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
+        services.AddSingleton(new ArchiveContractAssembler(new ApplicationIdentity(
+            new Uri("https://app.example.test/layout-render-test"),
+            "布局渲染测试",
+            "2.1-test")));
+        return services.BuildServiceProvider();
+    }
+
+    private static async Task<string> RenderLayoutAsync(ServiceProvider services)
+    {
         await using var renderer = new HtmlRenderer(
             services,
             services.GetRequiredService<ILoggerFactory>());
 
-        var html = await renderer.Dispatcher.InvokeAsync(async () =>
+        return await renderer.Dispatcher.InvokeAsync(async () =>
         {
             RenderFragment layout = builder =>
             {
@@ -48,33 +103,17 @@ public sealed class MainLayoutRenderTests
                 }));
             return WebUtility.HtmlDecode(output.ToHtmlString());
         });
-
-        Assert.Contains("前端 v2.1.0.0", html, StringComparison.Ordinal);
-        Assert.Contains("后端 v2.1.0.0", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("v@UserSession", html, StringComparison.Ordinal);
     }
 
-    private static ServiceProvider BuildServiceProvider()
+    private sealed class AuthenticatedStateProvider : AuthenticationStateProvider
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddEzNutritionPresentation(
-            new Uri("https://app.example.test/"),
-            TimeZoneInfo.Utc,
-            primaryHttpMessageHandlerFactory: static () => new PublicSystemInfoHandler());
-        services.AddSingleton(provider => new UserSessionService(
-            provider.GetRequiredService<IHttpClientFactory>(),
-            provider.GetRequiredService<ILogger<UserSessionService>>(),
-            credentialStore: null,
-            clientVersion: "2.1.0.0"));
-        services.AddCascadingAuthenticationState();
-        services.AddSingleton<NavigationManager, TestNavigationManager>();
-        services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
-        services.AddSingleton(new ArchiveContractAssembler(new ApplicationIdentity(
-            new Uri("https://app.example.test/layout-render-test"),
-            "布局渲染测试",
-            "2.1-test")));
-        return services.BuildServiceProvider();
+        private static readonly AuthenticationState State = new(new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, "assessment-navigation-test")],
+                "Test")));
+
+        public override Task<AuthenticationState> GetAuthenticationStateAsync() =>
+            Task.FromResult(State);
     }
 
     private sealed class PublicSystemInfoHandler : HttpMessageHandler

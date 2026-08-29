@@ -3,6 +3,7 @@ using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Assessments.Common;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
 
 namespace EzNutrition.Application.Tests.Consultations;
@@ -109,6 +110,30 @@ public sealed class NutritionAssessmentApplicationServiceTests
         Assert.Throws<InvalidOperationException>(() =>
             service.StartRun(workspace, definition, workspace.ContractIdentity.CreatedAt));
         Assert.Single(workspace.NutritionAssessments);
+    }
+
+    /// <summary>
+    /// 验证速查运行复用注册量表的计分能力，但不加入任何咨询工作区。
+    /// </summary>
+    [Fact]
+    public void Standalone_run_remains_independent_from_consultation_archives()
+    {
+        var workspace = CreateWorkspace();
+        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var run = service.CreateStandaloneRun(
+            Assert.Single(service.Definitions),
+            new NutritionAssessmentSubject
+            {
+                AgeInYears = 70,
+                HeightInCentimeters = 165m,
+                WeightInKilograms = 60m
+            });
+
+        CompleteScreening(run, diseaseSeverity: "mild");
+
+        Assert.True(run.Evaluation.IsComplete);
+        Assert.Equal(2m, run.Evaluation.TotalScore);
+        Assert.Empty(workspace.NutritionAssessments);
     }
 
     /// <summary>
