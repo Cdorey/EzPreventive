@@ -116,7 +116,7 @@ public sealed class SgaInstrument : INutritionAssessmentInstrument
                     PhysicalItem(EdemaCode, "水肿"),
                     PhysicalItem(AscitesCode, "腹水")
                 ],
-                "按表 2-3 的观察和触诊要点，将体格检查分别判断为良好、轻中度或重度营养不良。"),
+                "按表 27-3 的观察和触诊要点，将体格检查分别判断为良好、轻中度或重度营养不良。"),
             new NutritionAssessmentSection(
                 "global",
                 "SGA 综合判断",
