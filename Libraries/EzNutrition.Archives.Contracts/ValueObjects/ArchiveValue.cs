@@ -38,7 +38,10 @@ public enum ArchiveValueKind
     LogicalReference = 9,
 
     /// <summary>确切资源版本引用。</summary>
-    VersionedReference = 10
+    VersionedReference = 10,
+
+    /// <summary>有序编码集合。</summary>
+    CodingCollection = 11
 }
 
 /// <summary>
@@ -247,6 +250,66 @@ public sealed class CodingArchiveValue : ArchiveValue
     public override ArchiveValueKind Kind => ArchiveValueKind.Coding;
 
     private protected override object EqualityComponent => Value;
+}
+
+/// <summary>
+/// 表示一个非空、有序的编码集合。
+/// </summary>
+public sealed class CodingCollectionArchiveValue : ArchiveValue
+{
+    private readonly CodingCollectionEquality equality;
+
+    /// <summary>
+    /// 初始化编码集合值。
+    /// </summary>
+    /// <param name="values">按量表定义顺序排列的编码。</param>
+    public CodingCollectionArchiveValue(IEnumerable<Coding> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var frozen = values.Select(value =>
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            return value;
+        }).ToArray();
+        if (frozen.Length == 0)
+        {
+            throw new ArgumentException("编码集合至少需要一个值。", nameof(values));
+        }
+
+        Values = Array.AsReadOnly(frozen);
+        equality = new CodingCollectionEquality(Values);
+    }
+
+    /// <summary>获取有序编码集合。</summary>
+    public IReadOnlyList<Coding> Values { get; }
+
+    /// <inheritdoc />
+    public override ArchiveValueKind Kind => ArchiveValueKind.CodingCollection;
+
+    private protected override object EqualityComponent => equality;
+
+    private sealed class CodingCollectionEquality(IReadOnlyList<Coding> values) :
+        IEquatable<CodingCollectionEquality>
+    {
+        private IReadOnlyList<Coding> Values { get; } = values;
+
+        public bool Equals(CodingCollectionEquality? other) =>
+            other is not null && Values.SequenceEqual(other.Values);
+
+        public override bool Equals(object? obj) =>
+            Equals(obj as CodingCollectionEquality);
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            foreach (var value in Values)
+            {
+                hash.Add(value);
+            }
+
+            return hash.ToHashCode();
+        }
+    }
 }
 
 /// <summary>

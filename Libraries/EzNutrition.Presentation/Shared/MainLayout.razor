@@ -54,7 +54,7 @@
                           aria-label="前后端版本信息">
                         @if (!string.IsNullOrEmpty(UserSession.ClientVersion))
                         {
-                            <span title="当前前端宿主产品版本">前端 v@UserSession.ClientVersion</span>
+                            <span title="当前前端宿主产品版本">前端 v@(UserSession.ClientVersion)</span>
                         }
                         @if (!string.IsNullOrEmpty(UserSession.ClientVersion) && !string.IsNullOrEmpty(UserSession.ServerVersion))
                         {
@@ -62,7 +62,7 @@
                         }
                         @if (!string.IsNullOrEmpty(UserSession.ServerVersion))
                         {
-                            <span title="当前连接的服务端产品版本">后端 v@UserSession.ServerVersion</span>
+                            <span title="当前连接的服务端产品版本">后端 v@(UserSession.ServerVersion)</span>
                         }
                     </span>
                 }

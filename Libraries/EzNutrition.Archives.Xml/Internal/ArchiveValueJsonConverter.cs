@@ -24,6 +24,8 @@ internal sealed class ArchiveValueJsonConverter : JsonConverter<ArchiveValue>
             "dateTime" => new DateTimeArchiveValue(value.GetDateTimeOffset()),
             "partialDate" => new PartialDateArchiveValue(value.Deserialize<PartialDate>(options)!),
             "coding" => new CodingArchiveValue(value.Deserialize<Coding>(options)!),
+            "codingCollection" => new CodingCollectionArchiveValue(
+                value.Deserialize<Coding[]>(options)!),
             "quantity" => new QuantityArchiveValue(value.Deserialize<Quantity>(options)!),
             "quantityRange" => new QuantityRangeArchiveValue(value.Deserialize<QuantityRange>(options)!),
             "logicalReference" => new LogicalReferenceArchiveValue(
@@ -62,6 +64,9 @@ internal sealed class ArchiveValueJsonConverter : JsonConverter<ArchiveValue>
                 break;
             case CodingArchiveValue coding:
                 Write(writer, "coding", coding.Value, options);
+                break;
+            case CodingCollectionArchiveValue codingCollection:
+                Write(writer, "codingCollection", codingCollection.Values, options);
                 break;
             case QuantityArchiveValue quantity:
                 Write(writer, "quantity", quantity.Value, options);

@@ -1,9 +1,11 @@
 using System.Reflection;
 using EzNutrition.Application.Archives;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Xml;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
@@ -133,6 +135,15 @@ public partial class App : System.Windows.Application
             TimeZoneInfo.Local,
             credentialStore,
             httpMessageHandlerFactory.Create);
+        services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();
+        services.AddSingleton<
+            INutritionAssessmentInstrument,
+            WsT552ElderlyMalnutritionRiskInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();

@@ -1,9 +1,11 @@
 using EzNutrition.Application.Archives;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Xml;
 using EzNutrition.Client.Infrastructure;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -22,6 +24,15 @@ namespace EzNutrition.Client
             builder.Services.AddEzNutritionPresentation(
                 new Uri(builder.HostEnvironment.BaseAddress),
                 TimeZoneInfo.Local);
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();
+            builder.Services.AddSingleton<
+                INutritionAssessmentInstrument,
+                WsT552ElderlyMalnutritionRiskInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
+            builder.Services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
             builder.Services.AddSingleton(CreateArchiveContractAssembler());
             builder.Services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
             builder.Services.AddSingleton<IArchiveCodec, XmlArchiveCodec>();

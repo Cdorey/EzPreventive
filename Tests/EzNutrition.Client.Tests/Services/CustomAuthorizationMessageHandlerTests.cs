@@ -141,7 +141,11 @@ public sealed class CustomAuthorizationMessageHandlerTests
     private static string CreateToken(string userName)
     {
         var token = new JwtSecurityToken(
-            claims: [new Claim(JwtRegisteredClaimNames.UniqueName, userName)],
+            claims:
+            [
+                new Claim(JwtRegisteredClaimNames.Sub, $"{userName}-id"),
+                new Claim(JwtRegisteredClaimNames.UniqueName, userName)
+            ],
             expires: DateTime.UtcNow.AddHours(1));
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

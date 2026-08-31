@@ -239,6 +239,12 @@
     padding: 20px 22px 24px;
 }
 
+.assessment-menu-state {
+    margin-inline-start: .75rem;
+    color: #94a3b8;
+    font-size: .75rem;
+}
+
 .diagnosis-card,
 .summary-card,
 .advice-card {
@@ -312,6 +318,10 @@
 }
 
 @media (max-width: 575.98px) {
+    .assessment-add-label {
+        display: none;
+    }
+
     .page-heading {
         margin-bottom: 18px;
     }

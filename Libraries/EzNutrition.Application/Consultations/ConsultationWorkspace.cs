@@ -55,6 +55,9 @@ namespace EzNutrition.Application.Consultations
 
         public DietaryTower? DietaryTower { get; set; }
 
+        /// <summary>获取本次咨询中已经建立的营养筛查与评估量表实例。</summary>
+        public List<NutritionAssessmentRun> NutritionAssessments { get; } = [];
+
         public AiGeneratedAdvice? AiGeneratedAdvice { get; set; }
 
         public EzNutrition.Shared.Data.DTO.PromptDto.AiAdviceRequestDto? AdvicePrompt { get; set; }

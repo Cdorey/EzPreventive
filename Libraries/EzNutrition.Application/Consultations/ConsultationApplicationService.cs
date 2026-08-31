@@ -14,6 +14,7 @@ public sealed class ConsultationApplicationService(
     IDietaryReferenceIntakeDataSource dietaryReferenceIntakeDataSource,
     IFoodCompositionDataSource foodCompositionDataSource)
 {
+
     /// <summary>
     /// 读取 DRIs 与食物成分目录，并在全部数据可用后一次性初始化工作区。
     /// </summary>

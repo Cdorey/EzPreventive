@@ -23,11 +23,21 @@
         @foreach (var section in Review.Sections)
         {
             <section class="review-section">
-                <header>
-                    <h3>@section.Title</h3>
-                    @if (!string.IsNullOrWhiteSpace(section.Description))
+                <header class="review-section-heading">
+                    <div>
+                        <h3>@section.Title</h3>
+                        @if (!string.IsNullOrWhiteSpace(section.Description))
+                        {
+                            <p>@section.Description</p>
+                        }
+                    </div>
+                    @if (section.DetailGroups.Count > 0)
                     {
-                        <p>@section.Description</p>
+                        <Button Class="review-detail-action"
+                                Type="@ButtonType.Link"
+                                OnClick="@(() => OpenDetails(section))">
+                            查看详情
+                        </Button>
                     }
                 </header>
                 <dl>
@@ -53,7 +63,84 @@
     </div>
 </article>
 
+<Drawer Width="720"
+        Closable="true"
+        @bind-Visible="DetailDrawerVisible"
+        Title="@DetailDrawerTitle">
+    @if (selectedDetailSection is not null)
+    {
+        <div class="review-detail-content">
+            @foreach (var group in selectedDetailSection.DetailGroups)
+            {
+                <section class="review-detail-group">
+                    <header>
+                        <h3>@group.Title</h3>
+                        @if (!string.IsNullOrWhiteSpace(group.Description))
+                        {
+                            <p>@group.Description</p>
+                        }
+                    </header>
+                    <dl>
+                        @foreach (var field in group.Fields)
+                        {
+                            <div>
+                                <dt>@field.Label</dt>
+                                <dd>
+                                    @if (field.Instant is { } instant)
+                                    {
+                                        <LocalDateTimeDisplay Value="@instant" />
+                                    }
+                                    else
+                                    {
+                                        @field.Value
+                                    }
+                                </dd>
+                            </div>
+                        }
+                    </dl>
+                </section>
+            }
+        </div>
+    }
+</Drawer>
+
 @code {
     [Parameter, EditorRequired]
     public required ArchiveReview Review { get; set; }
+
+    private Guid? currentBundleId;
+    private ArchiveReviewSection? selectedDetailSection;
+
+    private bool DetailDrawerVisible
+    {
+        get => selectedDetailSection is not null;
+        set
+        {
+            if (!value)
+            {
+                selectedDetailSection = null;
+            }
+        }
+    }
+
+    private string DetailDrawerTitle => selectedDetailSection is null
+        ? "量表详情"
+        : $"{selectedDetailSection.Title} · 详情";
+
+    protected override void OnParametersSet()
+    {
+        if (currentBundleId != Review.BundleId)
+        {
+            selectedDetailSection = null;
+            currentBundleId = Review.BundleId;
+        }
+    }
+
+    private void OpenDetails(ArchiveReviewSection section)
+    {
+        if (section.DetailGroups.Count > 0)
+        {
+            selectedDetailSection = section;
+        }
+    }
 }
