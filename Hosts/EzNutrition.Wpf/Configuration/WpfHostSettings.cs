@@ -13,6 +13,9 @@ internal sealed record WpfHostSettings
     /// <summary>获取桌面宿主连接的服务端基地址。</summary>
     public required Uri ServerBaseAddress { get; init; }
 
+    /// <summary>获取 Velopack 直发版本使用的更新源地址。</summary>
+    public required Uri UpdateFeedAddress { get; init; }
+
     /// <summary>获取服务端连接采用的传输安全策略。</summary>
     public required ServerTransportSecurity TransportSecurity { get; init; }
 
@@ -44,9 +47,39 @@ internal sealed record WpfHostSettings
         return new WpfHostSettings
         {
             ServerBaseAddress = normalizedServerAddress,
+            UpdateFeedAddress = ValidateUpdateFeedAddress(section["UpdateFeedAddress"]),
             TransportSecurity = transportSecurity,
             ArchiveStorage = ArchiveStorageDirectory.Create(section["ArchiveRootPath"])
         };
+    }
+
+    /// <summary>
+    /// 校验更新源地址，并返回以斜杠结尾的规范 HTTPS 地址。
+    /// </summary>
+    internal static Uri ValidateUpdateFeedAddress(string? rawUpdateFeedAddress)
+    {
+        var candidate = rawUpdateFeedAddress?.Trim();
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var updateFeedAddress) ||
+            !string.Equals(
+                updateFeedAddress.Scheme,
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"配置项 {SectionName}:UpdateFeedAddress 必须是绝对 HTTPS 地址。");
+        }
+
+        if (!string.IsNullOrEmpty(updateFeedAddress.UserInfo) ||
+            !string.IsNullOrEmpty(updateFeedAddress.Query) ||
+            !string.IsNullOrEmpty(updateFeedAddress.Fragment))
+        {
+            throw new InvalidOperationException(
+                "更新源地址不能包含用户名、密码、查询参数或片段。");
+        }
+
+        return updateFeedAddress.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
+            ? updateFeedAddress
+            : new Uri(updateFeedAddress.AbsoluteUri + '/', UriKind.Absolute);
     }
 
     /// <summary>

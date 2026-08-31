@@ -19,6 +19,7 @@ public sealed class HostDependencyBoundaryTests
             .ToArray();
 
         Assert.Contains("EzNutrition.Presentation", references);
+        Assert.Contains("Velopack", references);
         Assert.DoesNotContain("EzNutrition.Client", references);
     }
 
@@ -47,5 +48,6 @@ public sealed class HostDependencyBoundaryTests
             .Cast<string>()
             .ToArray();
         Assert.DoesNotContain("System.Security.Cryptography.ProtectedData", presentationReferences);
+        Assert.DoesNotContain("Velopack", presentationReferences);
     }
 }
