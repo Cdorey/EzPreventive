@@ -1,4 +1,5 @@
 using System.Text;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Serialization;
@@ -34,6 +35,47 @@ public sealed class ArchiveWorkflowTests
         Assert.NotNull(consultationStartedAt.Instant);
         Assert.Null(consultationStartedAt.Value);
         Assert.NotEmpty(fixture.Store.Documents);
+    }
+
+    [Fact]
+    public async Task Scale_review_projects_the_archived_answers_and_results_as_read_only_details()
+    {
+        var fixture = CreateFixture();
+        var workspace = CreateWorkspace("量表详情测试对象");
+        var assessments = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
+        var run = assessments.StartRun(
+            workspace,
+            Assert.Single(assessments.Definitions),
+            workspace.ContractIdentity.CreatedAt);
+        run.SetAnswer("bmi-status", "bmi-at-least-18-5");
+        run.SetAnswer("recent-weight-loss", "over-five-percent-within-three-months");
+        run.SetAnswer("last-week-intake-reduction", "no-scored-intake-reduction");
+        run.SetAnswer("disease-severity", "mild");
+
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+        var record = Assert.Single((await fixture.Workflow.BrowseAsync()).Records);
+        var opened = await fixture.Workflow.OpenStoredAsync(record.DocumentId);
+
+        var scale = Assert.Single(
+            opened.Review!.Sections,
+            section => section.Title == "临床营养风险筛查 NRS 2002");
+        var responses = Assert.Single(scale.DetailGroups, group => group.Title == "逐题作答");
+        var weightLoss = Assert.Single(
+            responses.Fields,
+            field => field.Label == "近期（1 个月～3 个月）体重是否下降？");
+        var derivedResults = Assert.Single(scale.DetailGroups, group => group.Title == "派生结果");
+        var nutritionalStatus = Assert.Single(
+            derivedResults.Fields,
+            field => field.Label == "营养状况受损评分");
+        var conclusion = Assert.Single(scale.DetailGroups, group => group.Title == "评估结论");
+
+        Assert.Equal(4, responses.Fields.Count);
+        Assert.Equal("近 3 个月内体重下降 >5%（本题 1 分）", weightLoss.Value);
+        Assert.Equal("1", nutritionalStatus.Value);
+        Assert.Equal("2 分", Assert.Single(conclusion.Fields, field => field.Label == "总分").Value);
+        Assert.Equal(
+            "目前没有营养风险",
+            Assert.Single(conclusion.Fields, field => field.Label == "结果解释").Value);
     }
 
     [Fact]
