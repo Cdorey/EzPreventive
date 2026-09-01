@@ -207,6 +207,13 @@ namespace EzNutrition.Server.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// 通过统一账号删除服务回滚注册后初始化失败所创建的账号和关联数据。
+        /// </summary>
+        /// <remarks>
+        /// 清理失败只记录严重日志而不向调用方抛出，以免覆盖正在处理的原始注册异常。
+        /// </remarks>
+        /// <param name="user">已经由 Identity 创建、需要回滚的用户。</param>
         private async Task RollbackFailedRegistrationAsync(IdentityUser user)
         {
             try

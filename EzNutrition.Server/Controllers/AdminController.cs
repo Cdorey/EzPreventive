@@ -270,10 +270,13 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 删除用户
+        /// 由管理员删除指定账号及本服务保存的全部用户关联数据。
         /// </summary>
-        /// <param name="userId"></param>
-        /// <returns></returns>
+        /// <param name="userId">待删除 Identity 用户的稳定主键。</param>
+        /// <param name="cancellationToken">用于取消数据库删除操作的令牌。</param>
+        /// <returns>
+        /// 账号不存在时返回 404；Identity 删除失败时返回 400；成功时返回各类数据及证件文件清理统计。
+        /// </returns>
         [HttpDelete("{userId}")]
         public async Task<IActionResult> DeleteUser(string userId, CancellationToken cancellationToken)
         {
