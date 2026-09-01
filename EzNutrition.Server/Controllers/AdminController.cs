@@ -23,7 +23,8 @@ namespace EzNutrition.Server.Controllers
         ILogger<AdminController> logger,
         UserManager<IdentityUser> userManager,
         ApplicationDbContext applicationDbContext,
-        CertificateFileStore certificateFileStore) : ControllerBase
+        CertificateFileStore certificateFileStore,
+        AccountDeletionService accountDeletionService) : ControllerBase
     {
         /// <summary>
         /// 添加角色
@@ -276,41 +277,27 @@ namespace EzNutrition.Server.Controllers
         [HttpDelete("{userId}")]
         public async Task<IActionResult> DeleteUser(string userId, CancellationToken cancellationToken)
         {
-            var user = await userManager.FindByIdAsync(userId);
-            if (user == null)
+            var result = await accountDeletionService.DeleteAsync(
+                userId,
+                AccountDeletionReason.AdministratorRequested,
+                cancellationToken);
+            if (!result.AccountFound)
+            {
                 return NotFound("用户不存在");
-
-            var certificateTickets = await applicationDbContext.ProfessionalCertificationRequests
-                .AsNoTracking()
-                .Where(request => request.UserId == userId && request.CertificateTicket != null)
-                .Select(request => request.CertificateTicket!.Value)
-                .ToListAsync(cancellationToken);
-
-            await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
-            await applicationDbContext.ProfessionalCertificationRequests
-                .Where(request => request.UserId == userId)
-                .ExecuteDeleteAsync(cancellationToken);
-            var result = await userManager.DeleteAsync(user);
+            }
             if (!result.Succeeded)
             {
-                return BadRequest(result.Errors);
+                return BadRequest(result.IdentityErrors);
             }
 
-            await transaction.CommitAsync(cancellationToken);
-
-            foreach (var ticket in certificateTickets)
+            return Ok(new
             {
-                try
-                {
-                    certificateFileStore.Delete(ticket);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "删除用户 {UserId} 后清理证件文件 {Ticket} 失败", userId, ticket);
-                }
-            }
-
-            return Ok(new { message = "用户删除成功" });
+                message = "用户删除成功",
+                deletedAiAudits = result.DeletedAiAuditRecords,
+                deletedCertificationRequests = result.DeletedCertificationRequests,
+                certificateFileCleanupAttempts = result.CertificateFileCleanupAttempts,
+                certificateFileCleanupFailures = result.CertificateFileCleanupFailures
+            });
         }
 
         /// <summary>

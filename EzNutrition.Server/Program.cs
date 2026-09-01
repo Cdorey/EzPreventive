@@ -47,6 +47,7 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<FoodNutritionValueRepository>();
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
+            builder.Services.AddScoped<AccountDeletionService>();
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
