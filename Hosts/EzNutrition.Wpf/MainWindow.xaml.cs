@@ -2,6 +2,7 @@ using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
 using EzNutrition.Wpf.Security;
+using EzNutrition.Wpf.Updates;
 using Microsoft.AspNetCore.Components.WebView;
 using Microsoft.Extensions.Logging;
 using System.Windows;
@@ -20,6 +21,9 @@ internal partial class MainWindow : Window
     private readonly DpapiLoginCredentialStore credentialStore;
     private readonly WpfHostSettings hostSettings;
     private readonly WpfUserSettingsStore settingsStore;
+    private readonly VelopackUpdateService updateService;
+    private readonly CancellationTokenSource updateCheckCancellation = new();
+    private bool updateCheckStarted;
 
     /// <summary>
     /// 创建桌面主窗口。
@@ -32,6 +36,7 @@ internal partial class MainWindow : Window
         WpfHostSettings hostSettings,
         WpfUserSettingsStore settingsStore,
         DpapiLoginCredentialStore credentialStore,
+        VelopackUpdateService updateService,
         ILogger<MainWindow> logger)
     {
         InitializeComponent();
@@ -42,8 +47,30 @@ internal partial class MainWindow : Window
         this.hostSettings = hostSettings;
         this.settingsStore = settingsStore;
         this.credentialStore = credentialStore;
+        this.updateService = updateService;
         this.logger = logger;
         ConfigureConnectionSecurityWarning();
+    }
+
+    /// <inheritdoc />
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        if (updateCheckStarted)
+        {
+            return;
+        }
+
+        updateCheckStarted = true;
+        _ = CheckForApplicationUpdateAsync(updateCheckCancellation.Token);
+    }
+
+    /// <inheritdoc />
+    protected override void OnClosed(EventArgs e)
+    {
+        updateCheckCancellation.Cancel();
+        updateCheckCancellation.Dispose();
+        base.OnClosed(e);
     }
 
     private void OpenArchiveFolder(object sender, RoutedEventArgs e)
@@ -95,5 +122,70 @@ internal partial class MainWindow : Window
             hostSettings.TransportSecurity == ServerTransportSecurity.StrictHttps
                 ? Visibility.Collapsed
                 : Visibility.Visible;
+    }
+
+    private async Task CheckForApplicationUpdateAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var update = await updateService.CheckAndPrepareAsync(cancellationToken);
+            if (update is null || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            logger.LogInformation(
+                "Prepared EzNutrition desktop update from {CurrentVersion} to {TargetVersion}.",
+                update.CurrentVersion,
+                update.TargetVersion);
+            if (!update.ChangesCompatibilityLine)
+            {
+                return;
+            }
+
+            var answer = MessageBox.Show(
+                this,
+                $"EzNutrition {update.TargetVersion} 已经准备就绪（当前版本 {update.CurrentVersion}）。\n\n" +
+                "此更新改变了产品或 HTTP 接口契约的兼容代际。继续使用当前版本时，部分接口请求可能出现异常。\n\n" +
+                "建议确认当前咨询内容已经保存或归档，然后立即重启完成更新。选择“否”可以暂时继续，更新将在下次启动时应用。\n\n" +
+                "是否立即重启？",
+                "建议更新 EzNutrition",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            ScheduleUpdateAndRestart();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 主窗口关闭时停止后台更新准备，不向用户显示无意义的失败提示。
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Unable to check or download a desktop update.");
+        }
+    }
+
+    private void ScheduleUpdateAndRestart()
+    {
+        try
+        {
+            updateService.SchedulePreparedUpdateForRestart();
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Unable to start the prepared desktop update.");
+            MessageBox.Show(
+                this,
+                "无法启动已经下载的更新。请完成并保存当前工作后，关闭再重新打开 EzNutrition；更新将在下次启动时重试。",
+                "无法启动更新",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 }
