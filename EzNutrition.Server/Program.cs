@@ -3,6 +3,7 @@ using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Repositories;
 using EzNutrition.Server.Extension;
 using EzNutrition.Server.Services;
+using EzNutrition.Server.Services.Maintenance;
 using EzNutrition.Server.Services.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -48,6 +49,7 @@ namespace EzNutrition.Server
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
             builder.Services.AddScoped<AccountDeletionService>();
+            builder.Services.AddScoped<OrphanCleanupService>();
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

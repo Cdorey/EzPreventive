@@ -111,6 +111,61 @@ namespace EzNutrition.Server.Services
             }
         }
 
+        internal IReadOnlyList<StoredCertificateFile> EnumerateStoredFiles(
+            CancellationToken cancellationToken = default)
+        {
+            if (!Directory.Exists(rootPath))
+            {
+                return [];
+            }
+
+            try
+            {
+                var files = new List<StoredCertificateFile>();
+                foreach (var path in Directory.EnumerateFiles(rootPath, "*", SearchOption.TopDirectoryOnly))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var fileInfo = new FileInfo(path);
+                    fileInfo.Refresh();
+                    if (!fileInfo.Exists ||
+                        !TryParseStoredFile(fileInfo.Name, out var ticket, out var kind))
+                    {
+                        continue;
+                    }
+
+                    files.Add(new StoredCertificateFile(
+                        fileInfo.Name,
+                        ticket,
+                        new DateTimeOffset(fileInfo.LastWriteTimeUtc),
+                        kind));
+                }
+
+                return files;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return [];
+            }
+        }
+
+        internal bool Delete(StoredCertificateFile file)
+        {
+            ArgumentNullException.ThrowIfNull(file);
+            if (!string.Equals(Path.GetFileName(file.FileName), file.FileName, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("A stored certificate file name cannot contain a directory path.");
+            }
+
+            var path = Path.Combine(rootPath, file.FileName);
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            File.Delete(path);
+            return true;
+        }
+
         private string GetPath(Guid ticket, string extension) =>
             Path.Combine(rootPath, $"{ticket:D}{extension}");
 
@@ -133,6 +188,40 @@ namespace EzNutrition.Server.Services
             }
         }
 
+        private static bool TryParseStoredFile(
+            string fileName,
+            out Guid ticket,
+            out StoredCertificateFileKind kind)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (ContentTypes.ContainsKey(extension) &&
+                Guid.TryParseExact(Path.GetFileNameWithoutExtension(fileName), "D", out ticket))
+            {
+                kind = StoredCertificateFileKind.Final;
+                return true;
+            }
+
+            if (string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase))
+            {
+                var segments = fileName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length == 3 &&
+                    Guid.TryParseExact(segments[0], "D", out ticket) &&
+                    Guid.TryParseExact(segments[1], "N", out var nonce) &&
+                    string.Equals(
+                        fileName,
+                        $".{ticket:D}.{nonce:N}.tmp",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    kind = StoredCertificateFileKind.Temporary;
+                    return true;
+                }
+            }
+
+            ticket = default;
+            kind = default;
+            return false;
+        }
+
         private static bool HasExpectedSignature(string extension, ReadOnlySpan<byte> header) =>
             extension switch
             {
@@ -146,4 +235,16 @@ namespace EzNutrition.Server.Services
     }
 
     public sealed record CertificateFile(Stream Content, string ContentType);
+
+    internal enum StoredCertificateFileKind
+    {
+        Final,
+        Temporary
+    }
+
+    internal sealed record StoredCertificateFile(
+        string FileName,
+        Guid Ticket,
+        DateTimeOffset LastModifiedUtc,
+        StoredCertificateFileKind Kind);
 }
