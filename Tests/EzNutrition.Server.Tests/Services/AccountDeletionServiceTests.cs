@@ -100,6 +100,33 @@ public sealed class AccountDeletionServiceTests
         Assert.Null(host.CertificateFileStore.OpenRead(certificateTicket));
     }
 
+    [Fact]
+    public async Task DeleteAsync_discards_unsaved_tracked_user_data_before_deleting_identity()
+    {
+        await using var host = TestHost.Create();
+        var user = await host.CreateUserAsync("registration-rollback-user");
+        var certificateTicket = Guid.NewGuid();
+        var unsavedAiAudit = CreateAiAudit(user.Id);
+        var unsavedCertification = CreateCertificationRequest(user.Id, certificateTicket);
+        host.DbContext.PrescriptionGenerateRequests.Add(unsavedAiAudit);
+        host.DbContext.ProfessionalCertificationRequests.Add(unsavedCertification);
+        await host.SaveCertificateAsync(certificateTicket);
+
+        var result = await host.Service.DeleteAsync(
+            user.Id,
+            AccountDeletionReason.RegistrationRollback);
+
+        Assert.True(result.AccountFound);
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, result.DeletedAiAuditRecords);
+        Assert.Equal(0, result.DeletedCertificationRequests);
+        Assert.Equal(1, result.CertificateFileCleanupAttempts);
+        Assert.False(await host.DbContext.Users.AnyAsync(candidate => candidate.Id == user.Id));
+        Assert.Empty(host.DbContext.PrescriptionGenerateRequests);
+        Assert.Empty(host.DbContext.ProfessionalCertificationRequests);
+        Assert.Null(host.CertificateFileStore.OpenRead(certificateTicket));
+    }
+
     private static PrescriptionGenerateRequest CreateAiAudit(string userId) => new()
     {
         Id = Guid.NewGuid(),

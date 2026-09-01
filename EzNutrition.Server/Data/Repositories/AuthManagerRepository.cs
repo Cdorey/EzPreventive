@@ -20,6 +20,7 @@ namespace EzNutrition.Server.Data.Repositories
                                        ILogger<AuthManagerRepository> logger,
                                        AccountSecurityService accountSecurityService,
                                        LoginTimingEqualizer loginTimingEqualizer,
+                                       AccountDeletionService accountDeletionService,
                                        IOptions<AuthBootstrapSettings> bootstrapOptions)
     {
         /// <summary>
@@ -210,31 +211,16 @@ namespace EzNutrition.Server.Data.Repositories
         {
             try
             {
-                foreach (var entry in dbContext.ChangeTracker
-                    .Entries<ProfessionalCertificationRequest>()
-                    .Where(entry => entry.Entity.UserId == user.Id))
-                {
-                    entry.State = EntityState.Detached;
-                }
-
-                await dbContext.ProfessionalCertificationRequests
-                    .Where(request => request.UserId == user.Id)
-                    .ExecuteDeleteAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "回滚用户 {UserId} 的专业认证请求失败。", user.Id);
-            }
-
-            try
-            {
-                var deleteResult = await userManager.DeleteAsync(user);
-                if (!deleteResult.Succeeded)
+                var result = await accountDeletionService.DeleteAsync(
+                    user.Id,
+                    AccountDeletionReason.RegistrationRollback,
+                    CancellationToken.None);
+                if (!result.Succeeded)
                 {
                     logger.LogCritical(
-                        "回滚用户 {UserId} 失败：{Errors}",
+                        "回滚用户 {UserId} 失败，Identity 错误代码：{ErrorCodes}",
                         user.Id,
-                        string.Join(", ", deleteResult.Errors.Select(error => error.Description)));
+                        string.Join(",", result.IdentityErrors.Select(error => error.Code)));
                 }
             }
             catch (Exception ex)

@@ -1,4 +1,5 @@
 using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,12 +45,34 @@ public sealed class AccountDeletionService(
         var user = await userManager.FindByIdAsync(userId);
         var accountFound = user is not null;
 
-        var certificateTickets = await applicationDb.ProfessionalCertificationRequests
+        var trackedCertificationRequests = applicationDb.ChangeTracker
+            .Entries<ProfessionalCertificationRequest>()
+            .Where(entry => entry.Entity.UserId == userId)
+            .ToArray();
+        var trackedAiAudits = applicationDb.ChangeTracker
+            .Entries<PrescriptionGenerateRequest>()
+            .Where(entry => entry.Entity.UserId == userId)
+            .ToArray();
+        var persistedCertificateTickets = await applicationDb.ProfessionalCertificationRequests
             .AsNoTracking()
             .Where(request => request.UserId == userId && request.CertificateTicket != null)
             .Select(request => request.CertificateTicket!.Value)
-            .Distinct()
             .ToArrayAsync(cancellationToken);
+        var certificateTickets = trackedCertificationRequests
+            .Where(entry => entry.Entity.CertificateTicket is not null)
+            .Select(entry => entry.Entity.CertificateTicket!.Value)
+            .Concat(persistedCertificateTickets)
+            .Distinct()
+            .ToArray();
+
+        foreach (var entry in trackedCertificationRequests)
+        {
+            entry.State = EntityState.Detached;
+        }
+        foreach (var entry in trackedAiAudits)
+        {
+            entry.State = EntityState.Detached;
+        }
 
         var deletedAiAudits = 0;
         var deletedCertificationRequests = 0;
