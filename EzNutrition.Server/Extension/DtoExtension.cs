@@ -29,7 +29,7 @@ namespace EzNutrition.Server.Extension
         /// 根据实体对象创建 DTO
         /// </summary>
         /// <param name="request">专业认证请求实体</param>
-        /// <returns>对应的 DTO 对象</returns>
+        /// <returns>时间字段已归一化为 UTC 的 DTO 对象</returns>
         public static ProfessionalCertificationRequestDto ToDto(this ProfessionalCertificationRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);
@@ -38,14 +38,32 @@ namespace EzNutrition.Server.Extension
             {
                 Id = request.Id,
                 UserId = request.UserId,
-                RequestTime = request.RequestTime,
+                RequestTime = ToUtc(request.RequestTime),
                 IdentityType = request.IdentityType,
                 InstitutionName = request.InstitutionName,
                 Status = request.Status,
-                ProcessedTime = request.ProcessedTime,
+                ProcessedTime = request.ProcessedTime is { } processedTime
+                    ? ToUtc(processedTime)
+                    : null,
                 ProcessDetails = request.ProcessDetails,
                 CertificateTicket = request.CertificateTicket,
                 Remarks = request.Remarks
+            };
+        }
+
+        /// <summary>
+        /// 将后端时间归一化为 HTTP 契约使用的 UTC DateTime。
+        /// </summary>
+        /// <remarks>
+        /// SQL Server datetime2 读回后 Kind 为 Unspecified；按照数据库 UTC 约定直接恢复为 UTC。
+        /// </remarks>
+        private static DateTime ToUtc(DateTime value)
+        {
+            return value.Kind switch
+            {
+                DateTimeKind.Local => value.ToUniversalTime(),
+                DateTimeKind.Utc => value,
+                _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
             };
         }
 

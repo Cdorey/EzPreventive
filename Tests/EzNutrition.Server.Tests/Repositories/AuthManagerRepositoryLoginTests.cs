@@ -1,11 +1,15 @@
+using EzNutrition.Server.Controllers;
 using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Entities;
 using EzNutrition.Server.Data.Repositories;
+using EzNutrition.Server.Extension;
 using EzNutrition.Server.Services;
 using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +17,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace EzNutrition.Server.Tests.Repositories;
 
@@ -91,6 +96,107 @@ public sealed class AuthManagerRepositoryLoginTests
         Assert.Empty(await host.DbContext.PrescriptionGenerateRequests.ToArrayAsync());
     }
 
+    [Fact]
+    public async Task Certification_submission_and_review_use_the_injected_utc_clock()
+    {
+        var utcNow = new DateTimeOffset(2026, 9, 1, 2, 3, 4, TimeSpan.Zero);
+        await using var host = LoginTestHost.Create(timeProvider: new FixedTimeProvider(utcNow));
+        var registration = CreateProfessionalRegistration("utc-certification-user");
+
+        var registrationResult = await host.Repository.RegisterUserAsync(registration);
+
+        Assert.True(registrationResult.Success);
+        var request = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+        Assert.Equal(utcNow.UtcDateTime, request.RequestTime);
+        Assert.Equal(DateTimeKind.Utc, request.RequestTime.Kind);
+
+        var review = request.ToDto();
+        review.Status = RequestStatus.Approved;
+        var controller = ActivatorUtilities.CreateInstance<AdminController>(host.Services);
+
+        var actionResult = await controller.UpdateRequest(review, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(actionResult);
+        host.DbContext.ChangeTracker.Clear();
+        var reviewedRequest = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+        Assert.Equal(utcNow.UtcDateTime, reviewedRequest.ProcessedTime);
+        Assert.Equal(DateTimeKind.Utc, reviewedRequest.ProcessedTime?.Kind);
+    }
+
+    [Fact]
+    public async Task Certification_database_mapping_restores_utc_kind()
+    {
+        await using var host = LoginTestHost.Create();
+        var requestTime = new DateTime(2026, 9, 1, 2, 3, 4, DateTimeKind.Unspecified);
+        var processedTime = requestTime.AddMinutes(30);
+        host.DbContext.ProfessionalCertificationRequests.Add(new ProfessionalCertificationRequest
+        {
+            Id = Guid.NewGuid(),
+            UserId = "database-utc-user",
+            RequestTime = requestTime,
+            IdentityType = "Physician",
+            InstitutionName = "Test Institution",
+            Status = RequestStatus.Approved,
+            ProcessedTime = processedTime
+        });
+        await host.DbContext.SaveChangesAsync();
+        host.DbContext.ChangeTracker.Clear();
+
+        var persisted = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+
+        Assert.Equal(requestTime, persisted.RequestTime);
+        Assert.Equal(DateTimeKind.Utc, persisted.RequestTime.Kind);
+        Assert.Equal(processedTime, persisted.ProcessedTime);
+        Assert.Equal(DateTimeKind.Utc, persisted.ProcessedTime?.Kind);
+    }
+
+    [Fact]
+    public void Certification_http_contract_serializes_utc_designators()
+    {
+        var request = new ProfessionalCertificationRequest
+        {
+            Id = Guid.NewGuid(),
+            UserId = "http-utc-user",
+            RequestTime = new DateTime(2026, 9, 1, 2, 3, 4, DateTimeKind.Unspecified),
+            IdentityType = "Physician",
+            InstitutionName = "Test Institution",
+            Status = RequestStatus.Approved,
+            ProcessedTime = new DateTime(2026, 9, 1, 2, 33, 4, DateTimeKind.Unspecified)
+        };
+
+        var dto = request.ToDto();
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(dto, jsonOptions);
+        using var document = JsonDocument.Parse(json);
+        var roundTrippedDto = JsonSerializer.Deserialize<ProfessionalCertificationRequestDto>(json, jsonOptions);
+
+        Assert.Equal(DateTimeKind.Utc, dto.RequestTime.Kind);
+        Assert.Equal(DateTimeKind.Utc, dto.ProcessedTime?.Kind);
+        Assert.NotNull(roundTrippedDto);
+        Assert.Equal(DateTimeKind.Utc, roundTrippedDto.RequestTime.Kind);
+        Assert.Equal(DateTimeKind.Utc, roundTrippedDto.ProcessedTime?.Kind);
+        Assert.EndsWith(
+            "Z",
+            document.RootElement.GetProperty("requestTime").GetString(),
+            StringComparison.Ordinal);
+        Assert.EndsWith(
+            "Z",
+            document.RootElement.GetProperty("processedTime").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    private static RegistrationDto CreateProfessionalRegistration(string userName) => new()
+    {
+        UserName = userName,
+        Password = LoginTestHost.InitialPassword,
+        Email = $"{userName}@example.test",
+        ProfessionalIdentity = new ProfessionalIdentityDto
+        {
+            IdentityType = "Physician",
+            InstitutionName = "Test Institution"
+        }
+    };
+
     private static void AssertJwt(string accessToken)
     {
         Assert.False(string.IsNullOrWhiteSpace(accessToken));
@@ -130,7 +236,11 @@ public sealed class AuthManagerRepositoryLoginTests
 
         internal ApplicationDbContext DbContext { get; }
 
-        internal static LoginTestHost Create(bool failEmailConfirmation = false)
+        internal IServiceProvider Services => scope.ServiceProvider;
+
+        internal static LoginTestHost Create(
+            bool failEmailConfirmation = false,
+            TimeProvider? timeProvider = null)
         {
             using var rsa = RSA.Create(2048);
             var privateKey = Convert.ToBase64String(rsa.ExportPkcs8PrivateKey());
@@ -178,6 +288,7 @@ public sealed class AuthManagerRepositoryLoginTests
                 new TestWebHostEnvironment(contentRootPath));
             services.AddSingleton<CertificateFileStore>();
             services.AddSingleton<LoginTimingEqualizer>();
+            services.AddSingleton(timeProvider ?? TimeProvider.System);
             services.AddScoped<JwtService>();
             services.AddScoped<AccountSecurityService>();
             services.AddScoped<AccountDeletionService>();
@@ -220,6 +331,11 @@ public sealed class AuthManagerRepositoryLoginTests
                 Directory.Delete(contentRootPath, recursive: true);
             }
         }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class TestAccountEmailSender(bool failConfirmation) : IAccountEmailSender

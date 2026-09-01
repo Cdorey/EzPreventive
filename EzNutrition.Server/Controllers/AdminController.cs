@@ -24,7 +24,8 @@ namespace EzNutrition.Server.Controllers
         UserManager<IdentityUser> userManager,
         ApplicationDbContext applicationDbContext,
         CertificateFileStore certificateFileStore,
-        AccountDeletionService accountDeletionService) : ControllerBase
+        AccountDeletionService accountDeletionService,
+        TimeProvider timeProvider) : ControllerBase
     {
         /// <summary>
         /// 添加角色
@@ -524,7 +525,7 @@ namespace EzNutrition.Server.Controllers
 
                 // 更新各属性
                 request.Status = dto.Status;
-                request.ProcessedTime = DateTime.Now;
+                request.ProcessedTime = timeProvider.GetUtcNow().UtcDateTime;
                 request.ProcessDetails = dto.ProcessDetails;
                 request.Remarks = dto.Remarks;
                 request.CertificateTicket = dto.Status == RequestStatus.Pending ? dto.CertificateTicket : null;

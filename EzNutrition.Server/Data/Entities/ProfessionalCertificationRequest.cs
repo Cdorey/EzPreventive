@@ -19,7 +19,7 @@ namespace EzNutrition.Server.Data.Entities
         public required string UserId { get; set; }
 
         /// <summary>
-        /// 请求提交的时间
+        /// 请求提交的 UTC 时间
         /// </summary>
         public DateTime RequestTime { get; set; }
 
@@ -39,7 +39,7 @@ namespace EzNutrition.Server.Data.Entities
         public RequestStatus Status { get; set; }
 
         /// <summary>
-        /// 处理该请求的时间（审核完成时间）
+        /// 处理该请求的 UTC 时间（审核完成时间）
         /// </summary>
         public DateTime? ProcessedTime { get; set; }
 

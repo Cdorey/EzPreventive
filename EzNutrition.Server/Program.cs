@@ -34,6 +34,7 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
             builder.Services.AddScoped<AuthManagerRepository>();
+            builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddSingleton<LoginTimingEqualizer>();
             builder.Services.AddScoped<AccountSecurityService>();
             builder.Services.AddSingleton<AccountRecoveryQueue>();

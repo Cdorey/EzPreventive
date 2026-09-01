@@ -21,7 +21,8 @@ namespace EzNutrition.Server.Data.Repositories
                                        AccountSecurityService accountSecurityService,
                                        LoginTimingEqualizer loginTimingEqualizer,
                                        AccountDeletionService accountDeletionService,
-                                       IOptions<AuthBootstrapSettings> bootstrapOptions)
+                                       IOptions<AuthBootstrapSettings> bootstrapOptions,
+                                       TimeProvider timeProvider)
     {
         /// <summary>
         /// 创建基础的Role关系，以及管理员账号
@@ -277,7 +278,7 @@ namespace EzNutrition.Server.Data.Repositories
             {
                 //创建这个专业身份认证请求记录
                 UserId = user.Id,
-                RequestTime = DateTime.UtcNow,
+                RequestTime = timeProvider.GetUtcNow().UtcDateTime,
                 IdentityType = professionalIdentityDto.IdentityType,
                 InstitutionName = professionalIdentityDto.InstitutionName,
                 Status = RequestStatus.Pending,

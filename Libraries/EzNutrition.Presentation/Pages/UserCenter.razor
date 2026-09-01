@@ -210,9 +210,20 @@
 
                     <Table DataSource="ProfessionalCertificationRequestDtos" Size="TableSize.Small" ScrollX="960">
                         <ChildContent Context="requests">
-                            <PropertyColumn Property="r=>r.RequestTime" Title="申请时间" />
+                            <PropertyColumn Property="r=>r.RequestTime" Title="申请时间">
+                                <LocalDateTimeDisplay Value="@requests.RequestTime" />
+                            </PropertyColumn>
                             <PropertyColumn Property="r=>r.IdentityType" Title="申请类别" />
-                            <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间" />
+                            <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间">
+                                @if (requests.ProcessedTime is { } processedTime)
+                                {
+                                    <LocalDateTimeDisplay Value="@processedTime" />
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </PropertyColumn>
                             <PropertyColumn Property="r=>r.ProcessDetails" Title="审核备注" />
                             <PropertyColumn Property="r=>r.Remarks" Title="认证备注" />
                             <PropertyColumn Property="r=>r.Status" Title="审核结果">

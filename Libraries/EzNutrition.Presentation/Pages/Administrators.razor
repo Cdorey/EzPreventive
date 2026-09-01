@@ -52,11 +52,22 @@
                     <ChildContent Context="requestListContext">
                         <PropertyColumn Property="r=>r.Id" />
                         <PropertyColumn Property="r=>r.UserId" />
-                        <PropertyColumn Property="r=>r.RequestTime" />
+                        <PropertyColumn Property="r=>r.RequestTime" Title="申请时间">
+                            <LocalDateTimeDisplay Value="@requestListContext.RequestTime" />
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.IdentityType" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.InstitutionName" />
                         <PropertyColumn Property="r=>r.Status" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.ProcessedTime" />
+                        <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间">
+                            @if (requestListContext.ProcessedTime is { } processedTime)
+                            {
+                                <LocalDateTimeDisplay Value="@processedTime" />
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.ProcessDetails" />
                         <PropertyColumn Property="r=>r.CertificateTicket" />
                         <PropertyColumn Property="r=>r.Remarks" />
@@ -185,7 +196,7 @@
                     <ChildContent Context="requestDtoContext">
                         <!-- 申请时间：只读显示 -->
                         <FormItem Label="申请时间">
-                            <Input @bind-Value="requestDtoContext.RequestTime" Disabled="true" />
+                            <LocalDateTimeDisplay Value="@requestDtoContext.RequestTime" />
                         </FormItem>
                         <!-- 申请状态：只读显示 -->
                         <FormItem Label="申请状态">

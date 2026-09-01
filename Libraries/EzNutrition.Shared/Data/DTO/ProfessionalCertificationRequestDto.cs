@@ -9,11 +9,21 @@ namespace EzNutrition.Shared.Data.DTO
     {
         public Guid Id { get; set; }
         public required string UserId { get; set; }
+
+        /// <summary>
+        /// 请求提交的 UTC 时间；通过 HTTP 传输时使用 Z 标记。
+        /// </summary>
         public DateTime RequestTime { get; set; }
+
         public required string IdentityType { get; set; }
         public required string InstitutionName { get; set; }
         public RequestStatus Status { get; set; }
+
+        /// <summary>
+        /// 审核完成的 UTC 时间；通过 HTTP 传输时使用 Z 标记。
+        /// </summary>
         public DateTime? ProcessedTime { get; set; }
+
         public string? ProcessDetails { get; set; }
         public Guid? CertificateTicket { get; set; }
         public string? Remarks { get; set; }
