@@ -7,6 +7,7 @@ using EzNutrition.Server.Services;
 using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -121,6 +123,62 @@ public sealed class AuthManagerRepositoryLoginTests
         var reviewedRequest = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
         Assert.Equal(utcNow.UtcDateTime, reviewedRequest.ProcessedTime);
         Assert.Equal(DateTimeKind.Utc, reviewedRequest.ProcessedTime?.Kind);
+    }
+
+    [Fact]
+    public async Task Notice_publication_uses_the_injected_utc_clock()
+    {
+        var utcNow = new DateTimeOffset(2026, 9, 1, 2, 3, 4, TimeSpan.Zero);
+        await using var host = LoginTestHost.Create(timeProvider: new FixedTimeProvider(utcNow));
+        var controller = ActivatorUtilities.CreateInstance<AdminController>(host.Services);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [new Claim(ClaimTypes.Upn, "publisher@example.test")],
+                    "test"))
+            }
+        };
+
+        var actionResult = await controller.Notification(
+            new NotificationDto
+            {
+                NoticeTitle = "UTC test",
+                NoticeDescription = "UTC notice"
+            },
+            CancellationToken.None);
+
+        Assert.IsType<OkResult>(actionResult);
+        host.DbContext.ChangeTracker.Clear();
+        var notice = await host.DbContext.Notices.SingleAsync();
+        Assert.Equal(utcNow.UtcDateTime, notice.CreateTime);
+        Assert.Equal(DateTimeKind.Utc, notice.CreateTime.Kind);
+    }
+
+    [Fact]
+    public async Task Ai_audit_database_mapping_restores_utc_kind()
+    {
+        await using var host = LoginTestHost.Create();
+        var requestTime = new DateTime(2026, 9, 1, 2, 3, 4, DateTimeKind.Unspecified);
+        var processedTime = requestTime.AddMinutes(5);
+        host.DbContext.PrescriptionGenerateRequests.Add(new PrescriptionGenerateRequest
+        {
+            Id = Guid.NewGuid(),
+            UserId = "database-utc-user",
+            Prompt = "test prompt",
+            RequestTime = requestTime,
+            ProcessedTime = processedTime
+        });
+        await host.DbContext.SaveChangesAsync();
+        host.DbContext.ChangeTracker.Clear();
+
+        var persisted = await host.DbContext.PrescriptionGenerateRequests.SingleAsync();
+
+        Assert.Equal(requestTime, persisted.RequestTime);
+        Assert.Equal(DateTimeKind.Utc, persisted.RequestTime.Kind);
+        Assert.Equal(processedTime, persisted.ProcessedTime);
+        Assert.Equal(DateTimeKind.Utc, persisted.ProcessedTime.Kind);
     }
 
     [Fact]

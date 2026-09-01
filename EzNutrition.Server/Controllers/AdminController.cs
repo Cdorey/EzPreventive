@@ -227,7 +227,7 @@ namespace EzNutrition.Server.Controllers
             {
                 Title = notification.NoticeTitle ?? string.Empty,
                 Description = notification.NoticeDescription,
-                CreateTime = DateTime.Now,
+                CreateTime = timeProvider.GetUtcNow().UtcDateTime,
                 IsCoverLetter = notification.IsCoverLetter,
                 PublisherId = publisherId,
             };

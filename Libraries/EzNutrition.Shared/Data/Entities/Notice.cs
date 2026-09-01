@@ -12,6 +12,9 @@
 
         public string PublisherId { get; set; } = string.Empty;
 
-        public DateTime CreateTime { get; set; } = DateTime.Now;
+        /// <summary>
+        /// 通知创建时间，按 UTC 保存。
+        /// </summary>
+        public DateTime CreateTime { get; set; } = DateTime.UtcNow;
     }
 }

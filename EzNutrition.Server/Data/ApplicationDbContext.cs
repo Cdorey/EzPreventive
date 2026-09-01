@@ -10,7 +10,7 @@ namespace EzNutrition.Server.Data
     public class ApplicationDbContext(DbContextOptions options) : IdentityDbContext(options)
     {
         /// <summary>
-        /// 按 UTC 约定写入认证时间，并在从无时区信息的 datetime2 读取后恢复 UTC Kind。
+        /// 按 UTC 约定写入业务时间，并在从无时区信息的 datetime2 读取后恢复 UTC Kind。
         /// </summary>
         private static readonly ValueConverter<DateTime, DateTime> UtcDateTimeConverter = new(
             value => value.Kind == DateTimeKind.Local
@@ -34,6 +34,18 @@ namespace EzNutrition.Server.Data
                 .Property(request => request.RequestTime)
                 .HasConversion(UtcDateTimeConverter);
             certificationRequest
+                .Property(request => request.ProcessedTime)
+                .HasConversion(UtcDateTimeConverter);
+
+            builder.Entity<Notice>()
+                .Property(notice => notice.CreateTime)
+                .HasConversion(UtcDateTimeConverter);
+
+            var prescriptionGenerateRequest = builder.Entity<PrescriptionGenerateRequest>();
+            prescriptionGenerateRequest
+                .Property(request => request.RequestTime)
+                .HasConversion(UtcDateTimeConverter);
+            prescriptionGenerateRequest
                 .Property(request => request.ProcessedTime)
                 .HasConversion(UtcDateTimeConverter);
         }
