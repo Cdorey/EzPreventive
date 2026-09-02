@@ -4,7 +4,10 @@
     {
         public Guid NoticeId { get; set; } = Guid.NewGuid();
 
-        public bool IsCoverLetter { get; set; } = false;
+        /// <summary>
+        /// 获取或设置通知或政策文本的发布类别。
+        /// </summary>
+        public NoticeKind Kind { get; set; } = NoticeKind.PostLoginAnnouncement;
 
         public string Title { get; set; } = string.Empty;
 

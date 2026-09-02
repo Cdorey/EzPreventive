@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using EzNutrition.Shared.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace EzNutrition.Shared.Data.DTO
 {
@@ -10,7 +11,11 @@ namespace EzNutrition.Shared.Data.DTO
         [Display(Name = "通知标题")]
         public string? NoticeTitle { get; set; }
 
-        [Display(Name = "是否为封面信")]
-        public bool IsCoverLetter { get; set; } = false;
+        /// <summary>
+        /// 获取或设置待发布内容的类别。
+        /// </summary>
+        [EnumDataType(typeof(NoticeKind), ErrorMessage = "通知类型无效")]
+        [Display(Name = "内容类型")]
+        public NoticeKind Kind { get; set; } = NoticeKind.PostLoginAnnouncement;
     }
 }

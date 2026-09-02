@@ -201,12 +201,11 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 发布通知
+        /// 发布指定类别的通知或政策文本。
         /// </summary>
-        /// <param name="noticeDescription"></param>
-        /// <param name="noticeTitle"></param>
-        /// <param name="isCoverLetter"></param>
-        /// <returns></returns>
+        /// <param name="notification">待发布内容。</param>
+        /// <param name="cancellationToken">用于取消数据库写入的令牌。</param>
+        /// <returns>发布成功时返回空的成功响应。</returns>
         [HttpPut]
         public async Task<IActionResult> Notification(
             [FromBody] NotificationDto notification,
@@ -223,15 +222,15 @@ namespace EzNutrition.Server.Controllers
                 return Unauthorized();
             }
 
-            var x = new Notice
+            var notice = new Notice
             {
                 Title = notification.NoticeTitle ?? string.Empty,
                 Description = notification.NoticeDescription,
                 CreateTime = timeProvider.GetUtcNow().UtcDateTime,
-                IsCoverLetter = notification.IsCoverLetter,
+                Kind = notification.Kind,
                 PublisherId = publisherId,
             };
-            applicationDbContext.Add(x);
+            applicationDbContext.Add(notice);
             await applicationDbContext.SaveChangesAsync(cancellationToken);
             return Ok();
         }

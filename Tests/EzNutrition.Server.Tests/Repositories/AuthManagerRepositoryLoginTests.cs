@@ -6,6 +6,7 @@ using EzNutrition.Server.Extension;
 using EzNutrition.Server.Services;
 using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Data.DTO;
+using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.DataProtection;
@@ -183,13 +184,15 @@ public sealed class AuthManagerRepositoryLoginTests
             new NotificationDto
             {
                 NoticeTitle = "UTC test",
-                NoticeDescription = "UTC notice"
+                NoticeDescription = "UTC notice",
+                Kind = NoticeKind.PrivacyPolicy
             },
             CancellationToken.None);
 
         Assert.IsType<OkResult>(actionResult);
         host.DbContext.ChangeTracker.Clear();
         var notice = await host.DbContext.Notices.SingleAsync();
+        Assert.Equal(NoticeKind.PrivacyPolicy, notice.Kind);
         Assert.Equal(utcNow.UtcDateTime, notice.CreateTime);
         Assert.Equal(DateTimeKind.Utc, notice.CreateTime.Kind);
     }
