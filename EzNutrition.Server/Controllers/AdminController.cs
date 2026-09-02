@@ -21,7 +21,7 @@ namespace EzNutrition.Server.Controllers
     public class AdminController(
         RoleManager<IdentityRole> roleManager,
         ILogger<AdminController> logger,
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         ApplicationDbContext applicationDbContext,
         CertificateFileStore certificateFileStore,
         AccountDeletionService accountDeletionService,

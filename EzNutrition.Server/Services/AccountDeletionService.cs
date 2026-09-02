@@ -73,7 +73,7 @@ public sealed record AccountDeletionResult(
 /// <param name="logger">日志记录器。</param>
 public sealed class AccountDeletionService(
     ApplicationDbContext applicationDb,
-    UserManager<IdentityUser> userManager,
+    UserManager<ApplicationUser> userManager,
     CertificateFileStore certificateFileStore,
     ILogger<AccountDeletionService> logger)
 {

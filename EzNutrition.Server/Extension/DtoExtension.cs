@@ -1,12 +1,12 @@
-﻿using EzNutrition.Server.Data.Entities;
+﻿using EzNutrition.Server.Data;
+using EzNutrition.Server.Data.Entities;
 using EzNutrition.Shared.Data.DTO;
-using Microsoft.AspNetCore.Identity;
 
 namespace EzNutrition.Server.Extension
 {
     public static class DtoExtension
     {
-        public static UserDto ToDto(this IdentityUser user)
+        public static UserDto ToDto(this ApplicationUser user)
         {
             ArgumentNullException.ThrowIfNull(user);
 

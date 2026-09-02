@@ -169,7 +169,7 @@ public sealed class AccountDeletionServiceTests
             this.connection = connection;
             this.contentRootPath = contentRootPath;
             DbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             RoleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             CertificateFileStore = scope.ServiceProvider.GetRequiredService<CertificateFileStore>();
             Service = scope.ServiceProvider.GetRequiredService<AccountDeletionService>();
@@ -177,7 +177,7 @@ public sealed class AccountDeletionServiceTests
 
         internal ApplicationDbContext DbContext { get; }
 
-        internal UserManager<IdentityUser> UserManager { get; }
+        internal UserManager<ApplicationUser> UserManager { get; }
 
         internal RoleManager<IdentityRole> RoleManager { get; }
 
@@ -199,7 +199,7 @@ public sealed class AccountDeletionServiceTests
             services.AddLogging();
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection));
             services
-                .AddIdentity<IdentityUser, IdentityRole>()
+                .AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
             services.AddSingleton<IWebHostEnvironment>(
                 new TestWebHostEnvironment(contentRootPath));
@@ -215,9 +215,9 @@ public sealed class AccountDeletionServiceTests
             return new TestHost(rootProvider, scope, connection, contentRootPath);
         }
 
-        internal async Task<IdentityUser> CreateUserAsync(string userName)
+        internal async Task<ApplicationUser> CreateUserAsync(string userName)
         {
-            var user = new IdentityUser(userName);
+            var user = new ApplicationUser { UserName = userName };
             var result = await UserManager.CreateAsync(user);
             Assert.True(
                 result.Succeeded,
@@ -225,7 +225,7 @@ public sealed class AccountDeletionServiceTests
             return user;
         }
 
-        internal async Task AddIdentityDataAsync(IdentityUser user)
+        internal async Task AddIdentityDataAsync(ApplicationUser user)
         {
             var createRoleResult = await RoleManager.CreateAsync(new IdentityRole(ProfessionalRole));
             Assert.True(createRoleResult.Succeeded);

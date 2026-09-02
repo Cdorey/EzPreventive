@@ -1,29 +1,29 @@
-using Microsoft.AspNetCore.Identity;
+using EzNutrition.Server.Data;
 
 namespace EzNutrition.Server.Services;
 
 public interface IAccountEmailSender
 {
     Task SendConfirmationLinkAsync(
-        IdentityUser user,
+        ApplicationUser user,
         string email,
         string confirmationLink,
         CancellationToken cancellationToken = default);
 
     Task SendPasswordResetLinkAsync(
-        IdentityUser user,
+        ApplicationUser user,
         string email,
         string resetLink,
         CancellationToken cancellationToken = default);
 
     Task SendEmailChangeLinkAsync(
-        IdentityUser user,
+        ApplicationUser user,
         string newEmail,
         string confirmationLink,
         CancellationToken cancellationToken = default);
 
     Task SendEmailChangedNotificationAsync(
-        IdentityUser user,
+        ApplicationUser user,
         string previousEmail,
         string newEmail,
         CancellationToken cancellationToken = default);

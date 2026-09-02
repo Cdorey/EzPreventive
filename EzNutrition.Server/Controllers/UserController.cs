@@ -19,7 +19,7 @@ namespace EzNutrition.Server.Controllers
         ILogger<UserController> logger,
         AuthManagerRepository authManagerRepository,
         AccountSecurityService accountSecurityService,
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         ApplicationDbContext applicationDbContext) : ControllerBase
     {
         [HttpGet]

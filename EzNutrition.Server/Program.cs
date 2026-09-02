@@ -44,7 +44,7 @@ namespace EzNutrition.Server
             builder.Services.AddTransient<SmtpEmailSender>();
             builder.Services.AddTransient<IAccountEmailSender>(provider =>
                 provider.GetRequiredService<SmtpEmailSender>());
-            builder.Services.AddTransient<IEmailSender<IdentityUser>>(provider =>
+            builder.Services.AddTransient<IEmailSender<ApplicationUser>>(provider =>
                 provider.GetRequiredService<SmtpEmailSender>());
             builder.Services.AddScoped<FoodNutritionValueRepository>();
             builder.Services.AddSingleton<AiAdvicePromptComposer>();

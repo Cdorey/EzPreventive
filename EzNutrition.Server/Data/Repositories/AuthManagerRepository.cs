@@ -14,9 +14,9 @@ namespace EzNutrition.Server.Data.Repositories
 {
     public class AuthManagerRepository(JwtService jwtService,
                                        ApplicationDbContext dbContext,
-                                       UserManager<IdentityUser> userManager,
+                                       UserManager<ApplicationUser> userManager,
                                        RoleManager<IdentityRole> roleManager,
-                                       SignInManager<IdentityUser> signInManager,
+                                       SignInManager<ApplicationUser> signInManager,
                                        ILogger<AuthManagerRepository> logger,
                                        AccountSecurityService accountSecurityService,
                                        LoginTimingEqualizer loginTimingEqualizer,
@@ -59,7 +59,13 @@ namespace EzNutrition.Server.Data.Repositories
                         "AuthBootstrap:AdminPassword must be supplied through a protected configuration source when creating the Admin account.");
                 }
 
-                var addUser = await userManager.CreateAsync(new IdentityUser { UserName = "Admin" }, password);
+                var addUser = await userManager.CreateAsync(
+                    new ApplicationUser
+                    {
+                        UserName = "Admin",
+                        CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime
+                    },
+                    password);
                 if (!addUser.Succeeded)
                 {
                     logger.LogError("创建Admin用户失败：{Errors}", addUser.Errors);
@@ -105,11 +111,24 @@ namespace EzNutrition.Server.Data.Repositories
             {
                 loginTimingEqualizer.Verify(password);
             }
+#warning 正式引入 2FA 前，必须在签发 JWT 前完成二次验证；CheckPasswordSignInAsync 成功不代表 2FA 已完成。
             else if ((await signInManager.CheckPasswordSignInAsync(user, password, true)).Succeeded &&
                 (string.IsNullOrWhiteSpace(user.Email) || user.EmailConfirmed))
             {
+                var accessToken = await jwtService.GenerateJwtToken(user);
+                user.LastSuccessfulLoginAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+                var updateResult = await userManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
+                {
+                    logger.LogError(
+                        "记录用户 {UserId} 的成功登录时间失败，Identity 错误代码：{ErrorCodes}",
+                        user.Id,
+                        string.Join(",", updateResult.Errors.Select(error => error.Code)));
+                    throw new InvalidOperationException("Failed to record the successful login time.");
+                }
+
                 logger.LogInformation("用户登陆成功：{UserId}/{NormalizedUserName}", user.Id, user.NormalizedUserName);
-                return await jwtService.GenerateJwtToken(user);
+                return accessToken;
             }
 
             logger.LogWarning("用户登陆失败：{Username}", username);
@@ -156,11 +175,12 @@ namespace EzNutrition.Server.Data.Repositories
         public async Task<RegistrationResultDto> RegisterUserAsync(RegistrationDto registrationDto)
         {
             logger.LogInformation("用户注册申请：{UserName}", registrationDto.UserName);
-            var user = new IdentityUser
+            var user = new ApplicationUser
             {
                 UserName = registrationDto.UserName,
                 Email = registrationDto.Email,
-                PhoneNumber = registrationDto.PhoneNumber
+                PhoneNumber = registrationDto.PhoneNumber,
+                CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime
             };
 
             var result = await userManager.CreateAsync(user, registrationDto.Password);
@@ -215,7 +235,7 @@ namespace EzNutrition.Server.Data.Repositories
         /// 清理失败只记录严重日志而不向调用方抛出，以免覆盖正在处理的原始注册异常。
         /// </remarks>
         /// <param name="user">已经由 Identity 创建、需要回滚的用户。</param>
-        private async Task RollbackFailedRegistrationAsync(IdentityUser user)
+        private async Task RollbackFailedRegistrationAsync(ApplicationUser user)
         {
             try
             {
@@ -270,7 +290,7 @@ namespace EzNutrition.Server.Data.Repositories
         /// <returns></returns>
         public async Task<string> CreateProfessionalIdentityRequest(
             ProfessionalIdentityDto professionalIdentityDto,
-            IdentityUser user,
+            ApplicationUser user,
             CancellationToken cancellationToken = default)
         {
             var certificateTicket = Guid.NewGuid();

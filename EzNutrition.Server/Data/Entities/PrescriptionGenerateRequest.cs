@@ -13,7 +13,7 @@
         public Guid Id { get; set; }
 
         /// <summary>
-        /// 关联的用户ID（可以是 IdentityUser 的主键）
+        /// 关联的应用用户主键。
         /// </summary>
         public required string UserId { get; set; }
 

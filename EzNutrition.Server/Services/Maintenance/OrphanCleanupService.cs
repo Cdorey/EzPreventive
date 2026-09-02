@@ -1,6 +1,5 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Entities;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace EzNutrition.Server.Services.Maintenance;
@@ -149,7 +148,7 @@ public sealed class OrphanCleanupService(
                 .ToArrayAsync(cancellationToken))
                 .ToHashSet(StringComparer.Ordinal);
             existingUserIds.UnionWith(applicationDb.ChangeTracker
-                .Entries<IdentityUser>()
+                .Entries<ApplicationUser>()
                 .Where(entry => entry.State == EntityState.Added)
                 .Select(entry => entry.Entity.Id));
 

@@ -57,7 +57,8 @@ public sealed class AuthManagerRepositoryLoginTests
     [Fact]
     public async Task Email_less_bootstrap_admin_can_still_log_in()
     {
-        await using var host = LoginTestHost.Create();
+        var utcNow = new DateTimeOffset(2026, 9, 2, 1, 2, 3, TimeSpan.Zero);
+        await using var host = LoginTestHost.Create(timeProvider: new FixedTimeProvider(utcNow));
 
         await host.Repository.Initialize();
 
@@ -65,12 +66,49 @@ public sealed class AuthManagerRepositoryLoginTests
         Assert.NotNull(admin);
         Assert.Null(admin.Email);
         Assert.False(admin.EmailConfirmed);
+        Assert.Equal(utcNow.UtcDateTime, admin.CreatedAtUtc);
+        Assert.Null(admin.LastSuccessfulLoginAtUtc);
 
         var accessToken = await host.Repository.Login(
             "Admin",
             LoginTestHost.InitialPassword);
 
         AssertJwt(accessToken);
+        Assert.Equal(utcNow.UtcDateTime, admin.LastSuccessfulLoginAtUtc);
+    }
+
+    [Fact]
+    public async Task Registration_and_successful_login_record_the_injected_utc_clock()
+    {
+        var utcNow = new DateTimeOffset(2026, 9, 2, 1, 2, 3, TimeSpan.Zero);
+        await using var host = LoginTestHost.Create(timeProvider: new FixedTimeProvider(utcNow));
+        var registration = new RegistrationDto
+        {
+            UserName = "lifecycle-user",
+            Password = LoginTestHost.InitialPassword,
+            Email = "lifecycle@example.test"
+        };
+
+        var registrationResult = await host.Repository.RegisterUserAsync(registration);
+
+        Assert.True(registrationResult.Success);
+        var user = await host.UserManager.FindByNameAsync(registration.UserName);
+        Assert.NotNull(user);
+        Assert.Equal(utcNow.UtcDateTime, user.CreatedAtUtc);
+        Assert.Equal(DateTimeKind.Utc, user.CreatedAtUtc.Kind);
+        Assert.Null(user.LastSuccessfulLoginAtUtc);
+
+        var confirmationToken = await host.UserManager.GenerateEmailConfirmationTokenAsync(user);
+        var confirmation = await host.UserManager.ConfirmEmailAsync(user, confirmationToken);
+        Assert.True(confirmation.Succeeded);
+
+        var accessToken = await host.Repository.Login(registration.UserName, registration.Password);
+
+        AssertJwt(accessToken);
+        host.DbContext.ChangeTracker.Clear();
+        var persisted = await host.DbContext.Users.SingleAsync(candidate => candidate.Id == user.Id);
+        Assert.Equal(utcNow.UtcDateTime, persisted.LastSuccessfulLoginAtUtc);
+        Assert.Equal(DateTimeKind.Utc, persisted.LastSuccessfulLoginAtUtc?.Kind);
     }
 
     [Fact]
@@ -283,12 +321,12 @@ public sealed class AuthManagerRepositoryLoginTests
             this.scope = scope;
             this.connection = connection;
             this.contentRootPath = contentRootPath;
-            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             Repository = scope.ServiceProvider.GetRequiredService<AuthManagerRepository>();
             DbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         }
 
-        internal UserManager<IdentityUser> UserManager { get; }
+        internal UserManager<ApplicationUser> UserManager { get; }
 
         internal AuthManagerRepository Repository { get; }
 
@@ -317,7 +355,7 @@ public sealed class AuthManagerRepositoryLoginTests
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite(connection));
             services
-                .AddIdentity<IdentityUser, IdentityRole>(options =>
+                .AddIdentity<ApplicationUser, IdentityRole>(options =>
                 {
                     options.Password.RequireDigit = false;
                     options.Password.RequiredLength = 6;
@@ -330,7 +368,7 @@ public sealed class AuthManagerRepositoryLoginTests
                 })
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
-            services.AddScoped<IUserValidator<IdentityUser>, OptionalUniqueEmailUserValidator>();
+            services.AddScoped<IUserValidator<ApplicationUser>, OptionalUniqueEmailUserValidator>();
             services.Configure<EmailSettings>(options =>
                 options.ClientUrl = "https://client.example.test");
             services.Configure<JwtSettings>(options =>
@@ -361,12 +399,12 @@ public sealed class AuthManagerRepositoryLoginTests
             return new LoginTestHost(provider, scope, connection, contentRootPath);
         }
 
-        internal async Task<IdentityUser> CreateUserAsync(
+        internal async Task<ApplicationUser> CreateUserAsync(
             string userName,
             string email,
             bool emailConfirmed)
         {
-            var user = new IdentityUser
+            var user = new ApplicationUser
             {
                 UserName = userName,
                 Email = email,
@@ -401,7 +439,7 @@ public sealed class AuthManagerRepositoryLoginTests
         internal const string FailureMessage = "Simulated email confirmation failure.";
 
         public Task SendConfirmationLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string confirmationLink,
             CancellationToken cancellationToken = default) => failConfirmation
@@ -409,19 +447,19 @@ public sealed class AuthManagerRepositoryLoginTests
                 : Task.CompletedTask;
 
         public Task SendPasswordResetLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string resetLink,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task SendEmailChangeLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string newEmail,
             string confirmationLink,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task SendEmailChangedNotificationAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string previousEmail,
             string newEmail,
             CancellationToken cancellationToken = default) => Task.CompletedTask;

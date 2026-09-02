@@ -1,3 +1,4 @@
+using EzNutrition.Server.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
@@ -5,11 +6,11 @@ using System.ComponentModel.DataAnnotations;
 namespace EzNutrition.Server.Services;
 
 public sealed class OptionalUniqueEmailUserValidator(IdentityErrorDescriber errors)
-    : IUserValidator<IdentityUser>
+    : IUserValidator<ApplicationUser>
 {
     public async Task<IdentityResult> ValidateAsync(
-        UserManager<IdentityUser> manager,
-        IdentityUser user)
+        UserManager<ApplicationUser> manager,
+        ApplicationUser user)
     {
         ArgumentNullException.ThrowIfNull(manager);
         ArgumentNullException.ThrowIfNull(user);

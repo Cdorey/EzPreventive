@@ -69,7 +69,7 @@ public sealed class OrphanCleanupServiceTests
     public async Task Ai_audit_cleanup_removes_only_records_without_identity_users()
     {
         await using var host = TestHost.Create();
-        var liveUser = new IdentityUser
+        var liveUser = new ApplicationUser
         {
             Id = "live-user",
             UserName = "live-user",
