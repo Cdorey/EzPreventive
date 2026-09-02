@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- EzNutrition 产品发行版本：产品代际.接口契约代际.兼容功能版本.修订版本 -->
-    <ProductVersion>2.1.1.0</ProductVersion>
+    <ProductVersion>2.2.0.0</ProductVersion>
     <Version>$(ProductVersion)</Version>
     <AssemblyVersion>$(ProductVersion)</AssemblyVersion>
     <FileVersion>$(ProductVersion)</FileVersion>
