@@ -1,0 +1,9 @@
+@page "/privacy-policy"
+@using EzNutrition.Presentation.Services
+@inject UserSessionService UserSession
+<PageTitle>隐私条款</PageTitle>
+
+<PublishedNoticeDocument Title="隐私条款"
+                         Description="了解本服务如何处理与保护账户及使用过程中产生的信息。"
+                         Markdown="@UserSession.PrivacyPolicy"
+                         IsLoaded="@UserSession.IsSystemInfoLoaded" />

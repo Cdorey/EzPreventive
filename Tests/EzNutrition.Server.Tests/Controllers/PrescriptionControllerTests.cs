@@ -17,6 +17,7 @@ public sealed class PrescriptionControllerTests
     [Fact]
     public async Task Generate_audits_the_exact_user_message_sent_to_the_provider()
     {
+        var utcNow = new DateTimeOffset(2026, 9, 1, 2, 3, 4, TimeSpan.Zero);
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -26,7 +27,8 @@ public sealed class PrescriptionControllerTests
             provider,
             applicationDb,
             new AiAdvicePromptComposer(),
-            NullLogger<PrescriptionController>.Instance);
+            NullLogger<PrescriptionController>.Instance,
+            new FixedTimeProvider(utcNow));
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(new ClaimsIdentity(
@@ -45,6 +47,10 @@ public sealed class PrescriptionControllerTests
         Assert.NotEqual(sentPrompt.SystemMessage, auditRecord.Prompt);
         Assert.Equal("doctor@example.test", auditRecord.UserId);
         Assert.Equal("可执行建议", auditRecord.Content);
+        Assert.Equal(utcNow.UtcDateTime, auditRecord.RequestTime);
+        Assert.Equal(DateTimeKind.Utc, auditRecord.RequestTime.Kind);
+        Assert.Equal(utcNow.UtcDateTime, auditRecord.ProcessedTime);
+        Assert.Equal(DateTimeKind.Utc, auditRecord.ProcessedTime.Kind);
     }
 
     private static AiAdviceRequestDto CreateRequest() => new()
@@ -82,5 +88,10 @@ public sealed class PrescriptionControllerTests
             await Task.Yield();
             yield return new AiResultDto("可执行建议", false);
         }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

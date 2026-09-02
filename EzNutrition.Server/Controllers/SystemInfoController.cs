@@ -20,24 +20,52 @@ namespace EzNutrition.Server.Controllers
         public ActionResult<PublicSystemInfoDto> PublicInfo() =>
             Ok(new PublicSystemInfoDto(GetCaseNumber(), ServerVersion));
 
+        /// <summary>
+        /// 获取最新的登录页面公告。
+        /// </summary>
+        /// <param name="cancellationToken">用于取消数据库查询的令牌。</param>
+        /// <returns>找到时返回公告，否则返回 404。</returns>
         [HttpGet]
-        public async Task<IActionResult> CoverLetter(CancellationToken cancellationToken)
-        {
-            var letter = await db.Notices
-                .AsNoTracking()
-                .Where(notice => notice.IsCoverLetter)
-                .OrderByDescending(notice => notice.CreateTime)
-                .FirstOrDefaultAsync(cancellationToken);
+        public Task<IActionResult> CoverLetter(CancellationToken cancellationToken) =>
+            GetLatestNoticeAsync(NoticeKind.PreLoginAnnouncement, cancellationToken);
 
-            return letter is not null ? Ok(letter) : NotFound();
-        }
-
+        /// <summary>
+        /// 获取最新的登录后公告。
+        /// </summary>
+        /// <param name="cancellationToken">用于取消数据库查询的令牌。</param>
+        /// <returns>找到时返回公告，否则返回 404。</returns>
         [HttpGet]
-        public async Task<IActionResult> Notice(CancellationToken cancellationToken)
+        public Task<IActionResult> Notice(CancellationToken cancellationToken) =>
+            GetLatestNoticeAsync(NoticeKind.PostLoginAnnouncement, cancellationToken);
+
+        /// <summary>
+        /// 获取最新的用户许可协议。
+        /// </summary>
+        /// <param name="cancellationToken">用于取消数据库查询的令牌。</param>
+        /// <returns>找到时返回用户许可协议，否则返回 404。</returns>
+        [HttpGet]
+        public Task<IActionResult> UserAgreement(CancellationToken cancellationToken) =>
+            GetLatestNoticeAsync(NoticeKind.UserAgreement, cancellationToken);
+
+        /// <summary>
+        /// 获取最新的隐私条款。
+        /// </summary>
+        /// <param name="cancellationToken">用于取消数据库查询的令牌。</param>
+        /// <returns>找到时返回隐私条款，否则返回 404。</returns>
+        [HttpGet]
+        public Task<IActionResult> PrivacyPolicy(CancellationToken cancellationToken) =>
+            GetLatestNoticeAsync(NoticeKind.PrivacyPolicy, cancellationToken);
+
+        /// <summary>
+        /// 获取指定类别中创建时间最新的内容。
+        /// </summary>
+        private async Task<IActionResult> GetLatestNoticeAsync(
+            NoticeKind kind,
+            CancellationToken cancellationToken)
         {
             var notice = await db.Notices
                 .AsNoTracking()
-                .Where(item => !item.IsCoverLetter)
+                .Where(item => item.Kind == kind)
                 .OrderByDescending(item => item.CreateTime)
                 .FirstOrDefaultAsync(cancellationToken);
 

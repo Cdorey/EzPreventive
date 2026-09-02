@@ -108,10 +108,12 @@ public sealed class UserSessionCredentialTests
         Assert.True(session.TryGetAccessToken(out _));
         Assert.Equal(1, credentialStore.ReadCount);
         Assert.Equal(1, handler.LoginCount);
-        Assert.Equal(3, handler.SystemInfoRequestCount);
+        Assert.Equal(5, handler.SystemInfoRequestCount);
         Assert.Equal("test-case-number", session.CaseNumber);
         Assert.Equal("2.1.0.0", session.ClientVersion);
         Assert.Equal("2.1.0.0", session.ServerVersion);
+        Assert.Equal("test-user-agreement", session.UserAgreement);
+        Assert.Equal("test-privacy-policy", session.PrivacyPolicy);
         Assert.False(session.HasVersionCompatibilityWarning);
         Assert.Null(session.AutomaticSignInError);
     }
@@ -340,6 +342,8 @@ public sealed class UserSessionCredentialTests
             {
                 "SystemInfo/CoverLetter/" => """{"description":"test-cover-letter"}""",
                 "SystemInfo/Notice/" => """{"description":"test-notice"}""",
+                "SystemInfo/UserAgreement/" => """{"description":"test-user-agreement"}""",
+                "SystemInfo/PrivacyPolicy/" => """{"description":"test-privacy-policy"}""",
                 _ => throw new InvalidOperationException($"Unexpected request path: {relativePath}")
             };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

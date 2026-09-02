@@ -144,6 +144,11 @@
                                     </Button>
                                     <Button OnClick="@(()=>{Navigator.NavigateTo("register");})">注册新账户</Button>
                                 </div>
+                                <div class="account-policy-links" aria-label="服务协议与隐私说明">
+                                    <span>使用服务前请阅读</span>
+                                    <AuxiliaryPageLink Page="AuxiliaryPage.UserAgreement">用户许可协议</AuxiliaryPageLink>
+                                    <AuxiliaryPageLink Page="AuxiliaryPage.PrivacyPolicy">隐私条款</AuxiliaryPageLink>
+                                </div>
                             </FormItem>
                         </ChildContent>
                     </Form>
@@ -261,4 +266,3 @@
         lifetimeCancellation.Dispose();
     }
 }
-

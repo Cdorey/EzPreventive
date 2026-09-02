@@ -13,7 +13,7 @@
         public Guid Id { get; set; }
 
         /// <summary>
-        /// 关联的用户ID（可以是 IdentityUser 的主键）
+        /// 关联的应用用户主键。
         /// </summary>
         public required string UserId { get; set; }
 
@@ -34,12 +34,12 @@
         public string? Content { get; set; }
 
         /// <summary>
-        /// 请求提交的时间
+        /// 请求提交的 UTC 时间。
         /// </summary>
-        public DateTime RequestTime { get; set; } = DateTime.Now;
+        public DateTime RequestTime { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// 处理该请求的时间（生成完成时间）
+        /// 处理该请求的 UTC 时间（生成完成时间）。
         /// </summary>
         public DateTime ProcessedTime { get; set; }
     }

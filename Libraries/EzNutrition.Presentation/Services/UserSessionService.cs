@@ -84,6 +84,12 @@ public sealed class UserSessionService : AuthenticationStateProvider
     /// <summary>获取工作提示。</summary>
     public string Notice { get; private set; } = string.Empty;
 
+    /// <summary>获取服务端当前发布的用户许可协议。</summary>
+    public string UserAgreement { get; private set; } = string.Empty;
+
+    /// <summary>获取服务端当前发布的隐私条款。</summary>
+    public string PrivacyPolicy { get; private set; } = string.Empty;
+
     /// <summary>获取公共系统信息是否已经完成首次加载。</summary>
     public bool IsSystemInfoLoaded { get; private set; }
 
@@ -130,14 +136,23 @@ public sealed class UserSessionService : AuthenticationStateProvider
             var publicInfoTask = TryGetPublicSystemInfoAsync(cancellationToken);
             var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
             var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
+            var userAgreementTask = TryGetNoticeAsync("SystemInfo/UserAgreement/", cancellationToken);
+            var privacyPolicyTask = TryGetNoticeAsync("SystemInfo/PrivacyPolicy/", cancellationToken);
 
-            await Task.WhenAll(publicInfoTask, coverLetterTask, noticeTask);
+            await Task.WhenAll(
+                publicInfoTask,
+                coverLetterTask,
+                noticeTask,
+                userAgreementTask,
+                privacyPolicyTask);
 
             var publicInfo = await publicInfoTask;
             CaseNumber = NormalizeOptional(publicInfo.CaseNumber);
             ServerVersion = NormalizeOptional(publicInfo.ServerVersion);
             CoverLetter = await coverLetterTask;
             Notice = await noticeTask;
+            UserAgreement = await userAgreementTask;
+            PrivacyPolicy = await privacyPolicyTask;
         }
         finally
         {

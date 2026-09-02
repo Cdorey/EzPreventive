@@ -7,6 +7,7 @@ using EzNutrition.Archives.Xml;
 using EzNutrition.Client.Infrastructure;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
+using EzNutrition.Presentation.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System.Reflection;
@@ -24,6 +25,7 @@ namespace EzNutrition.Client
             builder.Services.AddEzNutritionPresentation(
                 new Uri(builder.HostEnvironment.BaseAddress),
                 TimeZoneInfo.Local);
+            builder.Services.AddSingleton<IAuxiliaryPageHost, BrowserAuxiliaryPageHost>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();

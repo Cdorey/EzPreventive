@@ -459,12 +459,12 @@ public sealed class AccountSecurityServiceTests
     public async Task Optional_unique_email_validation_allows_email_less_bootstrap_users()
     {
         await using var host = TestHost.Create();
-        var admin = new IdentityUser { UserName = "Admin" };
+        var admin = new ApplicationUser { UserName = "Admin" };
 
         var adminResult = await host.UserManager.CreateAsync(admin, TestHost.InitialPassword);
         await host.CreateUserAsync("first", "unique@example.test", confirmed: true);
         var duplicateResult = await host.UserManager.CreateAsync(
-            new IdentityUser
+            new ApplicationUser
             {
                 UserName = "second",
                 Email = "UNIQUE@example.test"
@@ -485,7 +485,7 @@ public sealed class AccountSecurityServiceTests
     {
         await using var host = TestHost.Create();
         var result = await host.UserManager.CreateAsync(
-            new IdentityUser { UserName = $"invalid-{Guid.NewGuid():N}", Email = email },
+            new ApplicationUser { UserName = $"invalid-{Guid.NewGuid():N}", Email = email },
             TestHost.InitialPassword);
 
         Assert.False(result.Succeeded);
@@ -520,11 +520,11 @@ public sealed class AccountSecurityServiceTests
             this.sqliteConnection = sqliteConnection;
             this.failingValidator = failingValidator;
             EmailSender = emailSender;
-            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+            UserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             Service = scope.ServiceProvider.GetRequiredService<AccountSecurityService>();
         }
 
-        internal UserManager<IdentityUser> UserManager { get; }
+        internal UserManager<ApplicationUser> UserManager { get; }
 
         internal AccountSecurityService Service { get; }
 
@@ -563,7 +563,7 @@ public sealed class AccountSecurityServiceTests
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.AddDbContext<ApplicationDbContext>(configureDatabase);
             services
-                .AddIdentity<IdentityUser, IdentityRole>(options =>
+                .AddIdentity<ApplicationUser, IdentityRole>(options =>
                 {
                     options.Password.RequireDigit = false;
                     options.Password.RequiredLength = 6;
@@ -575,11 +575,11 @@ public sealed class AccountSecurityServiceTests
                 .AddDefaultTokenProviders();
             if (enforceUniqueEmail)
             {
-                services.AddScoped<IUserValidator<IdentityUser>, OptionalUniqueEmailUserValidator>();
+                services.AddScoped<IUserValidator<ApplicationUser>, OptionalUniqueEmailUserValidator>();
             }
             if (failingValidator is not null)
             {
-                services.AddSingleton<IUserValidator<IdentityUser>>(failingValidator);
+                services.AddSingleton<IUserValidator<ApplicationUser>>(failingValidator);
             }
             services.Configure<EmailSettings>(options =>
                 options.ClientUrl = "https://client.example.test");
@@ -610,12 +610,12 @@ public sealed class AccountSecurityServiceTests
                 "This host has no controllable validator."))
             .FailOnCall(callNumber);
 
-        internal async Task<IdentityUser> CreateUserAsync(
+        internal async Task<ApplicationUser> CreateUserAsync(
             string userName,
             string email,
             bool confirmed)
         {
-            var user = new IdentityUser
+            var user = new ApplicationUser
             {
                 UserName = userName,
                 Email = email,
@@ -628,11 +628,11 @@ public sealed class AccountSecurityServiceTests
             return user;
         }
 
-        internal async Task<IdentityUser?> LoadUserFromFreshScopeAsync(string userId)
+        internal async Task<ApplicationUser?> LoadUserFromFreshScopeAsync(string userId)
         {
             await using var verificationScope = rootProvider.CreateAsyncScope();
             var verificationManager = verificationScope.ServiceProvider
-                .GetRequiredService<UserManager<IdentityUser>>();
+                .GetRequiredService<UserManager<ApplicationUser>>();
             return await verificationManager.FindByIdAsync(userId);
         }
 
@@ -647,7 +647,7 @@ public sealed class AccountSecurityServiceTests
         }
     }
 
-    private sealed class NthCallFailingUserValidator : IUserValidator<IdentityUser>
+    private sealed class NthCallFailingUserValidator : IUserValidator<ApplicationUser>
     {
         private int callCount;
         private int failOnCall = -1;
@@ -666,8 +666,8 @@ public sealed class AccountSecurityServiceTests
         }
 
         public Task<IdentityResult> ValidateAsync(
-            UserManager<IdentityUser> manager,
-            IdentityUser user)
+            UserManager<ApplicationUser> manager,
+            ApplicationUser user)
         {
             var currentCall = Interlocked.Increment(ref callCount);
             var result = currentCall == Volatile.Read(ref failOnCall)
@@ -688,7 +688,7 @@ public sealed class AccountSecurityServiceTests
         internal IReadOnlyCollection<TestEmail> Messages => messages.ToArray();
 
         public Task SendConfirmationLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string confirmationLink,
             CancellationToken cancellationToken = default)
@@ -698,7 +698,7 @@ public sealed class AccountSecurityServiceTests
         }
 
         public Task SendPasswordResetLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string resetLink,
             CancellationToken cancellationToken = default)
@@ -708,7 +708,7 @@ public sealed class AccountSecurityServiceTests
         }
 
         public Task SendEmailChangeLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string newEmail,
             string confirmationLink,
             CancellationToken cancellationToken = default)
@@ -718,7 +718,7 @@ public sealed class AccountSecurityServiceTests
         }
 
         public Task SendEmailChangedNotificationAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string previousEmail,
             string newEmail,
             CancellationToken cancellationToken = default)
