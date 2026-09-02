@@ -51,6 +51,8 @@ public sealed class MainLayoutRenderTests
         Assert.Contains("主观整体评估 SGA（团标版）", html, StringComparison.Ordinal);
         Assert.Contains("assessmentinsights/nrs-2002?system=", html, StringComparison.Ordinal);
         Assert.Contains("version=WS%2FT%20427", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("user-agreement", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("privacy-policy", html, StringComparison.Ordinal);
     }
 
     private static ServiceProvider BuildServiceProvider()

@@ -7,6 +7,7 @@ using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Xml;
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
+using EzNutrition.Presentation.Services;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
@@ -153,6 +154,7 @@ public partial class App : System.Windows.Application
             TimeZoneInfo.Local,
             credentialStore,
             httpMessageHandlerFactory.Create);
+        services.AddSingleton<IAuxiliaryPageHost, WpfAuxiliaryPageHost>();
         services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
         services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
         services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();

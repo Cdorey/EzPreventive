@@ -1,0 +1,30 @@
+@using EzNutrition.Presentation.Services
+@inject IAuxiliaryPageHost AuxiliaryPageHost
+
+@if (AuxiliaryPageHost.CanOpenInNativeWindow)
+{
+    <a href="@Page.GetRelativePath()"
+       @onclick="OpenInNativeWindowAsync"
+       @onclick:preventDefault="true">@ChildContent</a>
+}
+else
+{
+    <a href="@Page.GetRelativePath()"
+       target="_blank"
+       rel="noopener noreferrer">@ChildContent</a>
+}
+
+@code {
+    /// <summary>获取或设置链接指向的辅助页面。</summary>
+    [Parameter, EditorRequired]
+    public AuxiliaryPage Page { get; set; }
+
+    /// <summary>获取或设置链接文字或其他行内容。</summary>
+    [Parameter, EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+
+    private async Task OpenInNativeWindowAsync()
+    {
+        await AuxiliaryPageHost.OpenInNativeWindowAsync(Page);
+    }
+}

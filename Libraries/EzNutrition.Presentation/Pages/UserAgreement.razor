@@ -1,0 +1,9 @@
+@page "/user-agreement"
+@using EzNutrition.Presentation.Services
+@inject UserSessionService UserSession
+<PageTitle>用户许可协议</PageTitle>
+
+<PublishedNoticeDocument Title="用户许可协议"
+                         Description="请在注册或使用服务前阅读服务端当前发布的用户许可协议。"
+                         Markdown="@UserSession.UserAgreement"
+                         IsLoaded="@UserSession.IsSystemInfoLoaded" />
