@@ -48,6 +48,30 @@
                 {
                     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">@UserSession.CaseNumber</a>
                 }
+                @if (!string.IsNullOrEmpty(UserSession.ClientVersion) || !string.IsNullOrEmpty(UserSession.ServerVersion))
+                {
+                    <span class="version-status @(UserSession.HasVersionCompatibilityWarning ? "version-status-warning" : null)"
+                          aria-label="前后端版本信息">
+                        @if (!string.IsNullOrEmpty(UserSession.ClientVersion))
+                        {
+                            <span title="当前前端宿主产品版本">前端 v@(UserSession.ClientVersion)</span>
+                        }
+                        @if (!string.IsNullOrEmpty(UserSession.ClientVersion) && !string.IsNullOrEmpty(UserSession.ServerVersion))
+                        {
+                            <span aria-hidden="true">·</span>
+                        }
+                        @if (!string.IsNullOrEmpty(UserSession.ServerVersion))
+                        {
+                            <span title="当前连接的服务端产品版本">后端 v@(UserSession.ServerVersion)</span>
+                        }
+                    </span>
+                }
+                @if (UserSession.HasVersionCompatibilityWarning)
+                {
+                    <Tag Color="@("red")">
+                        <Icon Type="exclamation-circle" Theme="IconThemeType.Outline" /> 可能存在兼容问题
+                    </Tag>
+                }
             </Footer>
         </Layout>
     </Layout>

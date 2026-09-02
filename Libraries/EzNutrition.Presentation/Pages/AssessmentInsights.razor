@@ -1,0 +1,193 @@
+@page "/assessmentinsights/{Code}"
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Assessments
+@using EzNutrition.Domain.Consultations
+@attribute [Authorize]
+@inject NutritionAssessmentApplicationService NutritionAssessmentService
+
+<PageTitle>@PageTitleText</PageTitle>
+
+@if (SelectedDefinition is null)
+{
+    <Result Status="ResultStatus.Error"
+            Title="未找到这个量表"
+            SubTitle="该量表可能未在当前版本中注册，请从左侧量表速查菜单重新选择。" />
+}
+else
+{
+    <section class="assessment-insights-page">
+        <header class="page-heading">
+            <span>结构化评估工具</span>
+            <h1>量表速查</h1>
+            <p>当前量表：@SelectedDefinition.DisplayName</p>
+        </header>
+
+        <section class="subject-card" aria-labelledby="assessment-subject-title">
+            <div class="section-heading">
+                <div>
+                    <span>评估条件</span>
+                    <h2 id="assessment-subject-title">评估对象资料</h2>
+                </div>
+                <Icon Type="idcard" Theme="IconThemeType.Outline" />
+            </div>
+
+            <Alert Class="standalone-notice"
+                   Type="AlertType.Info"
+                   Message="本页用于独立速查"
+                   Description="结果只保留在当前页面，不会加入咨询档案或 SOAP；需要归档时，请在门诊咨询中添加同一量表。"
+                   ShowIcon="true" />
+
+            <Form Model="@SubjectInfo" Layout="FormLayout.Vertical">
+                <GridRow Gutter="(16,0)">
+                    <GridCol Xs="24" Lg="12">
+                        <AgeEntry @key="SubjectInfo"
+                                  Client="context"
+                                  Changed="HandleSubjectInfoChanged" />
+                    </GridCol>
+                    <GridCol Xs="24" Sm="12" Lg="6">
+                        <FormItem Label="身高（cm，可选）">
+                            <Input type="InputType.Number"
+                                   min="0"
+                                   @bind-Value="context.Height" />
+                        </FormItem>
+                    </GridCol>
+                    <GridCol Xs="24" Sm="12" Lg="6">
+                        <FormItem Label="体重（kg，可选）">
+                            <Input type="InputType.Number"
+                                   min="0"
+                                   @bind-Value="context.Weight" />
+                        </FormItem>
+                    </GridCol>
+                </GridRow>
+
+                <div class="assessment-actions">
+                    <Button Type="@ButtonType.Primary"
+                            Disabled="@(!CanStart)"
+                            OnClick="StartAssessment">
+                        <Icon Type="play-circle" Theme="IconThemeType.Outline" />
+                        @(Assessment is null ? "开始评估" : "按当前资料重新开始")
+                    </Button>
+                    @if (Assessment is not null)
+                    {
+                        <small>重新开始会清空本页当前作答。</small>
+                    }
+                </div>
+            </Form>
+
+            @if (HasPendingSubjectChanges)
+            {
+                <Alert Class="pending-subject-notice"
+                       Type="AlertType.Warning"
+                       Message="评估对象资料尚未应用"
+                       Description="当前量表仍按上一次开始时的资料计算；重新开始后才会采用这些修改。"
+                       ShowIcon="true" />
+            }
+        </section>
+
+        @if (Assessment is null)
+        {
+            <section class="assessment-placeholder" aria-label="量表尚未开始">
+                <Empty Description="@("确认年龄后即可开始；身高和体重用于需要 BMI 或体重数据的量表。")" />
+            </section>
+        }
+        else
+        {
+            <section class="assessment-run" aria-label="当前量表">
+                <NutritionAssessmentScale @key="Assessment.RunId" Assessment="Assessment" />
+            </section>
+        }
+    </section>
+}
+
+@code {
+    /// <summary>获取路由中的量表稳定编码。</summary>
+    [Parameter]
+    public string? Code { get; set; }
+
+    /// <summary>获取查询字符串中的量表代码体系。</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "system")]
+    public string? CodeSystem { get; set; }
+
+    /// <summary>获取查询字符串中的量表版本。</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "version")]
+    public string? Version { get; set; }
+
+    private NutritionAssessmentDefinition? SelectedDefinition { get; set; }
+
+    private NutritionAssessmentRun? Assessment { get; set; }
+
+    private ClientInfo SubjectInfo { get; set; } = CreateSubjectInfo();
+
+    private string PageTitleText => SelectedDefinition is null
+        ? "量表速查"
+        : $"{SelectedDefinition.DisplayName} · 量表速查";
+
+    private bool CanStart => SelectedDefinition is not null && SubjectInfo.Age is not null;
+
+    private bool HasPendingSubjectChanges => Assessment is not null
+        && (SubjectInfo.Age?.Years != Assessment.Subject.AgeInYears
+            || SubjectInfo.Height != Assessment.Subject.HeightInCentimeters
+            || SubjectInfo.Weight != Assessment.Subject.WeightInKilograms);
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        var resolved = ResolveDefinition();
+        if (ReferenceEquals(SelectedDefinition, resolved))
+        {
+            return;
+        }
+
+        SelectedDefinition = resolved;
+        Assessment = null;
+        SubjectInfo = CreateSubjectInfo();
+    }
+
+    private NutritionAssessmentDefinition? ResolveDefinition()
+    {
+        var matches = NutritionAssessmentService.Definitions.Where(definition =>
+            string.Equals(definition.Code, Code, StringComparison.Ordinal));
+        if (!string.IsNullOrWhiteSpace(CodeSystem))
+        {
+            matches = matches.Where(definition => string.Equals(
+                definition.CodeSystem.AbsoluteUri,
+                CodeSystem,
+                StringComparison.Ordinal));
+        }
+
+        if (!string.IsNullOrWhiteSpace(Version))
+        {
+            matches = matches.Where(definition => string.Equals(
+                definition.Version,
+                Version,
+                StringComparison.Ordinal));
+        }
+
+        var resolved = matches.Take(2).ToArray();
+        return resolved.Length == 1 ? resolved[0] : null;
+    }
+
+    private void StartAssessment()
+    {
+        if (SelectedDefinition is null || SubjectInfo.Age is not { } age)
+        {
+            return;
+        }
+
+        Assessment = NutritionAssessmentService.CreateStandaloneRun(
+            SelectedDefinition,
+            new NutritionAssessmentSubject
+            {
+                AgeInYears = age.Years,
+                HeightInCentimeters = SubjectInfo.Height,
+                WeightInKilograms = SubjectInfo.Weight
+            });
+    }
+
+    private void HandleSubjectInfoChanged() => StateHasChanged();
+
+    private static ClientInfo CreateSubjectInfo() => new()
+    {
+        Age = null
+    };
+}

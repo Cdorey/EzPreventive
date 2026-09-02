@@ -1,20 +1,25 @@
 using System.Reflection;
 using EzNutrition.Application.Archives;
+using EzNutrition.Assessments.Common;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
 using EzNutrition.Archives.Xml;
+using EzNutrition.Domain.Assessments;
 using EzNutrition.Presentation;
+using EzNutrition.Presentation.Services;
 using EzNutrition.Wpf.Archives;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
 using EzNutrition.Wpf.Networking;
 using EzNutrition.Wpf.Security;
+using EzNutrition.Wpf.Updates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Windows;
+using Velopack;
 
 namespace EzNutrition.Wpf;
 
@@ -24,6 +29,22 @@ namespace EzNutrition.Wpf;
 public partial class App : System.Windows.Application
 {
     private IHost? host;
+
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        // Microsoft Store/MSIX 负责自身更新；仅直发桌面版本响应 Velopack 生命周期钩子。
+        if (!WindowsPackageIdentity.IsPackaged)
+        {
+            VelopackApp.Build()
+                .SetArgs(args)
+                .Run();
+        }
+
+        var application = new App();
+        application.InitializeComponent();
+        application.Run();
+    }
 
     /// <summary>
     /// 创建桌面应用，并安装进程级异常兜底。
@@ -133,6 +154,16 @@ public partial class App : System.Windows.Application
             TimeZoneInfo.Local,
             credentialStore,
             httpMessageHandlerFactory.Create);
+        services.AddSingleton<IAuxiliaryPageHost, WpfAuxiliaryPageHost>();
+        services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, MustInstrument>();
+        services.AddSingleton<
+            INutritionAssessmentInstrument,
+            WsT552ElderlyMalnutritionRiskInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, SgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, ChasSgaInstrument>();
+        services.AddSingleton<INutritionAssessmentInstrument, PgSgaInstrument>();
 
         services.AddSingleton(CreateArchiveContractAssembler());
         services.AddSingleton<IArchiveValidator, ArchiveContractValidator>();
@@ -146,6 +177,7 @@ public partial class App : System.Windows.Application
         services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
 
         services.AddSingleton<DesktopFileLauncher>();
+        services.AddSingleton<VelopackUpdateService>();
         services.AddSingleton<MainWindow>();
         var builtHost = builder.Build();
         if (!string.IsNullOrWhiteSpace(userSettingsWarning))

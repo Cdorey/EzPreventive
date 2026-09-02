@@ -1,0 +1,231 @@
+@using EzNutrition.Domain.Consultations
+@namespace EzNutrition.UI.Components
+
+<Modal Title="@Title"
+       Visible="@Visible"
+       Width="@ModalWidth"
+       MaxBodyHeight="calc(100dvh - 190px)"
+       BodyStyle="overflow-y: auto;"
+       Centered="true"
+       MaskClosable="false"
+       ConfirmLoading="@isConfirming"
+       OkText="@("确认引入")"
+       CancelText="@("取消")"
+       OkButtonProps="@ConfirmButtonProps"
+       CancelButtonProps="@CancelButtonProps"
+       OnCancel="CancelAsync"
+       OnOk="ConfirmAsync">
+    <div class="soap-contribution-review">
+        <Alert Type="AlertType.Info"
+               ShowIcon="true"
+               Message="请在写入前复核"
+               Description="@Description" />
+
+        <div class="@FieldGridClass">
+            @if (showSubjective)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@subjectiveInputId">主观资料（S）</label>
+                    <span>咨询对象报告、表达或回顾的资料</span>
+                    <TextArea id="@subjectiveInputId"
+                              @bind-Value="subjective"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入主观资料" />
+                </div>
+            }
+
+            @if (showObjective)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@objectiveInputId">客观资料（O）</label>
+                    <span>测量、核算与评估产生的资料</span>
+                    <TextArea id="@objectiveInputId"
+                              @bind-Value="objective"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入客观资料" />
+                </div>
+            }
+
+            @if (showAssessment)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@assessmentInputId">问题评估（A）</label>
+                    <span>专业判断、营养问题及其判断依据</span>
+                    <TextArea id="@assessmentInputId"
+                              @bind-Value="assessment"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入问题评估" />
+                </div>
+            }
+
+            @if (showPlan)
+            {
+                <div class="soap-contribution-field">
+                    <label for="@planInputId">处理计划（P）</label>
+                    <span>营养目标、干预措施、监测与随访安排</span>
+                    <TextArea id="@planInputId"
+                              @bind-Value="plan"
+                              BindOnInput="true"
+                              MinRows="6"
+                              MaxRows="14"
+                              Placeholder="留空则不写入处理计划" />
+                </div>
+            }
+        </div>
+    </div>
+</Modal>
+
+@code {
+    private readonly string subjectiveInputId = $"soap-subjective-{Guid.NewGuid():N}";
+    private readonly string objectiveInputId = $"soap-objective-{Guid.NewGuid():N}";
+    private readonly string assessmentInputId = $"soap-assessment-{Guid.NewGuid():N}";
+    private readonly string planInputId = $"soap-plan-{Guid.NewGuid():N}";
+    private SoapContribution? loadedCandidate;
+    private bool isConfirming;
+    private bool showSubjective;
+    private bool showObjective;
+    private bool showAssessment;
+    private bool showPlan;
+    private string subjective = string.Empty;
+    private string objective = string.Empty;
+    private string assessment = string.Empty;
+    private string plan = string.Empty;
+
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> VisibleChanged { get; set; }
+
+    [Parameter]
+    public SoapContribution? Candidate { get; set; }
+
+    [Parameter]
+    public bool IncludeSubjective { get; set; } = true;
+
+    [Parameter]
+    public bool IncludeObjective { get; set; } = true;
+
+    [Parameter]
+    public string Title { get; set; } = "确认引入 SOAP 记录";
+
+    [Parameter]
+    public string Description { get; set; } =
+        "以下是候选文本，尚未写入 SOAP。可以直接修改或清空任一部分；清空的部分不会改动现有记录。";
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnConfirmed { get; set; }
+
+    private int VisibleFieldCount =>
+        (showSubjective ? 1 : 0)
+        + (showObjective ? 1 : 0)
+        + (showAssessment ? 1 : 0)
+        + (showPlan ? 1 : 0);
+
+    private string ModalWidth => VisibleFieldCount == 1
+        ? "min(720px, calc(100vw - 32px))"
+        : "min(960px, calc(100vw - 32px))";
+
+    private string FieldGridClass => VisibleFieldCount == 1
+        ? "soap-contribution-fields single-field"
+        : "soap-contribution-fields";
+
+    private ButtonProps ConfirmButtonProps => new()
+    {
+        Disabled = isConfirming || !OnConfirmed.HasDelegate || !HasDraftContent
+    };
+
+    private ButtonProps CancelButtonProps => new()
+    {
+        Disabled = isConfirming
+    };
+
+    private bool HasDraftContent =>
+        (showSubjective && !string.IsNullOrWhiteSpace(subjective))
+        || (showObjective && !string.IsNullOrWhiteSpace(objective))
+        || (showAssessment && !string.IsNullOrWhiteSpace(assessment))
+        || (showPlan && !string.IsNullOrWhiteSpace(plan));
+
+    protected override void OnParametersSet()
+    {
+        if (!Visible)
+        {
+            if (loadedCandidate is not null)
+            {
+                ClearDraft();
+            }
+
+            return;
+        }
+
+        if (Candidate is not null && !ReferenceEquals(Candidate, loadedCandidate))
+        {
+            LoadDraft(Candidate);
+        }
+    }
+
+    private void LoadDraft(SoapContribution candidate)
+    {
+        loadedCandidate = candidate;
+        showSubjective = IncludeSubjective;
+        showObjective = IncludeObjective;
+        showAssessment = candidate.Assessment is not null;
+        showPlan = candidate.Plan is not null;
+        subjective = candidate.Subjective;
+        objective = candidate.Objective;
+        assessment = candidate.Assessment ?? string.Empty;
+        plan = candidate.Plan ?? string.Empty;
+    }
+
+    private Task CancelAsync() => isConfirming
+        ? Task.CompletedTask
+        : CloseAsync();
+
+    private async Task ConfirmAsync()
+    {
+        if (isConfirming || !OnConfirmed.HasDelegate || !HasDraftContent)
+        {
+            return;
+        }
+
+        isConfirming = true;
+        try
+        {
+            await OnConfirmed.InvokeAsync(new SoapContribution(
+                Subjective: showSubjective ? subjective : string.Empty,
+                Objective: showObjective ? objective : string.Empty,
+                Assessment: showAssessment ? assessment : null,
+                Plan: showPlan ? plan : null));
+            await CloseAsync();
+        }
+        finally
+        {
+            isConfirming = false;
+        }
+    }
+
+    private async Task CloseAsync()
+    {
+        await VisibleChanged.InvokeAsync(false);
+        ClearDraft();
+    }
+
+    private void ClearDraft()
+    {
+        loadedCandidate = null;
+        showSubjective = false;
+        showObjective = false;
+        showAssessment = false;
+        showPlan = false;
+        subjective = string.Empty;
+        objective = string.Empty;
+        assessment = string.Empty;
+        plan = string.Empty;
+    }
+}

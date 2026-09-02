@@ -2,6 +2,7 @@
 @using EzNutrition.Application.Ports
 @namespace EzNutrition.UI.Components
 @using EzNutrition.Domain.Assessments
+@using EzNutrition.Domain.Consultations
 @implements IDisposable
 @inject IMessageService Message
 @inject ConsultationApplicationService ConsultationService
@@ -73,6 +74,13 @@
                                            Step="50"
                                            Style="width:100%"
                                            Min="1" />
+                </div>
+            }
+            @if (EnergyCalculator.Allocation is not null)
+            {
+                <div class="soap-import-action">
+                    <SoapContributionImport Contributor="EnergyCalculator"
+                                            OnConfirmed="OnSoapContributionConfirmed" />
                 </div>
             }
         </section>
@@ -339,6 +347,9 @@
 
     [Parameter]
     public EventCallback<EnergyCalculator?> EnergyCalculatorChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {

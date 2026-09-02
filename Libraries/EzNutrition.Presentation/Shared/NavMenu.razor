@@ -1,12 +1,18 @@
 ﻿@using EzNutrition.Presentation.Pages
 @using EzNutrition.Presentation.Services;
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Assessments
 @using EzNutrition.Shared.Policies
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject ConsultationWorkspaceManager WorkspaceManager
+@inject NutritionAssessmentApplicationService NutritionAssessmentService
 @inject NavigationManager Navigator
 <nav class="primary-navigation" aria-label="主要导航">
-    <Menu Class="primary-menu" OpenKeys="@(["maintreatments"])" Theme="MenuTheme.Dark" Mode="@MenuMode.Inline">
+    <Menu Class="primary-menu"
+          DefaultOpenKeys="@(["maintreatments"])"
+          Theme="MenuTheme.Dark"
+          Mode="@MenuMode.Inline">
         <MenuItem RouterLink="">
             <Icon Type="home" Theme="IconThemeType.Outline" />
             <span>首页</span>
@@ -46,6 +52,23 @@
                 <Icon Type="medicine-box" Theme="IconThemeType.Outline" />
                 <span>DRIs 速查</span>
             </MenuItem>
+            @if (NutritionAssessmentService.Definitions.Count > 0)
+            {
+                <SubMenu Key="assessment-insights">
+                    <TitleTemplate>
+                        <Icon Type="profile" Theme="IconThemeType.Outline" />
+                        <span>量表速查</span>
+                    </TitleTemplate>
+                    <ChildContent>
+                        @foreach (var definition in NutritionAssessmentService.Definitions)
+                        {
+                            <MenuItem RouterLink="@AssessmentRoute(definition)">
+                                <span class="assessment-label">@definition.DisplayName</span>
+                            </MenuItem>
+                        }
+                    </ChildContent>
+                </SubMenu>
+            }
             <MenuItem RouterLink="usercenter">
                 <Icon Type="user" Theme="IconThemeType.Outline" />
                 <span>用户中心</span>
@@ -80,6 +103,11 @@
     {
         Navigator.NavigateTo($"maintreatment/{WorkspaceManager.NewWorkspace()}");
     }
+
+    private static string AssessmentRoute(NutritionAssessmentDefinition definition) =>
+        $"assessmentinsights/{Uri.EscapeDataString(definition.Code)}"
+        + $"?system={Uri.EscapeDataString(definition.CodeSystem.AbsoluteUri)}"
+        + $"&version={Uri.EscapeDataString(definition.Version)}";
 
     public void Dispose()
     {

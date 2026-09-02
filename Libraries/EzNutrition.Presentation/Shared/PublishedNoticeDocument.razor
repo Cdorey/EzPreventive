@@ -1,0 +1,51 @@
+<section class="published-notice-page">
+    <header class="published-notice-heading">
+        <span>服务说明</span>
+        <h1>@Title</h1>
+        <p>@Description</p>
+    </header>
+
+    <article class="published-notice-card" aria-busy="@(!IsLoaded)">
+        @if (!IsLoaded)
+        {
+            <Skeleton Active />
+        }
+        else if (string.IsNullOrWhiteSpace(Markdown))
+        {
+            <Alert Type="AlertType.Info"
+                   Message="@UnavailableTitle"
+                   Description="服务端尚未发布相关内容，请稍后重试。"
+                   ShowIcon="true" />
+        }
+        else
+        {
+            <div class="published-notice-content">
+                @SafeMarkdown.Render(Markdown)
+            </div>
+        }
+    </article>
+
+    <nav class="published-notice-actions" aria-label="文档页面操作">
+        <a href="">返回首页</a>
+    </nav>
+</section>
+
+@code {
+    /// <summary>获取或设置文档标题。</summary>
+    [Parameter, EditorRequired]
+    public required string Title { get; set; }
+
+    /// <summary>获取或设置文档用途说明。</summary>
+    [Parameter, EditorRequired]
+    public required string Description { get; set; }
+
+    /// <summary>获取或设置服务端发布的 Markdown 正文。</summary>
+    [Parameter]
+    public string Markdown { get; set; } = string.Empty;
+
+    /// <summary>获取或设置公共系统信息是否已加载。</summary>
+    [Parameter]
+    public bool IsLoaded { get; set; }
+
+    private string UnavailableTitle => $"{Title}暂时不可用";
+}

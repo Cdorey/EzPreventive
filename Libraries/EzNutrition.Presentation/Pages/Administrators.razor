@@ -1,5 +1,7 @@
 ﻿@page "/administrators"
 @using EzNutrition.Shared.Data.DTO
+@using EzNutrition.Shared.Data.Entities
+@using EzNutrition.Shared.Identities
 @using EzNutrition.Shared.Policies
 @using System.ComponentModel.DataAnnotations
 @attribute [Authorize(Policy = PolicyList.Admin)]
@@ -51,11 +53,22 @@
                     <ChildContent Context="requestListContext">
                         <PropertyColumn Property="r=>r.Id" />
                         <PropertyColumn Property="r=>r.UserId" />
-                        <PropertyColumn Property="r=>r.RequestTime" />
+                        <PropertyColumn Property="r=>r.RequestTime" Title="申请时间">
+                            <LocalDateTimeDisplay Value="@requestListContext.RequestTime" />
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.IdentityType" Filterable FilterMultiple />
                         <PropertyColumn Property="r=>r.InstitutionName" />
                         <PropertyColumn Property="r=>r.Status" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.ProcessedTime" />
+                        <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间">
+                            @if (requestListContext.ProcessedTime is { } processedTime)
+                            {
+                                <LocalDateTimeDisplay Value="@processedTime" />
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.ProcessDetails" />
                         <PropertyColumn Property="r=>r.CertificateTicket" />
                         <PropertyColumn Property="r=>r.Remarks" />
@@ -106,14 +119,19 @@
             <TabPane Tab="通知">
                 <Form Model="NewNotification" Layout="FormLayout.Vertical">
                     <ChildContent Context="notice">
+                        <FormItem Label="内容类型">
+                            <RadioGroup @bind-Value="@notice.Kind">
+                                <Radio RadioButton Value="@NoticeKind.PreLoginAnnouncement">登录前公告</Radio>
+                                <Radio RadioButton Value="@NoticeKind.PostLoginAnnouncement">登录后公告</Radio>
+                                <Radio RadioButton Value="@NoticeKind.UserAgreement">用户许可协议</Radio>
+                                <Radio RadioButton Value="@NoticeKind.PrivacyPolicy">隐私条款</Radio>
+                            </RadioGroup>
+                        </FormItem>
                         <FormItem Label="通知标题">
                             <Input @bind-Value="@notice.NoticeTitle" />
                         </FormItem>
                         <FormItem Label="通知内容">
                             <TextArea @bind-Value="@notice.NoticeDescription" Rows="20" />
-                        </FormItem>
-                        <FormItem Label="展示方式">
-                            <Checkbox @bind-Value="@notice.IsCoverLetter">设为覆盖式通知</Checkbox>
                         </FormItem>
                         <FormItem>
                             <Button Type="ButtonType.Primary" OnClick="SubmitNotification">提交</Button>
@@ -184,7 +202,7 @@
                     <ChildContent Context="requestDtoContext">
                         <!-- 申请时间：只读显示 -->
                         <FormItem Label="申请时间">
-                            <Input @bind-Value="requestDtoContext.RequestTime" Disabled="true" />
+                            <LocalDateTimeDisplay Value="@requestDtoContext.RequestTime" />
                         </FormItem>
                         <!-- 申请状态：只读显示 -->
                         <FormItem Label="申请状态">
@@ -527,8 +545,8 @@
         {
             userInfoDto.Roles.Add(requestDto.IdentityType);
         }
-        AddClaimIfMissing(userInfoDto, "InstitutionName", requestDto.InstitutionName);
-        AddClaimIfMissing(userInfoDto, "RealName", userInfoExtension.RealName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, requestDto.InstitutionName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.RealName, userInfoExtension.RealName);
 
         if (userInfoExtension.PracticingType is not null)
         {

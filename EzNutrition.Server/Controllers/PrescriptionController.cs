@@ -20,7 +20,8 @@ namespace EzNutrition.Server.Controllers
         IGenerativeAiProvider generator,
         ApplicationDbContext applicationDb,
         AiAdvicePromptComposer promptComposer,
-        ILogger<PrescriptionController> logger) : ControllerBase
+        ILogger<PrescriptionController> logger,
+        TimeProvider timeProvider) : ControllerBase
     {
         [HttpGet]
         public IActionResult Environment()
@@ -47,7 +48,7 @@ namespace EzNutrition.Server.Controllers
             {
                 UserId = userId,
                 Prompt = chatPrompt.UserMessage,
-                RequestTime = DateTime.Now,
+                RequestTime = timeProvider.GetUtcNow().UtcDateTime,
             };
 
             // Fail closed: the AI request is not sent unless its audit record has been persisted first.
@@ -123,7 +124,7 @@ namespace EzNutrition.Server.Controllers
             }
             finally
             {
-                generateRequest.ProcessedTime = DateTime.Now;
+                generateRequest.ProcessedTime = timeProvider.GetUtcNow().UtcDateTime;
                 generateRequest.ReasoningContent = reasoningSB.ToString();
                 generateRequest.Content = contentSB.ToString();
 

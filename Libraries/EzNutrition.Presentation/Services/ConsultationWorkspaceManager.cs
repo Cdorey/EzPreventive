@@ -86,6 +86,7 @@ namespace EzNutrition.Presentation.Services
                 archive.DRIs = null;
                 archive.DietaryRecallSurvey = null;
                 archive.DietaryTower = null;
+                archive.NutritionAssessments.Clear();
                 archive.ClientInfoFormEnabled = true;
                 archive.SubjectiveObjectiveAssessmentPlanInformation = null;
             }

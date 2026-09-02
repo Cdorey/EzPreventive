@@ -83,6 +83,7 @@ public sealed class WpfUserSettingsStoreTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["EzNutrition:ServerBaseAddress"] = serverBaseAddress,
+                ["EzNutrition:UpdateFeedAddress"] = "https://updates.example.test/eznutrition/",
                 ["EzNutrition:TransportSecurity"] = transportSecurity.ToString(),
                 ["EzNutrition:ArchiveRootPath"] = Path.Combine(archiveRoot, "Archives")
             })

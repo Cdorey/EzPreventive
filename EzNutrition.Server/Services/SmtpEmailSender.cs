@@ -1,37 +1,38 @@
-﻿using MailKit.Net.Smtp;
+﻿using EzNutrition.Server.Data;
+using EzNutrition.Server.Services.Settings;
+using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using EzNutrition.Server.Services.Settings;
 using System.Text.Encodings.Web;
 
 namespace EzNutrition.Server.Services
 {
     /// <summary>
-    /// 使用 MailKit 实现 IEmailSender<IdentityUser> 接口
+    /// 使用 MailKit 实现 <see cref="IEmailSender{ApplicationUser}"/> 接口。
     /// </summary>
     public class SmtpEmailSender(
         IOptions<EmailSettings> options,
-        ILogger<SmtpEmailSender> logger) : IEmailSender<IdentityUser>, IAccountEmailSender
+        ILogger<SmtpEmailSender> logger) : IEmailSender<ApplicationUser>, IAccountEmailSender
     {
         private static readonly TimeSpan DeliveryTimeout = TimeSpan.FromSeconds(30);
         private readonly EmailSettings smtpSettings = options.Value;
 
-        Task IEmailSender<IdentityUser>.SendConfirmationLinkAsync(
-            IdentityUser user,
+        Task IEmailSender<ApplicationUser>.SendConfirmationLinkAsync(
+            ApplicationUser user,
             string email,
             string confirmationLink) =>
             SendConfirmationLinkAsync(user, email, confirmationLink);
 
-        Task IEmailSender<IdentityUser>.SendPasswordResetLinkAsync(
-            IdentityUser user,
+        Task IEmailSender<ApplicationUser>.SendPasswordResetLinkAsync(
+            ApplicationUser user,
             string email,
             string resetLink) =>
             SendPasswordResetLinkAsync(user, email, resetLink);
 
         public async Task SendConfirmationLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string confirmationLink,
             CancellationToken cancellationToken = default)
@@ -87,7 +88,7 @@ namespace EzNutrition.Server.Services
             await SendEmailAsync(user.UserName ?? string.Empty, email, subject, body, cancellationToken);
         }
 
-        public async Task SendPasswordResetCodeAsync(IdentityUser user, string email, string resetCode)
+        public async Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode)
         {
             string subject = "Password Reset Code";
             string body = $"Your password reset code is: {resetCode}";
@@ -95,7 +96,7 @@ namespace EzNutrition.Server.Services
         }
 
         public async Task SendPasswordResetLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string email,
             string resetLink,
             CancellationToken cancellationToken = default)
@@ -115,7 +116,7 @@ namespace EzNutrition.Server.Services
         }
 
         public async Task SendEmailChangeLinkAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string newEmail,
             string confirmationLink,
             CancellationToken cancellationToken = default)
@@ -137,7 +138,7 @@ namespace EzNutrition.Server.Services
         }
 
         public async Task SendEmailChangedNotificationAsync(
-            IdentityUser user,
+            ApplicationUser user,
             string previousEmail,
             string newEmail,
             CancellationToken cancellationToken = default)

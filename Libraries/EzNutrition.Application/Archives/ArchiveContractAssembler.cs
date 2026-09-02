@@ -24,6 +24,9 @@ namespace EzNutrition.Application.Archives;
 /// </summary>
 public sealed class ArchiveContractAssembler
 {
+    private static readonly Uri UserIdentifierSystem =
+        new("https://eznutrition.cdorey.net/identifiers/users");
+
     private readonly ApplicationIdentity sourceApplication;
 
     /// <summary>
@@ -89,6 +92,15 @@ public sealed class ArchiveContractAssembler
             clinicalResources.Add(CreateDietaryRecall(
                 archive,
                 identity,
+                subjectReference,
+                consultationReference,
+                captured));
+        }
+
+        foreach (var assessment in archive.NutritionAssessments.Where(run => run.Answers.Count > 0))
+        {
+            clinicalResources.Add(CreateNutritionScaleAssessment(
+                assessment,
                 subjectReference,
                 consultationReference,
                 captured));
@@ -692,6 +704,114 @@ public sealed class ArchiveContractAssembler
             Plan = NormalizeOptional(information.Plan)
         };
 
+    private NutritionScaleAssessmentResource CreateNutritionScaleAssessment(
+        NutritionAssessmentRun run,
+        LogicalResourceReference subjectReference,
+        VersionedResourceReference consultationReference,
+        DateTimeOffset capturedAt)
+    {
+        var definition = run.Definition;
+        var evaluation = run.Evaluation;
+        var responses = definition.Items
+            .Where(item => evaluation.ApplicableItemCodes.Contains(item.Code))
+            .Select(item =>
+            {
+                if (!run.Answers.TryGetValue(item.Code, out var answer))
+                {
+                    return null;
+                }
+
+                return new AssessmentItemResponse
+                {
+                    Item = AssessmentCoding(
+                        definition,
+                        $"{definition.Code}/item/{item.Code}",
+                        item.Prompt),
+                    Answer = AssessmentAnswer(definition, item, answer),
+                    ScoreContribution = AssessmentScoreContribution(item, answer)
+                };
+            })
+            .Where(response => response is not null)
+            .Cast<AssessmentItemResponse>()
+            .ToArray();
+
+        return new NutritionScaleAssessmentResource
+        {
+            Metadata = Metadata(run.ArchiveIdentity, capturedAt, run.CreatedAt),
+            SubjectReference = subjectReference,
+            ConsultationReference = consultationReference,
+            EffectiveAt = run.CompletedAt ?? run.LastModifiedAt,
+            Instrument = new AssessmentInstrumentIdentity
+            {
+                Code = new Coding(
+                    definition.CodeSystem,
+                    definition.Code,
+                    definition.Version,
+                    definition.DisplayName),
+                Version = definition.Version,
+                Definition = new CanonicalReference(definition.DefinitionUri, definition.Version)
+            },
+            Responses = responses,
+            DerivedResults = evaluation.Metrics.Select(metric => new NamedArchiveValue
+            {
+                Name = AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/result/{metric.Code}",
+                    metric.Display),
+                Value = new DecimalArchiveValue(metric.Value)
+            }).ToArray(),
+            ScoringMethod = new AlgorithmIdentity
+            {
+                Method = AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/scoring",
+                    $"{definition.DisplayName}确定性计分"),
+                Implementation = sourceApplication
+            },
+            TotalScore = evaluation.TotalScore,
+            TotalScoreAbsentReason = evaluation.TotalScore is null
+                ? evaluation.IsComplete
+                    ? DataAbsentReasonCode.NotApplicable
+                    : DataAbsentReasonCode.NotEstablished
+                : null,
+            Interpretation = evaluation.Interpretation is { } interpretation
+                ? AssessmentCoding(
+                    definition,
+                    $"{definition.Code}/interpretation/{interpretation.Code}",
+                    interpretation.Display)
+                : null,
+            Performer = AssessmentPerformer(run.Performer)
+        };
+    }
+
+    private static ActorReference? AssessmentPerformer(
+        NutritionAssessmentPerformerSnapshot? performer)
+    {
+        if (performer is null)
+        {
+            return null;
+        }
+
+        return new ActorReference
+        {
+            Identifier = new BusinessIdentifier(
+                UserIdentifierSystem,
+                performer.UserId,
+                ArchiveContractCoding.Code(
+                    "identifier-type",
+                    "eznutrition-user-id",
+                    "EzNutrition 用户标识")),
+            Display = performer.RealName ?? performer.UserName,
+            Organization = performer.InstitutionName is null
+                ? null
+                : new ActorReference
+                {
+                    Kind = ArchiveContractCoding.Code("actor-kind", "organization", "机构"),
+                    Display = performer.InstitutionName
+                }
+        };
+    }
+
     private NutritionAdviceResource CreateNutritionAdvice(
         RuntimeWorkspace archive,
         ArchiveContractIdentity identity,
@@ -918,6 +1038,82 @@ public sealed class ArchiveContractAssembler
         Name = ArchiveContractCoding.Code("named-value", code, display),
         Value = value
     };
+
+    private static Coding AssessmentCoding(
+        NutritionAssessmentDefinition definition,
+        string code,
+        string display) => new(
+            definition.CodeSystem,
+            code,
+            definition.Version,
+            display);
+
+    private static ArchiveValue AssessmentAnswer(
+        NutritionAssessmentDefinition definition,
+        NutritionAssessmentItem item,
+        NutritionAssessmentAnswer answer) => answer switch
+        {
+            NutritionAssessmentSingleChoiceAnswer singleChoice =>
+                new CodingArchiveValue(AssessmentOptionCoding(
+                    definition,
+                    item,
+                    singleChoice.OptionCode)),
+            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
+                new CodingCollectionArchiveValue(item.Options
+                    .Where(option => multipleChoice.OptionCodes.Contains(
+                        option.Code,
+                        StringComparer.Ordinal))
+                    .Select(option => AssessmentOptionCoding(
+                        definition,
+                        item,
+                        option.Code))),
+            NutritionAssessmentDecimalAnswer number => new DecimalArchiveValue(number.Value),
+            _ => throw new InvalidOperationException("量表包含无法映射的回答类型。")
+        };
+
+    private static decimal? AssessmentScoreContribution(
+        NutritionAssessmentItem item,
+        NutritionAssessmentAnswer answer) => answer switch
+        {
+            NutritionAssessmentSingleChoiceAnswer singleChoice =>
+                item.Options.Single(option => string.Equals(
+                    option.Code,
+                    singleChoice.OptionCode,
+                    StringComparison.Ordinal))
+                .Score,
+            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
+                MultipleChoiceScoreContribution(item, multipleChoice),
+            _ => null
+        };
+
+    private static decimal? MultipleChoiceScoreContribution(
+        NutritionAssessmentItem item,
+        NutritionAssessmentMultipleChoiceAnswer answer)
+    {
+        var selectedOptions = item.Options
+            .Where(option => answer.OptionCodes.Contains(
+                option.Code,
+                StringComparer.Ordinal))
+            .ToArray();
+        return selectedOptions.Any(option => option.Score is null)
+            ? null
+            : selectedOptions.Sum(option => option.Score!.Value);
+    }
+
+    private static Coding AssessmentOptionCoding(
+        NutritionAssessmentDefinition definition,
+        NutritionAssessmentItem item,
+        string optionCode)
+    {
+        var option = item.Options.Single(candidate => string.Equals(
+            candidate.Code,
+            optionCode,
+            StringComparison.Ordinal));
+        return AssessmentCoding(
+            definition,
+            $"{definition.Code}/item/{item.Code}/answer/{option.Code}",
+            option.Display);
+    }
 
     private ResourceMetadata Metadata(
         ArchiveResourceIdentity identity,

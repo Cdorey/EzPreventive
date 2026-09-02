@@ -21,9 +21,11 @@ namespace EzNutrition.Server.Controllers
     public class AdminController(
         RoleManager<IdentityRole> roleManager,
         ILogger<AdminController> logger,
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         ApplicationDbContext applicationDbContext,
-        CertificateFileStore certificateFileStore) : ControllerBase
+        CertificateFileStore certificateFileStore,
+        AccountDeletionService accountDeletionService,
+        TimeProvider timeProvider) : ControllerBase
     {
         /// <summary>
         /// 添加角色
@@ -199,12 +201,11 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 发布通知
+        /// 发布指定类别的通知或政策文本。
         /// </summary>
-        /// <param name="noticeDescription"></param>
-        /// <param name="noticeTitle"></param>
-        /// <param name="isCoverLetter"></param>
-        /// <returns></returns>
+        /// <param name="notification">待发布内容。</param>
+        /// <param name="cancellationToken">用于取消数据库写入的令牌。</param>
+        /// <returns>发布成功时返回空的成功响应。</returns>
         [HttpPut]
         public async Task<IActionResult> Notification(
             [FromBody] NotificationDto notification,
@@ -221,15 +222,15 @@ namespace EzNutrition.Server.Controllers
                 return Unauthorized();
             }
 
-            var x = new Notice
+            var notice = new Notice
             {
                 Title = notification.NoticeTitle ?? string.Empty,
                 Description = notification.NoticeDescription,
-                CreateTime = DateTime.Now,
-                IsCoverLetter = notification.IsCoverLetter,
+                CreateTime = timeProvider.GetUtcNow().UtcDateTime,
+                Kind = notification.Kind,
                 PublisherId = publisherId,
             };
-            applicationDbContext.Add(x);
+            applicationDbContext.Add(notice);
             await applicationDbContext.SaveChangesAsync(cancellationToken);
             return Ok();
         }
@@ -269,48 +270,37 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 删除用户
+        /// 由管理员删除指定账号及本服务保存的全部用户关联数据。
         /// </summary>
-        /// <param name="userId"></param>
-        /// <returns></returns>
+        /// <param name="userId">待删除 Identity 用户的稳定主键。</param>
+        /// <param name="cancellationToken">用于取消数据库删除操作的令牌。</param>
+        /// <returns>
+        /// 账号不存在时返回 404；Identity 删除失败时返回 400；成功时返回各类数据及证件文件清理统计。
+        /// </returns>
         [HttpDelete("{userId}")]
         public async Task<IActionResult> DeleteUser(string userId, CancellationToken cancellationToken)
         {
-            var user = await userManager.FindByIdAsync(userId);
-            if (user == null)
+            var result = await accountDeletionService.DeleteAsync(
+                userId,
+                AccountDeletionReason.AdministratorRequested,
+                cancellationToken);
+            if (!result.AccountFound)
+            {
                 return NotFound("用户不存在");
-
-            var certificateTickets = await applicationDbContext.ProfessionalCertificationRequests
-                .AsNoTracking()
-                .Where(request => request.UserId == userId && request.CertificateTicket != null)
-                .Select(request => request.CertificateTicket!.Value)
-                .ToListAsync(cancellationToken);
-
-            await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
-            await applicationDbContext.ProfessionalCertificationRequests
-                .Where(request => request.UserId == userId)
-                .ExecuteDeleteAsync(cancellationToken);
-            var result = await userManager.DeleteAsync(user);
+            }
             if (!result.Succeeded)
             {
-                return BadRequest(result.Errors);
+                return BadRequest(result.IdentityErrors);
             }
 
-            await transaction.CommitAsync(cancellationToken);
-
-            foreach (var ticket in certificateTickets)
+            return Ok(new
             {
-                try
-                {
-                    certificateFileStore.Delete(ticket);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "删除用户 {UserId} 后清理证件文件 {Ticket} 失败", userId, ticket);
-                }
-            }
-
-            return Ok(new { message = "用户删除成功" });
+                message = "用户删除成功",
+                deletedAiAudits = result.DeletedAiAuditRecords,
+                deletedCertificationRequests = result.DeletedCertificationRequests,
+                certificateFileCleanupAttempts = result.CertificateFileCleanupAttempts,
+                certificateFileCleanupFailures = result.CertificateFileCleanupFailures
+            });
         }
 
         /// <summary>
@@ -534,7 +524,7 @@ namespace EzNutrition.Server.Controllers
 
                 // 更新各属性
                 request.Status = dto.Status;
-                request.ProcessedTime = DateTime.Now;
+                request.ProcessedTime = timeProvider.GetUtcNow().UtcDateTime;
                 request.ProcessDetails = dto.ProcessDetails;
                 request.Remarks = dto.Remarks;
                 request.CertificateTicket = dto.Status == RequestStatus.Pending ? dto.CertificateTicket : null;

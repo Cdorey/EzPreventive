@@ -1,0 +1,71 @@
+@using EzNutrition.Domain.Consultations
+@namespace EzNutrition.UI.Components
+
+@if (CanImport)
+{
+    <Button OnClick="OpenDialog" AriaLabel="预览并引入 SOAP 记录">
+        <Icon Type="file-text" Theme="IconThemeType.Outline" />
+        引入 SOAP
+    </Button>
+}
+
+<SoapContributionReviewModal @bind-Visible="DialogVisible"
+                             Candidate="reviewCandidate"
+                             Description="以下是当前模块生成的候选文本，尚未写入 SOAP。可以直接修改或清空任一部分；清空的部分不会改动现有记录。"
+                             OnConfirmed="OnConfirmed" />
+
+@code {
+    private bool dialogVisible;
+    private SoapContribution? reviewCandidate;
+
+    [Parameter, EditorRequired]
+    public ISoapContributor Contributor { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnConfirmed { get; set; }
+
+    private bool DialogVisible
+    {
+        get => dialogVisible;
+        set
+        {
+            dialogVisible = value;
+            if (!value)
+            {
+                reviewCandidate = null;
+            }
+        }
+    }
+
+    private bool CanImport
+    {
+        get
+        {
+            if (!OnConfirmed.HasDelegate || Contributor is null)
+            {
+                return false;
+            }
+
+            var contribution = Contributor.ToSoapContribution();
+            return HasContent(contribution);
+        }
+    }
+
+    private void OpenDialog()
+    {
+        var contribution = Contributor.ToSoapContribution();
+        if (!HasContent(contribution))
+        {
+            return;
+        }
+
+        reviewCandidate = contribution;
+        DialogVisible = true;
+    }
+
+    private static bool HasContent(SoapContribution contribution) =>
+        !string.IsNullOrWhiteSpace(contribution.Subjective)
+        || !string.IsNullOrWhiteSpace(contribution.Objective)
+        || !string.IsNullOrWhiteSpace(contribution.Assessment)
+        || !string.IsNullOrWhiteSpace(contribution.Plan);
+}

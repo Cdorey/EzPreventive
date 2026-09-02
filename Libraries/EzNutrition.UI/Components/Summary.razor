@@ -1,4 +1,5 @@
 ﻿@using EzNutrition.Application.Consultations
+@using EzNutrition.Domain.Consultations
 @using EzNutrition.Domain.Dietary
 @namespace EzNutrition.UI.Components
 <div class="summary-heading">
@@ -6,7 +7,14 @@
         <span>综合结果</span>
         <h2>评估总结</h2>
     </div>
-    <Icon Type="fund" Theme="IconThemeType.Outline" />
+    <div class="summary-heading-actions">
+        @if (Archive?.DietaryTower is ISoapContributor contributor)
+        {
+            <SoapContributionImport Contributor="contributor"
+                                    OnConfirmed="OnSoapContributionConfirmed" />
+        }
+        <Icon Type="fund" Theme="IconThemeType.Outline" />
+    </div>
 </div>
 @if (Archive?.DietaryTower is not null)
 {
@@ -34,4 +42,7 @@ else
 @code {
     [Parameter]
     public ConsultationWorkspace? Archive { get; set; }
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
 }

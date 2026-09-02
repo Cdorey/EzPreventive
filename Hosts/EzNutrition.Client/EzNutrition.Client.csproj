@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Libraries\EzNutrition.Assessments.Common\EzNutrition.Assessments.Common.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Archives.Contracts\EzNutrition.Archives.Contracts.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Archives.Xml\EzNutrition.Archives.Xml.csproj" />
     <ProjectReference Include="..\..\Libraries\EzNutrition.Application\EzNutrition.Application.csproj" />

@@ -137,6 +137,20 @@
     min-width: 140px;
 }
 
+.account-policy-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 10px;
+    color: var(--ez-text-secondary);
+    font-size: 0.82rem;
+}
+
+.account-policy-links ::deep a {
+    color: var(--ez-primary-strong);
+}
+
 .account-help-links {
     display: flex;
     flex-wrap: wrap;

@@ -49,6 +49,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 ## 本地开发与验证
 
 仓库以 [EzPreventive.sln](./EzPreventive.sln) 作为唯一解决方案入口，需要 .NET 10 SDK。
+当前产品版本集中声明在 [Directory.Build.props](./Directory.Build.props)，四段版本的升级和兼容规则见[版本管理](./docs/versioning.md)。
 
 ```powershell
 dotnet restore .\EzPreventive.sln

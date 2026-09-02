@@ -13,12 +13,16 @@ public sealed class WpfHostSettingsTests
         var configuration = BuildConfiguration(new Dictionary<string, string?>
         {
             ["EzNutrition:ServerBaseAddress"] = "https://example.test/api",
+            ["EzNutrition:UpdateFeedAddress"] = "https://updates.example.test/eznutrition",
             ["EzNutrition:ArchiveRootPath"] = archiveRoot
         });
 
         var settings = WpfHostSettings.Create(configuration);
 
         Assert.Equal(new Uri("https://example.test/api/"), settings.ServerBaseAddress);
+        Assert.Equal(
+            new Uri("https://updates.example.test/eznutrition/"),
+            settings.UpdateFeedAddress);
         Assert.Equal(ServerTransportSecurity.StrictHttps, settings.TransportSecurity);
         Assert.Equal(archiveRoot, settings.ArchiveStorage.RootPath);
     }
@@ -94,8 +98,32 @@ public sealed class WpfHostSettingsTests
         Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
     }
 
-    private static IConfiguration BuildConfiguration(Dictionary<string, string?> values) =>
-        new ConfigurationBuilder()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("relative/path")]
+    [InlineData("http://updates.example.test/")]
+    [InlineData("https://user:password@updates.example.test/")]
+    [InlineData("https://updates.example.test/?channel=stable")]
+    [InlineData("https://updates.example.test/#stable")]
+    public void Invalid_or_insecure_update_feed_is_rejected(string? updateFeedAddress)
+    {
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["EzNutrition:ServerBaseAddress"] = "https://example.test/",
+            ["EzNutrition:UpdateFeedAddress"] = updateFeedAddress
+        });
+
+        Assert.Throws<InvalidOperationException>(() => WpfHostSettings.Create(configuration));
+    }
+
+    private static IConfiguration BuildConfiguration(Dictionary<string, string?> values)
+    {
+        values.TryAdd(
+            "EzNutrition:UpdateFeedAddress",
+            "https://updates.example.test/eznutrition/");
+        return new ConfigurationBuilder()
             .AddInMemoryCollection(values)
             .Build();
+    }
 }

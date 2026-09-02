@@ -144,6 +144,21 @@ public sealed record ArchiveReviewField
 }
 
 /// <summary>
+/// 表示档案只读调阅中一组按共同语义组织的详细字段。
+/// </summary>
+public sealed record ArchiveReviewDetailGroup
+{
+    /// <summary>获取详情组标题。</summary>
+    public required string Title { get; init; }
+
+    /// <summary>获取可选的详情组说明。</summary>
+    public string? Description { get; init; }
+
+    /// <summary>获取详情组中的只读字段。</summary>
+    public IReadOnlyList<ArchiveReviewField> Fields { get; init; } = Array.Empty<ArchiveReviewField>();
+}
+
+/// <summary>
 /// 表示档案只读调阅中的一个语义区段。
 /// </summary>
 public sealed record ArchiveReviewSection
@@ -156,6 +171,10 @@ public sealed record ArchiveReviewSection
 
     /// <summary>获取区段字段。</summary>
     public IReadOnlyList<ArchiveReviewField> Fields { get; init; } = Array.Empty<ArchiveReviewField>();
+
+    /// <summary>获取需要由用户主动展开查看的详细内容组。</summary>
+    public IReadOnlyList<ArchiveReviewDetailGroup> DetailGroups { get; init; } =
+        Array.Empty<ArchiveReviewDetailGroup>();
 }
 
 /// <summary>

@@ -1,6 +1,7 @@
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Ports
 @namespace EzNutrition.UI.Components
+@using EzNutrition.Domain.Consultations
 @using EzNutrition.Domain.Dietary
 @using EzNutrition.Shared.Data.Entities
 @implements IDisposable
@@ -143,7 +144,11 @@
                     <Tag Color="@("green")"><Icon Type="check-circle" Theme="IconThemeType.Outline" /> 已完成核算</Tag>
                     <span>@EntryCount 项食物 · @TotalRecordedWeight.ToString("0.#") g 记录重量</span>
                 </div>
-                <Button OnClick="EditEntries" Icon="@IconType.Outline.Edit">修改记录</Button>
+                <div class="result-toolbar-actions">
+                    <SoapContributionImport Contributor="DietaryRecallSurvey"
+                                            OnConfirmed="OnSoapContributionConfirmed" />
+                    <Button OnClick="EditEntries" Icon="@IconType.Outline.Edit">修改记录</Button>
+                </div>
             </div>
 
             <div class="result-interpretation-note" role="note" aria-label="结果解释">
@@ -330,6 +335,9 @@
 
     [Parameter]
     public EventCallback OnCalculationCompleted { get; set; }
+
+    [Parameter]
+    public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
 
     public List<DietaryRecallEntry>? Entries => DietaryRecallSurvey?.RecallEntries;
 

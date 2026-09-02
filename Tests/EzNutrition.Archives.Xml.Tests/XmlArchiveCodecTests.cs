@@ -144,6 +144,8 @@ public sealed class XmlArchiveCodecTests
         Assert.Equal(new string('c', 64), scale.Instrument.DefinitionFingerprint?.Value);
         Assert.IsType<BooleanArchiveValue>(scale.Responses[0].Answer);
         Assert.Equal(DataAbsentReasonCode.NotAsked, scale.Responses[1].AnswerAbsentReason);
+        var selected = Assert.IsType<CodingCollectionArchiveValue>(scale.Responses[2].Answer);
+        Assert.Equal(["choice-a", "choice-b"], selected.Values.Select(value => value.Code));
         Assert.Equal(1.5m, scale.TotalScore);
         Assert.Equal("虚构量表实施者", scale.Performer?.Display);
     }
@@ -443,6 +445,24 @@ public sealed class XmlArchiveCodecTests
                         "item-b",
                         display: "虚构条目 B"),
                     AnswerAbsentReason = DataAbsentReasonCode.NotAsked
+                },
+                new AssessmentItemResponse
+                {
+                    Item = new Coding(
+                        new Uri("https://example.invalid/codes/synthetic-scale-item"),
+                        "item-c",
+                        display: "虚构条目 C"),
+                    Answer = new CodingCollectionArchiveValue(
+                    [
+                        new Coding(
+                            new Uri("https://example.invalid/codes/synthetic-scale-answer"),
+                            "choice-a",
+                            display: "选项 A"),
+                        new Coding(
+                            new Uri("https://example.invalid/codes/synthetic-scale-answer"),
+                            "choice-b",
+                            display: "选项 B")
+                    ])
                 }
             ],
             DerivedResults =

@@ -32,6 +32,7 @@ public sealed class ConsultationApplicationServiceTests
         Assert.NotNull(workspace.DietaryRecallSurvey);
         Assert.Single(workspace.DietaryRecallSurvey.Foods);
         Assert.Single(workspace.DietaryRecallSurvey.Nutrients);
+        Assert.Empty(workspace.NutritionAssessments);
         Assert.NotNull(workspace.SubjectiveObjectiveAssessmentPlanInformation);
         Assert.Equal("female", source.LastDriQuery?.Gender);
         Assert.Equal(35m, source.LastDriQuery?.AgeInYears);
@@ -218,6 +219,134 @@ public sealed class ConsultationApplicationServiceTests
         Assert.Null(survey.SummaryCalculationTable);
         Assert.Empty(survey.NutrientAssessments);
         Assert.Empty(survey.EntryCalculations);
+    }
+
+    /// <summary>
+    /// 验证仅提供 S/O 的旧贡献会分别追加，且不改动 A/P。
+    /// </summary>
+    [Fact]
+    public void AppendSoapContribution_appends_confirmed_text_to_matching_sections()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var workspace = new ConsultationWorkspace(CreateClient())
+        {
+            SubjectiveObjectiveAssessmentPlanInformation = new()
+            {
+                Subjective = "原有主观资料",
+                Objective = "原有客观资料\n",
+                Assessment = "原有评估",
+                Plan = "原有计划"
+            }
+        };
+
+        var changed = service.AppendSoapContribution(
+            workspace,
+            new SoapContribution("新增主观资料", "新增客观资料"));
+
+        var information = workspace.SubjectiveObjectiveAssessmentPlanInformation;
+        Assert.True(changed);
+        Assert.Equal("原有主观资料\n新增主观资料", information.Subjective);
+        Assert.Equal("原有客观资料\n新增客观资料", information.Objective);
+        Assert.Equal("原有评估", information.Assessment);
+        Assert.Equal("原有计划", information.Plan);
+    }
+
+    /// <summary>
+    /// 验证经专业人员确认的完整 SOAP 候选文本会分别追加到对应部分。
+    /// </summary>
+    [Fact]
+    public void AppendSoapContribution_appends_assessment_and_plan_when_offered()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var workspace = new ConsultationWorkspace(CreateClient())
+        {
+            SubjectiveObjectiveAssessmentPlanInformation = new()
+            {
+                Subjective = "原有主观资料",
+                Objective = "原有客观资料",
+                Assessment = "原有问题评估",
+                Plan = "原有处理计划\n"
+            }
+        };
+
+        var changed = service.AppendSoapContribution(
+            workspace,
+            new SoapContribution(
+                Assessment: "新增问题评估",
+                Plan: "新增处理计划"));
+
+        var information = workspace.SubjectiveObjectiveAssessmentPlanInformation;
+        Assert.True(changed);
+        Assert.Equal("原有主观资料", information.Subjective);
+        Assert.Equal("原有客观资料", information.Objective);
+        Assert.Equal("原有问题评估\n新增问题评估", information.Assessment);
+        Assert.Equal("原有处理计划\n新增处理计划", information.Plan);
+    }
+
+    /// <summary>
+    /// 验证候选文本自带换行时不会再插入第二个换行。
+    /// </summary>
+    [Fact]
+    public void AppendSoapContribution_does_not_duplicate_an_existing_boundary_line_break()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var workspace = new ConsultationWorkspace(CreateClient())
+        {
+            SubjectiveObjectiveAssessmentPlanInformation = new()
+            {
+                Subjective = "原有文本"
+            }
+        };
+
+        var changed = service.AppendSoapContribution(
+            workspace,
+            new SoapContribution(Subjective: "\n新增文本"));
+
+        Assert.True(changed);
+        Assert.Equal(
+            "原有文本\n新增文本",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Subjective);
+    }
+
+    /// <summary>
+    /// 验证留空的复核文本不会产生无意义的空行。
+    /// </summary>
+    [Fact]
+    public void AppendSoapContribution_ignores_blank_sections()
+    {
+        var source = StubNutritionDataSource.CreateValid();
+        var service = CreateService(source);
+        var workspace = new ConsultationWorkspace(CreateClient())
+        {
+            SubjectiveObjectiveAssessmentPlanInformation = new()
+            {
+                Subjective = "保留的主观资料",
+                Objective = "保留的客观资料",
+                Assessment = "保留的问题评估",
+                Plan = "保留的处理计划"
+            }
+        };
+
+        var changed = service.AppendSoapContribution(
+            workspace,
+            new SoapContribution("  ", "\t", "\r\n", " \t"));
+
+        Assert.False(changed);
+        Assert.Equal(
+            "保留的主观资料",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Subjective);
+        Assert.Equal(
+            "保留的客观资料",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Objective);
+        Assert.Equal(
+            "保留的问题评估",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Assessment);
+        Assert.Equal(
+            "保留的处理计划",
+            workspace.SubjectiveObjectiveAssessmentPlanInformation.Plan);
     }
 
     private static ConsultationApplicationService CreateService(StubNutritionDataSource source) =>

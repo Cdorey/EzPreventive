@@ -27,7 +27,8 @@
     letter-spacing: 0.04em;
 }
 
-.archive-label {
+.archive-label,
+.assessment-label {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;

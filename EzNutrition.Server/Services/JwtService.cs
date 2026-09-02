@@ -12,7 +12,7 @@ using System.Text;
 namespace EzNutrition.Server.Services
 {
     public class JwtService(
-        UserManager<IdentityUser> userManager,
+        UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
         IOptions<JwtSettings> options,
         ILogger<JwtService> logger)
@@ -24,7 +24,7 @@ namespace EzNutrition.Server.Services
         //    return await GenerateJwtToken(await userManager.FindByNameAsync(userName));
         //}
 
-        public async Task<string> GenerateJwtToken(IdentityUser user)
+        public async Task<string> GenerateJwtToken(ApplicationUser user)
         {
             ArgumentNullException.ThrowIfNull(user);
             if (string.IsNullOrWhiteSpace(user.UserName))

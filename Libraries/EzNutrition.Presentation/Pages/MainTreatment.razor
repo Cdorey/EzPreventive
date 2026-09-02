@@ -1,13 +1,18 @@
 ﻿@page "/maintreatment/{id?}"
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Presentation.Services
+@using EzNutrition.Domain.Assessments
 @using EzNutrition.Domain.Calculations
+@using EzNutrition.Domain.Consultations
 @using EzNutrition.Shared.Data.Entities
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
 @inject NavigationManager Navigation
 @inject ConsultationWorkspaceManager WorkspaceManager
+@inject ConsultationApplicationService ConsultationService
+@inject NutritionAssessmentApplicationService NutritionAssessmentService
+@inject IMessageService Message
 
 <PageTitle>营养咨询</PageTitle>
 
@@ -159,6 +164,10 @@
                         <Anchor Affix="false" Bounds="16" TargetOffset="24">
                             <AnchorLink Href="#nutrition-workspace" Title="专业核算" />
                             <AnchorLink Href="#nutrition-summary" Title="综合结果" />
+                            @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
+                            {
+                                <AnchorLink Href="#nutrition-diagnosis" Title="营养问题与诊断" />
+                            }
                             <AnchorLink Href="#nutrition-advice" Title="膳食建议" />
                         </Anchor>
                     </nav>
@@ -166,39 +175,91 @@
 
                 <div class="treatment-content-flow">
                     <section id="nutrition-workspace" class="surface-card workspace-card" aria-label="营养核算工作区">
-                        <Tabs Class="treatment-tabs">
+                        <Tabs Class="treatment-tabs"
+                              Type="TabType.EditableCard"
+                              HideAdd
+                              @bind-ActiveKey="activeWorkspaceTabKey"
+                              OnClose="CloseAssessmentTab">
+                            <TabBarExtraContentRight>
+                                <Dropdown Trigger="@(new[] { Trigger.Click })"
+                                          Disabled="@(!CanAddAssessment)">
+                                    <Overlay>
+                                        <Menu>
+                                            @foreach (var definition in NutritionAssessmentService.Definitions)
+                                            {
+                                                var isOpen = IsAssessmentOpen(definition);
+                                                <MenuItem Disabled="@isOpen"
+                                                          OnClick="@(() => AddAssessment(definition))">
+                                                    <Icon Type="profile" Theme="IconThemeType.Outline" />
+                                                    <span>@definition.DisplayName</span>
+                                                    @if (isOpen)
+                                                    {
+                                                        <span class="assessment-menu-state">已添加</span>
+                                                    }
+                                                </MenuItem>
+                                            }
+                                        </Menu>
+                                    </Overlay>
+                                    <ChildContent>
+                                        <Button Class="assessment-add-button"
+                                                Type="@ButtonType.Dashed"
+                                                Disabled="@(!CanAddAssessment)"
+                                                AriaLabel="添加量表">
+                                            <Icon Type="plus" Theme="IconThemeType.Outline" />
+                                            <span class="assessment-add-label">添加量表</span>
+                                            <Icon Type="down" Theme="IconThemeType.Outline" />
+                                        </Button>
+                                    </ChildContent>
+                                </Dropdown>
+                            </TabBarExtraContentRight>
                             <ChildContent>
-                                <TabPane Key="1" Tab="能量评估">
+                                <TabPane Key="energy" Tab="能量评估" Closable="false">
                                     @if (CurrentArchive.CurrentEnergyCalculator is not null)
                                     {
-                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator" IsTouchDetected="@UserSession.IsTouchDetected" />
+                                        <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator"
+                                                                   IsTouchDetected="@UserSession.IsTouchDetected"
+                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                     }
                                 </TabPane>
-                                <TabPane Key="2" Tab="参考摄入量">
+                                <TabPane Key="dri" Tab="参考摄入量" Closable="false">
                                     @if (CurrentArchive.DRIs is not null)
                                     {
                                         <DRIsInSightTable NutrientRanges="CurrentArchive.DRIs.NutrientRanges" />
                                     }
                                 </TabPane>
-                                <TabPane Key="3" Tab="膳食调查">
+                                <TabPane Key="dietary" Tab="膳食调查" Closable="false">
                                     @if (CurrentArchive.DietaryRecallSurvey is not null)
                                     {
-                                        <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey" OnCalculationCompleted="DietarySurveyCalculationCompleted" />
+                                        <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
+                                                       OnCalculationCompleted="DietarySurveyCalculationCompleted"
+                                                       OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                     }
                                 </TabPane>
-                                <TabPane Key="4" Tab="SOAP 病史">
-                                    @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is not null)
-                                    {
-                                        <MedicalInformation Information="CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation" />
-                                    }
-                                </TabPane>
+                                @foreach (var assessment in CurrentArchive.NutritionAssessments)
+                                {
+                                    <TabPane @key="assessment.RunId"
+                                             Key="@AssessmentTabKey(assessment)"
+                                             Tab="@assessment.Definition.DisplayName"
+                                             Closable="true">
+                                        <NutritionAssessmentScale Assessment="assessment"
+                                                                  OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                    </TabPane>
+                                }
                             </ChildContent>
                         </Tabs>
                     </section>
 
                     <section id="nutrition-summary" class="surface-card summary-card">
-                        <Summary Archive="@CurrentArchive" />
+                        <Summary Archive="@CurrentArchive"
+                                 OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                     </section>
+
+                    @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
+                    {
+                        <section id="nutrition-diagnosis" class="surface-card diagnosis-card" aria-label="营养问题与诊断">
+                            <MedicalInformation Information="medicalInformation" />
+                        </section>
+                    }
 
                     <section id="nutrition-advice" class="surface-card advice-card">
                         <div class="section-heading compact-heading">
@@ -208,7 +269,8 @@
                             </div>
                             <Icon Type="solution" Theme="IconThemeType.Outline" />
                         </div>
-                        <Advice CurrentArchive="@CurrentArchive" />
+                        <Advice CurrentArchive="@CurrentArchive"
+                                OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                     </section>
                 </div>
             </div>
@@ -221,8 +283,14 @@
     public string? Id { get; set; }
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
+    private const string AssessmentTabPrefix = "assessment-";
+    private string activeWorkspaceTabKey = "energy";
 
     public ConsultationWorkspace? CurrentArchive { get; private set; }
+
+    private bool CanAddAssessment => CurrentArchive is not null
+        && NutritionAssessmentService.Definitions.Any(definition =>
+            !IsAssessmentOpen(definition));
 
     private string PageHeading => CurrentArchive switch
     {
@@ -236,13 +304,18 @@
     {
         true when CurrentArchive.IsFollowUp => "核对本次人体测量与生理信息后，开始一份新的独立咨询记录。",
         true => "先录入必要的人体测量与生理信息，再进入各项专业核算。",
-        _ => "按需切换能量评估、参考摄入量、膳食调查与 SOAP 病史。"
+        _ => "依次完成专业核算、综合结果、营养问题与诊断，以及膳食建议。"
     };
 
     protected override void OnParametersSet()
     {
         if (Guid.TryParse(Id, out var archiveId) && WorkspaceManager.TryGetValue(archiveId, out var archive))
         {
+            if (!ReferenceEquals(CurrentArchive, archive))
+            {
+                activeWorkspaceTabKey = "energy";
+            }
+
             CurrentArchive = archive;
             return;
         }
@@ -264,6 +337,69 @@
     private void DietarySurveyCalculationCompleted()
     {
         StateHasChanged();
+    }
+
+    private void AddAssessment(NutritionAssessmentDefinition definition)
+    {
+        if (CurrentArchive is null)
+        {
+            return;
+        }
+
+        var existing = CurrentArchive.NutritionAssessments.SingleOrDefault(assessment =>
+            HasSameIdentity(assessment.Definition, definition));
+        var assessment = existing
+            ?? NutritionAssessmentService.StartRun(
+                CurrentArchive,
+                definition,
+                currentUser: UserSession.UserInfo is { IsExpired: false } user ? user : null);
+        activeWorkspaceTabKey = AssessmentTabKey(assessment);
+    }
+
+    private void CloseAssessmentTab(string tabKey)
+    {
+        if (CurrentArchive is null || !TryGetAssessmentRunId(tabKey, out var runId))
+        {
+            return;
+        }
+
+        var wasActive = string.Equals(activeWorkspaceTabKey, tabKey, StringComparison.Ordinal);
+        if (NutritionAssessmentService.RemoveRun(CurrentArchive, runId) && wasActive)
+        {
+            activeWorkspaceTabKey = "dietary";
+        }
+    }
+
+    private bool IsAssessmentOpen(NutritionAssessmentDefinition definition) =>
+        CurrentArchive?.NutritionAssessments.Any(assessment =>
+            HasSameIdentity(assessment.Definition, definition)) == true;
+
+    private static bool HasSameIdentity(
+        NutritionAssessmentDefinition left,
+        NutritionAssessmentDefinition right) =>
+        left.CodeSystem == right.CodeSystem
+        && string.Equals(left.Code, right.Code, StringComparison.Ordinal)
+        && string.Equals(left.Version, right.Version, StringComparison.Ordinal);
+
+    private static string AssessmentTabKey(NutritionAssessmentRun assessment) =>
+        $"{AssessmentTabPrefix}{assessment.RunId:N}";
+
+    private static bool TryGetAssessmentRunId(string tabKey, out Guid runId)
+    {
+        runId = default;
+        return tabKey.StartsWith(AssessmentTabPrefix, StringComparison.Ordinal)
+            && Guid.TryParseExact(tabKey[AssessmentTabPrefix.Length..], "N", out runId);
+    }
+
+    private async Task AppendSoapContributionAsync(SoapContribution contribution)
+    {
+        if (CurrentArchive is null
+            || !ConsultationService.AppendSoapContribution(CurrentArchive, contribution))
+        {
+            return;
+        }
+
+        await Message.SuccessAsync("已将复核后的内容加入 SOAP 记录。");
     }
 
     public void Dispose()

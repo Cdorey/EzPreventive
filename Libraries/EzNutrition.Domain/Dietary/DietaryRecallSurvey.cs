@@ -1,6 +1,8 @@
 using EzNutrition.Domain.Assessments;
 using EzNutrition.Domain.Consultations;
 using EzNutrition.Shared.Data.Entities;
+using System.Globalization;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace EzNutrition.Domain.Dietary;
@@ -9,7 +11,7 @@ public class DietaryRecallSurvey(
     IClient client,
     IEnumerable<Food> foods,
     IEnumerable<Nutrient> nutrients,
-    DRIs dRIs) : ITreatment
+    DRIs dRIs) : ITreatment, ISoapContributor
 {
     private static readonly MealOccasion[] MealOccasions =
     [
@@ -306,4 +308,108 @@ public class DietaryRecallSurvey(
         EntryCalculations = [];
     }
 
+    public SoapContribution ToSoapContribution()
+    {
+        var subjectiveBuilder = new StringBuilder();
+        if (RecallEntries.Count > 0)
+        {
+            subjectiveBuilder.AppendLine("24 小时膳食回顾记录：");
+            foreach (var entry in RecallEntries)
+            {
+                subjectiveBuilder.AppendLine(
+                    $"- {GetMealOccasionLabel(entry.MealOccasion)}：{entry.Food.FriendlyName}，记录重量 {FormatQuantity(entry.Weight, "g")}");
+            }
+        }
+
+        var objectiveBuilder = new StringBuilder();
+        if (RecallEntries.Count > 0 && SummaryCalculationTable is not null)
+        {
+            objectiveBuilder.AppendLine(
+                "24 小时膳食回顾核算结果（仅反映本次回顾日，不代表通常摄入水平，也不能单独用于诊断营养缺乏或摄入过量）：");
+            objectiveBuilder.AppendLine(
+                $"- 本次回顾日总能量摄入量：{FormatQuantity(SummaryCalculationTable.TotalEnergy, "kcal")}");
+
+            var belowRange = NutrientAssessments
+                .Where(assessment =>
+                    assessment.ReferenceStatus == DietaryReferenceStatus.BelowRange
+                    && assessment.LowerReference is not null)
+                .ToArray();
+            if (belowRange.Length > 0)
+            {
+                objectiveBuilder.AppendLine("本次回顾日核算值低于相应参考值的项目：");
+                foreach (var assessment in belowRange)
+                {
+                    objectiveBuilder.AppendLine(FormatReferenceComparison(assessment, isLowerBound: true));
+                }
+            }
+
+            var aboveRange = NutrientAssessments
+                .Where(assessment =>
+                    assessment.ReferenceStatus == DietaryReferenceStatus.AboveRange
+                    && assessment.UpperReference is not null)
+                .ToArray();
+            if (aboveRange.Length > 0)
+            {
+                objectiveBuilder.AppendLine("本次回顾日核算值高于相应参考值的项目：");
+                foreach (var assessment in aboveRange)
+                {
+                    objectiveBuilder.AppendLine(FormatReferenceComparison(assessment, isLowerBound: false));
+                }
+            }
+        }
+
+        return new SoapContribution(
+            Subjective: subjectiveBuilder.ToString().TrimEnd(),
+            Objective: objectiveBuilder.ToString().TrimEnd());
+    }
+
+    private static string FormatReferenceComparison(
+        DietaryNutrientAssessment assessment,
+        bool isLowerBound)
+    {
+        var reference = isLowerBound
+            ? assessment.LowerReference!
+            : assessment.UpperReference!;
+        var comparison = isLowerBound ? "低于" : "高于";
+        return $"- {assessment.FriendlyName}：{FormatQuantity(assessment.Value, assessment.Unit)}，"
+            + $"{comparison}{GetReferenceLabel(reference.Type)} "
+            + FormatQuantity(reference.Value, reference.Unit);
+    }
+
+    private static string GetMealOccasionLabel(MealOccasion mealOccasion) =>
+        mealOccasion switch
+        {
+            MealOccasion.Breakfast => "早餐",
+            MealOccasion.MorningSnack => "上午加餐",
+            MealOccasion.Lunch => "午餐",
+            MealOccasion.AfternoonSnack => "下午加餐",
+            MealOccasion.Dinner => "晚餐",
+            MealOccasion.LateNightSnack => "宵夜",
+            _ => mealOccasion.ToString()
+        };
+
+    private static string GetReferenceLabel(DietaryReferenceIntakeType type) =>
+        type switch
+        {
+            DietaryReferenceIntakeType.AI => "适宜摄入量（AI）",
+            DietaryReferenceIntakeType.RNI => "推荐摄入量（RNI）",
+            DietaryReferenceIntakeType.EAR => "平均需要量（EAR）",
+            DietaryReferenceIntakeType.UL => "可耐受最高摄入量（UL）",
+            DietaryReferenceIntakeType.AMDR_L => "可接受宏量营养素分布范围下限（AMDR）",
+            DietaryReferenceIntakeType.AMDR_H => "可接受宏量营养素分布范围上限（AMDR）",
+            DietaryReferenceIntakeType.PI_NCD => "慢性病预防建议摄入量（PI-NCD）",
+            DietaryReferenceIntakeType.SPL => "特定建议值（SPL）",
+            _ => type.ToString()
+        };
+
+    private static string FormatQuantity(decimal value, string? unit)
+    {
+        var normalizedUnit = string.Equals(unit, "kCal", StringComparison.OrdinalIgnoreCase)
+            ? "kcal"
+            : unit?.Trim();
+        var formattedValue = value.ToString("0.##", CultureInfo.InvariantCulture);
+        return string.IsNullOrEmpty(normalizedUnit)
+            ? formattedValue
+            : $"{formattedValue} {normalizedUnit}";
+    }
 }

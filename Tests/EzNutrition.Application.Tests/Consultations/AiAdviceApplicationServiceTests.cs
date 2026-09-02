@@ -132,6 +132,36 @@ public sealed class AiAdviceApplicationServiceTests
     }
 
     [Fact]
+    public async Task DiscardPreparedAdvice_after_completion_returns_to_initial_state()
+    {
+        var gateway = CreateGateway(
+            new(AiAdviceGatewayUpdateKind.Reasoning, "reasoning"),
+            new(AiAdviceGatewayUpdateKind.Recommendation, "recommendation"));
+        var service = new AiAdviceApplicationService(gateway);
+        var workspace = PrepareWorkspace(service);
+        var soap = Assert.IsType<SubjectiveObjectiveAssessmentPlanInformation>(
+            workspace.SubjectiveObjectiveAssessmentPlanInformation);
+        var environment = new AdviceEnvironment("provider", "platform", "details");
+        await DrainAsync(service.GenerateAsync(workspace, environment));
+        var completedAdvice = Assert.IsType<AiGeneratedAdvice>(workspace.AiGeneratedAdvice);
+
+        service.DiscardPreparedAdvice(workspace);
+
+        Assert.Null(workspace.AdvicePrompt);
+        var resetAdvice = Assert.IsType<AiGeneratedAdvice>(workspace.AiGeneratedAdvice);
+        Assert.NotSame(completedAdvice, resetAdvice);
+        Assert.Same(soap, workspace.SubjectiveObjectiveAssessmentPlanInformation);
+        Assert.Same(environment, resetAdvice.Environment);
+        Assert.False(resetAdvice.IsReady);
+        Assert.False(resetAdvice.Sending);
+        Assert.Empty(resetAdvice.ReasoningContent);
+        Assert.Empty(resetAdvice.Content);
+        Assert.Equal(AiAdviceGenerationStatus.Prepared, resetAdvice.GenerationStatus);
+        Assert.Null(resetAdvice.RequestedAt);
+        Assert.Null(resetAdvice.CompletedAt);
+    }
+
+    [Fact]
     public async Task GenerateAsync_marks_failed_when_stream_has_no_recommendation_body()
     {
         var gateway = CreateGateway(

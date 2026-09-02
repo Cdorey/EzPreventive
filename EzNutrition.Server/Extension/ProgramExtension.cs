@@ -16,14 +16,14 @@ namespace EzNutrition.Server.Extension
         {
             //Identity and Auth
             builder.Services
-                .AddIdentity<IdentityUser, IdentityRole>()
+                .AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
             builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
             {
                 options.TokenLifespan = TimeSpan.FromHours(3);
             });
-            builder.Services.AddScoped<IUserValidator<IdentityUser>, OptionalUniqueEmailUserValidator>();
+            builder.Services.AddScoped<IUserValidator<ApplicationUser>, OptionalUniqueEmailUserValidator>();
             builder.Services.AddAuthorization(PolicyList.RegisterPolicies);
             JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
             var publicKey = builder.Configuration[
@@ -78,7 +78,7 @@ namespace EzNutrition.Server.Extension
                         }
 
                         var userManager = context.HttpContext.RequestServices
-                            .GetRequiredService<UserManager<IdentityUser>>();
+                            .GetRequiredService<UserManager<ApplicationUser>>();
                         var user = await userManager.FindByIdAsync(userId);
                         if (user is null)
                         {

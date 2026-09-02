@@ -1,11 +1,12 @@
+using EzNutrition.Server.Data;
 using Microsoft.AspNetCore.Identity;
 
 namespace EzNutrition.Server.Services;
 
 public sealed class LoginTimingEqualizer
 {
-    private readonly IdentityUser dummyUser = new() { UserName = "timing-equalizer" };
-    private readonly PasswordHasher<IdentityUser> passwordHasher = new();
+    private readonly ApplicationUser dummyUser = new() { UserName = "timing-equalizer" };
+    private readonly PasswordHasher<ApplicationUser> passwordHasher = new();
 
     public LoginTimingEqualizer()
     {

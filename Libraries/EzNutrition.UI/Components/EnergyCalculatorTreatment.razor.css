@@ -77,6 +77,14 @@
     font-weight: 600;
 }
 
+.soap-import-action {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ez-border);
+}
+
 .macro-dashboard-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -173,6 +181,10 @@
     .pal-controls ::deep .ant-btn {
         width: 100%;
         margin-left: 0;
+    }
+
+    .soap-import-action ::deep .ant-btn {
+        width: 100%;
     }
 
     .macro-dashboard-grid {

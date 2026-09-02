@@ -12,7 +12,7 @@ using System.Text;
 namespace EzNutrition.Server.Services;
 
 public sealed class AccountSecurityService(
-    UserManager<IdentityUser> userManager,
+    UserManager<ApplicationUser> userManager,
     ApplicationDbContext dbContext,
     IAccountEmailSender emailSender,
     IOptions<EmailSettings> options,
@@ -25,7 +25,7 @@ public sealed class AccountSecurityService(
         "如果该邮箱对应一个可找回的账户，我们会发送密码重置邮件。";
 
     public async Task SendEmailConfirmationAsync(
-        IdentityUser user,
+        ApplicationUser user,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(user);
@@ -232,7 +232,7 @@ public sealed class AccountSecurityService(
         }
 
         var newEmail = request.NewEmail.Trim();
-        var snapshot = IdentityUserSnapshot.Capture(user);
+        var snapshot = ApplicationUserSnapshot.Capture(user);
         await using var transaction = await BeginIdentityTransactionAsync(cancellationToken);
         var previousEmail = user.Email;
         var changeResult = await userManager.ChangeEmailAsync(user, newEmail, token);
@@ -294,7 +294,7 @@ public sealed class AccountSecurityService(
             return AccountSecurityResult.Failure("当前密码不正确或账户已暂时锁定。");
         }
 
-        var snapshot = IdentityUserSnapshot.Capture(user);
+        var snapshot = ApplicationUserSnapshot.Capture(user);
         await using var transaction = await BeginIdentityTransactionAsync(CancellationToken.None);
         var phoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
             ? null
@@ -328,7 +328,7 @@ public sealed class AccountSecurityService(
                 : "手机号码已修改并标记为未验证，请重新登录。");
     }
 
-    private async Task<IdentityUser?> FindUniqueUserByEmailAsync(
+    private async Task<ApplicationUser?> FindUniqueUserByEmailAsync(
         string email,
         CancellationToken cancellationToken)
     {
@@ -352,7 +352,7 @@ public sealed class AccountSecurityService(
     }
 
     private async Task<bool> VerifyCurrentPasswordAsync(
-        IdentityUser user,
+        ApplicationUser user,
         string password)
     {
         if (userManager.SupportsUserLockout && await userManager.IsLockedOutAsync(user))
@@ -390,8 +390,8 @@ public sealed class AccountSecurityService(
 
     private async Task RollbackAndRestoreAsync(
         IDbContextTransaction? transaction,
-        IdentityUser user,
-        IdentityUserSnapshot snapshot,
+        ApplicationUser user,
+        ApplicationUserSnapshot snapshot,
         CancellationToken cancellationToken)
     {
         if (transaction is not null)
@@ -454,7 +454,7 @@ public sealed class AccountSecurityService(
         return string.IsNullOrWhiteSpace(descriptions) ? fallback : descriptions;
     }
 
-    private sealed record IdentityUserSnapshot(
+    private sealed record ApplicationUserSnapshot(
         string? Email,
         string? NormalizedEmail,
         bool EmailConfirmed,
@@ -463,7 +463,7 @@ public sealed class AccountSecurityService(
         string? SecurityStamp,
         string? ConcurrencyStamp)
     {
-        internal static IdentityUserSnapshot Capture(IdentityUser user) => new(
+        internal static ApplicationUserSnapshot Capture(ApplicationUser user) => new(
             user.Email,
             user.NormalizedEmail,
             user.EmailConfirmed,
@@ -472,7 +472,7 @@ public sealed class AccountSecurityService(
             user.SecurityStamp,
             user.ConcurrencyStamp);
 
-        internal void Restore(IdentityUser user)
+        internal void Restore(ApplicationUser user)
         {
             user.Email = Email;
             user.NormalizedEmail = NormalizedEmail;
