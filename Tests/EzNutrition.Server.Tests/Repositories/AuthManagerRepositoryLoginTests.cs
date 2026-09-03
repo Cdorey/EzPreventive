@@ -396,6 +396,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
             services.AddScoped<AuthenticationSessionService>();
             services.AddScoped<AccountSecurityService>();
             services.AddScoped<AccountDeletionService>();
+            services.AddScoped<CertificationReviewService>();
             services.AddScoped<AuthManagerRepository>();
 
             var provider = services.BuildServiceProvider();

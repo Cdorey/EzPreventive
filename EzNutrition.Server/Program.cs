@@ -60,6 +60,7 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<FoodNutritionValueRepository>();
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
+            builder.Services.AddScoped<CertificationReviewService>();
             builder.Services.AddScoped<AccountDeletionService>();
             builder.Services.AddScoped<AccountCleanupService>();
             builder.Services.AddScoped<OrphanCleanupService>();

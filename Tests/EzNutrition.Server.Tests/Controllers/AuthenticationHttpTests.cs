@@ -232,6 +232,7 @@ public sealed class AuthenticationHttpTests
             builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddScoped<AccountSecurityService>();
             builder.Services.AddScoped<AccountDeletionService>();
+            builder.Services.AddScoped<CertificationReviewService>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddSingleton<LoginTimingEqualizer>();
             builder.Services.AddSingleton<CertificateFileStore>();
