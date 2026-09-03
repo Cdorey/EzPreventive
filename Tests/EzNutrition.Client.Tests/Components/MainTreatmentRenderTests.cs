@@ -73,7 +73,8 @@ public sealed class MainTreatmentRenderTests
         services.AddSingleton<IAuthenticationSessionClient, Services.TestAuthenticationClient>();
         services.AddEzNutritionPresentation(
             new Uri("https://app.example.test/"),
-            TimeZoneInfo.Utc);
+            TimeZoneInfo.Utc,
+            primaryHttpMessageHandlerFactory: static () => new Services.SessionTestContext.PublicInfoHandler());
         services.AddCascadingAuthenticationState();
         services.AddSingleton<NavigationManager, TestNavigationManager>();
         services.AddSingleton<IJSRuntime, NoOpJsRuntime>();

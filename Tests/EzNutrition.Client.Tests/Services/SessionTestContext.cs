@@ -77,7 +77,7 @@ internal sealed class SessionTestContext : IDisposable
         public HttpClient CreateClient(string name) => client;
     }
 
-    private sealed class PublicInfoHandler : HttpMessageHandler
+    internal sealed class PublicInfoHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
