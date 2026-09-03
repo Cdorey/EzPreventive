@@ -31,7 +31,17 @@ namespace EzNutrition.Server
             builder.AuthorizeConfiguration();
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
+            builder.Services.AddAntiforgery(options =>
+            {
+                options.HeaderName = "X-CSRF-TOKEN";
+                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
+            });
             builder.Services.AddScoped<JwtService>();
+            builder.Services.AddScoped<AuthenticationSessionService>();
+            builder.Services.AddHostedService<AuthenticationSessionCleanupWorker>();
             builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
             builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddSingleton(TimeProvider.System);
@@ -54,6 +64,16 @@ namespace EzNutrition.Server
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddPolicy("Refresh", context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 120,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
                 options.AddPolicy("AccountRecovery", context =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -111,6 +131,8 @@ namespace EzNutrition.Server
             builder.Services.AddOptions<JwtSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
                 .ValidateDataAnnotations()
+                .Validate(settings => settings.RefreshIdleDays <= settings.SessionLifetimeDays,
+                    "JwtSettings:RefreshIdleDays must not exceed SessionLifetimeDays.")
                 .ValidateOnStart();
             builder.Services.AddOptions<TencentAgencyConfig>()
                 .Bind(builder.Configuration.GetSection(nameof(TencentAgencyConfig)))

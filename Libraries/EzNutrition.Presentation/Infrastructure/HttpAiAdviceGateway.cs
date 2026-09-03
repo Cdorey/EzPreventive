@@ -79,6 +79,8 @@ public sealed class HttpAiAdviceGateway(IHttpClientFactory httpClientFactory) : 
         ArgumentNullException.ThrowIfNull(requestData);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint);
+        // 仅允许在 JWT 中间件拒绝请求、生成尚未开始时重发这份不可变 JSON。
+        request.Options.Set(Services.CustomAuthorizationMessageHandler.AllowAuthenticationRetry, true);
         string json;
         try
         {

@@ -24,10 +24,36 @@ namespace EzNutrition.Server.Data
 
         public DbSet<PrescriptionGenerateRequest> PrescriptionGenerateRequests { get; set; }
 
+        /// <summary>获取登录会话集合。</summary>
+        public DbSet<AuthenticationSession> AuthenticationSessions { get; set; }
+
+        /// <summary>获取刷新令牌的消费记录集合。</summary>
+        public DbSet<RefreshTokenRecord> RefreshTokens { get; set; }
+
         /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            var session = builder.Entity<AuthenticationSession>();
+            session.Property(item => item.UserId).HasMaxLength(450);
+            session.Property(item => item.SecurityStampFingerprint).HasMaxLength(64);
+            session.Property(item => item.Version).IsConcurrencyToken();
+            session.Property(item => item.CreatedAtUtc).HasConversion(UtcDateTimeConverter);
+            session.Property(item => item.RefreshExpiresAtUtc).HasConversion(UtcDateTimeConverter);
+            session.Property(item => item.ExpiresAtUtc).HasConversion(UtcDateTimeConverter);
+            session.Property(item => item.RevokedAtUtc).HasConversion(UtcDateTimeConverter);
+            session.HasIndex(item => item.RefreshExpiresAtUtc);
+            session.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            var refreshToken = builder.Entity<RefreshTokenRecord>();
+            refreshToken.Property(item => item.TokenHash).HasMaxLength(64).IsUnicode(false);
+            refreshToken.HasIndex(item => item.TokenHash).IsUnique();
+            refreshToken.Property(item => item.CreatedAtUtc).HasConversion(UtcDateTimeConverter);
+            refreshToken.Property(item => item.ConsumedAtUtc).HasConversion(UtcDateTimeConverter);
+            refreshToken.HasOne(item => item.Session).WithMany().HasForeignKey(item => item.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             var certificationRequest = builder.Entity<ProfessionalCertificationRequest>();
             certificationRequest

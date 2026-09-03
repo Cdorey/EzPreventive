@@ -1,355 +1,249 @@
 using EzNutrition.Presentation.Models;
 using EzNutrition.Presentation.Services;
+using EzNutrition.Shared.Data.DTO;
 using EzNutrition.Shared.Identities;
-using Microsoft.Extensions.Logging.Abstractions;
-using System.IdentityModel.Tokens.Jwt;
-using System.Net;
-using System.Security.Claims;
-using System.Text.Json;
 
 namespace EzNutrition.Client.Tests.Services;
 
-/// <summary>
-/// 验证用户会话与宿主登录信息存储之间的安全语义。
-/// </summary>
+/// <summary>覆盖恢复、并发续期及退出竞争，保证短令牌更换不改变业务会话。</summary>
 public sealed class UserSessionCredentialTests
 {
-    private static readonly Uri ServerBaseAddress = new("https://app.example.test/");
-
     [Fact]
     public void User_info_exposes_stable_and_optional_professional_identity()
     {
-        var professional = new UserInfo(CreateToken(
-            "professional-user",
-            "professional-id",
-            "  测试医师  ",
-            "  测试医疗机构  "));
-        var generalUser = new UserInfo(CreateToken("general-user", "general-id"));
-        var serverIssued = new UserInfo(CreateServerStyleToken());
-
-        Assert.Equal("professional-id", professional.UserId);
-        Assert.Equal("测试医师", professional.RealName);
-        Assert.Equal("测试医疗机构", professional.InstitutionName);
-        Assert.Equal("general-id", generalUser.UserId);
-        Assert.Null(generalUser.RealName);
-        Assert.Null(generalUser.InstitutionName);
-        Assert.Equal("server-user-id", serverIssued.UserId);
+        var tokens = SessionTestContext.CreateTokens(DateTimeOffset.UtcNow, "professional", additionalClaims:
+        [
+            new(UserClaimTypes.RealName, "  测试医师  "),
+            new(UserClaimTypes.InstitutionName, "  测试医疗机构  ")
+        ]);
+        var user = new UserInfo(tokens.AccessToken);
+        Assert.Equal("professional-id", user.UserId);
+        Assert.Equal(tokens.SessionId, user.SessionId);
+        Assert.Equal("测试医师", user.RealName);
+        Assert.Equal("测试医疗机构", user.InstitutionName);
+        var ordinary = new UserInfo(SessionTestContext.CreateTokens(DateTimeOffset.UtcNow).AccessToken);
+        Assert.Null(ordinary.RealName);
+        Assert.Null(ordinary.InstitutionName);
     }
 
     [Fact]
-    public async Task Remembered_sign_in_saves_the_normalized_credential()
+    public async Task Sign_in_passes_normalized_username_and_remember_choice_to_host()
     {
-        var credentialStore = new RecordingCredentialStore();
-        var handler = new SessionEndpointHandler(CreateToken("remembered-user"));
-        var session = CreateSession(handler, credentialStore);
-
-        await session.SignInAsync("  remembered-user  ", "test-password", rememberLogin: true);
-
-        Assert.NotNull(credentialStore.SavedCredential);
-        Assert.Equal("remembered-user", credentialStore.SavedCredential.UserName);
-        Assert.Equal("test-password", credentialStore.SavedCredential.Password);
-        Assert.True(session.TryGetAccessToken(out _));
+        var context = new SessionTestContext();
+        LoginRequestDto? received = null;
+        context.Authentication.SignIn = request =>
+        {
+            received = request;
+            return Task.FromResult(SessionTestContext.CreateTokens(context.Clock.GetUtcNow()));
+        };
+        await context.Session.SignInAsync("  test-user  ", "password", rememberLogin: true);
+        Assert.Equal("test-user", received?.UserName);
+        Assert.Equal("password", received?.Password);
+        Assert.True(received?.RememberLogin);
+        Assert.True(context.Session.TryGetAccessToken(out _));
     }
 
     [Fact]
-    public async Task Sign_in_without_remembering_removes_an_existing_credential()
+    public async Task Concurrent_initialization_restores_once()
     {
-        var credentialStore = new RecordingCredentialStore(
-            new SavedLoginCredential("old-user", "old-password"));
-        var handler = new SessionEndpointHandler(CreateToken("current-user"));
-        var session = CreateSession(handler, credentialStore);
-
-        await session.SignInAsync("current-user", "current-password", rememberLogin: false);
-
-        Assert.Null(credentialStore.SavedCredential);
-        Assert.Equal(1, credentialStore.ClearCount);
+        var context = new SessionTestContext();
+        var tokens = SessionTestContext.CreateTokens(context.Clock.GetUtcNow());
+        context.Authentication.Restore = () => Task.FromResult<AuthenticationTokensDto?>(tokens);
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => context.Session.InitializeAsync()));
+        Assert.Equal(1, context.Authentication.RestoreCount);
+        Assert.Equal(tokens.AccessToken, await context.Session.GetValidAccessTokenAsync());
     }
 
     [Fact]
-    public async Task Explicit_sign_out_clears_the_saved_credential()
+    public async Task Concurrent_requests_share_one_refresh_and_one_cancelled_waiter_does_not_abort_it()
     {
-        var credentialStore = new RecordingCredentialStore();
-        var handler = new SessionEndpointHandler(CreateToken("current-user"));
-        var session = CreateSession(handler, credentialStore);
-        await session.SignInAsync("current-user", "current-password", rememberLogin: true);
-
-        await session.SignOutAsync();
-
-        Assert.Null(credentialStore.SavedCredential);
-        Assert.Equal(1, credentialStore.ClearCount);
-        Assert.False(session.TryGetAccessToken(out _));
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var released = new TaskCompletionSource<AuthenticationTokensDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.Authentication.Refresh = _ => { entered.SetResult(); return released.Task; };
+        using var cancellation = new CancellationTokenSource();
+        var cancelled = context.Session.GetValidAccessTokenAsync(cancellation.Token);
+        await entered.Task;
+        var waiting = Enumerable.Range(0, 12).Select(_ => context.Session.GetValidAccessTokenAsync()).ToArray();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+        var replacement = SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId);
+        released.SetResult(replacement);
+        Assert.All(await Task.WhenAll(waiting), token => Assert.Equal(replacement.AccessToken, token));
+        Assert.Equal(1, context.Authentication.RefreshCount);
     }
 
-    [Fact]
-    public async Task Token_rejection_sign_out_preserves_the_saved_credential()
-    {
-        var credentialStore = new RecordingCredentialStore();
-        var handler = new SessionEndpointHandler(CreateToken("current-user"));
-        var session = CreateSession(handler, credentialStore);
-        await session.SignInAsync("current-user", "current-password", rememberLogin: true);
-
-        await session.SignOutAsync(forgetSavedLogin: false);
-
-        Assert.NotNull(credentialStore.SavedCredential);
-        Assert.Equal(0, credentialStore.ClearCount);
-        Assert.False(session.TryGetAccessToken(out _));
-    }
-
-    [Fact]
-    public async Task Initialization_uses_a_saved_credential_only_once()
-    {
-        var credentialStore = new RecordingCredentialStore(
-            new SavedLoginCredential("saved-user", "saved-password"));
-        var handler = new SessionEndpointHandler(CreateToken("saved-user"));
-        var session = CreateSession(handler, credentialStore);
-
-        await Task.WhenAll(session.InitializeAsync(), session.InitializeAsync());
-
-        Assert.True(session.TryGetAccessToken(out _));
-        Assert.Equal(1, credentialStore.ReadCount);
-        Assert.Equal(1, handler.LoginCount);
-        Assert.Equal(5, handler.SystemInfoRequestCount);
-        Assert.Equal("test-case-number", session.CaseNumber);
-        Assert.Equal("2.1.0.0", session.ClientVersion);
-        Assert.Equal("2.1.0.0", session.ServerVersion);
-        Assert.Equal("test-user-agreement", session.UserAgreement);
-        Assert.Equal("test-privacy-policy", session.PrivacyPolicy);
-        Assert.False(session.HasVersionCompatibilityWarning);
-        Assert.Null(session.AutomaticSignInError);
-    }
-
+    /// <summary>访问令牌或本地空闲期限快照过期时，界面身份保留到宿主确认会话结果。</summary>
     [Theory]
-    [InlineData("2.1.0.0", "2.1.99.42", false)]
-    [InlineData("2.1.0.0", "2.2.0.0", true)]
-    [InlineData("2.1.0.0", "3.1.0.0", true)]
-    [InlineData("", "2.1.0.0", false)]
-    [InlineData("2.1.0.0", "invalid", false)]
-    public void Compatibility_warning_compares_only_product_and_contract_segments(
-        string clientVersion,
-        string serverVersion,
-        bool expectedWarning)
+    [InlineData(16)]
+    [InlineData(8 * 24 * 60)]
+    public async Task Cached_expiration_keeps_ui_identity_until_refresh_can_run(int elapsedMinutes)
     {
-        Assert.Equal(
-            expectedWarning,
-            UserSessionService.IsCompatibilityMismatch(clientVersion, serverVersion));
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromMinutes(elapsedMinutes));
+        Assert.False(context.Session.TryGetAccessToken(out _));
+        Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        var replacement = await context.Session.GetValidAccessTokenAsync();
+        Assert.NotEqual(original.AccessToken, replacement);
+        Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
     }
 
+    /// <summary>其他窗口在第 5 天续期后，休眠窗口在第 8 天仍通过宿主恢复同一会话。</summary>
     [Fact]
-    public async Task Missing_public_information_remains_hidden_without_a_warning()
+    public async Task A_resumed_window_refreshes_after_another_window_extended_the_idle_deadline()
     {
-        var credentialStore = new RecordingCredentialStore();
-        var handler = new SessionEndpointHandler(
-            caseNumber: null,
-            serverVersion: null,
-            publicInfoStatusCode: HttpStatusCode.ServiceUnavailable);
-        var session = CreateSession(handler, credentialStore);
-
-        await session.GetSystemInfoAsync();
-
-        Assert.Empty(session.CaseNumber);
-        Assert.Empty(session.ServerVersion);
-        Assert.False(session.HasVersionCompatibilityWarning);
-    }
-
-    [Fact]
-    public async Task Rejected_saved_credential_is_removed()
-    {
-        var credentialStore = new RecordingCredentialStore(
-            new SavedLoginCredential("rejected-user", "rejected-password"));
-        var handler = new SessionEndpointHandler(loginStatusCode: HttpStatusCode.Unauthorized);
-        var session = CreateSession(handler, credentialStore);
-
-        await session.InitializeAsync();
-
-        Assert.Null(credentialStore.SavedCredential);
-        Assert.Equal(1, credentialStore.ClearCount);
-        Assert.Contains("本机副本已经清除", session.AutomaticSignInError, StringComparison.Ordinal);
-        Assert.False(session.TryGetAccessToken(out _));
-    }
-
-    [Fact]
-    public async Task Temporary_auto_sign_in_failure_preserves_the_saved_credential()
-    {
-        var savedCredential = new SavedLoginCredential("offline-user", "offline-password");
-        var credentialStore = new RecordingCredentialStore(savedCredential);
-        var handler = new SessionEndpointHandler(throwOnLogin: true);
-        var session = CreateSession(handler, credentialStore);
-
-        await session.InitializeAsync();
-
-        Assert.Same(savedCredential, credentialStore.SavedCredential);
-        Assert.Equal(0, credentialStore.ClearCount);
-        Assert.Equal("offline-user", session.SuggestedUserName);
-        Assert.Contains("已保留本机登录信息", session.AutomaticSignInError, StringComparison.Ordinal);
-    }
-
-    private static UserSessionService CreateSession(
-        HttpMessageHandler handler,
-        ILoginCredentialStore credentialStore)
-    {
-        var client = new HttpClient(handler)
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(5));
+        var renewedElsewhere = await context.Authentication.RefreshAsync(original.SessionId);
+        context.Clock.Advance(TimeSpan.FromDays(3));
+        Assert.True(original.RefreshExpiresAtUtc <= context.Clock.GetUtcNow());
+        Assert.True(renewedElsewhere.RefreshExpiresAtUtc > context.Clock.GetUtcNow());
+        var refreshed = SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId)
+            with { SessionExpiresAtUtc = original.SessionExpiresAtUtc };
+        context.Authentication.Refresh = id =>
         {
-            BaseAddress = ServerBaseAddress
+            Assert.Equal(renewedElsewhere.SessionId, id);
+            return Task.FromResult(refreshed);
         };
-        return new UserSessionService(
-            new StaticHttpClientFactory(client),
-            NullLogger<UserSessionService>.Instance,
-            credentialStore,
-            clientVersion: "2.1.0.0");
+
+        var token = await context.Session.GetValidAccessTokenAsync();
+
+        Assert.Equal(refreshed.AccessToken, token);
+        Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
+        Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        Assert.Equal(2, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
-    private static string CreateToken(
-        string userName,
-        string? userId = null,
-        string? realName = null,
-        string? institutionName = null)
+    [Fact]
+    public async Task Temporary_refresh_failure_keeps_identity_and_limits_retry_frequency()
     {
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, userId ?? $"{userName}-id"),
-            new(JwtRegisteredClaimNames.UniqueName, userName)
-        };
-        if (realName is not null)
-        {
-            claims.Add(new Claim(UserClaimTypes.RealName, realName));
-        }
-
-        if (institutionName is not null)
-        {
-            claims.Add(new Claim(UserClaimTypes.InstitutionName, institutionName));
-        }
-
-        var token = new JwtSecurityToken(
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1));
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
+        context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
+        Assert.Equal(original.AccessToken, await context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(original.AccessToken, await context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(1, context.Authentication.RefreshCount);
+        context.Clock.Advance(TimeSpan.FromSeconds(31));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Session.GetValidAccessTokenAsync());
+        Assert.NotNull(context.Session.UserInfo);
+        Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
-    private static string CreateServerStyleToken()
+    /// <summary>本地空闲期限是否过期，都由宿主的明确拒绝清除身份并保留错误码。</summary>
+    [Theory]
+    [InlineData(0, AuthenticationErrorCodes.SessionInvalid)]
+    [InlineData(8, AuthenticationErrorCodes.SessionInvalid)]
+    [InlineData(8, AuthenticationErrorCodes.SessionChanged)]
+    public async Task Host_rejection_clears_identity_without_hiding_failure(int elapsedDays, string errorCode)
     {
-        var token = new JwtSecurityToken(
-            claims:
-            [
-                new Claim(ClaimTypes.NameIdentifier, "server-user-id"),
-                new Claim(ClaimTypes.Upn, "server-user-id"),
-                new Claim(ClaimTypes.Name, "server-user")
-            ],
-            expires: DateTime.UtcNow.AddHours(1));
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var context = new SessionTestContext();
+        await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
+        context.Clock.Advance(TimeSpan.FromDays(elapsedDays));
+        context.Authentication.Refresh = _ => throw new SessionAuthenticationException(errorCode, "rejected");
+        var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(errorCode, error.Code);
+        Assert.Equal(1, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
+        Assert.Null(context.Session.UserInfo);
+        Assert.False((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
     }
 
-    private sealed class StaticHttpClientFactory(HttpClient client) : IHttpClientFactory
+    /// <summary>无法确认缓存空闲期限时保留身份，网络恢复后允许继续刷新。</summary>
+    [Fact]
+    public async Task An_offline_resumed_window_keeps_identity_until_refresh_can_be_confirmed()
     {
-        public HttpClient CreateClient(string name) => client;
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(8));
+        context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Session.GetValidAccessTokenAsync());
+
+        Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
+        Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        Assert.Equal(1, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
+        context.Clock.Advance(TimeSpan.FromSeconds(5));
+        var refreshed = SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId)
+            with { SessionExpiresAtUtc = original.SessionExpiresAtUtc };
+        context.Authentication.Refresh = _ => Task.FromResult(refreshed);
+        Assert.Equal(refreshed.AccessToken, await context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(2, context.Authentication.RefreshCount);
     }
 
-    private sealed class RecordingCredentialStore : ILoginCredentialStore
+    /// <summary>绝对期限不会被其他窗口延长，到期后可在本地终止会话。</summary>
+    [Fact]
+    public async Task Absolute_expiration_clears_identity_without_attempting_refresh()
     {
-        internal RecordingCredentialStore(SavedLoginCredential? initialCredential = null)
-        {
-            SavedCredential = initialCredential;
-        }
-
-        public bool IsAvailable => true;
-
-        internal int ClearCount { get; private set; }
-
-        internal int ReadCount { get; private set; }
-
-        internal SavedLoginCredential? SavedCredential { get; private set; }
-
-        public ValueTask<SavedLoginCredential?> ReadAsync(CancellationToken cancellationToken = default)
-        {
-            ReadCount++;
-            return ValueTask.FromResult(SavedCredential);
-        }
-
-        public ValueTask SaveAsync(
-            SavedLoginCredential credential,
-            CancellationToken cancellationToken = default)
-        {
-            SavedCredential = credential;
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask ClearAsync(CancellationToken cancellationToken = default)
-        {
-            ClearCount++;
-            SavedCredential = null;
-            return ValueTask.CompletedTask;
-        }
+        var context = new SessionTestContext();
+        await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(30));
+        Assert.False((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(AuthenticationErrorCodes.SessionInvalid, error.Code);
+        Assert.Null(context.Session.UserInfo);
+        Assert.Equal(0, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
-    private sealed class SessionEndpointHandler : HttpMessageHandler
+    [Fact]
+    public async Task Logout_during_refresh_immediately_clears_identity_and_discards_the_late_response()
     {
-        private readonly HttpStatusCode loginStatusCode;
-        private readonly string? loginToken;
-        private readonly string publicInfoContent;
-        private readonly HttpStatusCode publicInfoStatusCode;
-        private readonly bool throwOnLogin;
-        private int loginCount;
-        private int systemInfoRequestCount;
+        var context = new SessionTestContext();
+        var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var released = new TaskCompletionSource<AuthenticationTokensDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.Authentication.Refresh = _ => { entered.SetResult(); return released.Task; };
+        Guid? revoked = null;
+        context.Authentication.SignOut = id => { revoked = id; return Task.CompletedTask; };
+        var refresh = context.Session.GetValidAccessTokenAsync();
+        await entered.Task;
+        var logout = context.Session.SignOutAsync();
+        Assert.Null(context.Session.UserInfo);
+        released.SetResult(SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId));
+        await Assert.ThrowsAsync<SessionAuthenticationException>(() => refresh);
+        await logout;
+        Assert.Equal(original.SessionId, revoked);
+        Assert.Null(context.Session.UserInfo);
+    }
 
-        internal SessionEndpointHandler(
-            string? loginToken = null,
-            HttpStatusCode loginStatusCode = HttpStatusCode.OK,
-            bool throwOnLogin = false,
-            string? caseNumber = "test-case-number",
-            string? serverVersion = "2.1.0.0",
-            HttpStatusCode publicInfoStatusCode = HttpStatusCode.OK)
-        {
-            this.loginToken = loginToken;
-            this.loginStatusCode = loginStatusCode;
-            this.throwOnLogin = throwOnLogin;
-            this.publicInfoStatusCode = publicInfoStatusCode;
-            publicInfoContent = JsonSerializer.Serialize(new { caseNumber, serverVersion });
-        }
+    [Fact]
+    public async Task An_old_request_cannot_refresh_or_reject_a_new_account()
+    {
+        var context = new SessionTestContext();
+        var old = await context.SignInAsync("old");
+        var current = await context.SignInAsync("new");
+        var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() =>
+            context.Session.GetValidAccessTokenAsync(rejectedToken: old.AccessToken));
+        Assert.Equal(AuthenticationErrorCodes.SessionChanged, error.Code);
+        await context.Session.RejectAccessTokenAsync(old.AccessToken);
+        Assert.Equal(current.AccessToken, await context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(0, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
+    }
 
-        internal int LoginCount => Volatile.Read(ref loginCount);
+    [Fact]
+    public async Task Restore_failure_is_visible_and_does_not_attempt_password_login()
+    {
+        var context = new SessionTestContext();
+        context.Authentication.Restore = () => throw new HttpRequestException("offline");
+        await context.Session.InitializeAsync();
+        Assert.NotNull(context.Session.AutomaticSignInError);
+        Assert.Equal(0, context.Authentication.SignOutCount);
+        Assert.Null(context.Session.UserInfo);
+    }
 
-        internal int SystemInfoRequestCount => Volatile.Read(ref systemInfoRequestCount);
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            var relativePath = ServerBaseAddress.MakeRelativeUri(
-                request.RequestUri ?? throw new InvalidOperationException("请求缺少 URI。")).ToString();
-            if (string.Equals(relativePath, "Auth/Login", StringComparison.Ordinal))
-            {
-                Interlocked.Increment(ref loginCount);
-                if (throwOnLogin)
-                {
-                    throw new HttpRequestException("Simulated network failure.");
-                }
-
-                return Task.FromResult(new HttpResponseMessage(loginStatusCode)
-                {
-                    Content = new StringContent(loginToken ?? string.Empty)
-                });
-            }
-
-            Interlocked.Increment(ref systemInfoRequestCount);
-            if (string.Equals(relativePath, "SystemInfo/PublicInfo/", StringComparison.Ordinal))
-            {
-                return Task.FromResult(new HttpResponseMessage(publicInfoStatusCode)
-                {
-                    Content = new StringContent(publicInfoContent)
-                });
-            }
-
-            var content = relativePath switch
-            {
-                "SystemInfo/CoverLetter/" => """{"description":"test-cover-letter"}""",
-                "SystemInfo/Notice/" => """{"description":"test-notice"}""",
-                "SystemInfo/UserAgreement/" => """{"description":"test-user-agreement"}""",
-                "SystemInfo/PrivacyPolicy/" => """{"description":"test-privacy-policy"}""",
-                _ => throw new InvalidOperationException($"Unexpected request path: {relativePath}")
-            };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(content)
-            });
-        }
+    [Fact]
+    public async Task Malformed_token_cannot_become_an_authenticated_session()
+    {
+        var context = new SessionTestContext();
+        context.Authentication.SignIn = _ => Task.FromResult(
+            SessionTestContext.CreateTokens(context.Clock.GetUtcNow()) with { AccessToken = "malformed" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Session.SignInAsync("test", "password"));
+        Assert.Null(context.Session.UserInfo);
     }
 }

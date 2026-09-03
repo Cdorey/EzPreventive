@@ -37,7 +37,7 @@ public sealed class SystemInfoControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var publicInfo = Assert.IsType<PublicSystemInfoDto>(ok.Value);
         Assert.Equal("test-case-number", publicInfo.CaseNumber);
-        Assert.Equal("2.1.0.0", publicInfo.ServerVersion);
+        Assert.Equal("2.2.0.0", publicInfo.ServerVersion);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class SystemInfoControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var publicInfo = Assert.IsType<PublicSystemInfoDto>(ok.Value);
         Assert.Null(publicInfo.CaseNumber);
-        Assert.Equal("2.1.0.0", publicInfo.ServerVersion);
+        Assert.Equal("2.2.0.0", publicInfo.ServerVersion);
     }
 
     [Fact]

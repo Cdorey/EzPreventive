@@ -1,4 +1,5 @@
 using EzNutrition.Wpf.Configuration;
+using EzNutrition.Presentation.Services;
 using EzNutrition.Wpf.Security;
 using System.Windows;
 
@@ -11,16 +12,19 @@ internal partial class ServerSettingsWindow : Window
 {
     private readonly DpapiLoginCredentialStore credentialStore;
     private readonly WpfUserSettingsStore settingsStore;
+    private readonly UserSessionService userSession;
 
     /// <summary>创建服务连接设置窗口。</summary>
     internal ServerSettingsWindow(
         WpfUserSettingsStore settingsStore,
-        DpapiLoginCredentialStore credentialStore)
+        DpapiLoginCredentialStore credentialStore,
+        UserSessionService userSession)
     {
         this.settingsStore = settingsStore ??
             throw new ArgumentNullException(nameof(settingsStore));
         this.credentialStore = credentialStore ??
             throw new ArgumentNullException(nameof(credentialStore));
+        this.userSession = userSession ?? throw new ArgumentNullException(nameof(userSession));
 
         InitializeComponent();
         ServerAddressTextBox.Text =
@@ -153,7 +157,7 @@ internal partial class ServerSettingsWindow : Window
 
         var answer = MessageBox.Show(
             this,
-            "确定清除当前生效连接所保存的登录信息吗？当前已经登录的进程会话不会因此立即退出。",
+            "确定退出当前账号，并清除当前连接保存的登录信息吗？",
             "清除登录信息",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -165,7 +169,8 @@ internal partial class ServerSettingsWindow : Window
 
         try
         {
-            await credentialStore.ClearAsync();
+            await userSession.SignOutAsync();
+            ValidationMessage.Text = userSession.CredentialPersistenceWarning ?? string.Empty;
             UpdateCredentialStatus();
         }
         catch (Exception exception) when (

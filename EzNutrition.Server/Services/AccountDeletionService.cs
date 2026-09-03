@@ -136,10 +136,29 @@ public sealed class AccountDeletionService(
             entry.State = EntityState.Detached;
         }
 
+        // 会话轮换使用数据库条件更新，跟踪器中的旧并发版本不能参与级联删除。
+        var trackedSessions = applicationDb.ChangeTracker.Entries<AuthenticationSession>()
+            .Where(entry => entry.Entity.UserId == userId).ToArray();
+        var sessionIds = await applicationDb.AuthenticationSessions
+            .Where(session => session.UserId == userId)
+            .Select(session => session.Id).ToHashSetAsync(cancellationToken);
+        sessionIds.UnionWith(trackedSessions.Select(entry => entry.Entity.Id));
+        foreach (var entry in applicationDb.ChangeTracker.Entries<RefreshTokenRecord>()
+            .Where(entry => sessionIds.Contains(entry.Entity.SessionId)).ToArray())
+        {
+            entry.State = EntityState.Detached;
+        }
+        foreach (var entry in trackedSessions)
+        {
+            entry.State = EntityState.Detached;
+        }
+
         var deletedAiAudits = 0;
         var deletedCertificationRequests = 0;
         await using (var transaction = await applicationDb.Database.BeginTransactionAsync(cancellationToken))
         {
+            await applicationDb.AuthenticationSessions.Where(session => session.UserId == userId)
+                .ExecuteDeleteAsync(cancellationToken);
             deletedAiAudits = await applicationDb.PrescriptionGenerateRequests
                 .Where(request => request.UserId == userId)
                 .ExecuteDeleteAsync(cancellationToken);

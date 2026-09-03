@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using AntDesign;
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
@@ -66,13 +67,44 @@ public sealed class MainTreatmentRenderTests
         Assert.Contains("aria-label=\"添加量表\"", html, StringComparison.Ordinal);
     }
 
+    /// <summary>公共公告的独立通知能更新已打开的咨询录入页。</summary>
+    [Fact]
+    public async Task Preparation_workspace_updates_when_the_public_notice_arrives()
+    {
+        await using var services = BuildServiceProvider();
+        var client = new ClientInfo
+        {
+            Gender = "女",
+            Age = new ChronologicalAge(70),
+            Height = 165m,
+            Weight = 60m
+        };
+        services.GetRequiredService<ConsultationWorkspaceManager>()[client.ClientId] =
+            new ConsultationWorkspace(client) { ClientInfoFormEnabled = true };
+        await using var renderer = new HtmlRenderer(services, services.GetRequiredService<ILoggerFactory>());
+        var output = await renderer.Dispatcher.InvokeAsync(() => renderer.RenderComponentAsync<MainTreatment>(
+            ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(MainTreatment.Id)] = client.ClientId.ToString()
+            })));
+        await renderer.Dispatcher.InvokeAsync(() =>
+            Assert.DoesNotContain("test-notice", output.ToHtmlString(), StringComparison.Ordinal));
+
+        await services.GetRequiredService<PublicSystemInfoService>().InitializeAsync();
+
+        await renderer.Dispatcher.InvokeAsync(() =>
+            Assert.Contains("test-notice", output.ToHtmlString(), StringComparison.Ordinal));
+    }
+
     private static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IAuthenticationSessionClient, Services.TestAuthenticationClient>();
         services.AddEzNutritionPresentation(
             new Uri("https://app.example.test/"),
-            TimeZoneInfo.Utc);
+            TimeZoneInfo.Utc,
+            primaryHttpMessageHandlerFactory: static () => new PublicInfoHandler());
         services.AddCascadingAuthenticationState();
         services.AddSingleton<NavigationManager, TestNavigationManager>();
         services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
@@ -88,6 +120,18 @@ public sealed class MainTreatmentRenderTests
             "工作台渲染测试",
             "2.1-test")));
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>为工作台公开信息提供本地响应，避免渲染测试访问外部服务。</summary>
+    private sealed class PublicInfoHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = request.RequestUri!.AbsolutePath.Contains("PublicInfo", StringComparison.Ordinal)
+                    ? JsonContent.Create(new { caseNumber = "test-case", serverVersion = "2.2.0.0" })
+                    : JsonContent.Create(new { description = "test-notice" })
+            });
     }
 
     private sealed class EmptyNutritionDataSource :
