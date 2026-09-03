@@ -8,6 +8,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
+@inject PublicSystemInfoService SystemInfo
 @inject NavigationManager Navigation
 @inject ConsultationWorkspaceManager WorkspaceManager
 @inject ConsultationApplicationService ConsultationService
@@ -115,17 +116,17 @@
                         </div>
                         <Icon Type="notification" Theme="IconThemeType.Outline" />
                     </div>
-                    @if (!UserSession.IsSystemInfoLoaded)
+                    @if (!SystemInfo.IsLoaded)
                     {
                         <Skeleton Active />
                     }
-                    else if (string.IsNullOrEmpty(UserSession.Notice))
+                    else if (string.IsNullOrEmpty(SystemInfo.Notice))
                     {
                         <Alert Type="AlertType.Info" Message="工作提示暂时不可用" Description="服务端内容未能加载；可以继续进行本地核算。" ShowIcon="true" />
                     }
                     else
                     {
-                        @SafeMarkdown.Render(UserSession.Notice)
+                        @SafeMarkdown.Render(SystemInfo.Notice)
                     }
                 </aside>
             </div>
@@ -307,6 +308,16 @@
         _ => "依次完成专业核算、综合结果、营养问题与诊断，以及膳食建议。"
     };
 
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        SystemInfo.StateChanged += HandleSystemInfoChanged;
+        base.OnInitialized();
+    }
+
+    /// <summary>公共公告完成加载后更新工作台。</summary>
+    private void HandleSystemInfoChanged() => _ = InvokeAsync(StateHasChanged);
+
     protected override void OnParametersSet()
     {
         if (Guid.TryParse(Id, out var archiveId) && WorkspaceManager.TryGetValue(archiveId, out var archive))
@@ -421,8 +432,10 @@
         await Message.SuccessAsync("已将复核后的内容加入 SOAP 记录。");
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
+        SystemInfo.StateChanged -= HandleSystemInfoChanged;
         lifetimeCancellation.Cancel();
         lifetimeCancellation.Dispose();
     }

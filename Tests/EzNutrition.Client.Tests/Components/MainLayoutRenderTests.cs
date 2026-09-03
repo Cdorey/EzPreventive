@@ -33,7 +33,7 @@ public sealed class MainLayoutRenderTests
 
         Assert.Contains("前端 v2.1.0.0", html, StringComparison.Ordinal);
         Assert.Contains("后端 v2.1.0.0", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("v@UserSession", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("v@SystemInfo", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -63,10 +63,10 @@ public sealed class MainLayoutRenderTests
             new Uri("https://app.example.test/"),
             TimeZoneInfo.Utc,
             primaryHttpMessageHandlerFactory: static () => new PublicSystemInfoHandler());
-        services.AddSingleton(provider => new UserSessionService(
+        services.AddSingleton<IAuthenticationSessionClient, Services.TestAuthenticationClient>();
+        services.AddSingleton(provider => new PublicSystemInfoService(
             provider.GetRequiredService<IHttpClientFactory>(),
-            provider.GetRequiredService<ILogger<UserSessionService>>(),
-            new Services.TestAuthenticationClient(),
+            provider.GetRequiredService<ILogger<PublicSystemInfoService>>(),
             clientVersion: "2.1.0.0"));
         services.AddCascadingAuthenticationState();
         services.AddScoped<AuthenticationStateProvider, AuthenticatedStateProvider>();

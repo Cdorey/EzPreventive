@@ -1,20 +1,15 @@
 using EzNutrition.Presentation.Models;
 using EzNutrition.Shared.Data.DTO;
-using EzNutrition.Shared.Data.Entities;
 using Microsoft.AspNetCore.Components.Authorization;
-using System.Net;
-using System.Net.Http.Json;
-using System.Reflection;
 using System.Security.Claims;
 
 namespace EzNutrition.Presentation.Services;
 
 /// <summary>
-/// 管理当前客户端进程中的身份、登录流程与公共系统信息。
+/// 管理当前客户端进程中的身份、登录流程与令牌刷新。
 /// </summary>
 public sealed class UserSessionService : AuthenticationStateProvider
 {
-    private readonly HttpClient client;
     private readonly IAuthenticationSessionClient authentication;
     private readonly TimeProvider timeProvider;
     private readonly SemaphoreSlim operationGate = new(1, 1);
@@ -31,63 +26,24 @@ public sealed class UserSessionService : AuthenticationStateProvider
     /// <summary>
     /// 创建用户会话服务。
     /// </summary>
-    /// <param name="httpClientFactory">用于创建匿名登录与系统信息客户端的工厂。</param>
     /// <param name="logger">用于记录不包含凭据内容的运行故障。</param>
     /// <param name="authentication">宿主认证及刷新凭据管理。</param>
     /// <param name="timeProvider">用于令牌期限判断的时钟。</param>
-    /// <param name="clientVersion">测试或特殊宿主可显式提供的前端产品版本。</param>
     public UserSessionService(
-        IHttpClientFactory httpClientFactory,
         ILogger<UserSessionService> logger,
         IAuthenticationSessionClient authentication,
-        TimeProvider? timeProvider = null,
-        string? clientVersion = null)
+        TimeProvider? timeProvider = null)
     {
-        ArgumentNullException.ThrowIfNull(httpClientFactory);
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        client = httpClientFactory.CreateClient("Anonymous");
         this.authentication = authentication ?? throw new ArgumentNullException(nameof(authentication));
         this.timeProvider = timeProvider ?? TimeProvider.System;
-        ClientVersion = NormalizeOptional(clientVersion);
-        if (ClientVersion.Length == 0)
-        {
-            ClientVersion = ResolveClientVersion();
-        }
     }
 
-    /// <summary>在会话可见状态变化时通知 Razor 页面。</summary>
+    /// <summary>在身份或登录流程的可见状态变化时通知 Razor 页面。</summary>
     public event Action? StateChanged;
 
     /// <summary>获取当前会话的用户资料；短期令牌过期不会直接清除会话。</summary>
     public UserInfo? UserInfo => Volatile.Read(ref userInfo);
-
-    /// <summary>获取备案编号。</summary>
-    public string CaseNumber { get; private set; } = string.Empty;
-
-    /// <summary>获取当前运行的前端宿主产品发行版本。</summary>
-    public string ClientVersion { get; }
-
-    /// <summary>获取当前连接的服务端产品发行版本。</summary>
-    public string ServerVersion { get; private set; } = string.Empty;
-
-    /// <summary>获取前后端产品代际或接口契约代际是否不一致。</summary>
-    public bool HasVersionCompatibilityWarning =>
-        IsCompatibilityMismatch(ClientVersion, ServerVersion);
-
-    /// <summary>获取产品说明。</summary>
-    public string CoverLetter { get; private set; } = string.Empty;
-
-    /// <summary>获取工作提示。</summary>
-    public string Notice { get; private set; } = string.Empty;
-
-    /// <summary>获取服务端当前发布的用户许可协议。</summary>
-    public string UserAgreement { get; private set; } = string.Empty;
-
-    /// <summary>获取服务端当前发布的隐私条款。</summary>
-    public string PrivacyPolicy { get; private set; } = string.Empty;
-
-    /// <summary>获取公共系统信息是否已经完成首次加载。</summary>
-    public bool IsSystemInfoLoaded { get; private set; }
 
     /// <summary>获取或设置当前工作台是否检测到触摸输入。</summary>
     public bool IsTouchDetected { get; set; }
@@ -105,7 +61,7 @@ public sealed class UserSessionService : AuthenticationStateProvider
     public string? CredentialPersistenceWarning { get; private set; }
 
     /// <summary>
-    /// 首次初始化公共系统信息，并在宿主支持时尝试自动登录。
+    /// 在宿主支持时尝试恢复保存的登录会话。
     /// </summary>
     /// <remarks>同一会话中的并发调用共享一次初始化任务。</remarks>
     public Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -119,39 +75,6 @@ public sealed class UserSessionService : AuthenticationStateProvider
         return cancellationToken.CanBeCanceled
             ? currentInitialization.WaitAsync(cancellationToken)
             : currentInitialization;
-    }
-
-    /// <summary>从服务端加载不需要身份认证的公共系统信息。</summary>
-    public async Task GetSystemInfoAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var publicInfoTask = TryGetPublicSystemInfoAsync(cancellationToken);
-            var coverLetterTask = TryGetNoticeAsync("SystemInfo/CoverLetter/", cancellationToken);
-            var noticeTask = TryGetNoticeAsync("SystemInfo/Notice/", cancellationToken);
-            var userAgreementTask = TryGetNoticeAsync("SystemInfo/UserAgreement/", cancellationToken);
-            var privacyPolicyTask = TryGetNoticeAsync("SystemInfo/PrivacyPolicy/", cancellationToken);
-
-            await Task.WhenAll(
-                publicInfoTask,
-                coverLetterTask,
-                noticeTask,
-                userAgreementTask,
-                privacyPolicyTask);
-
-            var publicInfo = await publicInfoTask;
-            CaseNumber = NormalizeOptional(publicInfo.CaseNumber);
-            ServerVersion = NormalizeOptional(publicInfo.ServerVersion);
-            CoverLetter = await coverLetterTask;
-            Notice = await noticeTask;
-            UserAgreement = await userAgreementTask;
-            PrivacyPolicy = await privacyPolicyTask;
-        }
-        finally
-        {
-            IsSystemInfoLoaded = true;
-            StateChanged?.Invoke();
-        }
     }
 
     /// <summary>同步读取仍有效的访问令牌；需要续期的请求应使用异步方法。</summary>
@@ -366,14 +289,14 @@ public sealed class UserSessionService : AuthenticationStateProvider
         }
     }
 
-    private async Task InitializeCoreAsync()
+    private Task InitializeCoreAsync()
     {
         long revision;
         lock (stateLock)
         {
             revision = generation;
         }
-        await Task.WhenAll(GetSystemInfoAsync(), RestoreSessionAsync(revision));
+        return RestoreSessionAsync(revision);
     }
 
     private async Task RestoreSessionAsync(long revision)
@@ -512,71 +435,4 @@ public sealed class UserSessionService : AuthenticationStateProvider
 
     private static SessionAuthenticationException SessionChanged() => new(
         AuthenticationErrorCodes.SessionChanged, "登录状态已改变，请重新执行操作。");
-
-    internal static bool IsCompatibilityMismatch(
-        string? clientVersion,
-        string? serverVersion)
-    {
-        if (!Version.TryParse(clientVersion, out var parsedClientVersion) ||
-            !Version.TryParse(serverVersion, out var parsedServerVersion))
-        {
-            return false;
-        }
-
-        return parsedClientVersion.Major != parsedServerVersion.Major ||
-            parsedClientVersion.Minor != parsedServerVersion.Minor;
-    }
-
-    private static string ResolveClientVersion()
-    {
-        var version = Assembly.GetEntryAssembly()?.GetName().Version
-            ?? typeof(UserSessionService).Assembly.GetName().Version;
-        return version?.ToString(4) ?? string.Empty;
-    }
-
-    private static string NormalizeOptional(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-
-    private async Task<PublicSystemInfoDto> TryGetPublicSystemInfoAsync(
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await client.GetFromJsonAsync<PublicSystemInfoDto>(
-                "SystemInfo/PublicInfo/",
-                cancellationToken)
-                ?? new PublicSystemInfoDto(null, null);
-        }
-        catch (Exception exception) when (
-            exception is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
-        {
-            logger.LogWarning(exception, "Unable to load public server information.");
-            return new PublicSystemInfoDto(null, null);
-        }
-        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            logger.LogWarning(exception, "Loading public server information timed out.");
-            return new PublicSystemInfoDto(null, null);
-        }
-    }
-
-    private async Task<string> TryGetNoticeAsync(string requestUri, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var notice = await client.GetFromJsonAsync<Notice>(requestUri, cancellationToken);
-            return notice?.Description ?? string.Empty;
-        }
-        catch (Exception exception) when (
-            exception is HttpRequestException or NotSupportedException or System.Text.Json.JsonException)
-        {
-            logger.LogWarning(exception, "Unable to load notice from {RequestUri}.", requestUri);
-            return string.Empty;
-        }
-        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            logger.LogWarning(exception, "Loading notice from {RequestUri} timed out.", requestUri);
-            return string.Empty;
-        }
-    }
 }

@@ -15,7 +15,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [Fact]
     public async Task An_expired_access_token_is_refreshed_and_retried_only_once()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync();
         List<string?> sent = [];
         using var client = CreateClient(context, new DelegateHandler(request =>
@@ -40,7 +40,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     public async Task Only_repeatable_and_explicitly_safe_requests_can_be_retried(
         string method, bool allowRetry, bool streamContent, int expectedRequests)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         var count = 0;
         List<string> bodies = [];
@@ -68,7 +68,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [InlineData(HttpStatusCode.Unauthorized)]
     public async Task Forbidden_or_unclassified_unauthorized_does_not_trigger_refresh(HttpStatusCode status)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         var count = 0;
         using var client = CreateClient(context, new DelegateHandler(_ =>
@@ -85,7 +85,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [Fact]
     public async Task A_revoked_current_session_is_cleared_and_redirected()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         var navigation = new RecordingNavigationManager();
         using var client = CreateClient(context,
@@ -102,7 +102,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     public async Task A_delayed_old_account_response_cannot_replay_or_clear_the_new_account(
         string errorCode, HttpStatusCode expectedStatus, string expectedCode)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync("old");
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -130,7 +130,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [Fact]
     public async Task External_endpoints_and_explicit_authorization_are_untouched()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         List<AuthenticationHeaderValue?> sent = [];
         using var client = CreateClient(context, new DelegateHandler(request =>
@@ -152,7 +152,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [Fact]
     public async Task An_expired_token_and_offline_refresh_does_not_send_an_unauthenticated_business_request()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromMinutes(16));
         context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
@@ -168,7 +168,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [InlineData(AuthenticationErrorCodes.SessionInvalid, HttpStatusCode.Unauthorized)]
     public async Task Refresh_rejection_preserves_its_protocol_status_and_error_code(string code, HttpStatusCode expectedStatus)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromMinutes(16));
         context.Authentication.Refresh = _ => throw new SessionAuthenticationException(code, "测试刷新拒绝");
@@ -187,7 +187,7 @@ public sealed class CustomAuthorizationMessageHandlerTests
     [Fact]
     public async Task Ai_gateway_classifies_a_session_conflict_as_request_rejection()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromMinutes(16));
         context.Authentication.Refresh = _ => throw new SessionAuthenticationException(

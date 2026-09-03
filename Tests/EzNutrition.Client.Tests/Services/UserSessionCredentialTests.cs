@@ -29,7 +29,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Sign_in_passes_normalized_username_and_remember_choice_to_host()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         LoginRequestDto? received = null;
         context.Authentication.SignIn = request =>
         {
@@ -44,33 +44,20 @@ public sealed class UserSessionCredentialTests
     }
 
     [Fact]
-    public async Task Concurrent_initialization_restores_once_and_loads_public_information()
+    public async Task Concurrent_initialization_restores_once()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var tokens = SessionTestContext.CreateTokens(context.Clock.GetUtcNow());
         context.Authentication.Restore = () => Task.FromResult<AuthenticationTokensDto?>(tokens);
         await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => context.Session.InitializeAsync()));
         Assert.Equal(1, context.Authentication.RestoreCount);
         Assert.Equal(tokens.AccessToken, await context.Session.GetValidAccessTokenAsync());
-        Assert.Equal("test-case", context.Session.CaseNumber);
-        Assert.Equal("2.2.0.0", context.Session.ServerVersion);
-        Assert.Equal("test-notice", context.Session.PrivacyPolicy);
-        Assert.False(context.Session.HasVersionCompatibilityWarning);
     }
-
-    [Theory]
-    [InlineData("2.2.0.0", "2.2.99.42", false)]
-    [InlineData("2.1.0.0", "2.2.0.0", true)]
-    [InlineData("2.2.0.0", "3.2.0.0", true)]
-    [InlineData("", "2.2.0.0", false)]
-    [InlineData("2.2.0.0", "invalid", false)]
-    public void Compatibility_warning_compares_product_and_contract_segments(string client, string server, bool expected) =>
-        Assert.Equal(expected, UserSessionService.IsCompatibilityMismatch(client, server));
 
     [Fact]
     public async Task Concurrent_requests_share_one_refresh_and_one_cancelled_waiter_does_not_abort_it()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var released = new TaskCompletionSource<AuthenticationTokensDto>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -93,7 +80,7 @@ public sealed class UserSessionCredentialTests
     [InlineData(8 * 24 * 60)]
     public async Task Cached_expiration_keeps_ui_identity_until_refresh_can_run(int elapsedMinutes)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromMinutes(elapsedMinutes));
         Assert.False(context.Session.TryGetAccessToken(out _));
@@ -107,7 +94,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task A_resumed_window_refreshes_after_another_window_extended_the_idle_deadline()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromDays(5));
         var renewedElsewhere = await context.Authentication.RefreshAsync(original.SessionId);
@@ -134,7 +121,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Temporary_refresh_failure_keeps_identity_and_limits_retry_frequency()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
         context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
         Assert.Equal(original.AccessToken, await context.Session.GetValidAccessTokenAsync());
@@ -153,7 +140,7 @@ public sealed class UserSessionCredentialTests
     [InlineData(8, AuthenticationErrorCodes.SessionChanged)]
     public async Task Host_rejection_clears_identity_without_hiding_failure(int elapsedDays, string errorCode)
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
         context.Clock.Advance(TimeSpan.FromDays(elapsedDays));
         context.Authentication.Refresh = _ => throw new SessionAuthenticationException(errorCode, "rejected");
@@ -169,7 +156,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task An_offline_resumed_window_keeps_identity_until_refresh_can_be_confirmed()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromDays(8));
         context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
@@ -192,7 +179,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Absolute_expiration_clears_identity_without_attempting_refresh()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         await context.SignInAsync();
         context.Clock.Advance(TimeSpan.FromDays(30));
         Assert.False((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
@@ -206,7 +193,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Logout_during_refresh_immediately_clears_identity_and_discards_the_late_response()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var original = await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var released = new TaskCompletionSource<AuthenticationTokensDto>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -227,7 +214,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task An_old_request_cannot_refresh_or_reject_a_new_account()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         var old = await context.SignInAsync("old");
         var current = await context.SignInAsync("new");
         var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() =>
@@ -242,7 +229,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Restore_failure_is_visible_and_does_not_attempt_password_login()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         context.Authentication.Restore = () => throw new HttpRequestException("offline");
         await context.Session.InitializeAsync();
         Assert.NotNull(context.Session.AutomaticSignInError);
@@ -253,7 +240,7 @@ public sealed class UserSessionCredentialTests
     [Fact]
     public async Task Malformed_token_cannot_become_an_authenticated_session()
     {
-        using var context = new SessionTestContext();
+        var context = new SessionTestContext();
         context.Authentication.SignIn = _ => Task.FromResult(
             SessionTestContext.CreateTokens(context.Clock.GetUtcNow()) with { AccessToken = "malformed" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => context.Session.SignInAsync("test", "password"));

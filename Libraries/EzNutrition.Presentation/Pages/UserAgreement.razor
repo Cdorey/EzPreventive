@@ -1,9 +1,25 @@
 @page "/user-agreement"
 @using EzNutrition.Presentation.Services
-@inject UserSessionService UserSession
+@implements IDisposable
+@inject PublicSystemInfoService SystemInfo
 <PageTitle>用户许可协议</PageTitle>
 
 <PublishedNoticeDocument Title="用户许可协议"
                          Description="请在注册或使用服务前阅读服务端当前发布的用户许可协议。"
-                         Markdown="@UserSession.UserAgreement"
-                         IsLoaded="@UserSession.IsSystemInfoLoaded" />
+                         Markdown="@SystemInfo.UserAgreement"
+                         IsLoaded="@SystemInfo.IsLoaded" />
+
+@code {
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        SystemInfo.StateChanged += HandleSystemInfoChanged;
+        base.OnInitialized();
+    }
+
+    /// <summary>公共内容完成加载后更新协议正文。</summary>
+    private void HandleSystemInfoChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <inheritdoc />
+    public void Dispose() => SystemInfo.StateChanged -= HandleSystemInfoChanged;
+}

@@ -16,7 +16,7 @@ namespace EzNutrition.Presentation;
 public static class PresentationServiceCollectionExtensions
 {
     /// <summary>
-    /// 注册 Razor 工作台、远程服务适配器与当前进程内的用户会话。
+    /// 注册 Razor 工作台、远程服务适配器及独立的认证与公共信息服务。
     /// </summary>
     /// <param name="services">目标服务集合。</param>
     /// <param name="serverBaseAddress">EzNutrition 服务端的绝对 HTTP(S) 基地址。</param>
@@ -73,6 +73,7 @@ public static class PresentationServiceCollectionExtensions
 
         services.AddTransient<CustomAuthorizationMessageHandler>();
 
+        services.AddSingleton<PublicSystemInfoService>();
         services.AddSingleton<UserSessionService>();
         services.AddScoped<AuthenticationStateProvider>(provider =>
             provider.GetRequiredService<UserSessionService>());

@@ -2,23 +2,18 @@ using EzNutrition.Presentation.Services;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
-using System.Net.Http.Json;
 using System.Security.Claims;
 
 namespace EzNutrition.Client.Tests.Services;
 
 /// <summary>用受控时钟和宿主响应验证共享会话，避免依赖真实等待或外部网络。</summary>
-internal sealed class SessionTestContext : IDisposable
+internal sealed class SessionTestContext
 {
     internal static readonly Uri BaseAddress = new("https://app.example.test/");
-    private readonly HttpClient client;
 
     internal SessionTestContext()
     {
-        client = new HttpClient(new PublicInfoHandler()) { BaseAddress = BaseAddress };
-        Session = new UserSessionService(new ClientFactory(client),
-            NullLogger<UserSessionService>.Instance, Authentication, Clock, clientVersion: "2.2.0.0");
+        Session = new UserSessionService(NullLogger<UserSessionService>.Instance, Authentication, Clock);
     }
 
     internal TestClock Clock { get; } = new();
@@ -63,29 +58,11 @@ internal sealed class SessionTestContext : IDisposable
         };
     }
 
-    public void Dispose() => client.Dispose();
-
     internal sealed class TestClock : TimeProvider
     {
         private DateTimeOffset now = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         public override DateTimeOffset GetUtcNow() => now;
         internal void Advance(TimeSpan duration) => now += duration;
-    }
-
-    private sealed class ClientFactory(HttpClient client) : IHttpClientFactory
-    {
-        public HttpClient CreateClient(string name) => client;
-    }
-
-    internal sealed class PublicInfoHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = request.RequestUri!.AbsolutePath.Contains("PublicInfo", StringComparison.Ordinal)
-                    ? JsonContent.Create(new { caseNumber = "test-case", serverVersion = "2.2.0.0" })
-                    : JsonContent.Create(new { description = "test-notice" })
-            });
     }
 }
 

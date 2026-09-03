@@ -4,6 +4,7 @@
 @using System.ComponentModel
 @implements IDisposable
 @inject UserSessionService UserSession
+@inject PublicSystemInfoService SystemInfo
 @inject ConsultationWorkspaceManager WorkspaceManager
 @inject NavigationManager Navigator
 @inject ILogger<Index> Logger
@@ -33,17 +34,17 @@
                         </div>
                         <Icon Type="notification" Theme="IconThemeType.Outline" />
                     </div>
-                    @if (!UserSession.IsSystemInfoLoaded)
+                    @if (!SystemInfo.IsLoaded)
                     {
                         <Skeleton Active />
                     }
-                    else if (string.IsNullOrEmpty(UserSession.Notice))
+                    else if (string.IsNullOrEmpty(SystemInfo.Notice))
                     {
                         <Alert Type="AlertType.Info" Message="工作提示暂时不可用" Description="服务端内容未能加载；核心营养核算功能不受影响。" ShowIcon="true" />
                     }
                     else
                     {
-                        @SafeMarkdown.Render(UserSession.Notice)
+                        @SafeMarkdown.Render(SystemInfo.Notice)
                     }
                 </article>
 
@@ -167,17 +168,17 @@
                         </div>
                         <Icon Type="read" Theme="IconThemeType.Outline" />
                     </div>
-                    @if (!UserSession.IsSystemInfoLoaded)
+                    @if (!SystemInfo.IsLoaded)
                     {
                         <Skeleton Active />
                     }
-                    else if (string.IsNullOrEmpty(UserSession.CoverLetter))
+                    else if (string.IsNullOrEmpty(SystemInfo.CoverLetter))
                     {
                         <Alert Type="AlertType.Info" Message="产品说明暂时不可用" Description="请检查网络连接后刷新页面。" ShowIcon="true" />
                     }
                     else
                     {
-                        @SafeMarkdown.Render(UserSession.CoverLetter)
+                        @SafeMarkdown.Render(SystemInfo.CoverLetter)
                     }
                 </article>
             </div>
@@ -242,17 +243,22 @@
         }
     }
 
+    /// <inheritdoc />
     protected override void OnInitialized()
     {
-        UserSession.StateChanged += HandleSessionStateChanged;
+        UserSession.StateChanged += HandleStateChanged;
+        SystemInfo.StateChanged += HandleStateChanged;
         base.OnInitialized();
     }
 
-    private void HandleSessionStateChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>分别响应认证状态与公共信息更新。</summary>
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
+    /// <inheritdoc />
     public void Dispose()
     {
-        UserSession.StateChanged -= HandleSessionStateChanged;
+        UserSession.StateChanged -= HandleStateChanged;
+        SystemInfo.StateChanged -= HandleStateChanged;
         lifetimeCancellation.Cancel();
         lifetimeCancellation.Dispose();
     }

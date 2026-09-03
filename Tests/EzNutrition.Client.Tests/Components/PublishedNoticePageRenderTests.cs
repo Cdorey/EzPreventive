@@ -21,7 +21,7 @@ public sealed class PublishedNoticePageRenderTests
     public async Task Agreement_and_privacy_pages_render_their_respective_documents()
     {
         await using var services = BuildServiceProvider();
-        await services.GetRequiredService<UserSessionService>().GetSystemInfoAsync();
+        await services.GetRequiredService<PublicSystemInfoService>().InitializeAsync();
 
         var agreementHtml = await RenderAsync<UserAgreementPage>(services);
         var privacyHtml = await RenderAsync<PrivacyPolicyPage>(services);
@@ -37,6 +37,34 @@ public sealed class PublishedNoticePageRenderTests
         Assert.DoesNotContain("协议正文", privacyHtml, StringComparison.Ordinal);
     }
 
+    /// <summary>页面首次显示后，独立的公共信息通知能够更新两份文档，无需认证服务参与。</summary>
+    [Fact]
+    public async Task Public_pages_update_after_independent_loading_completes()
+    {
+        var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var services = BuildServiceProvider(released.Task);
+        await using var renderer = new HtmlRenderer(services, services.GetRequiredService<ILoggerFactory>());
+        var agreement = await renderer.Dispatcher.InvokeAsync(() => renderer.RenderComponentAsync<UserAgreementPage>());
+        var privacy = await renderer.Dispatcher.InvokeAsync(() => renderer.RenderComponentAsync<PrivacyPolicyPage>());
+        var systemInfo = services.GetRequiredService<PublicSystemInfoService>();
+        var loading = systemInfo.InitializeAsync();
+        Assert.False(systemInfo.IsLoaded);
+        await renderer.Dispatcher.InvokeAsync(() =>
+        {
+            Assert.DoesNotContain("协议正文", WebUtility.HtmlDecode(agreement.ToHtmlString()), StringComparison.Ordinal);
+            Assert.DoesNotContain("隐私正文", WebUtility.HtmlDecode(privacy.ToHtmlString()), StringComparison.Ordinal);
+        });
+
+        released.SetResult();
+        await loading.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await renderer.Dispatcher.InvokeAsync(() =>
+        {
+            Assert.Contains("协议正文", WebUtility.HtmlDecode(agreement.ToHtmlString()), StringComparison.Ordinal);
+            Assert.Contains("隐私正文", WebUtility.HtmlDecode(privacy.ToHtmlString()), StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public void Pages_expose_stable_public_routes()
     {
@@ -44,21 +72,20 @@ public sealed class PublishedNoticePageRenderTests
         Assert.Equal("/privacy-policy", GetRoute<PrivacyPolicyPage>());
     }
 
-    private static ServiceProvider BuildServiceProvider()
+    private static ServiceProvider BuildServiceProvider(Task? responseReady = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddAntDesign();
         services.AddSingleton<IJSRuntime, NoOpJsRuntime>();
         services.AddSingleton<IHttpClientFactory>(_ => new StaticHttpClientFactory(
-            new HttpClient(new PublicContentHandler())
+            new HttpClient(new PublicContentHandler(responseReady))
             {
                 BaseAddress = new Uri("https://app.example.test/")
             }));
-        services.AddSingleton(provider => new UserSessionService(
+        services.AddSingleton(provider => new PublicSystemInfoService(
             provider.GetRequiredService<IHttpClientFactory>(),
-            provider.GetRequiredService<ILogger<UserSessionService>>(),
-            new Services.TestAuthenticationClient(),
+            provider.GetRequiredService<ILogger<PublicSystemInfoService>>(),
             clientVersion: "2.1.0.0"));
         return services.BuildServiceProvider();
     }
@@ -89,12 +116,16 @@ public sealed class PublishedNoticePageRenderTests
         public void Dispose() => client.Dispose();
     }
 
-    private sealed class PublicContentHandler : HttpMessageHandler
+    private sealed class PublicContentHandler(Task? responseReady = null) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            if (responseReady is not null)
+            {
+                await responseReady.WaitAsync(cancellationToken);
+            }
             var content = request.RequestUri?.AbsolutePath switch
             {
                 "/SystemInfo/PublicInfo/" => JsonContent.Create(new
@@ -108,10 +139,10 @@ public sealed class PublishedNoticePageRenderTests
                 "/SystemInfo/PrivacyPolicy/" => NoticeContent("# 隐私正文\n\n**谨慎处理**"),
                 _ => throw new InvalidOperationException($"Unexpected request URI: {request.RequestUri}")
             };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = content
-            });
+            };
         }
 
         private static JsonContent NoticeContent(string description) =>
