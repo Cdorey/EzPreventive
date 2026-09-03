@@ -167,6 +167,7 @@ public sealed class UserSessionService : AuthenticationStateProvider
     }
 
     /// <summary>取得有效访问令牌；并发请求通过同一闸门共享刷新结果。</summary>
+    /// <remarks>空闲期限可能被其他窗口延长，须由宿主使用最新凭据向服务端确认；本地仅判定固定的绝对期限。</remarks>
     /// <param name="cancellationToken">仅取消本次等待，不中断其他请求共用的刷新。</param>
     /// <param name="rejectedToken">服务器明确报告已过期的旧令牌，用于避免重复刷新。</param>
     public Task<string?> GetValidAccessTokenAsync(
@@ -265,7 +266,7 @@ public sealed class UserSessionService : AuthenticationStateProvider
             }
 
             var now = timeProvider.GetUtcNow();
-            if (current.SessionExpiresAtUtc <= now || current.RefreshExpiresAtUtc <= now)
+            if (current.SessionExpiresAtUtc <= now)
             {
                 ClearSessionIfCurrent(revision);
                 throw new SessionAuthenticationException(
@@ -489,13 +490,13 @@ public sealed class UserSessionService : AuthenticationStateProvider
         return true;
     }
 
+    /// <summary>根据已确认的身份与固定绝对期限生成界面状态，不使用可能过时的空闲期限。</summary>
     private AuthenticationState CreateAuthenticationState()
     {
         lock (stateLock)
         {
             var now = timeProvider.GetUtcNow();
-            var user = userInfo is not null && tokens is not null &&
-                tokens.RefreshExpiresAtUtc > now && tokens.SessionExpiresAtUtc > now
+            var user = userInfo is not null && tokens is not null && tokens.SessionExpiresAtUtc > now
                 ? new ClaimsPrincipal(new ClaimsIdentity(
                     userInfo.Claims, "jwt", ClaimTypes.Name, ClaimTypes.Role))
                 : new ClaimsPrincipal(new ClaimsIdentity());

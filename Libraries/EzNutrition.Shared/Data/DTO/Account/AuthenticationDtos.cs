@@ -41,7 +41,8 @@ public sealed record AuthenticationTokensDto
     /// <summary>获取访问令牌的 UTC 到期时间。</summary>
     public DateTimeOffset AccessTokenExpiresAtUtc { get; init; }
 
-    /// <summary>获取本次刷新凭据的 UTC 到期时间。</summary>
+    /// <summary>获取本次响应确认的会话空闲 UTC 到期时间。</summary>
+    /// <remarks>其他窗口续期后此快照可能过时，客户端不能据此直接清除会话。</remarks>
     public DateTimeOffset RefreshExpiresAtUtc { get; init; }
 
     /// <summary>获取会话的绝对 UTC 到期时间；轮换不会延长此期限。</summary>

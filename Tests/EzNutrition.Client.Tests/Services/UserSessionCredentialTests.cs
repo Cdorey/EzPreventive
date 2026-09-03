@@ -87,17 +87,48 @@ public sealed class UserSessionCredentialTests
         Assert.Equal(1, context.Authentication.RefreshCount);
     }
 
-    [Fact]
-    public async Task Access_expiration_keeps_ui_identity_until_refresh_can_run()
+    /// <summary>访问令牌或本地空闲期限快照过期时，界面身份保留到宿主确认会话结果。</summary>
+    [Theory]
+    [InlineData(16)]
+    [InlineData(8 * 24 * 60)]
+    public async Task Cached_expiration_keeps_ui_identity_until_refresh_can_run(int elapsedMinutes)
     {
         using var context = new SessionTestContext();
         var original = await context.SignInAsync();
-        context.Clock.Advance(TimeSpan.FromMinutes(16));
+        context.Clock.Advance(TimeSpan.FromMinutes(elapsedMinutes));
         Assert.False(context.Session.TryGetAccessToken(out _));
         Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
         var replacement = await context.Session.GetValidAccessTokenAsync();
         Assert.NotEqual(original.AccessToken, replacement);
         Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
+    }
+
+    /// <summary>其他窗口在第 5 天续期后，休眠窗口在第 8 天仍通过宿主恢复同一会话。</summary>
+    [Fact]
+    public async Task A_resumed_window_refreshes_after_another_window_extended_the_idle_deadline()
+    {
+        using var context = new SessionTestContext();
+        var original = await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(5));
+        var renewedElsewhere = await context.Authentication.RefreshAsync(original.SessionId);
+        context.Clock.Advance(TimeSpan.FromDays(3));
+        Assert.True(original.RefreshExpiresAtUtc <= context.Clock.GetUtcNow());
+        Assert.True(renewedElsewhere.RefreshExpiresAtUtc > context.Clock.GetUtcNow());
+        var refreshed = SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId)
+            with { SessionExpiresAtUtc = original.SessionExpiresAtUtc };
+        context.Authentication.Refresh = id =>
+        {
+            Assert.Equal(renewedElsewhere.SessionId, id);
+            return Task.FromResult(refreshed);
+        };
+
+        var token = await context.Session.GetValidAccessTokenAsync();
+
+        Assert.Equal(refreshed.AccessToken, token);
+        Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
+        Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        Assert.Equal(2, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
     [Fact]
@@ -115,29 +146,61 @@ public sealed class UserSessionCredentialTests
         Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
-    [Fact]
-    public async Task Revoked_refresh_clears_identity_without_hiding_failure()
+    /// <summary>本地空闲期限是否过期，都由宿主的明确拒绝清除身份并保留错误码。</summary>
+    [Theory]
+    [InlineData(0, AuthenticationErrorCodes.SessionInvalid)]
+    [InlineData(8, AuthenticationErrorCodes.SessionInvalid)]
+    [InlineData(8, AuthenticationErrorCodes.SessionChanged)]
+    public async Task Host_rejection_clears_identity_without_hiding_failure(int elapsedDays, string errorCode)
     {
         using var context = new SessionTestContext();
         await context.SignInAsync(lifetime: TimeSpan.FromSeconds(30));
-        context.Authentication.Refresh = _ => throw new SessionAuthenticationException(
-            AuthenticationErrorCodes.SessionInvalid, "expired");
-        await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        context.Clock.Advance(TimeSpan.FromDays(elapsedDays));
+        context.Authentication.Refresh = _ => throw new SessionAuthenticationException(errorCode, "rejected");
+        var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(errorCode, error.Code);
+        Assert.Equal(1, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
         Assert.Null(context.Session.UserInfo);
         Assert.False((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
     }
 
+    /// <summary>无法确认缓存空闲期限时保留身份，网络恢复后允许继续刷新。</summary>
     [Fact]
-    public async Task Expired_session_is_not_extended_by_a_still_valid_access_token()
+    public async Task An_offline_resumed_window_keeps_identity_until_refresh_can_be_confirmed()
     {
         using var context = new SessionTestContext();
-        var tokens = SessionTestContext.CreateTokens(context.Clock.GetUtcNow());
-        context.Authentication.SignIn = _ => Task.FromResult(tokens with { RefreshExpiresAtUtc = context.Clock.GetUtcNow().AddMinutes(1) });
-        await context.Session.SignInAsync("test-user", "password");
-        context.Clock.Advance(TimeSpan.FromMinutes(2));
-        await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        var original = await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(8));
+        context.Authentication.Refresh = _ => throw new HttpRequestException("offline");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Session.GetValidAccessTokenAsync());
+
+        Assert.Equal(original.SessionId, context.Session.UserInfo?.SessionId);
+        Assert.True((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        Assert.Equal(1, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
+        context.Clock.Advance(TimeSpan.FromSeconds(5));
+        var refreshed = SessionTestContext.CreateTokens(context.Clock.GetUtcNow(), sessionId: original.SessionId)
+            with { SessionExpiresAtUtc = original.SessionExpiresAtUtc };
+        context.Authentication.Refresh = _ => Task.FromResult(refreshed);
+        Assert.Equal(refreshed.AccessToken, await context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(2, context.Authentication.RefreshCount);
+    }
+
+    /// <summary>绝对期限不会被其他窗口延长，到期后可在本地终止会话。</summary>
+    [Fact]
+    public async Task Absolute_expiration_clears_identity_without_attempting_refresh()
+    {
+        using var context = new SessionTestContext();
+        await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromDays(30));
+        Assert.False((await context.Session.GetAuthenticationStateAsync()).User.Identity!.IsAuthenticated);
+        var error = await Assert.ThrowsAsync<SessionAuthenticationException>(() => context.Session.GetValidAccessTokenAsync());
+        Assert.Equal(AuthenticationErrorCodes.SessionInvalid, error.Code);
         Assert.Null(context.Session.UserInfo);
         Assert.Equal(0, context.Authentication.RefreshCount);
+        Assert.Equal(0, context.Authentication.SignOutCount);
     }
 
     [Fact]

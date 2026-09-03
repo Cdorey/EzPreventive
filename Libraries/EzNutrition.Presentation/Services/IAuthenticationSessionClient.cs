@@ -16,6 +16,7 @@ public interface IAuthenticationSessionClient
     Task<AuthenticationTokensDto?> RestoreAsync(CancellationToken cancellationToken = default);
 
     /// <summary>刷新指定会话；共享凭据已被其他账号替换时必须拒绝。</summary>
+    /// <remarks>在宿主跨窗口锁内读取最新凭据，由服务端确认空闲期限和撤销状态。</remarks>
     Task<AuthenticationTokensDto> RefreshAsync(
         Guid sessionId, CancellationToken cancellationToken = default);
 
