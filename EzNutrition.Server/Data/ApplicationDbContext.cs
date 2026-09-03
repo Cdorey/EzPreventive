@@ -30,10 +30,21 @@ namespace EzNutrition.Server.Data
         /// <summary>获取刷新令牌的消费记录集合。</summary>
         public DbSet<RefreshTokenRecord> RefreshTokens { get; set; }
 
+        /// <summary>获取可在运行时修改的应用配置。</summary>
+        public DbSet<ApplicationSetting> ApplicationSettings { get; set; }
+
         /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            var setting = builder.Entity<ApplicationSetting>();
+            setting.HasKey(item => item.Key);
+            setting.Property(item => item.Key).HasMaxLength(128).IsUnicode(false);
+            setting.Property(item => item.ValueJson).IsRequired();
+            setting.Property(item => item.Version).IsConcurrencyToken();
+            setting.Property(item => item.UpdatedAtUtc).HasConversion(UtcDateTimeConverter);
+            setting.Property(item => item.UpdatedByUserId).HasMaxLength(450);
 
             var session = builder.Entity<AuthenticationSession>();
             session.Property(item => item.UserId).HasMaxLength(450);

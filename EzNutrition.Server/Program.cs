@@ -8,6 +8,7 @@ using EzNutrition.Server.Services.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 
@@ -128,6 +129,8 @@ namespace EzNutrition.Server
                 .ValidateOnStart();
             builder.Services.AddOptions<AuthBootstrapSettings>()
                 .Bind(builder.Configuration.GetSection(AuthBootstrapSettings.SectionName));
+            builder.Services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
             builder.Services.AddOptions<JwtSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
                 .ValidateDataAnnotations()
@@ -165,6 +168,8 @@ namespace EzNutrition.Server
                     return;
                 }
             }
+
+            await app.Services.LoadDatabaseSettingsAsync();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
