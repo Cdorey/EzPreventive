@@ -508,12 +508,18 @@ namespace EzNutrition.Server.Controllers
             try
             {
                 var result = await certificationReviewService.UpdateAsync(
-                    dto.Id, dto.Status, dto.ProcessDetails, dto.Remarks, dto.CertificateTicket, cancellationToken);
+                    dto.Id, dto.Version, dto.Status, dto.ProcessDetails, dto.Remarks, cancellationToken);
                 return result.Status switch
                 {
-                    CertificationReviewStatus.Updated => Ok(new { message = "更新成功" }),
+                    CertificationReviewStatus.Updated => Ok(new { message = "更新成功", version = result.Version }),
                     CertificationReviewStatus.NotFound => NotFound("请求不存在"),
                     CertificationReviewStatus.InvalidStatus => BadRequest("认证请求状态无效。"),
+                    CertificationReviewStatus.InvalidVersion => BadRequest("缺少有效的申请版本，请刷新后重试。"),
+                    CertificationReviewStatus.Conflict => Conflict(new
+                    {
+                        code = "certification_changed",
+                        message = "申请状态或版本已变化，或仍有并发修改，请刷新后重新确认。"
+                    }),
                     _ => throw new InvalidOperationException("未知的认证审核更新结果。")
                 };
             }

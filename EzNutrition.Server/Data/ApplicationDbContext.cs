@@ -67,6 +67,8 @@ namespace EzNutrition.Server.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             var certificationRequest = builder.Entity<ProfessionalCertificationRequest>();
+            certificationRequest.Property(request => request.Version).IsConcurrencyToken();
+            certificationRequest.HasIndex(request => new { request.Status, request.RequestTime });
             certificationRequest.Property(request => request.UserId).HasMaxLength(450);
             certificationRequest.HasIndex(request => request.UserId);
             certificationRequest

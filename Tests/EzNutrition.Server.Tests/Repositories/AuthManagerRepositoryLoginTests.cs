@@ -361,6 +361,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite(connection.ConnectionString));
+            services.AddDbContextFactory<ApplicationDbContext>(lifetime: ServiceLifetime.Scoped);
             services
                 .AddIdentity<ApplicationUser, IdentityRole>(options =>
                 {

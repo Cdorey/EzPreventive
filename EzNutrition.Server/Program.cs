@@ -61,6 +61,8 @@ namespace EzNutrition.Server
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
             builder.Services.AddScoped<CertificationReviewService>();
+            builder.Services.AddScoped<CertificationRequestCleanupService>();
+            builder.Services.AddHostedService<CertificationRequestCleanupWorker>();
             builder.Services.AddScoped<AccountDeletionService>();
             builder.Services.AddScoped<AccountCleanupService>();
             builder.Services.AddScoped<OrphanCleanupService>();

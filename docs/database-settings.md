@@ -1,6 +1,6 @@
 # 数据库运行时配置
 
-站点管理员将来通过 HTTP 修改的业务参数存入现有 ApplicationDb，由 `DatabaseSettings<T>` 负责持久化，业务服务通过标准 Options 读取。DbContext、配置存取和重载已实现；账号清理已有[独立参数方法](./account-cleanup.md)，尚未连接这些配置、HTTP 接口或自动调度。申请自动拒绝与审计过期删除仍仅有配置。
+站点管理员将来通过 HTTP 修改的业务参数存入现有 ApplicationDb，由 `DatabaseSettings<T>` 负责持久化，业务服务通过标准 Options 读取。DbContext、配置存取和重载已实现；账号清理已有[独立参数方法](./account-cleanup.md)，尚未连接这些配置、HTTP 接口或自动调度。[申请超时拒绝](./certification-review.md)已接入数据库配置和自动扫描；审计过期删除仍仅有配置。
 
 连接字符串、JWT 密钥、邮件等部署配置继续使用现有 `appsettings*.json`、环境变量或受保护配置来源。数据库配置不写回这些文件，也不自动导入同名节；一个运行时配置组只有数据库这一种持久化来源，缺少记录时使用配置类默认值。
 
@@ -110,7 +110,7 @@ var saved = await settings.SaveAsync(
 
 每组还有自己的 `SweepIntervalHours`，允许将来采用不同的扫描频率。默认开关关闭，天数和扫描间隔均为空；启用时必须配置对应的正整数天数，任何已填写的间隔也必须为正数。示例测试中的 14 天、90 天等不是产品默认值。
 
-申请超时处理是将符合条件的 `Pending` 申请转为 `Rejected`，保留申请历史，不能因为账号已有合法角色而顺带撤销角色。当前管理员 `UpdateRequest` 每次保存都会更新 `ProcessedTime`，即使申请仍为 `Pending`；后续需明确超时从 `RequestTime` 还是最近管理员处理时间起算，并处理与人工审核的竞争、自动拒绝原因及证书文件释放。
+申请超时处理将符合条件的 `Pending` 申请转为 `Rejected`，保留申请历史和已有角色。超时从 `RequestTime` 起算，备注修改不会延长期限；只有通过或拒绝时才设置 `ProcessedTime`。自动扫描需要 `AutoRejectEnabled = true` 且已配置 `PendingTimeoutDays` 和 `SweepIntervalHours`；间隔为空时不启动扫描。后台每分钟读取数据库中的最新配置判断是否到期，每条申请开始前复核配置版本，变化则停止本轮。申请版本保护、有限重试和图片清理见[认证审核说明](./certification-review.md)。
 
 当前 LLM 审计对应 `PrescriptionGenerateRequests`。生成前先写入 `RequestTime`，在结束、取消或失败的收尾阶段写入 `ProcessedTime` 和结果；进程中断或收尾保存失败的记录可能仍保留默认的完成时间。后续需明确保留期从请求开始还是完成起算，并区分运行中的请求和异常未完成记录，不能直接把默认完成时间当作过期依据。现有孤儿审计清理仅按所属账号是否存在判定，与这里按时间过期的清理是独立规则。
 

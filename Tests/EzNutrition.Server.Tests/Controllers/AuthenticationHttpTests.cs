@@ -217,6 +217,7 @@ public sealed class AuthenticationHttpTests
             builder.Logging.ClearProviders();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["JwtSettings:PublicKey"] = publicKey });
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection.ConnectionString));
+            builder.Services.AddDbContextFactory<ApplicationDbContext>(lifetime: ServiceLifetime.Scoped);
             builder.AuthorizeConfiguration();
             builder.Services.AddControllersWithViews().AddApplicationPart(typeof(AuthController).Assembly);
             builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();

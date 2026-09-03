@@ -9,9 +9,9 @@ public sealed class CertificationRequestCleanupOptions
     /// <summary>获取或设置是否自动拒绝长时间未获管理员处理的待审核申请。</summary>
     public bool AutoRejectEnabled { get; set; }
 
-    /// <summary>获取或设置申请等待管理员处理的超时天数；计时起点由策略统一，为空表示尚未配置。</summary>
+    /// <summary>获取或设置待审核超时天数，从用户提交申请的 RequestTime 起算；为空表示尚未配置。</summary>
     public int? PendingTimeoutDays { get; set; }
 
-    /// <summary>获取或设置自动扫描的间隔小时数；为空表示尚未配置调度。</summary>
+    /// <summary>获取或设置自动扫描的间隔小时数；为空时不启动自动扫描。</summary>
     public int? SweepIntervalHours { get; set; }
 }

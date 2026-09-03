@@ -36,22 +36,24 @@ public sealed partial class AuthManagerRepositoryLoginTests
         await SaveReviewEvidenceAsync(store, suppliedTicket);
         var service = host.Services.GetRequiredService<CertificationReviewService>();
 
-        var result = await service.UpdateAsync(request.Id, status, "审核意见", "备注", suppliedTicket);
+        var result = await service.UpdateAsync(request.Id, request.Version, status, "审核意见", "备注");
 
         Assert.Equal(CertificationReviewStatus.Updated, result.Status);
         Assert.False(result.CertificateFileCleanupFailed);
         host.DbContext.ChangeTracker.Clear();
         var persisted = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
         Assert.Equal(status, persisted.Status);
-        Assert.Equal(now.UtcDateTime, persisted.ProcessedTime);
-        Assert.Equal(DateTimeKind.Utc, persisted.ProcessedTime?.Kind);
+        Assert.Equal(status == RequestStatus.Pending ? null : (DateTime?)now.UtcDateTime, persisted.ProcessedTime);
+        Assert.Equal(status == RequestStatus.Pending ? null : (DateTimeKind?)DateTimeKind.Utc, persisted.ProcessedTime?.Kind);
+        Assert.NotEqual(request.Version, persisted.Version);
+        Assert.Equal(persisted.Version, result.Version);
         Assert.Equal(request.RequestTime, persisted.RequestTime);
         Assert.Equal(request.UserId, persisted.UserId);
         Assert.Equal(request.IdentityType, persisted.IdentityType);
         Assert.Equal(request.InstitutionName, persisted.InstitutionName);
         Assert.Equal("审核意见", persisted.ProcessDetails);
         Assert.Equal("备注", persisted.Remarks);
-        Assert.Equal(status == RequestStatus.Pending ? suppliedTicket : (Guid?)null, persisted.CertificateTicket);
+        Assert.Equal(status == RequestStatus.Pending ? originalTicket : (Guid?)null, persisted.CertificateTicket);
         Assert.Equal(role.Id, (await host.DbContext.UserRoles.SingleAsync()).RoleId);
         Assert.Empty(await host.DbContext.UserClaims.ToListAsync());
         AssertReviewEvidence(store, originalTicket, expected: status == RequestStatus.Pending);
@@ -104,7 +106,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
         var service = host.Services.GetRequiredService<CertificationReviewService>();
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
-            service.UpdateAsync(request.Id, RequestStatus.Rejected, "超时", null, null));
+            service.UpdateAsync(request.Id, request.Version, RequestStatus.Rejected, "超时", null));
 
         host.DbContext.ChangeTracker.Clear();
         var persisted = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
@@ -129,7 +131,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
         using var lockedFile = evidence.Content;
         var service = host.Services.GetRequiredService<CertificationReviewService>();
 
-        var result = await service.UpdateAsync(request.Id, RequestStatus.Rejected, null, null, null);
+        var result = await service.UpdateAsync(request.Id, request.Version, RequestStatus.Rejected, null, null);
 
         Assert.Equal(CertificationReviewStatus.Updated, result.Status);
         Assert.True(result.CertificateFileCleanupFailed);
@@ -139,6 +141,81 @@ public sealed partial class AuthManagerRepositoryLoginTests
         Assert.NotNull(persisted.ProcessedTime);
         Assert.Null(persisted.CertificateTicket);
         AssertReviewEvidence(store, ticket, expected: true);
+    }
+
+    [Theory]
+    [InlineData(false, 400)]
+    [InlineData(true, 409)]
+    public async Task Certification_review_http_rejects_missing_versions_and_reopening_completed_requests(bool completed, int statusCode)
+    {
+        await using var host = LoginTestHost.Create();
+        var request = CreateReviewRequest("review-user", DateTime.UtcNow.AddDays(-10));
+        if (completed) request.Status = RequestStatus.Rejected;
+        host.DbContext.ProfessionalCertificationRequests.Add(request);
+        await host.DbContext.SaveChangesAsync();
+        var dto = request.ToDto();
+        dto.Status = completed ? RequestStatus.Pending : RequestStatus.Approved;
+        if (!completed) dto.Version = Guid.Empty;
+        var controller = ActivatorUtilities.CreateInstance<AdminController>(host.Services);
+
+        var response = await controller.UpdateRequest(dto, CancellationToken.None);
+
+        Assert.Equal(statusCode, Assert.IsAssignableFrom<ObjectResult>(response).StatusCode);
+        host.DbContext.ChangeTracker.Clear();
+        var saved = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+        Assert.Equal(request.Status, saved.Status);
+        Assert.Equal(request.Version, saved.Version);
+    }
+
+    [Fact]
+    public async Task Certification_review_http_allows_approval_with_a_version_from_before_rejection()
+    {
+        await using var host = LoginTestHost.Create();
+        var request = CreateReviewRequest("review-user", DateTime.UtcNow.AddDays(-10));
+        host.DbContext.ProfessionalCertificationRequests.Add(request);
+        await host.DbContext.SaveChangesAsync();
+        var dto = request.ToDto();
+        dto.Status = RequestStatus.Approved;
+        dto.ProcessDetails = "管理员确认通过";
+        request.Status = RequestStatus.Rejected;
+        request.Version = Guid.NewGuid();
+        request.CertificateTicket = null;
+        await host.DbContext.SaveChangesAsync();
+        var controller = ActivatorUtilities.CreateInstance<AdminController>(host.Services);
+
+        Assert.IsType<OkObjectResult>(await controller.UpdateRequest(dto, CancellationToken.None));
+
+        host.DbContext.ChangeTracker.Clear();
+        var saved = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+        Assert.Equal(RequestStatus.Approved, saved.Status);
+        Assert.Equal(dto.ProcessDetails, saved.ProcessDetails);
+        Assert.Null(saved.CertificateTicket);
+    }
+
+    [Fact]
+    public async Task Certification_review_http_ignores_client_changes_to_submission_and_evidence()
+    {
+        await using var host = LoginTestHost.Create();
+        var request = CreateReviewRequest("review-user", DateTime.UtcNow.AddDays(-10));
+        host.DbContext.ProfessionalCertificationRequests.Add(request);
+        await host.DbContext.SaveChangesAsync();
+        var dto = request.ToDto();
+        dto.RequestTime = DateTime.UtcNow;
+        dto.CertificateTicket = Guid.NewGuid();
+        dto.ProcessedTime = DateTime.UtcNow;
+        dto.UserId = "another-user";
+        dto.Remarks = "更新备注";
+        var controller = ActivatorUtilities.CreateInstance<AdminController>(host.Services);
+
+        Assert.IsType<OkObjectResult>(await controller.UpdateRequest(dto, CancellationToken.None));
+
+        host.DbContext.ChangeTracker.Clear();
+        var saved = await host.DbContext.ProfessionalCertificationRequests.SingleAsync();
+        Assert.Equal(request.RequestTime, saved.RequestTime);
+        Assert.Equal(request.UserId, saved.UserId);
+        Assert.Equal(request.CertificateTicket, saved.CertificateTicket);
+        Assert.Null(saved.ProcessedTime);
+        Assert.Equal(dto.Remarks, saved.Remarks);
     }
 
     /// <summary>创建带有原始提交时间和图片引用的待审核申请。</summary>

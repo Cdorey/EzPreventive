@@ -247,8 +247,8 @@
                                 <Input @bind-Value="userInfoExtensionContext.PrimarySubject" />
                             </FormItem>
                             <FormItem>
-                                <Button type="ButtonType.Default" OnClick="ApproveBtnClick">通过</Button>
-                                <Button type="ButtonType.Dashed" OnClick="RejectBtnClick">拒绝</Button>
+                                <Button type="ButtonType.Default" OnClick="ApproveBtnClick" AutoLoading>通过</Button>
+                                <Button type="ButtonType.Dashed" OnClick="RejectBtnClick" AutoLoading>拒绝</Button>
                             </FormItem>
                         </ChildContent>
                     </Form>
@@ -524,10 +524,11 @@
 
     private async Task ApproveBtnClick()
     {
+        var review = requestDto;
         if (userInfoDto is null)
             return;
 
-        if (requestDto is null)
+        if (review is null)
             return;
 
         if (userInfoExtension is null)
@@ -541,11 +542,11 @@
 
 
         //根据Require验证UserInfoExtension模型是否合法
-        if (!userInfoDto.Roles.Contains(requestDto.IdentityType, StringComparer.Ordinal))
+        if (!userInfoDto.Roles.Contains(review.IdentityType, StringComparer.Ordinal))
         {
-            userInfoDto.Roles.Add(requestDto.IdentityType);
+            userInfoDto.Roles.Add(review.IdentityType);
         }
-        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, requestDto.InstitutionName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, review.InstitutionName);
         AddClaimIfMissing(userInfoDto, UserClaimTypes.RealName, userInfoExtension.RealName);
 
         if (userInfoExtension.PracticingType is not null)
@@ -572,14 +573,14 @@
 
         try
         {
-            requestDto.Status = RequestStatus.Approved;
+            review.Status = RequestStatus.Approved;
             // 获取带授权的 HttpClient
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
             using var response = await httpClient.PutAsJsonAsync(
                 "Admin/UpdateRequest",
-                requestDto,
+                review,
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
@@ -591,9 +592,13 @@
                 drawerVisible = false;
                 await TryRefreshCertificationRequestsAsync();
             }
+            else if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.NotFound)
+            {
+                await RefreshConflictingReviewAsync(rolesUpdated: true);
+            }
             else
             {
-                requestDto.Status = RequestStatus.Pending;
+                review.Status = RequestStatus.Pending;
                 await Message.ErrorAsync("用户权限已更新，但审核记录更新失败，请立即重试。");
             }
         }
@@ -602,18 +607,19 @@
         }
         catch (Exception ex)
         {
-            requestDto.Status = RequestStatus.Pending;
-            Logger.LogError(ex, "Unable to approve certification request {RequestId}.", requestDto.Id);
+            review.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to approve certification request {RequestId}.", review.Id);
             await Message.ErrorAsync("用户权限已更新，但审核记录更新异常，请立即重试。");
         }
     }
 
     private async Task RejectBtnClick()
     {
-        if (requestDto is null)
+        var review = requestDto;
+        if (review is null)
             return;
 
-        requestDto.Status = RequestStatus.Rejected;
+        review.Status = RequestStatus.Rejected;
 
         try
         {
@@ -622,7 +628,7 @@
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
             using var response = await httpClient.PutAsJsonAsync(
                 "Admin/UpdateRequest",
-                requestDto,
+                review,
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
@@ -634,9 +640,13 @@
                 drawerVisible = false;
                 await TryRefreshCertificationRequestsAsync();
             }
+            else if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.NotFound)
+            {
+                await RefreshConflictingReviewAsync(rolesUpdated: false);
+            }
             else
             {
-                requestDto.Status = RequestStatus.Pending;
+                review.Status = RequestStatus.Pending;
                 await Message.ErrorAsync("审核记录更新失败，请检查提交内容后重试。");
             }
         }
@@ -645,8 +655,8 @@
         }
         catch (Exception ex)
         {
-            requestDto.Status = RequestStatus.Pending;
-            Logger.LogError(ex, "Unable to reject certification request {RequestId}.", requestDto.Id);
+            review.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to reject certification request {RequestId}.", review.Id);
             await Message.ErrorAsync("审核记录更新异常，请稍后重试。");
         }
     }
@@ -894,6 +904,20 @@
         }
     }
 
+    /// <summary>结束冲突的编辑会话并重新读取列表，不把已经处理的申请在本地改回待审核。</summary>
+    private async Task RefreshConflictingReviewAsync(bool rolesUpdated)
+    {
+        ImageDataUrl = string.Empty;
+        currentRequestId = Guid.Empty;
+        userInfoDto = null;
+        userInfoExtension = null;
+        drawerVisible = false;
+        await Message.WarningAsync(rolesUpdated
+            ? "用户权限已更新；申请可能已被处理或删除，或仍存在并发修改，请根据最新清单确认审核结果。"
+            : "申请可能已被处理或删除，或仍存在并发修改，请根据最新清单确认审核结果。");
+        await TryRefreshCertificationRequestsAsync();
+    }
+
     private async Task TryRefreshCertificationRequestsAsync()
     {
         try
@@ -906,7 +930,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh the certification request list.");
-            await Message.WarningAsync("审核操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+            await Message.WarningAsync("审核列表刷新失败，请重新打开页面确认最新结果。");
         }
     }
 

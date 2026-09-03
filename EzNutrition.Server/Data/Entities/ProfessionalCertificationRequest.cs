@@ -13,6 +13,9 @@ namespace EzNutrition.Server.Data.Entities
         /// </summary>
         public Guid Id { get; set; }
 
+        /// <summary>申请内容的并发版本；每次修改审核信息时更新。</summary>
+        public Guid Version { get; set; } = Guid.NewGuid();
+
         /// <summary>
         /// 关联的应用用户主键。
         /// </summary>
