@@ -1,3 +1,5 @@
+using EzNutrition.Application.Ports;
+using EzNutrition.Presentation.Infrastructure;
 using EzNutrition.Presentation.Services;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Components;
@@ -95,9 +97,10 @@ public sealed class CustomAuthorizationMessageHandlerTests
     }
 
     [Theory]
-    [InlineData(AuthenticationErrorCodes.AccessTokenExpired)]
-    [InlineData(AuthenticationErrorCodes.SessionInvalid)]
-    public async Task A_delayed_old_account_response_cannot_replay_or_clear_the_new_account(string errorCode)
+    [InlineData(AuthenticationErrorCodes.AccessTokenExpired, HttpStatusCode.Conflict, AuthenticationErrorCodes.SessionChanged)]
+    [InlineData(AuthenticationErrorCodes.SessionInvalid, HttpStatusCode.Unauthorized, AuthenticationErrorCodes.SessionInvalid)]
+    public async Task A_delayed_old_account_response_cannot_replay_or_clear_the_new_account(
+        string errorCode, HttpStatusCode expectedStatus, string expectedCode)
     {
         using var context = new SessionTestContext();
         await context.SignInAsync("old");
@@ -116,6 +119,8 @@ public sealed class CustomAuthorizationMessageHandlerTests
         var current = await context.SignInAsync("new");
         released.SetResult();
         using var response = await pending;
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(expectedCode, (await response.Content.ReadFromJsonAsync<AuthenticationErrorDto>())?.Code);
         Assert.Equal(1, count);
         Assert.Equal(current.AccessToken, await context.Session.GetValidAccessTokenAsync());
         Assert.Equal(0, context.Authentication.RefreshCount);
@@ -157,6 +162,45 @@ public sealed class CustomAuthorizationMessageHandlerTests
         Assert.NotNull(context.Session.UserInfo);
     }
 
+    /// <summary>刷新失败在业务请求发出前返回时，仍须保留协议约定的状态码和错误正文。</summary>
+    [Theory]
+    [InlineData(AuthenticationErrorCodes.SessionChanged, HttpStatusCode.Conflict)]
+    [InlineData(AuthenticationErrorCodes.SessionInvalid, HttpStatusCode.Unauthorized)]
+    public async Task Refresh_rejection_preserves_its_protocol_status_and_error_code(string code, HttpStatusCode expectedStatus)
+    {
+        using var context = new SessionTestContext();
+        await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromMinutes(16));
+        context.Authentication.Refresh = _ => throw new SessionAuthenticationException(code, "测试刷新拒绝");
+        using var client = CreateClient(context, new DelegateHandler(_ => throw new InvalidOperationException("业务请求不应发送。")));
+
+        using var response = await client.GetAsync("User/Profile");
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<AuthenticationErrorDto>();
+        Assert.Equal(code, error?.Code);
+        Assert.Equal("测试刷新拒绝", error?.Message);
+        Assert.Equal(1, context.Authentication.RefreshCount);
+    }
+
+    /// <summary>通过真实处理器与 AI 网关验证账号冲突不会被归类为权限不足。</summary>
+    [Fact]
+    public async Task Ai_gateway_classifies_a_session_conflict_as_request_rejection()
+    {
+        using var context = new SessionTestContext();
+        await context.SignInAsync();
+        context.Clock.Advance(TimeSpan.FromMinutes(16));
+        context.Authentication.Refresh = _ => throw new SessionAuthenticationException(
+            AuthenticationErrorCodes.SessionChanged, "账号已切换");
+        using var client = CreateClient(context, new DelegateHandler(_ => throw new InvalidOperationException("业务请求不应发送。")));
+        var gateway = new HttpAiAdviceGateway(new ClientFactory(client));
+
+        var error = await Assert.ThrowsAsync<AiAdviceAccessException>(() => gateway.GetEnvironmentAsync());
+
+        Assert.Equal(AiAdviceAccessFailureKind.Rejected, error.FailureKind);
+        Assert.Contains("409", error.Message, StringComparison.Ordinal);
+    }
+
     private static HttpResponseMessage Error(string code) => new(HttpStatusCode.Unauthorized)
     {
         Content = JsonContent.Create(new AuthenticationErrorDto(code, "test authentication error"))
@@ -166,6 +210,11 @@ public sealed class CustomAuthorizationMessageHandlerTests
         RecordingNavigationManager? navigation = null) => new(new CustomAuthorizationMessageHandler(
             context.Session, navigation ?? new RecordingNavigationManager(), new ApplicationServerEndpoint(SessionTestContext.BaseAddress))
         { InnerHandler = terminal }) { BaseAddress = SessionTestContext.BaseAddress };
+
+    private sealed class ClientFactory(HttpClient client) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => client;
+    }
 
     private sealed class DelegateHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {

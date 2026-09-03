@@ -125,6 +125,7 @@ namespace EzNutrition.Presentation.Services
             return clone;
         }
 
+        /// <summary>读取认证错误并保留响应正文，供调用方继续读取。</summary>
         private static async Task<AuthenticationErrorDto?> ReadAuthenticationErrorAsync(
             HttpResponseMessage response, CancellationToken cancellationToken)
         {
@@ -134,7 +135,8 @@ namespace EzNutrition.Presentation.Services
             }
             try
             {
-                return await response.Content.ReadFromJsonAsync<AuthenticationErrorDto>(cancellationToken);
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                return JsonSerializer.Deserialize<AuthenticationErrorDto>(json, JsonSerializerOptions.Web);
             }
             catch (JsonException)
             {
@@ -142,8 +144,14 @@ namespace EzNutrition.Presentation.Services
             }
         }
 
+        /// <summary>按认证错误码区分账号切换冲突与会话失效，并保留临时故障的服务不可用语义。</summary>
         private static HttpResponseMessage CreateFailure(HttpRequestMessage request, InvalidOperationException exception) =>
-            new(exception is SessionAuthenticationException ? HttpStatusCode.Unauthorized : HttpStatusCode.ServiceUnavailable)
+            new(exception switch
+            {
+                SessionAuthenticationException { Code: AuthenticationErrorCodes.SessionChanged } => HttpStatusCode.Conflict,
+                SessionAuthenticationException => HttpStatusCode.Unauthorized,
+                _ => HttpStatusCode.ServiceUnavailable
+            })
             {
                 RequestMessage = request,
                 Content = JsonContent.Create(new AuthenticationErrorDto(
