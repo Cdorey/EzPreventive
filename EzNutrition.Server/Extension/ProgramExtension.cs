@@ -1,6 +1,7 @@
 ﻿using EzNutrition.Server.Data;
 using EzNutrition.Server.Services;
 using EzNutrition.Shared.Policies;
+using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
@@ -58,6 +59,7 @@ namespace EzNutrition.Server.Extension
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
                     ValidIssuer = "EzPreventive",
                     ValidAudience = "EzNutrition",
                     IssuerSigningKey = new RsaSecurityKey(rsa),
@@ -71,7 +73,9 @@ namespace EzNutrition.Server.Extension
                         var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
                             ?? context.Principal?.FindFirstValue(ClaimTypes.Upn);
                         var fingerprint = context.Principal?.FindFirstValue(JwtService.SecurityStampClaimType);
-                        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(fingerprint))
+                        var sessionClaim = context.Principal?.FindFirstValue(JwtService.SessionIdClaimType);
+                        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(fingerprint) ||
+                            !Guid.TryParse(sessionClaim, out var sessionId))
                         {
                             context.Fail("The access token does not contain the required account version.");
                             return;
@@ -97,7 +101,27 @@ namespace EzNutrition.Server.Extension
                             !JwtService.IsSecurityStampFingerprintValid(fingerprint, currentStamp))
                         {
                             context.Fail("The access token is no longer valid for this account.");
+                            return;
                         }
+                        var sessions = context.HttpContext.RequestServices
+                            .GetRequiredService<AuthenticationSessionService>();
+                        if (!await sessions.IsActiveAsync(
+                            sessionId, userId, context.HttpContext.RequestAborted))
+                        {
+                            context.Fail("The login session is no longer active.");
+                        }
+                    },
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.Headers.WWWAuthenticate = "Bearer";
+                        context.Response.Headers.CacheControl = "no-store";
+                        var expired = context.AuthenticateFailure is SecurityTokenExpiredException;
+                        await context.Response.WriteAsJsonAsync(new AuthenticationErrorDto(
+                            expired ? AuthenticationErrorCodes.AccessTokenExpired : AuthenticationErrorCodes.SessionInvalid,
+                            expired ? "访问令牌已过期。" : "登录会话已失效，请重新登录。"),
+                            cancellationToken: context.HttpContext.RequestAborted);
                     }
                 };
             });

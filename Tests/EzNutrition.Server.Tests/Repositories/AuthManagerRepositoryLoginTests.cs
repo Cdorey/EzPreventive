@@ -24,7 +24,7 @@ using System.Text.Json;
 
 namespace EzNutrition.Server.Tests.Repositories;
 
-public sealed class AuthManagerRepositoryLoginTests
+public sealed partial class AuthManagerRepositoryLoginTests
 {
     [Fact]
     public async Task User_with_email_is_rejected_until_the_email_is_confirmed()
@@ -296,13 +296,17 @@ public sealed class AuthManagerRepositoryLoginTests
         }
     };
 
-    private static void AssertJwt(string accessToken)
+    private static void AssertJwt(AuthenticationTokensDto tokens)
     {
+        var accessToken = tokens.AccessToken;
         Assert.False(string.IsNullOrWhiteSpace(accessToken));
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
         Assert.Equal("EzPreventive", jwt.Issuer);
         Assert.Contains("EzNutrition", jwt.Audiences);
         Assert.Contains(jwt.Claims, claim => claim.Type == JwtService.SecurityStampClaimType);
+        Assert.Contains(jwt.Claims, claim => claim.Type == JwtService.SessionIdClaimType &&
+            claim.Value == tokens.SessionId.ToString("D"));
+        Assert.False(string.IsNullOrEmpty(tokens.RefreshToken));
     }
 
     private sealed class LoginTestHost : IAsyncDisposable
@@ -344,7 +348,7 @@ public sealed class AuthManagerRepositoryLoginTests
             using var rsa = RSA.Create(2048);
             var privateKey = Convert.ToBase64String(rsa.ExportPkcs8PrivateKey());
             var publicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
-            var connection = new SqliteConnection("Data Source=:memory:");
+            var connection = new SqliteConnection($"Data Source={Guid.NewGuid():N};Mode=Memory;Cache=Shared");
             connection.Open();
             var contentRootPath = Path.Combine(
                 Path.GetTempPath(),
@@ -356,7 +360,7 @@ public sealed class AuthManagerRepositoryLoginTests
             services.AddLogging();
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlite(connection));
+                options.UseSqlite(connection.ConnectionString));
             services
                 .AddIdentity<ApplicationUser, IdentityRole>(options =>
                 {
@@ -389,6 +393,7 @@ public sealed class AuthManagerRepositoryLoginTests
             services.AddSingleton<LoginTimingEqualizer>();
             services.AddSingleton(timeProvider ?? TimeProvider.System);
             services.AddScoped<JwtService>();
+            services.AddScoped<AuthenticationSessionService>();
             services.AddScoped<AccountSecurityService>();
             services.AddScoped<AccountDeletionService>();
             services.AddScoped<AuthManagerRepository>();

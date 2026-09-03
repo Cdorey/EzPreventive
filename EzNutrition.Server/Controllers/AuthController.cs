@@ -10,44 +10,48 @@ namespace EzNutrition.Server.Controllers
 {
     [ApiController]
     [Route("[controller]/[Action]")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [TypeFilter(typeof(AuthenticationExceptionFilter))]
     public class AuthController(
         ILogger<AuthController> logger,
         AuthManagerRepository authManagerRepository,
+        AuthenticationSessionService authenticationSessions,
         AccountSecurityService accountSecurityService,
         IAccountRecoveryQueue accountRecoveryQueue,
         CertificateFileStore certificateFileStore) : ControllerBase
     {
         /// <summary>
-        /// 登录，返回一个包含 token 的对象
+        /// 桌面客户端登录，返回短期访问令牌及一次性刷新凭据。
         /// </summary>
-        /// <param name="username"></param>
-        /// <param name="password"></param>
-        /// <returns></returns>
+        /// <param name="request">账号密码及保持登录选项。</param>
+        /// <param name="cancellationToken">请求取消信号。</param>
         [HttpPost]
         [EnableRateLimiting("Login")]
-        public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password)
+        public async Task<IActionResult> Login(
+            [FromBody] LoginRequestDto request, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
-            {
-                return BadRequest("用户名和密码不能为空。");
-            }
+            return Ok(await authManagerRepository.Login(
+                request.UserName, request.Password, isBrowser: false,
+                request.RememberLogin, cancellationToken));
+        }
 
-            try
-            {
-                logger.LogInformation("User {Username} attempting to log in.", username);
-                var result = await authManagerRepository.Login(username, password);
-                logger.LogInformation("User {Username} logged in successfully.", username);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Unauthorized("用户名/密码不正确");
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Error occurred while logging in user {Username}.", username);
-                return StatusCode(StatusCodes.Status500InternalServerError, "登录服务暂时不可用，请稍后重试。");
-            }
+        /// <summary>使用桌面刷新凭据轮换令牌；不要求访问令牌仍然有效。</summary>
+        [HttpPost]
+        [EnableRateLimiting("Refresh")]
+        public async Task<IActionResult> Refresh(
+            [FromBody] RefreshRequestDto request, CancellationToken cancellationToken) =>
+            Ok(await authenticationSessions.RefreshAsync(
+                request.RefreshToken, isBrowser: false, request.SessionId, cancellationToken));
+
+        /// <summary>撤销桌面当前会话；重复请求保持幂等。</summary>
+        [HttpPost]
+        [EnableRateLimiting("Refresh")]
+        public async Task<IActionResult> Logout(
+            [FromBody] RefreshRequestDto request, CancellationToken cancellationToken)
+        {
+            await authenticationSessions.RevokeAsync(
+                request.RefreshToken, isBrowser: false, request.SessionId, cancellationToken);
+            return NoContent();
         }
 
         /// <summary>
