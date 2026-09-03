@@ -143,6 +143,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton(settings);
         services.AddSingleton(userSettingsStore);
         services.AddSingleton(credentialStore);
+        services.AddSingleton<IAuthenticationSessionClient, WpfAuthenticationSessionClient>();
         services.AddSingleton(settings.ArchiveStorage);
 
         services.AddWpfBlazorWebView();
@@ -152,7 +153,6 @@ public partial class App : System.Windows.Application
         services.AddEzNutritionPresentation(
             settings.ServerBaseAddress,
             TimeZoneInfo.Local,
-            credentialStore,
             httpMessageHandlerFactory.Create);
         services.AddSingleton<IAuxiliaryPageHost, WpfAuxiliaryPageHost>();
         services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();

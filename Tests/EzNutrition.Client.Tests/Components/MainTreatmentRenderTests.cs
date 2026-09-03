@@ -70,6 +70,7 @@ public sealed class MainTreatmentRenderTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IAuthenticationSessionClient, Services.TestAuthenticationClient>();
         services.AddEzNutritionPresentation(
             new Uri("https://app.example.test/"),
             TimeZoneInfo.Utc);

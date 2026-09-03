@@ -13,6 +13,9 @@ namespace EzNutrition.Presentation.Models
 
         public string Token { get; }
 
+        /// <summary>获取访问令牌所属的稳定登录会话标识。</summary>
+        public Guid SessionId { get; }
+
         public string UserId { get; }
 
         public string UserName { get; }
@@ -41,6 +44,7 @@ namespace EzNutrition.Presentation.Models
             Token = token.Trim();
             var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(Token);
             claims = jwtToken.Claims.ToArray();
+            SessionId = Guid.TryParse(FindClaimValue("sid"), out var sessionId) ? sessionId : Guid.Empty;
 
             UserId = FindClaimValue(
                 JwtRegisteredClaimNames.Sub,

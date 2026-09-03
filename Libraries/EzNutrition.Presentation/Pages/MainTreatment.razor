@@ -339,21 +339,40 @@
         StateHasChanged();
     }
 
-    private void AddAssessment(NutritionAssessmentDefinition definition)
+    private async Task AddAssessment(NutritionAssessmentDefinition definition)
     {
-        if (CurrentArchive is null)
+        var archive = CurrentArchive;
+        if (archive is null)
         {
             return;
         }
 
-        var existing = CurrentArchive.NutritionAssessments.SingleOrDefault(assessment =>
-            HasSameIdentity(assessment.Definition, definition));
-        var assessment = existing
-            ?? NutritionAssessmentService.StartRun(
-                CurrentArchive,
-                definition,
-                currentUser: UserSession.UserInfo is { IsExpired: false } user ? user : null);
-        activeWorkspaceTabKey = AssessmentTabKey(assessment);
+        try
+        {
+            if (!await UserSession.EnsureAuthenticatedAsync(lifetimeCancellation.Token))
+            {
+                await Message.ErrorAsync("需要登录");
+                Navigation.NavigateTo("/");
+                return;
+            }
+            // 等待续期时用户可能已经切换工作区，不把原操作应用到另一份咨询。
+            if (CurrentArchive != archive)
+            {
+                return;
+            }
+            var existing = archive.NutritionAssessments.SingleOrDefault(assessment =>
+                HasSameIdentity(assessment.Definition, definition));
+            var assessment = existing
+                ?? NutritionAssessmentService.StartRun(archive, definition, currentUser: UserSession.UserInfo);
+            activeWorkspaceTabKey = AssessmentTabKey(assessment);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (InvalidOperationException exception)
+        {
+            await Message.ErrorAsync(exception.Message);
+        }
     }
 
     private void CloseAssessmentTab(string tabKey)

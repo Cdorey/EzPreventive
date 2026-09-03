@@ -27,7 +27,8 @@ internal sealed class WpfHttpMessageHandlerFactory
         // 配置端点之外；机构应直接配置最终 API 地址。
         var handler = new HttpClientHandler
         {
-            AllowAutoRedirect = false
+            AllowAutoRedirect = false,
+            UseCookies = false
         };
         if (settings.TransportSecurity == ServerTransportSecurity.AllowSelfSignedHttps)
         {

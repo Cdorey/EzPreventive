@@ -21,20 +21,18 @@ public static class PresentationServiceCollectionExtensions
     /// <param name="services">目标服务集合。</param>
     /// <param name="serverBaseAddress">EzNutrition 服务端的绝对 HTTP(S) 基地址。</param>
     /// <param name="displayTimeZone">向用户显示档案时间时采用的时区。</param>
-    /// <param name="loginCredentialStore">宿主可选提供的安全登录信息存储。</param>
     /// <param name="primaryHttpMessageHandlerFactory">
     /// 宿主可选提供的主 HTTP 处理器工厂；每次调用必须返回新的处理器实例。
     /// </param>
     /// <returns>传入的服务集合，便于继续配置具体宿主。</returns>
     /// <remarks>
-    /// 本方法不注册档案存储、文件交互或文档来源标识；这些能力具有平台语义，
+    /// 本方法不注册宿主认证客户端、档案存储、文件交互或文档来源标识；这些能力具有平台语义，
     /// 必须由 WASM、WPF 或后续宿主在各自组合根中提供。
     /// </remarks>
     public static IServiceCollection AddEzNutritionPresentation(
         this IServiceCollection services,
         Uri serverBaseAddress,
         TimeZoneInfo displayTimeZone,
-        ILoginCredentialStore? loginCredentialStore = null,
         Func<HttpMessageHandler>? primaryHttpMessageHandlerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -50,6 +48,11 @@ public static class PresentationServiceCollectionExtensions
         var anonymousClient = services.AddHttpClient(
             "Anonymous",
             client => client.BaseAddress = endpoint.BaseAddress);
+        var authenticationClient = services.AddHttpClient("Authentication", client =>
+        {
+            client.BaseAddress = endpoint.BaseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
         var authorizedClient = services
             .AddHttpClient("Authorize", client => client.BaseAddress = endpoint.BaseAddress)
             .AddHttpMessageHandler<CustomAuthorizationMessageHandler>();
@@ -63,14 +66,13 @@ public static class PresentationServiceCollectionExtensions
         if (primaryHttpMessageHandlerFactory is not null)
         {
             anonymousClient.ConfigurePrimaryHttpMessageHandler(primaryHttpMessageHandlerFactory);
+            authenticationClient.ConfigurePrimaryHttpMessageHandler(primaryHttpMessageHandlerFactory);
             authorizedClient.ConfigurePrimaryHttpMessageHandler(primaryHttpMessageHandlerFactory);
             aiClient.ConfigurePrimaryHttpMessageHandler(primaryHttpMessageHandlerFactory);
         }
 
         services.AddTransient<CustomAuthorizationMessageHandler>();
 
-        services.AddSingleton<ILoginCredentialStore>(
-            loginCredentialStore ?? UnavailableLoginCredentialStore.Instance);
         services.AddSingleton<UserSessionService>();
         services.AddScoped<AuthenticationStateProvider>(provider =>
             provider.GetRequiredService<UserSessionService>());

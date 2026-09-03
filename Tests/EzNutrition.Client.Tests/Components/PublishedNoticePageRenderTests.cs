@@ -58,6 +58,7 @@ public sealed class PublishedNoticePageRenderTests
         services.AddSingleton(provider => new UserSessionService(
             provider.GetRequiredService<IHttpClientFactory>(),
             provider.GetRequiredService<ILogger<UserSessionService>>(),
+            new Services.TestAuthenticationClient(),
             clientVersion: "2.1.0.0"));
         return services.BuildServiceProvider();
     }

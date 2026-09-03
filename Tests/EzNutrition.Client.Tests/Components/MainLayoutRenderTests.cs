@@ -66,7 +66,7 @@ public sealed class MainLayoutRenderTests
         services.AddSingleton(provider => new UserSessionService(
             provider.GetRequiredService<IHttpClientFactory>(),
             provider.GetRequiredService<ILogger<UserSessionService>>(),
-            credentialStore: null,
+            new Services.TestAuthenticationClient(),
             clientVersion: "2.1.0.0"));
         services.AddCascadingAuthenticationState();
         services.AddScoped<AuthenticationStateProvider, AuthenticatedStateProvider>();

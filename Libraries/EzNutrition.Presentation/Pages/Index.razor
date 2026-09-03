@@ -90,7 +90,7 @@
                     {
                         <Alert Class="account-notice"
                                Type="@AlertType.Info"
-                               Message="正在使用 Windows 保存的登录信息…"
+                               Message="正在恢复登录状态…"
                                ShowIcon="true" />
                     }
                     else if (!string.IsNullOrEmpty(UserSession.AutomaticSignInError))
@@ -127,7 +127,7 @@
                                     <label class="remember-login-option">
                                         <input type="checkbox" @bind="rememberLogin" />
                                         <span>
-                                            在此 Windows 账户中记住登录
+                                            在此设备上保持登录
                                             <small>登录信息由 Windows 当前用户范围的数据保护机制加密。</small>
                                         </span>
                                     </label>
@@ -248,16 +248,7 @@
         base.OnInitialized();
     }
 
-    private void HandleSessionStateChanged()
-    {
-        if (string.IsNullOrWhiteSpace(innerModel.Username) &&
-            !string.IsNullOrWhiteSpace(UserSession.SuggestedUserName))
-        {
-            innerModel.Username = UserSession.SuggestedUserName;
-        }
-
-        _ = InvokeAsync(StateHasChanged);
-    }
+    private void HandleSessionStateChanged() => _ = InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
