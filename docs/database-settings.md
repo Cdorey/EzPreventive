@@ -1,6 +1,6 @@
 # 数据库运行时配置
 
-站点管理员将来通过 HTTP 修改的业务参数存入现有 ApplicationDb，由 `DatabaseSettings<T>` 负责持久化，业务服务通过标准 Options 读取。本阶段实现 DbContext、配置存取和重载，尚未增加账号清理执行器、清理 HTTP 接口或管理页面。
+站点管理员将来通过 HTTP 修改的业务参数存入现有 ApplicationDb，由 `DatabaseSettings<T>` 负责持久化，业务服务通过标准 Options 读取。本阶段实现 DbContext、配置存取和重载，尚未增加账号清理、申请自动拒绝、审计过期删除的执行器、HTTP 接口或管理页面。
 
 连接字符串、JWT 密钥、邮件等部署配置继续使用现有 `appsettings*.json`、环境变量或受保护配置来源。数据库配置不写回这些文件，也不自动导入同名节；一个运行时配置组只有数据库这一种持久化来源，缺少记录时使用配置类默认值。
 
@@ -68,7 +68,7 @@ var saved = await settings.SaveAsync(
 
 同一实例保存后立即通知 Options；`DatabaseSettingsReloadWorker` 每 30 秒加载已注册的配置组，用于同步其他实例的修改。每组独立协调和通知，版本未变化时不重复通知。后台重载失败保留上一份有效配置并记录错误，下个周期重试；直接 `GetAsync()` 仍会暴露读取或校验失败。
 
-30 秒是配置同步周期，与 `SweepIntervalHours` 表达的未来账号扫描周期无关。跨实例是最终一致性：配置写入以数据库为准，普通 Options 读取不会访问数据库。今后的账号删除执行应在执行前通过数据库入口重新确认规则及版本；无法确认时停止执行，不能把旧内存快照当作当前配置继续删除。
+30 秒是配置同步周期，与各组 `SweepIntervalHours` 表达的未来业务扫描周期无关。跨实例是最终一致性：配置写入以数据库为准，普通 Options 读取不会访问数据库。今后的清理执行应在执行前通过数据库入口重新确认规则及版本；无法确认时停止执行，不能把旧内存快照当作当前配置继续处理。
 
 所有常规写入应经过 `DatabaseSettings<T>`。受控的数据修复或文档升级也必须同时更换 `Version`；后台依靠它识别变化。不要直接修改 JSON 而保留旧版本。
 
@@ -96,6 +96,21 @@ var saved = await settings.SaveAsync(
 - 待审核、被拒绝、重复申请如何影响保留期；提交过申请的账号不再属于“从未尝试”一档。
 - 正式账号的“未登录”如何统计：当前 `LastSuccessfulLoginAtUtc` 只在密码登录时更新，刷新令牌不更新，持续使用长会话的用户不能因此被误判。
 - 历史账号 `CreatedAtUtc` 缺省时间、无登录记录以及预览到执行之间的角色、申请、登录变化如何处理。
+
+## 申请超时和 LLM 审计清理配置
+
+除账号配置外，另外注册两个独立配置组，各自存为 `ApplicationSettings` 的一行，复用相同的持久化、并发校验和 Options 重载机制，不需要新增表或修改账号配置的文档版本。
+
+| 配置类／配置组 | 开关 | 天数参数 | 预期动作 |
+| --- | --- | --- | --- |
+| `CertificationRequestCleanupOptions`／`CertificationRequestCleanup` | `AutoRejectEnabled` | `PendingTimeoutDays` | 自动拒绝超过指定天数未获管理员处理的待审核认证申请 |
+| `LlmAuditCleanupOptions`／`LlmAuditCleanup` | `Enabled` | `RetentionDays` | 删除超过保留期限的 LLM 调用审计记录 |
+
+每组还有自己的 `SweepIntervalHours`，允许将来采用不同的扫描频率。默认开关关闭，天数和扫描间隔均为空；启用时必须配置对应的正整数天数，任何已填写的间隔也必须为正数。示例测试中的 14 天、90 天等不是产品默认值。
+
+申请超时处理是将符合条件的 `Pending` 申请转为 `Rejected`，保留申请历史，不能因为账号已有合法角色而顺带撤销角色。当前管理员 `UpdateRequest` 每次保存都会更新 `ProcessedTime`，即使申请仍为 `Pending`；后续需明确超时从 `RequestTime` 还是最近管理员处理时间起算，并处理与人工审核的竞争、自动拒绝原因及证书文件释放。
+
+当前 LLM 审计对应 `PrescriptionGenerateRequests`。生成前先写入 `RequestTime`，在结束、取消或失败的收尾阶段写入 `ProcessedTime` 和结果；进程中断或收尾保存失败的记录可能仍保留默认的完成时间。后续需明确保留期从请求开始还是完成起算，并区分运行中的请求和异常未完成记录，不能直接把默认完成时间当作过期依据。现有孤儿审计清理仅按所属账号是否存在判定，与这里按时间过期的清理是独立规则。
 
 ## 数据库发布与验证
 

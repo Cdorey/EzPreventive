@@ -131,6 +131,10 @@ namespace EzNutrition.Server
                 .Bind(builder.Configuration.GetSection(AuthBootstrapSettings.SectionName));
             builder.Services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
             builder.Services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
+            builder.Services.AddSingleton<IValidateOptions<CertificationRequestCleanupOptions>, CertificationRequestCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<CertificationRequestCleanupOptions>(CertificationRequestCleanupOptions.SectionName);
+            builder.Services.AddSingleton<IValidateOptions<LlmAuditCleanupOptions>, LlmAuditCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<LlmAuditCleanupOptions>(LlmAuditCleanupOptions.SectionName);
             builder.Services.AddOptions<JwtSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
                 .ValidateDataAnnotations()

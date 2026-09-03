@@ -363,6 +363,92 @@ public sealed class DatabaseSettingsTests
         }
     }
 
+    [Fact]
+    public async Task Non_account_cleanup_groups_persist_and_notify_independently()
+    {
+        await using var database = new TestDatabase();
+        await using var provider = await database.CreateProviderAsync();
+        var accountMonitor = provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>();
+        var certificationMonitor = provider.GetRequiredService<IOptionsMonitor<CertificationRequestCleanupOptions>>();
+        var auditMonitor = provider.GetRequiredService<IOptionsMonitor<LlmAuditCleanupOptions>>();
+        Assert.False(certificationMonitor.CurrentValue.AutoRejectEnabled);
+        Assert.Null(certificationMonitor.CurrentValue.PendingTimeoutDays);
+        Assert.Null(certificationMonitor.CurrentValue.SweepIntervalHours);
+        Assert.False(auditMonitor.CurrentValue.Enabled);
+        Assert.Null(auditMonitor.CurrentValue.RetentionDays);
+        Assert.Null(auditMonitor.CurrentValue.SweepIntervalHours);
+        var accountNotifications = 0;
+        var certificationNotifications = 0;
+        var auditNotifications = 0;
+        using var accountSubscription = accountMonitor.OnChange((_, _) => accountNotifications++);
+        using var certificationSubscription = certificationMonitor.OnChange((_, _) => certificationNotifications++);
+        using var auditSubscription = auditMonitor.OnChange((_, _) => auditNotifications++);
+        await using var scope = provider.CreateAsyncScope();
+        var certificationSettings = scope.ServiceProvider.GetRequiredService<DatabaseSettings<CertificationRequestCleanupOptions>>();
+        var auditSettings = scope.ServiceProvider.GetRequiredService<DatabaseSettings<LlmAuditCleanupOptions>>();
+        var certification = await certificationSettings.GetAsync();
+        var audit = await auditSettings.GetAsync();
+        Assert.Null(certification.Version);
+        Assert.Null(audit.Version);
+        certification.Value.AutoRejectEnabled = true;
+        certification.Value.PendingTimeoutDays = 14;
+        certification.Value.SweepIntervalHours = 6;
+
+        var savedCertification = await certificationSettings.SaveAsync(certification.Value, certification.Version);
+
+        Assert.Equal(1, certificationNotifications);
+        Assert.Equal(0, auditNotifications);
+        Assert.Equal(14, certificationMonitor.CurrentValue.PendingTimeoutDays);
+        audit.Value.Enabled = true;
+        audit.Value.RetentionDays = 90;
+        audit.Value.SweepIntervalHours = 24;
+
+        var savedAudit = await auditSettings.SaveAsync(audit.Value, audit.Version);
+
+        Assert.Equal(1, certificationNotifications);
+        Assert.Equal(1, auditNotifications);
+        Assert.Equal(0, accountNotifications);
+        Assert.Equal(90, auditMonitor.CurrentValue.RetentionDays);
+        await using var restarted = await database.CreateProviderAsync();
+        await using var restartedScope = restarted.CreateAsyncScope();
+        var loadedCertification = await restartedScope.ServiceProvider
+            .GetRequiredService<DatabaseSettings<CertificationRequestCleanupOptions>>().GetAsync();
+        var loadedAudit = await restartedScope.ServiceProvider
+            .GetRequiredService<DatabaseSettings<LlmAuditCleanupOptions>>().GetAsync();
+        Assert.Equal(savedCertification.Version, loadedCertification.Version);
+        Assert.Equal(savedAudit.Version, loadedAudit.Version);
+        var restartedCertification = restarted.GetRequiredService<IOptionsMonitor<CertificationRequestCleanupOptions>>().CurrentValue;
+        var restartedAudit = restarted.GetRequiredService<IOptionsMonitor<LlmAuditCleanupOptions>>().CurrentValue;
+        Assert.True(restartedCertification.AutoRejectEnabled);
+        Assert.Equal(14, restartedCertification.PendingTimeoutDays);
+        Assert.Equal(6, restartedCertification.SweepIntervalHours);
+        Assert.True(restartedAudit.Enabled);
+        Assert.Equal(90, restartedAudit.RetentionDays);
+        Assert.Equal(24, restartedAudit.SweepIntervalHours);
+        await using var context = database.CreateContext();
+        Assert.Equal(
+            [CertificationRequestCleanupOptions.SectionName, LlmAuditCleanupOptions.SectionName],
+            await context.ApplicationSettings.OrderBy(setting => setting.Key).Select(setting => setting.Key).ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Non_account_cleanup_groups_validate_before_persistence()
+    {
+        await using var database = new TestDatabase();
+        await using var provider = await database.CreateProviderAsync();
+        await using var scope = provider.CreateAsyncScope();
+
+        await Assert.ThrowsAsync<OptionsValidationException>(() => scope.ServiceProvider
+            .GetRequiredService<DatabaseSettings<CertificationRequestCleanupOptions>>()
+            .SaveAsync(new() { AutoRejectEnabled = true }, null));
+        await Assert.ThrowsAsync<OptionsValidationException>(() => scope.ServiceProvider
+            .GetRequiredService<DatabaseSettings<LlmAuditCleanupOptions>>()
+            .SaveAsync(new() { Enabled = true }, null));
+
+        await using var context = database.CreateContext();
+        Assert.Empty(await context.ApplicationSettings.ToArrayAsync());
+    }
+
     /// <summary>示例天数仅用于测试，不代表产品默认值。</summary>
     private static AccountCleanupOptions CreateOptions() => new()
     {
@@ -426,6 +512,10 @@ public sealed class DatabaseSettingsTests
             });
             services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
             services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
+            services.AddSingleton<IValidateOptions<CertificationRequestCleanupOptions>, CertificationRequestCleanupOptionsValidator>();
+            services.AddDatabaseSettings<CertificationRequestCleanupOptions>(CertificationRequestCleanupOptions.SectionName);
+            services.AddSingleton<IValidateOptions<LlmAuditCleanupOptions>, LlmAuditCleanupOptionsValidator>();
+            services.AddDatabaseSettings<LlmAuditCleanupOptions>(LlmAuditCleanupOptions.SectionName);
             services.AddDatabaseSettings<OtherOptions>("Other");
             var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
             try
