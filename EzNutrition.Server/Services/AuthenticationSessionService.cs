@@ -190,7 +190,8 @@ public sealed class AuthenticationSessionService(
         return new AuthenticationTokensDto
         {
             SessionId = session.Id,
-            AccessToken = await jwtService.GenerateJwtToken(user, session.Id, now, expires),
+            AccessToken = await jwtService.GenerateJwtToken(
+                user, session.Id, session.SecurityStampFingerprint, now, expires),
             AccessTokenExpiresAtUtc = new DateTimeOffset(expires),
             RefreshToken = refreshToken,
             RefreshExpiresAtUtc = new DateTimeOffset(session.RefreshExpiresAtUtc),

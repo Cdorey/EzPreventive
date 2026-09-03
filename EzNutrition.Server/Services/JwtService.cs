@@ -24,10 +24,12 @@ namespace EzNutrition.Server.Services
         public async Task<string> GenerateJwtToken(
             ApplicationUser user,
             Guid sessionId,
+            string securityStampFingerprint,
             DateTime issuedAtUtc,
             DateTime expiresAtUtc)
         {
             ArgumentNullException.ThrowIfNull(user);
+            ArgumentException.ThrowIfNullOrWhiteSpace(securityStampFingerprint);
             if (sessionId == Guid.Empty || expiresAtUtc <= issuedAtUtc)
             {
                 throw new ArgumentException("签发访问令牌需要有效的会话及到期时间。");
@@ -73,10 +75,10 @@ namespace EzNutrition.Server.Services
             claimsList.Add(new Claim(ClaimTypes.Name, user.UserName));
             claimsList.Add(new Claim(SessionIdClaimType, sessionId.ToString("D")));
             claimsList.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")));
-            var securityStamp = await userManager.GetSecurityStampAsync(user);
+            // 使用会话建立时固定的指纹，避免改密与签发并发时旧会话获得新安全戳。
             claimsList.Add(new Claim(
                 SecurityStampClaimType,
-                CreateSecurityStampFingerprint(securityStamp)));
+                securityStampFingerprint));
 
             // 3. 加入角色及其 Claims
             var roleNames = await userManager.GetRolesAsync(user);
