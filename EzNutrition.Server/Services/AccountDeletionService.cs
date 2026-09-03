@@ -2,6 +2,7 @@ using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace EzNutrition.Server.Services;
 
@@ -36,9 +37,15 @@ public enum AccountDeletionReason
     ProfessionalCertificationExpired,
 
     /// <summary>
-    /// 已认证账号超过规定期限未登录。
+    /// 账号超过规定期限未登录，不区分角色。
     /// </summary>
-    InactiveAccountExpired
+    InactiveAccountExpired,
+
+    /// <summary>账号创建超过保留期限，且当前没有合法角色。</summary>
+    AccountWithoutRolesExpired,
+
+    /// <summary>账号创建超过申请宽限期限，没有合法角色且从未提交认证申请。</summary>
+    CertificationNotRequestedExpired
 }
 
 /// <summary>
@@ -96,6 +103,27 @@ public sealed class AccountDeletionService(
         string userId,
         AccountDeletionReason reason,
         CancellationToken cancellationToken = default)
+        => await DeleteCoreAsync(userId, reason, null, cancellationToken)
+            ?? throw new InvalidOperationException("无条件账号删除不能返回跳过结果。");
+
+    /// <summary>在可串行化事务中复核候选条件并删除；条件已不满足时返回空值。</summary>
+    /// <remarks>调用方必须提供独立作用域，确保查询和 Identity 使用同一个干净的 DbContext。</remarks>
+    internal Task<AccountDeletionResult?> DeleteIfEligibleAsync(
+        string userId,
+        AccountDeletionReason reason,
+        Func<ApplicationDbContext, IQueryable<ApplicationUser>> eligibleUsers,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(eligibleUsers);
+        return DeleteCoreAsync(userId, reason, eligibleUsers, cancellationToken);
+    }
+
+    /// <summary>共享单账号数据库删除和提交后的文件清理流程。</summary>
+    private async Task<AccountDeletionResult?> DeleteCoreAsync(
+        string userId,
+        AccountDeletionReason reason,
+        Func<ApplicationDbContext, IQueryable<ApplicationUser>>? eligibleUsers,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         if (!Enum.IsDefined(reason))
@@ -104,59 +132,69 @@ public sealed class AccountDeletionService(
         }
 
         var operationId = Guid.NewGuid();
-        var user = await userManager.FindByIdAsync(userId);
-        var accountFound = user is not null;
-
-        var trackedCertificationRequests = applicationDb.ChangeTracker
-            .Entries<ProfessionalCertificationRequest>()
-            .Where(entry => entry.Entity.UserId == userId)
-            .ToArray();
-        var trackedAiAudits = applicationDb.ChangeTracker
-            .Entries<PrescriptionGenerateRequest>()
-            .Where(entry => entry.Entity.UserId == userId)
-            .ToArray();
-        var persistedCertificateTickets = await applicationDb.ProfessionalCertificationRequests
-            .AsNoTracking()
-            .Where(request => request.UserId == userId && request.CertificateTicket != null)
-            .Select(request => request.CertificateTicket!.Value)
-            .ToArrayAsync(cancellationToken);
-        var certificateTickets = trackedCertificationRequests
-            .Where(entry => entry.Entity.CertificateTicket is not null)
-            .Select(entry => entry.Entity.CertificateTicket!.Value)
-            .Concat(persistedCertificateTickets)
-            .Distinct()
-            .ToArray();
-
-        foreach (var entry in trackedCertificationRequests)
-        {
-            entry.State = EntityState.Detached;
-        }
-        foreach (var entry in trackedAiAudits)
-        {
-            entry.State = EntityState.Detached;
-        }
-
-        // 会话轮换使用数据库条件更新，跟踪器中的旧并发版本不能参与级联删除。
-        var trackedSessions = applicationDb.ChangeTracker.Entries<AuthenticationSession>()
-            .Where(entry => entry.Entity.UserId == userId).ToArray();
-        var sessionIds = await applicationDb.AuthenticationSessions
-            .Where(session => session.UserId == userId)
-            .Select(session => session.Id).ToHashSetAsync(cancellationToken);
-        sessionIds.UnionWith(trackedSessions.Select(entry => entry.Entity.Id));
-        foreach (var entry in applicationDb.ChangeTracker.Entries<RefreshTokenRecord>()
-            .Where(entry => sessionIds.Contains(entry.Entity.SessionId)).ToArray())
-        {
-            entry.State = EntityState.Detached;
-        }
-        foreach (var entry in trackedSessions)
-        {
-            entry.State = EntityState.Detached;
-        }
-
         var deletedAiAudits = 0;
         var deletedCertificationRequests = 0;
-        await using (var transaction = await applicationDb.Database.BeginTransactionAsync(cancellationToken))
+        bool accountFound;
+        Guid[] certificateTickets;
+        await using (var transaction = eligibleUsers is null
+            ? await applicationDb.Database.BeginTransactionAsync(cancellationToken)
+            : await applicationDb.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken))
         {
+            if (eligibleUsers is not null && !await eligibleUsers(applicationDb)
+                .AnyAsync(candidate => candidate.Id == userId, cancellationToken))
+            {
+                return null;
+            }
+
+            var user = await userManager.FindByIdAsync(userId);
+            accountFound = user is not null;
+
+            var trackedCertificationRequests = applicationDb.ChangeTracker
+                .Entries<ProfessionalCertificationRequest>()
+                .Where(entry => entry.Entity.UserId == userId)
+                .ToArray();
+            var trackedAiAudits = applicationDb.ChangeTracker
+                .Entries<PrescriptionGenerateRequest>()
+                .Where(entry => entry.Entity.UserId == userId)
+                .ToArray();
+            var persistedCertificateTickets = await applicationDb.ProfessionalCertificationRequests
+                .AsNoTracking()
+                .Where(request => request.UserId == userId && request.CertificateTicket != null)
+                .Select(request => request.CertificateTicket!.Value)
+                .ToArrayAsync(cancellationToken);
+            certificateTickets = trackedCertificationRequests
+                .Where(entry => entry.Entity.CertificateTicket is not null)
+                .Select(entry => entry.Entity.CertificateTicket!.Value)
+                .Concat(persistedCertificateTickets)
+                .Distinct()
+                .ToArray();
+
+            foreach (var entry in trackedCertificationRequests)
+            {
+                entry.State = EntityState.Detached;
+            }
+            foreach (var entry in trackedAiAudits)
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            // 会话轮换使用数据库条件更新，跟踪器中的旧并发版本不能参与级联删除。
+            var trackedSessions = applicationDb.ChangeTracker.Entries<AuthenticationSession>()
+                .Where(entry => entry.Entity.UserId == userId).ToArray();
+            var sessionIds = await applicationDb.AuthenticationSessions
+                .Where(session => session.UserId == userId)
+                .Select(session => session.Id).ToHashSetAsync(cancellationToken);
+            sessionIds.UnionWith(trackedSessions.Select(entry => entry.Entity.Id));
+            foreach (var entry in applicationDb.ChangeTracker.Entries<RefreshTokenRecord>()
+                .Where(entry => sessionIds.Contains(entry.Entity.SessionId)).ToArray())
+            {
+                entry.State = EntityState.Detached;
+            }
+            foreach (var entry in trackedSessions)
+            {
+                entry.State = EntityState.Detached;
+            }
+
             await applicationDb.AuthenticationSessions.Where(session => session.UserId == userId)
                 .ExecuteDeleteAsync(cancellationToken);
             deletedAiAudits = await applicationDb.PrescriptionGenerateRequests

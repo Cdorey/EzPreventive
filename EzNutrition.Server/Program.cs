@@ -61,6 +61,7 @@ namespace EzNutrition.Server
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
             builder.Services.AddScoped<AccountDeletionService>();
+            builder.Services.AddScoped<AccountCleanupService>();
             builder.Services.AddScoped<OrphanCleanupService>();
             builder.Services.AddRateLimiter(options =>
             {

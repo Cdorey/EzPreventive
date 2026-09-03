@@ -67,6 +67,8 @@ namespace EzNutrition.Server.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             var certificationRequest = builder.Entity<ProfessionalCertificationRequest>();
+            certificationRequest.Property(request => request.UserId).HasMaxLength(450);
+            certificationRequest.HasIndex(request => request.UserId);
             certificationRequest
                 .Property(request => request.RequestTime)
                 .HasConversion(UtcDateTimeConverter);
@@ -87,6 +89,8 @@ namespace EzNutrition.Server.Data
                 .HasConversion(UtcDateTimeConverter);
 
             var prescriptionGenerateRequest = builder.Entity<PrescriptionGenerateRequest>();
+            prescriptionGenerateRequest.Property(request => request.UserId).HasMaxLength(450);
+            prescriptionGenerateRequest.HasIndex(request => request.UserId);
             prescriptionGenerateRequest
                 .Property(request => request.RequestTime)
                 .HasConversion(UtcDateTimeConverter);
