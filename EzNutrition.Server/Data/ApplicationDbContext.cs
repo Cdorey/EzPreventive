@@ -93,6 +93,7 @@ namespace EzNutrition.Server.Data
             var prescriptionGenerateRequest = builder.Entity<PrescriptionGenerateRequest>();
             prescriptionGenerateRequest.Property(request => request.UserId).HasMaxLength(450);
             prescriptionGenerateRequest.HasIndex(request => request.UserId);
+            prescriptionGenerateRequest.HasIndex(request => request.RequestTime);
             prescriptionGenerateRequest
                 .Property(request => request.RequestTime)
                 .HasConversion(UtcDateTimeConverter);
