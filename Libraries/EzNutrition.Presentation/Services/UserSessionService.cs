@@ -385,15 +385,21 @@ public sealed class UserSessionService : AuthenticationStateProvider
     private long ClearSession()
     {
         long revision;
+        bool hadSession;
         lock (stateLock)
         {
             revision = ++generation;
+            hadSession = tokens is not null || userInfo is not null;
             tokens = null;
             userInfo = null;
             retryRefreshAfter = default;
             refreshFailure = null;
         }
-        NotifySessionChanged();
+        // 匿名状态没有发生可见变化；冗余通知会使认证路由重建正在提交的登录页。
+        if (hadSession)
+        {
+            NotifySessionChanged();
+        }
         return revision;
     }
 
