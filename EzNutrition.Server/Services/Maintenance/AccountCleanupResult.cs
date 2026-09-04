@@ -34,8 +34,10 @@ public sealed record AccountCleanupItem(
 /// <param name="DryRun">是否仅预览。</param>
 /// <param name="Items">初次筛选的全部候选及其处理结果，不设置数量上限。</param>
 /// <param name="IsCanceled">是否在执行阶段响应取消并提前停止。</param>
+/// <param name="ConfigurationChanged">自动扫描是否因配置变化而停止。</param>
 public sealed record AccountCleanupResult(
     DateTimeOffset CutoffUtc,
     bool DryRun,
     IReadOnlyList<AccountCleanupItem> Items,
-    bool IsCanceled = false);
+    bool IsCanceled = false,
+    bool ConfigurationChanged = false);

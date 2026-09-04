@@ -65,6 +65,7 @@ namespace EzNutrition.Server
             builder.Services.AddHostedService<CertificationRequestCleanupWorker>();
             builder.Services.AddScoped<AccountDeletionService>();
             builder.Services.AddScoped<AccountCleanupService>();
+            builder.Services.AddHostedService<AccountCleanupWorker>();
             builder.Services.AddScoped<OrphanCleanupService>();
             builder.Services.AddRateLimiter(options =>
             {

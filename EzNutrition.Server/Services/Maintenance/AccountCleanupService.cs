@@ -1,4 +1,5 @@
 using EzNutrition.Server.Data;
+using EzNutrition.Server.Services.Settings;
 using Microsoft.EntityFrameworkCore;
 
 namespace EzNutrition.Server.Services.Maintenance;
@@ -25,7 +26,22 @@ public sealed class AccountCleanupService(
     public Task<AccountCleanupResult> DeleteInactiveAccountsAsync(
         DateTimeOffset cutoffUtc,
         bool dryRun = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        DeleteInactiveAccountsCoreAsync(cutoffUtc, dryRun, null, cancellationToken);
+
+    /// <summary>按扫描开始时的配置版本清理长期未登录账号，配置变化时在账号之间停止。</summary>
+    internal Task<AccountCleanupResult> DeleteConfiguredInactiveAccountsAsync(
+        DateTimeOffset cutoffUtc,
+        Guid settingsVersion,
+        CancellationToken cancellationToken = default) =>
+        DeleteInactiveAccountsCoreAsync(cutoffUtc, false, settingsVersion, cancellationToken);
+
+    /// <summary>建立长期未登录账号的统一筛选条件。</summary>
+    private Task<AccountCleanupResult> DeleteInactiveAccountsCoreAsync(
+        DateTimeOffset cutoffUtc,
+        bool dryRun,
+        Guid? settingsVersion,
+        CancellationToken cancellationToken)
     {
         var cutoff = cutoffUtc.UtcDateTime;
         return CleanupAsync(cutoffUtc, dryRun, AccountDeletionReason.InactiveAccountExpired,
@@ -33,7 +49,7 @@ public sealed class AccountCleanupService(
             db => db.Users.Where(user =>
                 (user.LastSuccessfulLoginAtUtc ?? user.CreatedAtUtc) > DateTime.MinValue &&
                 (user.LastSuccessfulLoginAtUtc ?? user.CreatedAtUtc) < cutoff),
-            cancellationToken);
+            settingsVersion, cancellationToken);
     }
 
     /// <summary>清理创建时间早于截止时间、且没有合法角色的账号，可进一步要求从未提交认证申请。</summary>
@@ -46,7 +62,26 @@ public sealed class AccountCleanupService(
         DateTimeOffset cutoffUtc,
         bool onlyWithoutApplications,
         bool dryRun = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        DeleteAccountsWithoutRolesCoreAsync(
+            cutoffUtc, onlyWithoutApplications, dryRun, null, cancellationToken);
+
+    /// <summary>按扫描开始时的配置版本清理无角色账号，配置变化时在账号之间停止。</summary>
+    internal Task<AccountCleanupResult> DeleteConfiguredAccountsWithoutRolesAsync(
+        DateTimeOffset cutoffUtc,
+        bool onlyWithoutApplications,
+        Guid settingsVersion,
+        CancellationToken cancellationToken = default) =>
+        DeleteAccountsWithoutRolesCoreAsync(
+            cutoffUtc, onlyWithoutApplications, false, settingsVersion, cancellationToken);
+
+    /// <summary>建立无合法角色账号的统一筛选条件。</summary>
+    private Task<AccountCleanupResult> DeleteAccountsWithoutRolesCoreAsync(
+        DateTimeOffset cutoffUtc,
+        bool onlyWithoutApplications,
+        bool dryRun,
+        Guid? settingsVersion,
+        CancellationToken cancellationToken)
     {
         var cutoff = cutoffUtc.UtcDateTime;
         return CleanupAsync(cutoffUtc, dryRun,
@@ -58,7 +93,7 @@ public sealed class AccountCleanupService(
                 user.CreatedAtUtc > DateTime.MinValue && user.CreatedAtUtc < cutoff &&
                 !db.UserRoles.Any(link => link.UserId == user.Id && db.Roles.Any(role => role.Id == link.RoleId)) &&
                 (!onlyWithoutApplications || !db.ProfessionalCertificationRequests.Any(request => request.UserId == user.Id))),
-            cancellationToken);
+            settingsVersion, cancellationToken);
     }
 
     /// <summary>冻结本轮候选清单，预览直接返回，执行则逐账号在事务中重新应用同一条件。</summary>
@@ -68,6 +103,7 @@ public sealed class AccountCleanupService(
         AccountDeletionReason reason,
         string candidateReason,
         Func<ApplicationDbContext, IQueryable<ApplicationUser>> eligibleUsers,
+        Guid? settingsVersion,
         CancellationToken cancellationToken)
     {
         if (cutoffUtc <= DateTimeOffset.MinValue || cutoffUtc > timeProvider.GetUtcNow())
@@ -99,9 +135,19 @@ public sealed class AccountCleanupService(
                 }
 
                 var item = items[index];
+                await using var scope = scopeFactory.CreateAsyncScope();
+                if (settingsVersion is { } expectedSettingsVersion)
+                {
+                    // 自动任务在账号之间复核配置；当前账号一旦开始仍会完成独立事务。
+                    var current = await scope.ServiceProvider
+                        .GetRequiredService<DatabaseSettings<AccountCleanupOptions>>().GetAsync();
+                    if (current.Version != expectedSettingsVersion)
+                    {
+                        return new(cutoffUtc.ToUniversalTime(), false, items, ConfigurationChanged: true);
+                    }
+                }
                 try
                 {
-                    await using var scope = scopeFactory.CreateAsyncScope();
                     var deletion = scope.ServiceProvider.GetRequiredService<AccountDeletionService>();
                     // 单账号一旦开始就完成事务和结果记录，取消只影响后续账号。
                     var result = await deletion.DeleteIfEligibleAsync(item.UserId, reason, eligibleUsers);

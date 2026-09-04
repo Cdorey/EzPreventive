@@ -1,7 +1,9 @@
 using EzNutrition.Server.Data;
 using EzNutrition.Server.Data.Entities;
+using EzNutrition.Server.Extension;
 using EzNutrition.Server.Services;
 using EzNutrition.Server.Services.Maintenance;
+using EzNutrition.Server.Services.Settings;
 using EzNutrition.Shared.Data.DTO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -11,6 +13,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using System.Data;
 using System.Data.Common;
 
@@ -289,6 +293,79 @@ public sealed class AccountCleanupServiceTests
     }
 
     [Fact]
+    public async Task Configured_cleanup_stops_between_accounts_when_settings_change()
+    {
+        var transactions = new TransactionHooks();
+        await using var host = new TestHost(transactions);
+        await host.InitializeSettingsAsync();
+        var version = await host.SaveSettingsAsync(new()
+        {
+            NonFormalAccountCleanupEnabled = true,
+            NonFormalAccountRetentionDays = 30,
+            SweepIntervalHours = 24
+        });
+        await host.AddUserAsync("01-deleted", Cutoff.AddDays(-1));
+        await host.AddUserAsync("02-retained", Cutoff.AddDays(-1));
+        transactions.BeforeNextTransaction = async () => await host.SaveSettingsAsync(new()
+        {
+            NonFormalAccountCleanupEnabled = false,
+            NonFormalAccountRetentionDays = 30,
+            SweepIntervalHours = 24
+        }, version);
+
+        var result = await host.Service.DeleteConfiguredAccountsWithoutRolesAsync(
+            Cutoff, onlyWithoutApplications: false, version);
+
+        Assert.True(result.ConfigurationChanged);
+        Assert.Equal([AccountCleanupStatus.Deleted, AccountCleanupStatus.WouldDelete],
+            result.Items.Select(item => item.Status));
+        Assert.Equal(1, await host.CountUsersAsync());
+    }
+
+    [Fact]
+    public async Task Worker_runs_enabled_rules_in_order_and_respects_interval_and_reenable()
+    {
+        await using var host = new TestHost();
+        await host.InitializeSettingsAsync();
+        var version = await host.SaveSettingsAsync(new()
+        {
+            UnsubmittedCertificationCleanupEnabled = true,
+            CertificationSubmissionGraceDays = 7,
+            NonFormalAccountCleanupEnabled = true,
+            NonFormalAccountRetentionDays = 30,
+            InactiveFormalAccountCleanupEnabled = true,
+            FormalAccountInactivityDays = 365,
+            SweepIntervalHours = 24
+        });
+        await host.AddUserAsync("unsubmitted", Now.AddDays(-8));
+        await host.AddUserAsync("applicant", Now.AddDays(-31));
+        await host.AddRequestAsync("applicant", RequestStatus.Pending);
+        await host.AddUserAsync("inactive-formal", Now.AddDays(-400), Now.AddDays(-366));
+        await host.AddRoleAsync("inactive-formal", "Teacher");
+        await host.AddUserAsync("active-formal", Now.AddDays(-400), Now);
+        await host.AddRoleAsync("active-formal", "Admin");
+
+        await host.Worker.ScanIfDueAsync(default);
+
+        Assert.Equal(["active-formal"], await host.ReadUserIdsAsync());
+        await host.AddUserAsync("waiting", Now.AddDays(-8));
+        await host.Worker.ScanIfDueAsync(default);
+        Assert.Equal(["active-formal", "waiting"], await host.ReadUserIdsAsync());
+
+        version = await host.SaveSettingsAsync(new() { SweepIntervalHours = 24 }, version);
+        await host.Worker.ScanIfDueAsync(default);
+        version = await host.SaveSettingsAsync(new()
+        {
+            UnsubmittedCertificationCleanupEnabled = true,
+            CertificationSubmissionGraceDays = 7,
+            SweepIntervalHours = 24
+        }, version);
+        await host.Worker.ScanIfDueAsync(default);
+
+        Assert.Equal(["active-formal"], await host.ReadUserIdsAsync());
+    }
+
+    [Fact]
     public async Task Invalid_cutoff_and_ambient_transactions_are_rejected_before_work()
     {
         await using var host = new TestHost();
@@ -305,6 +382,7 @@ public sealed class AccountCleanupServiceTests
         private readonly string contentRoot = Path.Combine(Path.GetTempPath(), "EzNutrition.AccountCleanup.Tests", Guid.NewGuid().ToString("N"));
         public ServiceProvider Provider { get; }
         public AccountCleanupService Service { get; }
+        public AccountCleanupWorker Worker { get; }
 
         public TestHost(params IInterceptor[] interceptors)
         {
@@ -319,10 +397,26 @@ public sealed class AccountCleanupServiceTests
             services.AddSingleton<CertificateFileStore>();
             services.AddScoped<AccountDeletionService>();
             services.AddScoped<AccountCleanupService>();
+            services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
+            services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
             Provider = services.BuildServiceProvider(validateScopes: true);
             Service = ActivatorUtilities.CreateInstance<AccountCleanupService>(Provider);
+            Worker = new AccountCleanupWorker(
+                Provider.GetRequiredService<IServiceScopeFactory>(),
+                Provider.GetRequiredService<TimeProvider>(),
+                NullLogger<AccountCleanupWorker>.Instance);
             using var context = CreateContext();
             context.Database.EnsureCreated();
+        }
+
+        public Task InitializeSettingsAsync() => Provider.LoadDatabaseSettingsAsync();
+
+        public async Task<Guid> SaveSettingsAsync(AccountCleanupOptions value, Guid? expectedVersion = null)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var saved = await scope.ServiceProvider.GetRequiredService<DatabaseSettings<AccountCleanupOptions>>()
+                .SaveAsync(value, expectedVersion);
+            return Assert.IsType<Guid>(saved.Version);
         }
 
         public ApplicationDbContext CreateContext() => new(
@@ -385,6 +479,12 @@ public sealed class AccountCleanupServiceTests
         {
             await using var context = CreateContext();
             return await context.Users.CountAsync();
+        }
+
+        public async Task<string[]> ReadUserIdsAsync()
+        {
+            await using var context = CreateContext();
+            return await context.Users.OrderBy(user => user.Id).Select(user => user.Id).ToArrayAsync();
         }
 
         public async ValueTask DisposeAsync()
