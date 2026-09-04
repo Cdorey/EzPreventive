@@ -1,0 +1,308 @@
+.maintenance-heading {
+    margin-bottom: 24px;
+}
+
+.maintenance-heading > span,
+.section-heading > div > span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--ez-blue);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.maintenance-heading h1,
+.section-heading h2,
+.cleanup-result-heading h3 {
+    margin: 0;
+    color: var(--ez-navy);
+}
+
+.maintenance-heading h1 {
+    font-size: clamp(1.65rem, 2.4vw, 2.15rem);
+    line-height: 1.2;
+}
+
+.maintenance-heading p,
+.section-description,
+.cleanup-result-heading p {
+    color: var(--ez-text-secondary);
+    line-height: 1.65;
+}
+
+.maintenance-heading p {
+    max-width: 760px;
+    margin: 9px 0 0;
+}
+
+.maintenance-loading {
+    display: flex;
+    min-height: 180px;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--ez-text-secondary);
+}
+
+.retry-button,
+.schedule-notice {
+    margin-top: 16px;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.settings-card,
+.cleanup-card {
+    padding: 22px;
+    border: 1px solid var(--ez-border);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(28, 54, 92, 0.06);
+}
+
+.account-settings-card {
+    grid-column: 1 / -1;
+}
+
+.section-heading,
+.cleanup-result-heading,
+.switch-field,
+.cleanup-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.section-heading {
+    margin-bottom: 20px;
+}
+
+.section-heading h2 {
+    font-size: 1.18rem;
+}
+
+.setting-version,
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 25px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #f2f5f8;
+    color: var(--ez-text-secondary);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.setting-field {
+    display: grid;
+    gap: 7px;
+}
+
+.setting-field > span,
+.switch-field strong {
+    color: var(--ez-navy);
+    font-weight: 600;
+}
+
+.setting-field small,
+.switch-field small {
+    color: var(--ez-text-secondary);
+    line-height: 1.5;
+}
+
+.setting-field input,
+.setting-field select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 11px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ez-text-primary);
+}
+
+.setting-field input:focus,
+.setting-field select:focus {
+    border-color: var(--ez-blue);
+    outline: 2px solid rgba(24, 144, 255, 0.15);
+}
+
+.switch-field {
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.switch-field > span {
+    display: grid;
+    gap: 4px;
+}
+
+.card-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.section-description {
+    margin: -8px 0 18px;
+}
+
+.account-rule-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.rule-editor {
+    padding: 16px;
+    border: 1px solid var(--ez-border);
+    border-radius: 12px;
+    background: #fafcff;
+}
+
+.cleanup-card {
+    margin-top: 18px;
+}
+
+.cleanup-heading {
+    margin-bottom: 14px;
+}
+
+.cleanup-controls {
+    justify-content: flex-start;
+    margin-top: 18px;
+}
+
+.rule-selector {
+    width: min(340px, 100%);
+}
+
+.cleanup-controls ::deep .ant-btn {
+    align-self: flex-end;
+}
+
+.cleanup-result-heading {
+    align-items: flex-end;
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--ez-border);
+}
+
+.cleanup-result-heading h3 {
+    font-size: 1.08rem;
+}
+
+.cleanup-result-heading p {
+    margin: 5px 0 0;
+}
+
+.result-table-wrap {
+    margin-top: 16px;
+    overflow-x: auto;
+}
+
+.result-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+}
+
+.result-table th,
+.result-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--ez-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.result-table th {
+    color: var(--ez-text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.result-table code {
+    overflow-wrap: anywhere;
+    color: var(--ez-text-secondary);
+}
+
+.status-warning {
+    background: #fff7e6;
+    color: #ad6800;
+}
+
+.status-success {
+    background: #f0f9eb;
+    color: #237804;
+}
+
+.status-error {
+    background: #fff1f0;
+    color: #a8071a;
+}
+
+.confirmation-details {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 0;
+}
+
+.confirmation-details > div {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 12px;
+}
+
+.confirmation-details dt {
+    color: var(--ez-text-secondary);
+}
+
+.confirmation-details dd {
+    margin: 0;
+    color: var(--ez-navy);
+    font-weight: 600;
+}
+
+@media (max-width: 991.98px) {
+    .settings-grid,
+    .account-rule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .account-settings-card {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .maintenance-heading {
+        margin-bottom: 18px;
+    }
+
+    .settings-card,
+    .cleanup-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .section-heading,
+    .cleanup-result-heading,
+    .cleanup-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cleanup-controls ::deep .ant-btn,
+    .cleanup-result-heading ::deep .ant-btn,
+    .card-actions ::deep .ant-btn {
+        width: 100%;
+    }
+}
