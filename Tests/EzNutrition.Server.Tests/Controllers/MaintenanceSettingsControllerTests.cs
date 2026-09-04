@@ -25,12 +25,32 @@ public sealed class MaintenanceSettingsControllerTests
 
         var result = Assert.IsType<OkObjectResult>(action.Result);
         var settings = Assert.IsType<MaintenanceSettingsDto>(result.Value);
+        Assert.Equal(new TimeOnly(3, 30), settings.CleanupSchedule.Value.StartTime);
         Assert.False(settings.AccountCleanup.Value.NonFormalAccountCleanupEnabled);
         Assert.False(settings.CertificationRequestCleanup.Value.AutoRejectEnabled);
         Assert.False(settings.LlmAuditCleanup.Value.Enabled);
+        Assert.Null(settings.CleanupSchedule.Version);
         Assert.Null(settings.AccountCleanup.Version);
         Assert.Null(settings.CertificationRequestCleanup.Version);
         Assert.Null(settings.LlmAuditCleanup.Version);
+    }
+
+    [Fact]
+    public async Task Save_cleanup_schedule_persists_the_start_time()
+    {
+        await using var host = await TestHost.CreateAsync("admin-user-id");
+        var request = new DatabaseSettingUpdateDto<CleanupScheduleSettingsDto>(new()
+        {
+            StartTime = new TimeOnly(4, 15)
+        }, null);
+
+        var action = await host.Controller.SaveCleanupSchedule(request, CancellationToken.None);
+
+        var result = Assert.IsType<OkObjectResult>(action);
+        var saved = Assert.IsType<DatabaseSettingDto<CleanupScheduleSettingsDto>>(result.Value);
+        Assert.Equal(new TimeOnly(4, 15), saved.Value.StartTime);
+        Assert.Equal("admin-user-id", saved.UpdatedByUserId);
+        Assert.Equal(new TimeOnly(4, 15), (await host.CleanupSchedule.GetAsync()).Value.StartTime);
     }
 
     [Fact]
@@ -44,8 +64,7 @@ public sealed class MaintenanceSettingsControllerTests
             NonFormalAccountCleanupEnabled = true,
             NonFormalAccountRetentionDays = 30,
             InactiveFormalAccountCleanupEnabled = true,
-            FormalAccountInactivityDays = 365,
-            SweepIntervalHours = 24
+            FormalAccountInactivityDays = 365
         }, null);
 
         var action = await host.Controller.SaveAccountCleanup(request, CancellationToken.None);
@@ -70,15 +89,14 @@ public sealed class MaintenanceSettingsControllerTests
         var original = new DatabaseSettingUpdateDto<LlmAuditCleanupSettingsDto>(new()
         {
             Enabled = true,
-            RetentionDays = 90,
-            SweepIntervalHours = 24
+            RetentionDays = 90
         }, null);
         var firstAction = await host.Controller.SaveLlmAuditCleanup(original, CancellationToken.None);
         var first = Assert.IsType<DatabaseSettingDto<LlmAuditCleanupSettingsDto>>(
             Assert.IsType<OkObjectResult>(firstAction).Value);
 
         var conflictAction = await host.Controller.SaveLlmAuditCleanup(
-            original with { Value = new() { Enabled = true, RetentionDays = 1, SweepIntervalHours = 1 } },
+            original with { Value = new() { Enabled = true, RetentionDays = 1 } },
             CancellationToken.None);
 
         var conflict = Assert.IsType<ConflictObjectResult>(conflictAction);
@@ -96,8 +114,7 @@ public sealed class MaintenanceSettingsControllerTests
         var request = new DatabaseSettingUpdateDto<CertificationRequestCleanupSettingsDto>(new()
         {
             AutoRejectEnabled = true,
-            PendingTimeoutDays = null,
-            SweepIntervalHours = 24
+            PendingTimeoutDays = null
         }, null);
 
         var action = await host.Controller.SaveCertificationRequestCleanup(request, CancellationToken.None);
@@ -140,6 +157,9 @@ public sealed class MaintenanceSettingsControllerTests
         public DatabaseSettings<LlmAuditCleanupOptions> LlmAuditCleanup =>
             scope.ServiceProvider.GetRequiredService<DatabaseSettings<LlmAuditCleanupOptions>>();
 
+        public DatabaseSettings<CleanupScheduleOptions> CleanupSchedule =>
+            scope.ServiceProvider.GetRequiredService<DatabaseSettings<CleanupScheduleOptions>>();
+
         public DatabaseSettings<CertificationRequestCleanupOptions> CertificationRequestCleanup =>
             scope.ServiceProvider.GetRequiredService<DatabaseSettings<CertificationRequestCleanupOptions>>();
 
@@ -151,6 +171,7 @@ public sealed class MaintenanceSettingsControllerTests
             serviceCollection.AddLogging();
             serviceCollection.AddSingleton<TimeProvider>(TimeProvider.System);
             serviceCollection.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection));
+            serviceCollection.AddDatabaseSettings<CleanupScheduleOptions>(CleanupScheduleOptions.SectionName);
             serviceCollection.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
             serviceCollection.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
             serviceCollection.AddSingleton<IValidateOptions<CertificationRequestCleanupOptions>, CertificationRequestCleanupOptionsValidator>();

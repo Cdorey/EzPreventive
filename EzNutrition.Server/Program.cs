@@ -42,7 +42,6 @@ namespace EzNutrition.Server
             });
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<AuthenticationSessionService>();
-            builder.Services.AddHostedService<AuthenticationSessionCleanupWorker>();
             builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
             builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddSingleton(TimeProvider.System);
@@ -62,14 +61,11 @@ namespace EzNutrition.Server
             builder.Services.AddSingleton<CertificateFileStore>();
             builder.Services.AddScoped<CertificationReviewService>();
             builder.Services.AddScoped<CertificationRequestCleanupService>();
-            builder.Services.AddHostedService<CertificationRequestCleanupWorker>();
             builder.Services.AddScoped<AccountDeletionService>();
             builder.Services.AddScoped<AccountCleanupService>();
-            builder.Services.AddHostedService<AccountCleanupWorker>();
             builder.Services.AddScoped<LlmAuditCleanupService>();
-            builder.Services.AddHostedService<LlmAuditCleanupWorker>();
             builder.Services.AddScoped<OrphanCleanupService>();
-            builder.Services.AddHostedService<OrphanFileCleanupWorker>();
+            builder.Services.AddHostedService<MaintenanceCleanupWorker>();
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -137,6 +133,7 @@ namespace EzNutrition.Server
                 .ValidateOnStart();
             builder.Services.AddOptions<AuthBootstrapSettings>()
                 .Bind(builder.Configuration.GetSection(AuthBootstrapSettings.SectionName));
+            builder.Services.AddDatabaseSettings<CleanupScheduleOptions>(CleanupScheduleOptions.SectionName);
             builder.Services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
             builder.Services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
             builder.Services.AddSingleton<IValidateOptions<CertificationRequestCleanupOptions>, CertificationRequestCleanupOptionsValidator>();

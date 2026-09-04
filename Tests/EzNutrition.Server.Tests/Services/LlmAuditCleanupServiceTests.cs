@@ -6,12 +6,11 @@ using EzNutrition.Server.Services.Settings;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace EzNutrition.Server.Tests.Services;
 
-/// <summary>验证 LLM 审计记录按请求时间清理及数据库配置调度。</summary>
+/// <summary>验证 LLM 审计记录按请求时间清理及配置版本保护。</summary>
 public sealed class LlmAuditCleanupServiceTests
 {
     [Fact]
@@ -45,14 +44,12 @@ public sealed class LlmAuditCleanupServiceTests
         var staleVersion = await host.SaveSettingsAsync(new()
         {
             Enabled = true,
-            RetentionDays = 30,
-            SweepIntervalHours = 24
+            RetentionDays = 30
         });
         await host.SaveSettingsAsync(new()
         {
             Enabled = true,
-            RetentionDays = 60,
-            SweepIntervalHours = 24
+            RetentionDays = 60
         }, staleVersion);
         await host.AddAuditAsync("retained", TestHost.Now.AddDays(-90));
 
@@ -62,39 +59,6 @@ public sealed class LlmAuditCleanupServiceTests
         Assert.True(result.ConfigurationChanged);
         Assert.Equal(0, result.DeletedRecords);
         Assert.Equal(1, await host.CountAuditsAsync());
-    }
-
-    [Fact]
-    public async Task Worker_respects_retention_interval_disable_and_reenable()
-    {
-        await using var host = await TestHost.CreateAsync();
-        var version = await host.SaveSettingsAsync(new()
-        {
-            Enabled = true,
-            RetentionDays = 7,
-            SweepIntervalHours = 24
-        });
-        await host.AddAuditAsync("expired", TestHost.Now.AddDays(-8));
-        await host.AddAuditAsync("fresh", TestHost.Now.AddDays(-6));
-
-        await host.Worker.ScanIfDueAsync(default);
-
-        Assert.Equal(["fresh"], await host.ReadAuditPromptsAsync());
-        await host.AddAuditAsync("waiting", TestHost.Now.AddDays(-8));
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(["fresh", "waiting"], await host.ReadAuditPromptsAsync());
-
-        version = await host.SaveSettingsAsync(new() { SweepIntervalHours = 24 }, version);
-        await host.Worker.ScanIfDueAsync(default);
-        version = await host.SaveSettingsAsync(new()
-        {
-            Enabled = true,
-            RetentionDays = 7,
-            SweepIntervalHours = 24
-        }, version);
-        await host.Worker.ScanIfDueAsync(default);
-
-        Assert.Equal(["fresh"], await host.ReadAuditPromptsAsync());
     }
 
     [Fact]
@@ -129,15 +93,9 @@ public sealed class LlmAuditCleanupServiceTests
             this.services = services;
             this.scope = scope;
             Service = scope.ServiceProvider.GetRequiredService<LlmAuditCleanupService>();
-            Worker = new LlmAuditCleanupWorker(
-                services.GetRequiredService<IServiceScopeFactory>(),
-                services.GetRequiredService<TimeProvider>(),
-                NullLogger<LlmAuditCleanupWorker>.Instance);
         }
 
         public LlmAuditCleanupService Service { get; }
-
-        public LlmAuditCleanupWorker Worker { get; }
 
         public static async Task<TestHost> CreateAsync()
         {

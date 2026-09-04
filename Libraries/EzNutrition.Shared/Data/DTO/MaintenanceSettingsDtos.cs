@@ -1,13 +1,22 @@
 namespace EzNutrition.Shared.Data.DTO;
 
 /// <summary>表示站点维护功能使用的全部运行时配置。</summary>
+/// <param name="CleanupSchedule">清理任务公共调度配置及其持久化元数据。</param>
 /// <param name="AccountCleanup">账号清理配置及其持久化元数据。</param>
 /// <param name="CertificationRequestCleanup">认证申请清理配置及其持久化元数据。</param>
 /// <param name="LlmAuditCleanup">LLM 审计记录清理配置及其持久化元数据。</param>
 public sealed record MaintenanceSettingsDto(
+    DatabaseSettingDto<CleanupScheduleSettingsDto> CleanupSchedule,
     DatabaseSettingDto<AccountCleanupSettingsDto> AccountCleanup,
     DatabaseSettingDto<CertificationRequestCleanupSettingsDto> CertificationRequestCleanup,
     DatabaseSettingDto<LlmAuditCleanupSettingsDto> LlmAuditCleanup);
+
+/// <summary>所有定期清理任务共用的调度配置。</summary>
+public sealed class CleanupScheduleSettingsDto
+{
+    /// <summary>获取或设置每日启动一轮清理的服务器本地时间。</summary>
+    public TimeOnly StartTime { get; set; } = new(3, 30);
+}
 
 /// <summary>表示一组可独立编辑的数据库配置及其版本信息。</summary>
 /// <typeparam name="T">配置值类型。</typeparam>
@@ -41,17 +50,14 @@ public sealed class AccountCleanupSettingsDto
     /// <summary>获取或设置是否清理没有合法角色的账号。</summary>
     public bool NonFormalAccountCleanupEnabled { get; set; }
 
-    /// <summary>获取或设置非正式账号的保留天数。</summary>
+    /// <summary>获取或设置从账号创建时间起算的非正式账号保留天数。</summary>
     public int? NonFormalAccountRetentionDays { get; set; }
 
-    /// <summary>获取或设置是否清理长期未登录的正式账号。</summary>
+    /// <summary>获取或设置是否清理长期未登录的账号；该规则不检查角色或认证申请。</summary>
     public bool InactiveFormalAccountCleanupEnabled { get; set; }
 
-    /// <summary>获取或设置正式账号允许连续未登录的天数。</summary>
+    /// <summary>获取或设置账号允许连续未登录的天数。</summary>
     public int? FormalAccountInactivityDays { get; set; }
-
-    /// <summary>获取或设置自动扫描的间隔小时数。</summary>
-    public int? SweepIntervalHours { get; set; }
 }
 
 /// <summary>认证申请超时处理的运行时配置。</summary>
@@ -62,9 +68,6 @@ public sealed class CertificationRequestCleanupSettingsDto
 
     /// <summary>获取或设置从申请提交开始计算的待审核超时天数。</summary>
     public int? PendingTimeoutDays { get; set; }
-
-    /// <summary>获取或设置自动扫描的间隔小时数。</summary>
-    public int? SweepIntervalHours { get; set; }
 }
 
 /// <summary>LLM 调用审计记录清理的运行时配置。</summary>
@@ -75,9 +78,6 @@ public sealed class LlmAuditCleanupSettingsDto
 
     /// <summary>获取或设置审计记录的保留天数。</summary>
     public int? RetentionDays { get; set; }
-
-    /// <summary>获取或设置自动扫描的间隔小时数。</summary>
-    public int? SweepIntervalHours { get; set; }
 }
 
 /// <summary>表示数据库配置保存时发生的并发冲突。</summary>

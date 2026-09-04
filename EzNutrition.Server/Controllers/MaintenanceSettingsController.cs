@@ -14,6 +14,7 @@ namespace EzNutrition.Server.Controllers;
 [Authorize(Policy = PolicyList.Admin)]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class MaintenanceSettingsController(
+    DatabaseSettings<CleanupScheduleOptions> cleanupSchedule,
     DatabaseSettings<AccountCleanupOptions> accountCleanup,
     DatabaseSettings<CertificationRequestCleanupOptions> certificationRequestCleanup,
     DatabaseSettings<LlmAuditCleanupOptions> llmAuditCleanup) : ControllerBase
@@ -25,12 +26,21 @@ public sealed class MaintenanceSettingsController(
         var account = await accountCleanup.GetAsync(cancellationToken);
         var certification = await certificationRequestCleanup.GetAsync(cancellationToken);
         var audit = await llmAuditCleanup.GetAsync(cancellationToken);
+        var schedule = await cleanupSchedule.GetAsync(cancellationToken);
 
         return Ok(new MaintenanceSettingsDto(
+            ToDto(schedule, ToDto),
             ToDto(account, ToDto),
             ToDto(certification, ToDto),
             ToDto(audit, ToDto)));
     }
+
+    /// <summary>保存所有定期清理任务共用的调度配置。</summary>
+    [HttpPut("cleanup-schedule")]
+    public Task<IActionResult> SaveCleanupSchedule(
+        [FromBody] DatabaseSettingUpdateDto<CleanupScheduleSettingsDto> request,
+        CancellationToken cancellationToken) =>
+        SaveAsync(cleanupSchedule, request, ToOptions, ToDto, cancellationToken);
 
     /// <summary>保存完整的账号清理配置。</summary>
     [HttpPut("account-cleanup")]
@@ -94,6 +104,16 @@ public sealed class MaintenanceSettingsController(
         new(convert(source.Value), source.Version, source.SchemaVersion,
             source.UpdatedAtUtc, source.UpdatedByUserId);
 
+    private static CleanupScheduleSettingsDto ToDto(CleanupScheduleOptions value) => new()
+    {
+        StartTime = value.StartTime
+    };
+
+    private static CleanupScheduleOptions ToOptions(CleanupScheduleSettingsDto value) => new()
+    {
+        StartTime = value.StartTime
+    };
+
     private static AccountCleanupSettingsDto ToDto(AccountCleanupOptions value) => new()
     {
         UnsubmittedCertificationCleanupEnabled = value.UnsubmittedCertificationCleanupEnabled,
@@ -101,8 +121,7 @@ public sealed class MaintenanceSettingsController(
         NonFormalAccountCleanupEnabled = value.NonFormalAccountCleanupEnabled,
         NonFormalAccountRetentionDays = value.NonFormalAccountRetentionDays,
         InactiveFormalAccountCleanupEnabled = value.InactiveFormalAccountCleanupEnabled,
-        FormalAccountInactivityDays = value.FormalAccountInactivityDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        FormalAccountInactivityDays = value.FormalAccountInactivityDays
     };
 
     private static AccountCleanupOptions ToOptions(AccountCleanupSettingsDto value) => new()
@@ -112,35 +131,30 @@ public sealed class MaintenanceSettingsController(
         NonFormalAccountCleanupEnabled = value.NonFormalAccountCleanupEnabled,
         NonFormalAccountRetentionDays = value.NonFormalAccountRetentionDays,
         InactiveFormalAccountCleanupEnabled = value.InactiveFormalAccountCleanupEnabled,
-        FormalAccountInactivityDays = value.FormalAccountInactivityDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        FormalAccountInactivityDays = value.FormalAccountInactivityDays
     };
 
     private static CertificationRequestCleanupSettingsDto ToDto(CertificationRequestCleanupOptions value) => new()
     {
         AutoRejectEnabled = value.AutoRejectEnabled,
-        PendingTimeoutDays = value.PendingTimeoutDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        PendingTimeoutDays = value.PendingTimeoutDays
     };
 
     private static CertificationRequestCleanupOptions ToOptions(CertificationRequestCleanupSettingsDto value) => new()
     {
         AutoRejectEnabled = value.AutoRejectEnabled,
-        PendingTimeoutDays = value.PendingTimeoutDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        PendingTimeoutDays = value.PendingTimeoutDays
     };
 
     private static LlmAuditCleanupSettingsDto ToDto(LlmAuditCleanupOptions value) => new()
     {
         Enabled = value.Enabled,
-        RetentionDays = value.RetentionDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        RetentionDays = value.RetentionDays
     };
 
     private static LlmAuditCleanupOptions ToOptions(LlmAuditCleanupSettingsDto value) => new()
     {
         Enabled = value.Enabled,
-        RetentionDays = value.RetentionDays,
-        SweepIntervalHours = value.SweepIntervalHours
+        RetentionDays = value.RetentionDays
     };
 }

@@ -13,10 +13,6 @@ public sealed class CertificationRequestCleanupOptionsValidator : IValidateOptio
         {
             errors.Add("待审核申请超时天数必须填写为正整数。");
         }
-        if (options.SweepIntervalHours is <= 0)
-        {
-            errors.Add("认证申请自动扫描间隔小时数必须填写为正整数。");
-        }
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 }

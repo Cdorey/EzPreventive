@@ -14,8 +14,7 @@ public sealed class AccountCleanupOptionsValidator : IValidateOptions<AccountCle
         ValidateInterval(options.NonFormalAccountRetentionDays,
             options.NonFormalAccountCleanupEnabled, "非正式账号保留天数", errors);
         ValidateInterval(options.FormalAccountInactivityDays,
-            options.InactiveFormalAccountCleanupEnabled, "正式账号连续未登录天数", errors);
-        ValidateInterval(options.SweepIntervalHours, false, "自动扫描间隔小时数", errors);
+            options.InactiveFormalAccountCleanupEnabled, "账号连续未登录天数", errors);
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 

@@ -13,10 +13,6 @@ public sealed class LlmAuditCleanupOptionsValidator : IValidateOptions<LlmAuditC
         {
             errors.Add("LLM 审计记录保留天数必须填写为正整数。");
         }
-        if (options.SweepIntervalHours is <= 0)
-        {
-            errors.Add("LLM 审计自动扫描间隔小时数必须填写为正整数。");
-        }
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 }

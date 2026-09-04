@@ -23,16 +23,14 @@ public sealed class AccountCleanupOptionsValidatorTests
     }
 
     [Fact]
-    public void Disabled_rules_may_be_unconfigured_but_any_supplied_interval_must_be_positive()
+    public void Disabled_rules_may_be_unconfigured_but_any_supplied_retention_must_be_positive()
     {
         var validator = new AccountCleanupOptionsValidator();
 
         Assert.True(validator.Validate(null, new()).Succeeded);
-        Assert.True(validator.Validate(null, new() { SweepIntervalHours = 1 }).Succeeded);
         Assert.True(validator.Validate(null, new() { NonFormalAccountRetentionDays = 1 }).Succeeded);
         Assert.True(validator.Validate(null, new() { CertificationSubmissionGraceDays = 0 }).Failed);
         Assert.True(validator.Validate(null, new() { NonFormalAccountRetentionDays = -1 }).Failed);
         Assert.True(validator.Validate(null, new() { FormalAccountInactivityDays = 0 }).Failed);
-        Assert.True(validator.Validate(null, new() { SweepIntervalHours = 0 }).Failed);
     }
 }

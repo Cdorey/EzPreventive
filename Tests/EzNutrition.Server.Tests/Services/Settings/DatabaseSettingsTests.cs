@@ -32,7 +32,6 @@ public sealed class DatabaseSettingsTests
         Assert.Null(current.Value.CertificationSubmissionGraceDays);
         Assert.Null(current.Value.NonFormalAccountRetentionDays);
         Assert.Null(current.Value.FormalAccountInactivityDays);
-        Assert.Null(current.Value.SweepIntervalHours);
         await using var context = database.CreateContext();
         Assert.Empty(await context.ApplicationSettings.ToArrayAsync());
     }
@@ -104,7 +103,7 @@ public sealed class DatabaseSettingsTests
         await using var database = new TestDatabase();
         await using var provider = await database.CreateProviderAsync();
         var initial = await SaveAsync(provider, CreateOptions(), null);
-        var updated = await SaveAsync(provider, new() { SweepIntervalHours = 48 }, initial.Version);
+        var updated = await SaveAsync(provider, new() { NonFormalAccountRetentionDays = 48 }, initial.Version);
 
         await Assert.ThrowsAsync<DatabaseSettingsConcurrencyException>(() =>
             SaveAsync(provider, CreateOptions(), initial.Version));
@@ -113,7 +112,7 @@ public sealed class DatabaseSettingsTests
 
         await using var context = database.CreateContext();
         Assert.Equal(updated.Version, (await context.ApplicationSettings.SingleAsync()).Version);
-        Assert.Equal(48, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.SweepIntervalHours);
+        Assert.Equal(48, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.NonFormalAccountRetentionDays);
     }
 
     [Fact]
@@ -127,17 +126,17 @@ public sealed class DatabaseSettingsTests
         DatabaseSettingsValue<AccountCleanupOptions>? winner = null;
         interceptor.BeforeSave = async () =>
         {
-            winner = await SaveAsync(otherProvider, new() { SweepIntervalHours = 48 }, initial.Version);
+            winner = await SaveAsync(otherProvider, new() { NonFormalAccountRetentionDays = 48 }, initial.Version);
         };
 
         await Assert.ThrowsAsync<DatabaseSettingsConcurrencyException>(() =>
-            SaveAsync(provider, new() { SweepIntervalHours = 72 }, initial.Version));
+            SaveAsync(provider, new() { NonFormalAccountRetentionDays = 72 }, initial.Version));
 
         await using var context = database.CreateContext();
         Assert.Equal(winner!.Version, (await context.ApplicationSettings.SingleAsync()).Version);
-        Assert.Equal(24, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.SweepIntervalHours);
+        Assert.Equal(30, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.NonFormalAccountRetentionDays);
         await ReloadAsync(provider);
-        Assert.Equal(48, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.SweepIntervalHours);
+        Assert.Equal(48, provider.GetRequiredService<IOptionsMonitor<AccountCleanupOptions>>().CurrentValue.NonFormalAccountRetentionDays);
     }
 
     [Fact]
@@ -147,7 +146,7 @@ public sealed class DatabaseSettingsTests
         var interceptor = new BeforeSaveInterceptor();
         await using var provider = await database.CreateProviderAsync(interceptor: interceptor);
         await using var otherProvider = await database.CreateProviderAsync();
-        interceptor.BeforeSave = () => SaveAsync(otherProvider, new() { SweepIntervalHours = 48 }, null);
+        interceptor.BeforeSave = () => SaveAsync(otherProvider, new() { NonFormalAccountRetentionDays = 48 }, null);
 
         await Assert.ThrowsAsync<DatabaseSettingsConcurrencyException>(() =>
             SaveAsync(provider, CreateOptions(), null));
@@ -200,7 +199,7 @@ public sealed class DatabaseSettingsTests
     [InlineData("{")]
     [InlineData("null")]
     [InlineData("{\"unknownField\":true}")]
-    [InlineData("{\"sweepIntervalHours\":\"24\"}")]
+    [InlineData("{\"nonFormalAccountRetentionDays\":\"30\"}")]
     public async Task Malformed_stored_document_preserves_last_good_options_but_fresh_reads_fail(string json)
     {
         await using var database = new TestDatabase();
@@ -253,7 +252,7 @@ public sealed class DatabaseSettingsTests
             context.ApplicationSettings.Add(new()
             {
                 Key = AccountCleanupOptions.SectionName,
-                ValueJson = "{\"sweepIntervalHours\":0}",
+                ValueJson = "{\"nonFormalAccountRetentionDays\":0}",
                 Version = Guid.NewGuid(),
                 UpdatedAtUtc = database.Clock.GetUtcNow().UtcDateTime
             });
@@ -303,10 +302,10 @@ public sealed class DatabaseSettingsTests
         using var subscription = monitor.OnChange((_, _) => throw new InvalidOperationException("subscriber failure"));
 
         var saved = await SaveAsync(provider, CreateOptions(), null);
-        var next = await SaveAsync(provider, new() { SweepIntervalHours = 48 }, saved.Version);
+        var next = await SaveAsync(provider, new() { NonFormalAccountRetentionDays = 48 }, saved.Version);
 
         Assert.NotEqual(saved.Version, next.Version);
-        Assert.Equal(48, monitor.CurrentValue.SweepIntervalHours);
+        Assert.Equal(48, monitor.CurrentValue.NonFormalAccountRetentionDays);
     }
 
     [Fact]
@@ -373,10 +372,8 @@ public sealed class DatabaseSettingsTests
         var auditMonitor = provider.GetRequiredService<IOptionsMonitor<LlmAuditCleanupOptions>>();
         Assert.False(certificationMonitor.CurrentValue.AutoRejectEnabled);
         Assert.Null(certificationMonitor.CurrentValue.PendingTimeoutDays);
-        Assert.Null(certificationMonitor.CurrentValue.SweepIntervalHours);
         Assert.False(auditMonitor.CurrentValue.Enabled);
         Assert.Null(auditMonitor.CurrentValue.RetentionDays);
-        Assert.Null(auditMonitor.CurrentValue.SweepIntervalHours);
         var accountNotifications = 0;
         var certificationNotifications = 0;
         var auditNotifications = 0;
@@ -392,7 +389,6 @@ public sealed class DatabaseSettingsTests
         Assert.Null(audit.Version);
         certification.Value.AutoRejectEnabled = true;
         certification.Value.PendingTimeoutDays = 14;
-        certification.Value.SweepIntervalHours = 6;
 
         var savedCertification = await certificationSettings.SaveAsync(certification.Value, certification.Version);
 
@@ -401,7 +397,6 @@ public sealed class DatabaseSettingsTests
         Assert.Equal(14, certificationMonitor.CurrentValue.PendingTimeoutDays);
         audit.Value.Enabled = true;
         audit.Value.RetentionDays = 90;
-        audit.Value.SweepIntervalHours = 24;
 
         var savedAudit = await auditSettings.SaveAsync(audit.Value, audit.Version);
 
@@ -421,10 +416,8 @@ public sealed class DatabaseSettingsTests
         var restartedAudit = restarted.GetRequiredService<IOptionsMonitor<LlmAuditCleanupOptions>>().CurrentValue;
         Assert.True(restartedCertification.AutoRejectEnabled);
         Assert.Equal(14, restartedCertification.PendingTimeoutDays);
-        Assert.Equal(6, restartedCertification.SweepIntervalHours);
         Assert.True(restartedAudit.Enabled);
         Assert.Equal(90, restartedAudit.RetentionDays);
-        Assert.Equal(24, restartedAudit.SweepIntervalHours);
         await using var context = database.CreateContext();
         Assert.Equal(
             [CertificationRequestCleanupOptions.SectionName, LlmAuditCleanupOptions.SectionName],
@@ -457,8 +450,7 @@ public sealed class DatabaseSettingsTests
         NonFormalAccountCleanupEnabled = true,
         NonFormalAccountRetentionDays = 30,
         InactiveFormalAccountCleanupEnabled = true,
-        FormalAccountInactivityDays = 365,
-        SweepIntervalHours = 24
+        FormalAccountInactivityDays = 365
     };
 
     private static async Task<DatabaseSettingsValue<AccountCleanupOptions>> SaveAsync(

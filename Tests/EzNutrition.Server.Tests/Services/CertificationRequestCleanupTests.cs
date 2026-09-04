@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace EzNutrition.Server.Tests.Services;
@@ -282,43 +281,6 @@ public sealed class CertificationRequestCleanupTests
     }
 
     [Fact]
-    public async Task Worker_uses_persisted_configuration_and_respects_interval_and_runtime_disable()
-    {
-        await using var host = new TestHost();
-        var first = Request(Now.AddDays(-10));
-        await host.SeedAsync(first);
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Pending, (await host.ReadAsync(first.Id)).Status);
-        await host.SaveSettingsAsync(new() { AutoRejectEnabled = true, PendingTimeoutDays = 7 });
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Pending, (await host.ReadAsync(first.Id)).Status);
-        await host.SaveSettingsAsync(EnabledSettings());
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Rejected, (await host.ReadAsync(first.Id)).Status);
-
-        var next = Request(Now.AddDays(-10));
-        await host.SeedAsync(next);
-        host.Clock.UtcNow = Now.AddMinutes(59);
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Pending, (await host.ReadAsync(next.Id)).Status);
-        // 直接修改数据库模拟其他实例关闭开关；本实例 Options 缓存仍是启用状态。
-        await using (var db = host.CreateContext())
-        {
-            var setting = await db.ApplicationSettings.SingleAsync();
-            setting.ValueJson = "{\"autoRejectEnabled\":false}";
-            setting.Version = Guid.NewGuid();
-            await db.SaveChangesAsync();
-        }
-        Assert.True(host.Services.GetRequiredService<IOptionsMonitor<CertificationRequestCleanupOptions>>().CurrentValue.AutoRejectEnabled);
-        host.Clock.UtcNow = Now.AddHours(1);
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Pending, (await host.ReadAsync(next.Id)).Status);
-        await host.SaveSettingsAsync(EnabledSettings());
-        await host.Worker.ScanIfDueAsync(default);
-        Assert.Equal(RequestStatus.Rejected, (await host.ReadAsync(next.Id)).Status);
-    }
-
-    [Fact]
     public async Task Configuration_change_stops_sweep_between_requests()
     {
         await using var host = new TestHost();
@@ -337,25 +299,6 @@ public sealed class CertificationRequestCleanupTests
     }
 
     [Fact]
-    public async Task Invalid_configuration_prevents_automatic_processing()
-    {
-        await using var host = new TestHost();
-        var request = Request(Now.AddDays(-10));
-        await host.SeedAsync(request);
-        await host.SaveSettingsAsync(EnabledSettings());
-        await using (var db = host.CreateContext())
-        {
-            var settings = await db.ApplicationSettings.SingleAsync();
-            settings.ValueJson = "{invalid";
-            await db.SaveChangesAsync();
-        }
-
-        await Assert.ThrowsAnyAsync<Exception>(() => host.Worker.ScanIfDueAsync(default));
-
-        Assert.Equal(RequestStatus.Pending, (await host.ReadAsync(request.Id)).Status);
-    }
-
-    [Fact]
     public async Task Invalid_cutoffs_empty_versions_and_ambient_transactions_are_rejected()
     {
         await using var host = new TestHost();
@@ -370,7 +313,7 @@ public sealed class CertificationRequestCleanupTests
     }
 
     private static CertificationRequestCleanupOptions EnabledSettings() => new()
-    { AutoRejectEnabled = true, PendingTimeoutDays = 7, SweepIntervalHours = 1 };
+    { AutoRejectEnabled = true, PendingTimeoutDays = 7 };
 
     private static ProfessionalCertificationRequest Request(DateTimeOffset submitted, RequestStatus status = RequestStatus.Pending) => new()
     {
@@ -390,7 +333,6 @@ public sealed class CertificationRequestCleanupTests
         public IServiceProvider Services => scope.ServiceProvider;
         public CertificationReviewService Review => Services.GetRequiredService<CertificationReviewService>();
         public CertificationRequestCleanupService Cleanup => Services.GetRequiredService<CertificationRequestCleanupService>();
-        public CertificationRequestCleanupWorker Worker { get; }
 
         public TestHost()
         {
@@ -409,8 +351,6 @@ public sealed class CertificationRequestCleanupTests
             services.AddDatabaseSettings<CertificationRequestCleanupOptions>(CertificationRequestCleanupOptions.SectionName);
             provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
             scope = provider.CreateAsyncScope();
-            Worker = new(provider.GetRequiredService<IServiceScopeFactory>(), Clock,
-                NullLogger<CertificationRequestCleanupWorker>.Instance);
         }
 
         public ApplicationDbContext CreateContext() => new(new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -447,7 +387,6 @@ public sealed class CertificationRequestCleanupTests
 
         public async ValueTask DisposeAsync()
         {
-            Worker.Dispose();
             await scope.DisposeAsync();
             await provider.DisposeAsync();
             await connection.DisposeAsync();

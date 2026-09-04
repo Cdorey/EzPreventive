@@ -11,7 +11,4 @@ public sealed class LlmAuditCleanupOptions
 
     /// <summary>获取或设置从 RequestTime 起算的审计记录保留天数；为空表示尚未配置。</summary>
     public int? RetentionDays { get; set; }
-
-    /// <summary>获取或设置自动扫描的间隔小时数；为空表示尚未配置调度。</summary>
-    public int? SweepIntervalHours { get; set; }
 }
