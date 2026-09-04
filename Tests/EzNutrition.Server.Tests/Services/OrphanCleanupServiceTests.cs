@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -63,6 +64,32 @@ public sealed class OrphanCleanupServiceTests
         Assert.Equal(0, secondResult.CleanupCandidates);
         Assert.Equal(0, secondResult.DeletedFiles);
         Assert.Equal(0, secondResult.FailedFiles);
+    }
+
+    [Fact]
+    public async Task Worker_cleanup_uses_a_24_hour_file_grace_period()
+    {
+        await using var host = TestHost.Create();
+        var now = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
+        var oldOrphanedTicket = Guid.NewGuid();
+        var recentOrphanedTicket = Guid.NewGuid();
+        await host.SaveCertificateAsync(oldOrphanedTicket);
+        await host.SaveCertificateAsync(recentOrphanedTicket);
+        host.SetCertificateTimestamp(oldOrphanedTicket, now.AddHours(-25));
+        host.SetCertificateTimestamp(recentOrphanedTicket, now.AddHours(-23));
+
+        await using var services = new ServiceCollection()
+            .AddSingleton(host.Service)
+            .BuildServiceProvider();
+        var worker = new OrphanFileCleanupWorker(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            new FixedTimeProvider(now),
+            NullLogger<OrphanFileCleanupWorker>.Instance);
+
+        await worker.CleanupAsync(CancellationToken.None);
+
+        Assert.Null(host.CertificateFileStore.OpenRead(oldOrphanedTicket));
+        AssertCertificateExists(host.CertificateFileStore, recentOrphanedTicket);
     }
 
     [Fact]
@@ -243,5 +270,10 @@ public sealed class OrphanCleanupServiceTests
         public string ContentRootPath { get; set; } = contentRootPath;
 
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }

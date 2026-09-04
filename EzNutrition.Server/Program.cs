@@ -69,6 +69,7 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<LlmAuditCleanupService>();
             builder.Services.AddHostedService<LlmAuditCleanupWorker>();
             builder.Services.AddScoped<OrphanCleanupService>();
+            builder.Services.AddHostedService<OrphanFileCleanupWorker>();
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
