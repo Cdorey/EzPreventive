@@ -18,15 +18,19 @@
     <Form Model="Information" Layout="FormLayout.Vertical">
         <FormItem Label="主观资料">
             <TextArea @bind-Value="context.Subjective" Placeholder="主诉与症状；现病史；以及既往史等主观资料" Rows="5" />
+            <ConsultationHistoryPanel History="History" Item="ConsultationHistoryItem.Subjective" Title="既往主观资料" OnLoad="OnLoadHistory" />
         </FormItem>
         <FormItem Label="客观资料">
             <TextArea @bind-Value="context.Objective" Placeholder="体格检查；辅助检查；营养学评估量表结果等客观资料" Rows="5" />
+            <ConsultationHistoryPanel History="History" Item="ConsultationHistoryItem.Objective" Title="既往客观资料" OnLoad="OnLoadHistory" />
         </FormItem>
         <FormItem Label="问题评估">
             <TextArea @bind-Value="context.Assessment" Placeholder="诊断及诊断依据；鉴别诊断及鉴别诊断依据；" Rows="2" />
+            <ConsultationHistoryPanel History="History" Item="ConsultationHistoryItem.Assessment" Title="既往问题评估" OnLoad="OnLoadHistory" />
         </FormItem>
         <FormItem Label="处理计划">
             <TextArea @bind-Value="context.Plan" Placeholder="问题处理计划；营养治疗计划等；" Rows="5" />
+            <ConsultationHistoryPanel History="History" Item="ConsultationHistoryItem.Plan" Title="既往处理计划" OnLoad="OnLoadHistory" />
         </FormItem>
     </Form>
 </div>
@@ -34,4 +38,10 @@
 @code {
     [Parameter, EditorRequired]
     public required SubjectiveObjectiveAssessmentPlanInformation Information { get; set; }
+
+    /// <summary>获取复诊历史；普通咨询为空。</summary>
+    [Parameter] public ConsultationHistory? History { get; set; }
+
+    /// <summary>请求页面按需读取历史，各 SOAP 字段共享结果。</summary>
+    [Parameter] public EventCallback<bool> OnLoadHistory { get; set; }
 }

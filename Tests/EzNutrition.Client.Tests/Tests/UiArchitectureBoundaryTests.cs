@@ -15,6 +15,7 @@ public sealed class UiArchitectureBoundaryTests
         "EzNutrition.Assessments.Common",
         "EzNutrition.Presentation",
         "EzNutrition.Server",
+        "EzNutrition.Archives.Xml",
         "Microsoft.AspNetCore.Components.WebAssembly",
         "Microsoft.Extensions.Http",
         "System.Net.Http"

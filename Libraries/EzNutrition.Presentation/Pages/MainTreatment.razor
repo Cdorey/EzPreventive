@@ -1,5 +1,6 @@
 ﻿@page "/maintreatment/{id?}"
 @using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Archives
 @using EzNutrition.Presentation.Services
 @using EzNutrition.Domain.Assessments
 @using EzNutrition.Domain.Calculations
@@ -14,6 +15,8 @@
 @inject ConsultationApplicationService ConsultationService
 @inject NutritionAssessmentApplicationService NutritionAssessmentService
 @inject IMessageService Message
+@inject IArchiveWorkflow ArchiveWorkflow
+@inject ILogger<MainTreatment> Logger
 
 <PageTitle>营养咨询</PageTitle>
 
@@ -78,11 +81,13 @@
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="身高（cm）">
                                         <Input @bind-Value="context.Height" type="InputType.Number" min="0" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Height" Title="既往身高" OnLoad="LoadHistoryAsync" />
                                     </FormItem>
                                 </GridCol>
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="体重（kg）">
                                         <Input @bind-Value="context.Weight" type="InputType.Number" min="0" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Weight" Title="既往体重" OnLoad="LoadHistoryAsync" />
                                     </FormItem>
                                 </GridCol>
                                 <GridCol Xs="24">
@@ -151,6 +156,8 @@
                             <div><dt>体重</dt><dd>@CurrentArchive.Client.Weight kg</dd></div>
                             <div class="wide-fact"><dt>生理状况</dt><dd>@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</dd></div>
                         </dl>
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Height" Title="既往身高" OnLoad="LoadHistoryAsync" />
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Weight" Title="既往体重" OnLoad="LoadHistoryAsync" />
 
                         @if (CurrentArchive.CurrentEnergyCalculator?.BMI is not null)
                         {
@@ -220,6 +227,7 @@
                                         <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator"
                                                                    IsTouchDetected="@UserSession.IsTouchDetected"
                                                                    OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.AdoptedEnergy" Title="既往采用能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
                                 <TabPane Key="dri" Tab="参考摄入量" Closable="false">
@@ -234,6 +242,7 @@
                                         <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
                                                        OnCalculationCompleted="DietarySurveyCalculationCompleted"
                                                        OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.DietaryEnergy" Title="既往膳食记录总能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
                                 @foreach (var assessment in CurrentArchive.NutritionAssessments)
@@ -258,7 +267,7 @@
                     @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
                     {
                         <section id="nutrition-diagnosis" class="surface-card diagnosis-card" aria-label="营养问题与诊断">
-                            <MedicalInformation Information="medicalInformation" />
+                            <MedicalInformation Information="medicalInformation" History="CurrentArchive.History" OnLoadHistory="LoadHistoryAsync" />
                         </section>
                     }
 
@@ -272,6 +281,7 @@
                         </div>
                         <Advice CurrentArchive="@CurrentArchive"
                                 OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Advice" Title="既往营养建议" OnLoad="LoadHistoryAsync" />
                     </section>
                 </div>
             </div>
@@ -284,6 +294,25 @@
     public string? Id { get; set; }
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
+
+    /// <summary>按需加载当前复诊的共享历史；异常不清空本次咨询，也不自动发送历史给后端。</summary>
+    private async Task LoadHistoryAsync(bool reload)
+    {
+        if (CurrentArchive?.History is not { } history) return;
+        try
+        {
+            if (reload) await history.ReloadAsync(ArchiveWorkflow, lifetimeCancellation.Token);
+            else await history.LoadAsync(ArchiveWorkflow, lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogWarning(exception, "Unable to load consultation history.");
+            await Message.ErrorAsync("既往咨询读取失败，请稍后重新展开历史记录。");
+        }
+    }
     private const string AssessmentTabPrefix = "assessment-";
     private string activeWorkspaceTabKey = "energy";
 
