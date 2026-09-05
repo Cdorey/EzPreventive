@@ -63,17 +63,7 @@ var saved = await settings.SaveAsync(
 
 ## HTTP 接口
 
-`MaintenanceSettingsController` 使用管理员策略保护，并禁止响应缓存。
-
-| 方法 | 路径 | 用途 |
-| --- | --- | --- |
-| `GET` | `Admin/MaintenanceSettings` | 读取全部维护配置及各组版本 |
-| `PUT` | `Admin/MaintenanceSettings/cleanup-schedule` | 保存每日清理时间 |
-| `PUT` | `Admin/MaintenanceSettings/account-cleanup` | 保存账号清理配置 |
-| `PUT` | `Admin/MaintenanceSettings/certification-request-cleanup` | 保存认证申请清理配置 |
-| `PUT` | `Admin/MaintenanceSettings/llm-audit-cleanup` | 保存 LLM 审计清理配置 |
-
-PUT 请求提交完整的 `Value` 和读取时获得的 `ExpectedVersion`。成功返回保存后的配置和新版本；业务校验失败返回 400，版本冲突返回 409。
+配置读取、完整组保存、字段默认值及并发错误契约见 [HTTP API：维护配置](./http-api/maintenance.md#配置读取与保存)。本文描述数据库持久化、Options 发布和多实例同步的内部机制。
 
 ## 重载和多实例一致性
 

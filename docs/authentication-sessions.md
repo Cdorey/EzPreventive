@@ -22,32 +22,7 @@
 
 ## HTTP 契约
 
-以下路径均相对于应用部署基路径，认证响应设置 `Cache-Control: no-store`。业务请求仍使用 `Authorization: Bearer <accessToken>`。
-
-| 接口 | 请求 | 响应 |
-| --- | --- | --- |
-| `POST Auth/Login` | JSON：`userName`、`password`、`rememberLogin` | 桌面令牌对象，包含 `refreshToken` |
-| `POST Auth/Refresh` | JSON：`refreshToken`、`sessionId` | 新访问令牌与新刷新凭据 |
-| `POST Auth/Logout` | JSON：`refreshToken`、`sessionId` | `204`；重复注销幂等 |
-| `GET Auth/Browser/Csrf` | 同源 Cookie | `{ "requestToken": "..." }`，同时设置防伪 Cookie |
-| `POST Auth/Browser/Login` | 登录 JSON、防伪 Cookie、`X-CSRF-TOKEN` | 访问令牌对象，另设刷新 Cookie |
-| `POST Auth/Browser/Refresh` | JSON：`sessionId`，同源 Cookie、CSRF | 新访问令牌并轮换 Cookie；无 Cookie 返回 `204` |
-| `POST Auth/Browser/Logout` | JSON：`sessionId`，同源 Cookie、CSRF | 撤销会话、删除 Cookie，返回 `204` |
-
-令牌对象字段为 `sessionId`、`accessToken`、`accessTokenExpiresAtUtc`、`refreshExpiresAtUtc`、`sessionExpiresAtUtc`、`rememberLogin`。只有桌面接口包含 `refreshToken`。恢复浏览器 Cookie 时允许省略 `sessionId`，后续刷新、注销由客户端携带预期值，避免旧窗口操作新账号。
-
-错误正文使用 `{ "code": "...", "message": "..." }`：
-
-| 状态 | `code` | 客户端行为 |
-| --- | --- | --- |
-| `401` | `invalid_credentials` | 登录失败，保留手动登录界面 |
-| `401` | `access_token_expired` | 对可重发请求刷新并最多重试一次 |
-| `401` | `session_invalid` | 当前会话失效，清除本地身份并要求重新登录 |
-| `409` | `session_changed` | 其他窗口已经切换会话，禁止以新账号重发旧请求 |
-| `403` | 不用于续期 | 保留登录状态，按权限错误处理 |
-| `429`、`5xx` 或网络失败 | 不视为永久失效 | 保留恢复凭据，等待用户重试 |
-
-框架生成的 CSRF/请求验证失败可返回其原有 `400` 响应。认证模块将不可识别的响应作为失败处理，不自动重发一次性刷新请求。登录和刷新分别使用已有的登录限流和新增的每 IP 每分钟 120 次刷新限流。
+路由、请求响应、Cookie、CSRF 和错误处理统一见 [HTTP API：认证会话](./http-api/authentication.md)。本文负责服务端会话存储、客户端协调和部署实现。
 
 ## 客户端边界
 
@@ -63,13 +38,13 @@
 
 WPF 通过独立的 `Authentication` HTTP 客户端交换 JSON，禁用 Cookie 和自动重定向。勾选保持登录时用 DPAPI `CurrentUser` 加密会话标识、刷新凭据和绝对期限，按“端点 + 传输安全策略”隔离。排他文件锁覆盖读取、网络轮换及原子保存；不勾选时仅保留进程内凭据。详情见 [WPF 宿主说明](./wpf-hybrid-host.md#记住登录)。
 
-浏览器的 `EzNutrition.Refresh` Cookie 为 HttpOnly、SameSite=Strict，生产环境始终 Secure，路径限制为部署基路径下的 `/Auth/Browser`。勾选保持登录才设置持久化到期时间；未勾选使用会话 Cookie，其生命周期也受浏览器会话恢复设置影响。浏览器 POST 经 ASP.NET Core 防伪校验，参见 [Microsoft 的防伪请求说明](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0)。访问 JWT 仅在内存中；Local Storage 只存非秘密的会话标识、变更通知与待完成的退出意图。
+浏览器 Cookie 与 CSRF 的网络契约见[认证接口](./http-api/authentication.md)。访问 JWT 仅在内存中；Local Storage 只存非秘密的会话标识、变更通知与待完成的退出意图。
 
 浏览器依赖同源部署、HTTPS 安全上下文和 Web Locks，跨标签页串行登录、轮换与注销。其他标签页登录或退出会通知当前页面重新恢复共享会话；不支持协调能力时明确报错。离线退出会先保存待注销标记，重载时优先完成注销，防止残留 Cookie 自动恢复登录。
 
 ## 升级、部署与验证
 
-1. 前后端统一发布 `2.2.0.0`。旧 `Auth/Login` 表单/纯字符串响应契约不再兼容；旧 JWT 缺少 `sid`，升级后要求重新登录。
+1. 前后端统一发布 `2.2.0.0`，调用方按 [HTTP API 升级说明](./http-api/README.md#从-21-升级)调整。
 2. 发布前对 **ApplicationDbContext** 应用迁移 `20260903000902_AddAuthenticationSessions`。它只新增认证表及索引，不修改营养参考数据库。可按部署流程生成审阅 SQL：
 
    ```powershell

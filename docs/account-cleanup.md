@@ -35,22 +35,13 @@ Task<AccountCleanupResult> DeleteAccountsWithoutRolesAsync(
 
 ## 管理员 HTTP 接口
 
-`AccountCleanupController` 使用管理员策略保护，并禁止响应缓存。
-
-| 方法 | 路径 | 行为 |
-| --- | --- | --- |
-| `POST` | `Admin/AccountCleanup/preview` | 按当前已保存配置预览一条规则，不修改数据 |
-| `POST` | `Admin/AccountCleanup/execute` | 按预览时的配置版本和截止时间执行同一规则 |
-
-预览和手工执行不要求对应的自动开关已经开启，但规则的保留天数必须已保存为正整数。数据库中还没有 `AccountCleanup` 配置行时，接口拒绝运行。
-
-执行请求必须携带预览取得的 `ExpectedSettingsVersion` 和 `CutoffUtc`。配置版本变化时返回 409，要求重新预览。执行时允许提交比当前配置计算结果更早的截止时间，以缩小清理范围，但不能扩大范围。
+请求、响应、规则枚举和手工执行限制统一见 [HTTP API：维护与清理](./http-api/maintenance.md)。下文说明服务入口的执行与事务机制。
 
 ## 预览、执行和返回结果
 
 默认 `dryRun = true`。预览只返回初筛时的完整候选清单，不修改数据库或文件。执行会冻结初筛清单，再逐账号复核相同条件；本轮开始后新出现的候选交给下一次调用处理。
 
-`AccountCleanupResult` 包含截止时间、是否预览、条目列表、取消状态和配置变化状态。HTTP 明细只暴露账号标识、初筛用户名、状态、原因及证件文件清理失败数，不返回 Identity 实体或密码资料。
+`AccountCleanupResult` 包含截止时间、是否预览、条目列表、取消状态和配置变化状态。对外结果由控制器转换，字段见[HTTP 清理结果](./http-api/maintenance.md#预览与执行)。
 
 | 状态 | 含义 |
 | --- | --- |
