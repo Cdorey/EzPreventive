@@ -175,6 +175,8 @@ public sealed class ArchiveCenterRenderTests
     {
         public ArchiveWorkflowCapabilities Capabilities { get; } = capabilities;
 
+        public ValueTask<ConsultationHistoryReadResult> ReadHistoryAsync(Guid patientId, Guid documentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public ValueTask<ArchiveBrowseResult> BrowseAsync(CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(new ArchiveBrowseResult
             {

@@ -183,6 +183,8 @@ public sealed class MainTreatmentRenderTests
     {
         public ArchiveWorkflowCapabilities Capabilities => ArchiveWorkflowCapabilities.None;
 
+        public ValueTask<ConsultationHistoryReadResult> ReadHistoryAsync(Guid patientId, Guid documentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public ValueTask<ArchiveOperationResult> SaveCurrentAsync(
             ConsultationWorkspace workspace,
             CancellationToken cancellationToken = default) => throw Unavailable();
