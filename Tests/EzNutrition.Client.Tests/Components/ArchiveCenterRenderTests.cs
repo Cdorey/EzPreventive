@@ -15,6 +15,33 @@ namespace EzNutrition.Client.Tests.Components;
 public sealed class ArchiveCenterRenderTests
 {
     [Fact]
+    public async Task Initial_list_limits_patient_groups_and_prioritizes_recently_saved_old_consultations()
+    {
+        var startedAt = new DateTimeOffset(2026, 8, 1, 8, 0, 0, TimeSpan.Zero);
+        var records = Enumerable.Range(1, 21)
+            .Select(day => CreateRecord(Guid.NewGuid(), Guid.NewGuid(), $"对象{day}", $"咨询{day}", startedAt.AddDays(day)))
+            .ToList();
+        records.Add(new ArchiveRecordSummary
+        {
+            DocumentId = Guid.NewGuid(),
+            PatientId = Guid.NewGuid(),
+            SubjectDisplay = "最近修订对象",
+            Title = "较早咨询的新修订",
+            ConsultationStartedAt = startedAt.AddYears(-1),
+            LastSavedAt = startedAt.AddMonths(1)
+        });
+
+        var html = WebUtility.HtmlDecode(await RenderAsync(records, includeFollowUpCallback: false));
+
+        Assert.Equal(20, CountOccurrences(html, "class=\"archive-patient-group\""));
+        Assert.Contains("较早咨询的新修订", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">咨询1</strong>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">咨询2</strong>", html, StringComparison.Ordinal);
+        Assert.True(html.IndexOf("最近修订对象", StringComparison.Ordinal) < html.IndexOf("对象21", StringComparison.Ordinal));
+        Assert.Contains("显示更多（2 组）", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Consultations_with_the_same_patient_identity_render_as_one_patient_group()
     {
         var patientId = Guid.NewGuid();

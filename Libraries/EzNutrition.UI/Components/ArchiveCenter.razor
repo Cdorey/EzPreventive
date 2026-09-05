@@ -65,6 +65,15 @@
 
         <div class="archive-workspace">
             <aside class="archive-list" aria-label="本机档案列表">
+                <div class="archive-search">
+                    <label for="archive-search-input">查找咨询对象</label>
+                    <input id="archive-search-input"
+                           type="search"
+                           placeholder="搜索姓名或咨询标题"
+                           value="@searchText"
+                           @oninput="SearchChanged" />
+                    <small>搜索全部本机档案，按最近保存时间排列。</small>
+                </div>
                 @if (loading)
                 {
                     <Skeleton Active />
@@ -75,13 +84,29 @@
                 }
                 else
                 {
-                    @foreach (var group in PatientGroups)
+                    var groups = PatientGroups;
+                    var searchTerm = searchText.Trim();
+                    var matchingGroups = searchTerm.Length == 0
+                        ? groups
+                        : groups.Where(group => group.Consultations.Any(record =>
+                            record.SubjectDisplay.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                            record.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))).ToArray();
+                    <div class="archive-list-summary" role="status">
+                        @(string.IsNullOrWhiteSpace(searchText) ? "最近更新" : "搜索结果")
+                        · 显示 @Math.Min(visiblePatientCount, matchingGroups.Count) / @matchingGroups.Count 组
+                    </div>
+                    @if (matchingGroups.Count == 0)
                     {
-                        <section class="archive-patient-group" data-patient-id="@group.PatientId?.ToString("D")">
+                        <Empty Description="@("未找到匹配的咨询对象，请尝试其他姓名或咨询标题")" />
+                    }
+                    @foreach (var group in matchingGroups.Take(visiblePatientCount))
+                    {
+                        <section @key="group.Consultations[0].DocumentId" class="archive-patient-group" data-patient-id="@group.PatientId?.ToString("D")">
                             <header class="archive-patient-heading">
                                 <div>
                                     <strong>@group.SubjectDisplay</strong>
                                     <small>@group.Consultations.Count 次咨询</small>
+                                    <small>最近保存 <LocalDateTimeDisplay Value="@group.LastSavedAt" Format="yyyy-MM-dd HH:mm" /></small>
                                     @if (group.PatientId is null)
                                     {
                                         <small class="archive-legacy-note">旧版未关联档案</small>
@@ -128,6 +153,10 @@
                                 }
                             </div>
                         </section>
+                    }
+                    @if (matchingGroups.Count > visiblePatientCount)
+                    {
+                        <Button Block OnClick="ShowMorePatients">显示更多（@Math.Min(PatientPageSize, matchingGroups.Count - visiblePatientCount) 组）</Button>
                     }
                 }
             </aside>
@@ -210,6 +239,19 @@
     private bool deleteDialogVisible;
     private bool clearDialogVisible;
     private ArchiveRecordSummary? pendingDelete;
+    private const int PatientPageSize = 20;
+    private string searchText = string.Empty;
+    private int visiblePatientCount = PatientPageSize;
+
+    /// <summary>搜索整个档案索引；关键词变化时回到首批结果，不改变已打开的档案。</summary>
+    private void SearchChanged(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        visiblePatientCount = PatientPageSize;
+    }
+
+    /// <summary>逐批展示较早更新的咨询对象，保持当前搜索条件。</summary>
+    private void ShowMorePatients() => visiblePatientCount += PatientPageSize;
 
     private bool CanBrowse => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse);
 
