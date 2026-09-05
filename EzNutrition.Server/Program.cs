@@ -8,6 +8,7 @@ using EzNutrition.Server.Services.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 
@@ -41,7 +42,6 @@ namespace EzNutrition.Server
             });
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<AuthenticationSessionService>();
-            builder.Services.AddHostedService<AuthenticationSessionCleanupWorker>();
             builder.Services.AddScoped<DietaryReferenceIntakeRepository>();
             builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddSingleton(TimeProvider.System);
@@ -59,8 +59,13 @@ namespace EzNutrition.Server
             builder.Services.AddScoped<FoodNutritionValueRepository>();
             builder.Services.AddSingleton<AiAdvicePromptComposer>();
             builder.Services.AddSingleton<CertificateFileStore>();
+            builder.Services.AddScoped<CertificationReviewService>();
+            builder.Services.AddScoped<CertificationRequestCleanupService>();
             builder.Services.AddScoped<AccountDeletionService>();
+            builder.Services.AddScoped<AccountCleanupService>();
+            builder.Services.AddScoped<LlmAuditCleanupService>();
             builder.Services.AddScoped<OrphanCleanupService>();
+            builder.Services.AddHostedService<MaintenanceCleanupWorker>();
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -128,6 +133,13 @@ namespace EzNutrition.Server
                 .ValidateOnStart();
             builder.Services.AddOptions<AuthBootstrapSettings>()
                 .Bind(builder.Configuration.GetSection(AuthBootstrapSettings.SectionName));
+            builder.Services.AddDatabaseSettings<CleanupScheduleOptions>(CleanupScheduleOptions.SectionName);
+            builder.Services.AddSingleton<IValidateOptions<AccountCleanupOptions>, AccountCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<AccountCleanupOptions>(AccountCleanupOptions.SectionName);
+            builder.Services.AddSingleton<IValidateOptions<CertificationRequestCleanupOptions>, CertificationRequestCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<CertificationRequestCleanupOptions>(CertificationRequestCleanupOptions.SectionName);
+            builder.Services.AddSingleton<IValidateOptions<LlmAuditCleanupOptions>, LlmAuditCleanupOptionsValidator>();
+            builder.Services.AddDatabaseSettings<LlmAuditCleanupOptions>(LlmAuditCleanupOptions.SectionName);
             builder.Services.AddOptions<JwtSettings>()
                 .Bind(builder.Configuration.GetSection(nameof(JwtSettings)))
                 .ValidateDataAnnotations()
@@ -165,6 +177,8 @@ namespace EzNutrition.Server
                     return;
                 }
             }
+
+            await app.Services.LoadDatabaseSettingsAsync();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())

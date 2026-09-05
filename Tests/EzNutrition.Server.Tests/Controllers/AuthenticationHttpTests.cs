@@ -217,6 +217,7 @@ public sealed class AuthenticationHttpTests
             builder.Logging.ClearProviders();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["JwtSettings:PublicKey"] = publicKey });
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connection.ConnectionString));
+            builder.Services.AddDbContextFactory<ApplicationDbContext>(lifetime: ServiceLifetime.Scoped);
             builder.AuthorizeConfiguration();
             builder.Services.AddControllersWithViews().AddApplicationPart(typeof(AuthController).Assembly);
             builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
@@ -232,6 +233,7 @@ public sealed class AuthenticationHttpTests
             builder.Services.AddScoped<AuthManagerRepository>();
             builder.Services.AddScoped<AccountSecurityService>();
             builder.Services.AddScoped<AccountDeletionService>();
+            builder.Services.AddScoped<CertificationReviewService>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddSingleton<LoginTimingEqualizer>();
             builder.Services.AddSingleton<CertificateFileStore>();

@@ -69,6 +69,44 @@
     background: #f7f9fc;
 }
 
+.archive-search {
+    display: grid;
+    gap: 8px;
+}
+
+.archive-search label {
+    color: var(--ez-navy);
+    font-weight: 600;
+}
+
+.archive-search input {
+    min-width: 0;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--ez-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ez-text);
+    font: inherit;
+}
+
+.archive-search input:focus-visible {
+    outline: 2px solid var(--ez-primary-strong);
+    outline-offset: 2px;
+}
+
+.archive-search small,
+.archive-list-summary {
+    color: var(--ez-text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+.archive-list-summary {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ez-border);
+}
+
 .archive-patient-group {
     overflow: hidden;
     background: #fff;

@@ -93,6 +93,36 @@ namespace EzNutrition.Server.Migrations.ApplicationDb
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("EzNutrition.Server.Data.Entities.ApplicationSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ValueJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("ApplicationSettings");
+                });
+
             modelBuilder.Entity("EzNutrition.Server.Data.Entities.AuthenticationSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -164,9 +194,14 @@ namespace EzNutrition.Server.Migrations.ApplicationDb
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RequestTime");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("PrescriptionGenerateRequests");
                 });
@@ -205,9 +240,18 @@ namespace EzNutrition.Server.Migrations.ApplicationDb
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "RequestTime");
 
                     b.ToTable("ProfessionalCertificationRequests");
                 });

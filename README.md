@@ -14,7 +14,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 - **AI 辅助建议**：通过服务端调用生成式 AI，并以流式方式呈现推理和建议；供应商能力由可替换适配器隔离，支持取消、失败反馈与重新发送。
 - **身份与权限**：提供邮箱确认与重发、密码修改与邮箱找回、邮箱/手机号码修改、专业身份相关流程和受权限保护的功能入口。
 - **机构服务连接**：WPF 可连接机构自行部署的兼容后端，默认执行严格 HTTPS 验证；用户主动确认风险后也可使用自签名 HTTPS 或不加密 HTTP。
-- **登录续期**：短期 JWT 配合一次性刷新凭据，访问临期自动续期；WPF 用端点级 DPAPI 保存刷新凭据，浏览器使用 HttpOnly Cookie。协议、期限与升级步骤见[认证会话说明](./docs/authentication-sessions.md)。
+- **登录续期**：短期 JWT 配合一次性刷新凭据，访问临期自动续期；WPF 用端点级 DPAPI 保存刷新凭据，浏览器使用 HttpOnly Cookie。接口协议见 [HTTP API](./docs/http-api/authentication.md)，内部机制与部署见[认证会话说明](./docs/authentication-sessions.md)。
 - **本机档案**：提供格式无关的档案模型、校验与工作流；WASM 使用 IndexedDB，WPF 使用当前用户的应用数据目录，并支持 XML 文档导入、另存为及资源管理器定位。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
@@ -45,6 +45,8 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 | `Tests/*.Tests` | Application、Archives、Client、WPF 和 Server 的行为、安全流程与架构边界测试 |
 
 依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。WASM 与 WPF 是互不引用的并列宿主，共享完整工作台时统一依赖 `EzNutrition.Presentation`。详细边界和各上级类库盘点见[项目与依赖边界](./docs/project-architecture.md)。
+
+开发文档入口见[文档目录](./docs/README.md)；前后端对接以 [HTTP API 2.2](./docs/http-api/README.md) 为准。
 
 ## 本地开发与验证
 

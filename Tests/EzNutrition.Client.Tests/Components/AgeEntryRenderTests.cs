@@ -42,21 +42,9 @@ public sealed class AgeEntryRenderTests
         Assert.DoesNotContain("id=\"birth-date\"", html, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task Inline_layout_adds_only_the_layout_modifier()
-    {
-        var client = new ClientInfo { Age = new ChronologicalAge(25) };
-
-        var html = await RenderAsync(client, new DateOnly(2025, 9, 9), inline: true);
-
-        Assert.Contains("age-entry age-entry-inline", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"age\"", html, StringComparison.Ordinal);
-    }
-
     private static async Task<string> RenderAsync(
         ClientInfo client,
-        DateOnly effectiveDate,
-        bool inline = false)
+        DateOnly effectiveDate)
     {
         await using var services = new ServiceCollection()
             .AddLogging()
@@ -74,7 +62,6 @@ public sealed class AgeEntryRenderTests
                 builder.OpenComponent<AgeEntry>(0);
                 builder.AddAttribute(1, nameof(AgeEntry.Client), client);
                 builder.AddAttribute(2, nameof(AgeEntry.EffectiveDate), effectiveDate);
-                builder.AddAttribute(3, nameof(AgeEntry.Inline), inline);
                 builder.CloseComponent();
             };
             var output = await renderer.RenderComponentAsync<Form<ClientInfo>>(

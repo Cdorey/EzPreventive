@@ -26,10 +26,13 @@ public sealed class UserSessionCredentialTests
         Assert.Null(ordinary.InstitutionName);
     }
 
+    /// <summary>匿名登录只发布最终身份，避免认证路由用冗余匿名通知销毁登录页。</summary>
     [Fact]
     public async Task Sign_in_passes_normalized_username_and_remember_choice_to_host()
     {
         var context = new SessionTestContext();
+        var authenticationChanges = 0;
+        context.Session.AuthenticationStateChanged += _ => authenticationChanges++;
         LoginRequestDto? received = null;
         context.Authentication.SignIn = request =>
         {
@@ -41,6 +44,7 @@ public sealed class UserSessionCredentialTests
         Assert.Equal("password", received?.Password);
         Assert.True(received?.RememberLogin);
         Assert.True(context.Session.TryGetAccessToken(out _));
+        Assert.Equal(1, authenticationChanges);
     }
 
     [Fact]

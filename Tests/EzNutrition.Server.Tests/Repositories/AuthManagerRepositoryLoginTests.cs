@@ -361,6 +361,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite(connection.ConnectionString));
+            services.AddDbContextFactory<ApplicationDbContext>(lifetime: ServiceLifetime.Scoped);
             services
                 .AddIdentity<ApplicationUser, IdentityRole>(options =>
                 {
@@ -396,6 +397,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
             services.AddScoped<AuthenticationSessionService>();
             services.AddScoped<AccountSecurityService>();
             services.AddScoped<AccountDeletionService>();
+            services.AddScoped<CertificationReviewService>();
             services.AddScoped<AuthManagerRepository>();
 
             var provider = services.BuildServiceProvider();

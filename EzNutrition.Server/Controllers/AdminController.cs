@@ -25,6 +25,7 @@ namespace EzNutrition.Server.Controllers
         ApplicationDbContext applicationDbContext,
         CertificateFileStore certificateFileStore,
         AccountDeletionService accountDeletionService,
+        CertificationReviewService certificationReviewService,
         TimeProvider timeProvider) : ControllerBase
     {
         /// <summary>
@@ -504,46 +505,23 @@ namespace EzNutrition.Server.Controllers
                 return BadRequest(ModelState);
             }
 
-            if (!Enum.IsDefined(dto.Status))
-            {
-                return BadRequest("认证请求状态无效。");
-            }
-
             try
             {
-                // 根据 DTO 中的 Id 查找数据库中的对象
-                var request = await applicationDbContext.ProfessionalCertificationRequests.FindAsync(
-                    [dto.Id],
-                    cancellationToken);
-                if (request == null)
+                var result = await certificationReviewService.UpdateAsync(
+                    dto.Id, dto.Version, dto.Status, dto.ProcessDetails, dto.Remarks, cancellationToken);
+                return result.Status switch
                 {
-                    logger.LogWarning("更新失败：请求 {RequestId} 不存在", dto.Id);
-                    return NotFound("请求不存在");
-                }
-                var ticket = request.CertificateTicket;
-
-                // 更新各属性
-                request.Status = dto.Status;
-                request.ProcessedTime = timeProvider.GetUtcNow().UtcDateTime;
-                request.ProcessDetails = dto.ProcessDetails;
-                request.Remarks = dto.Remarks;
-                request.CertificateTicket = dto.Status == RequestStatus.Pending ? dto.CertificateTicket : null;
-                // 保存更改
-                await applicationDbContext.SaveChangesAsync(cancellationToken);
-
-                if (dto.Status != RequestStatus.Pending && ticket is not null)
-                {
-                    try
+                    CertificationReviewStatus.Updated => Ok(new { message = "更新成功", version = result.Version }),
+                    CertificationReviewStatus.NotFound => NotFound("请求不存在"),
+                    CertificationReviewStatus.InvalidStatus => BadRequest("认证请求状态无效。"),
+                    CertificationReviewStatus.InvalidVersion => BadRequest("缺少有效的申请版本，请刷新后重试。"),
+                    CertificationReviewStatus.Conflict => Conflict(new
                     {
-                        certificateFileStore.Delete(ticket.Value);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "根据 Ticket {Ticket} 获取文件失败", ticket);
-                    }
-
-                }
-                return Ok(new { message = "更新成功" });
+                        code = "certification_changed",
+                        message = "申请状态或版本已变化，或仍有并发修改，请刷新后重新确认。"
+                    }),
+                    _ => throw new InvalidOperationException("未知的认证审核更新结果。")
+                };
             }
             catch (Exception ex)
             {

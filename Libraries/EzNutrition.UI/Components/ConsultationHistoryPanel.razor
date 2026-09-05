@@ -1,0 +1,106 @@
+@using System.Globalization
+
+@if (History is not null && (!History.IsLoaded || History.IsLoading || History.FailedCount > 0 || History.Error is not null || Rows.Any()))
+{
+    <section class="consultation-history" aria-label="@Title">
+        <button type="button" class="history-toggle" aria-expanded="@expanded" @onclick="ToggleAsync">
+            <Icon Type="history" Theme="IconThemeType.Outline" />
+            <span>@Title</span>
+            <span class="history-toggle-hint">@(expanded ? "收起" : "查看历次")</span>
+        </button>
+        @if (expanded)
+        {
+            <div class="history-content" aria-busy="@History.IsLoading">
+                @if (History.IsLoading)
+                {
+                    <div role="status"><Spin Spinning /><span>正在读取既往咨询…</span></div>
+                }
+                else if (History.Error is not null)
+                {
+                    <p role="alert">@History.Error</p>
+                    <Button OnClick="() => OnLoad.InvokeAsync(true)">重新读取</Button>
+                }
+                else if (History.IsLoaded)
+                {
+                    @if (History.FailedCount > 0)
+                    {
+                        <p class="history-warning" role="status">@History.FailedCount 份档案未能读取，以下记录可能不完整。</p>
+                        <Button OnClick="() => OnLoad.InvokeAsync(true)">重试读取</Button>
+                    }
+                    @if (Rows.Any())
+                    {
+                        <p class="history-note">仅列已记录的项目，按咨询时间排列；历史内容不影响本次填写。</p>
+                        <div class="history-records" tabindex="0" aria-label="@($"{Title}记录")">
+                            @foreach (var row in Rows)
+                            {
+                                <article class="history-row">
+                                    <div class="history-date">
+                                        <LocalDateTimeDisplay Value="@row.Fact.EffectiveAt" Format="yyyy-MM-dd HH:mm" />
+                                        <small>@(row.Fact.UsesConsultationTime ? "咨询时间（未记录项目时间）" : "项目记录时间")</small>
+                                    </div>
+                                    @if (row.Fact.Quantity is { } quantity)
+                                    {
+                                        <strong class="history-value">@quantity.Comparator@quantity.Value.ToString(CultureInfo.CurrentCulture) @quantity.UnitDisplay</strong>
+                                    }
+                                    else
+                                    {
+                                        <details class="history-text">
+                                            <summary>查看记录</summary>
+                                            <p>@row.Fact.Text</p>
+                                        </details>
+                                    }
+                                    <details class="history-source">
+                                        <summary>来源</summary>
+                                        <span>咨询：<LocalDateTimeDisplay Value="@row.Entry.ConsultationStartedAt" Format="yyyy-MM-dd HH:mm" /></span>
+                                        <span>保存：<LocalDateTimeDisplay Value="@row.Entry.LastSavedAt" Format="yyyy-MM-dd HH:mm" /></span>
+                                    </details>
+                                </article>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p>已读取的咨询中没有此项目的历史记录。</p>
+                    }
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    /// <summary>获取当前工作区的历史上下文；新咨询为空。</summary>
+    [Parameter] public ConsultationHistory? History { get; set; }
+
+    /// <summary>获取该入口对应的业务项目。</summary>
+    [Parameter, EditorRequired] public ConsultationHistoryItem Item { get; set; }
+
+    /// <summary>获取专业人员可读的入口标题。</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>请求页面加载共享历史；true 表示显式重试。</summary>
+    [Parameter] public EventCallback<bool> OnLoad { get; set; }
+
+    private bool expanded;
+    private ConsultationHistory? previousHistory;
+    private IEnumerable<(ConsultationHistoryEntry Entry, ConsultationHistoryFact Fact)> Rows =>
+        History?.Entries.SelectMany(entry => entry.Facts.Where(fact => fact.Item == Item)
+            .Select(fact => (entry, fact))) ?? [];
+
+    /// <summary>切换咨询对象时收起入口，避免沿用另一工作区的展开状态。</summary>
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(previousHistory, History))
+        {
+            previousHistory = History;
+            expanded = false;
+        }
+    }
+
+    /// <summary>仅主动展开时请求加载，隐藏的窄屏入口不会触发读取。</summary>
+    private async Task ToggleAsync()
+    {
+        expanded = !expanded;
+        if (expanded) await OnLoad.InvokeAsync(false);
+    }
+}

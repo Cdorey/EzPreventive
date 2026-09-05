@@ -87,7 +87,7 @@ dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 
 ### 记住登录
 
-访问令牌始终只保存在当前桌面进程内存中。用户主动勾选“在此设备上保持登录”后，WPF 保存一次性刷新凭据、会话标识和绝对期限，后续启动时通过刷新接口恢复会话；用户名和密码不再持久化。协议与默认期限见[认证会话说明](./authentication-sessions.md)。
+访问令牌始终只保存在当前桌面进程内存中。用户主动勾选“在此设备上保持登录”后，WPF 保存一次性刷新凭据、会话标识和绝对期限，后续启动时通过刷新接口恢复会话；用户名和密码不再持久化。协议与默认期限见 [HTTP API：认证会话](./http-api/authentication.md)。
 
 - 登录信息先在内存中序列化，再使用 Windows DPAPI `CurrentUser` 范围加密；磁盘和同目录原子写入临时文件只出现密文。
 - 密文位于 `%LOCALAPPDATA%\EzSuit\EzNutrition\Credentials`，文件名是“规范端点 + 传输安全策略”的 SHA-256 摘要，不包含用户名。

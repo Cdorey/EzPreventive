@@ -5,6 +5,7 @@ using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
+using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Domain.Consultations;
 using DomainChronologicalAge = EzNutrition.Domain.Consultations.ChronologicalAge;
 
@@ -12,6 +13,131 @@ namespace EzNutrition.Application.Tests.Archives;
 
 public sealed class ArchiveWorkflowTests
 {
+    /// <summary>验证多期历史按项目保留实值，加载前没有读取，重复入口共享同一轮结果。</summary>
+    [Fact]
+    public async Task Follow_up_history_is_lazy_shared_and_omits_missing_projects()
+    {
+        var fixture = CreateFixture();
+        var first = CreateWorkspace("多期历史对象");
+        first.Client.Weight = null;
+        Assert.Null(first.History);
+        Assert.True((await fixture.Workflow.SaveCurrentAsync(first)).IsSuccess);
+        var opened = await fixture.Workflow.OpenStoredAsync(first.ContractIdentity.Consultation.ResourceId.Value);
+        var patient = opened.Review!.PatientContext!;
+        var followUp = new ConsultationWorkspace(new ClientInfo { Name = patient.Name }, patient);
+        var history = Assert.IsType<ConsultationHistory>(followUp.History);
+        Assert.False(history.IsLoaded);
+
+        for (var i = 2; i <= 4; i++)
+        {
+            var previous = new ConsultationWorkspace(new ClientInfo
+            {
+                Name = patient.Name, Height = 160 + i, Weight = i == 3 ? null : 50 + i
+            }, patient);
+            if (i == 4)
+                previous.SubjectiveObjectiveAssessmentPlanInformation = new() { Plan = "第四次才记录的计划" };
+            Assert.True((await fixture.Workflow.SaveCurrentAsync(previous)).IsSuccess);
+        }
+
+        var readCount = fixture.Codec.ReadCount;
+        var load = history.LoadAsync(fixture.Workflow, CancellationToken.None);
+        Assert.Same(load, history.LoadAsync(fixture.Workflow, CancellationToken.None));
+        Assert.True(history.IsLoading);
+        await load;
+        Assert.False(history.IsLoading);
+        Assert.True(history.IsLoaded);
+        Assert.Equal(4, history.Entries.Count);
+        Assert.Equal(readCount + 4, fixture.Codec.ReadCount);
+        var facts = history.Entries.SelectMany(entry => entry.Facts).ToArray();
+        Assert.Equal(4, facts.Count(fact => fact.Item == ConsultationHistoryItem.Height));
+        Assert.Equal(2, facts.Count(fact => fact.Item == ConsultationHistoryItem.Weight));
+        Assert.Equal("第四次才记录的计划", Assert.Single(facts, fact => fact.Item == ConsultationHistoryItem.Plan).Text);
+        Assert.DoesNotContain(facts, fact => fact.Item == ConsultationHistoryItem.Subjective);
+        Assert.Equal(history.Entries.OrderByDescending(entry => entry.ConsultationStartedAt), history.Entries);
+
+        await history.LoadAsync(fixture.Workflow, CancellationToken.None);
+        Assert.Equal(readCount + 4, fixture.Codec.ReadCount);
+        // 保存新的复诊不包含读取出的既往计划，也不把历史对象写入契约。
+        Assert.True((await fixture.Workflow.SaveCurrentAsync(followUp)).IsSuccess);
+        var current = await fixture.Workflow.ReadHistoryAsync(patient.PatientId, followUp.ContractIdentity.Consultation.ResourceId.Value);
+        Assert.DoesNotContain(current.Entry!.Facts, fact => fact.Item == ConsultationHistoryItem.Plan);
+    }
+
+    /// <summary>摘要被错误归组时必须核对正文身份，且单份失败不丢失其他历史。</summary>
+    [Fact]
+    public async Task History_rejects_foreign_patient_content_and_keeps_valid_records()
+    {
+        var fixture = CreateFixture();
+        var own = CreateWorkspace("同名患者");
+        var other = CreateWorkspace("同名患者");
+        await fixture.Workflow.SaveCurrentAsync(own);
+        await fixture.Workflow.SaveCurrentAsync(other);
+        var foreignId = other.ContractIdentity.Consultation.ResourceId.Value;
+        var foreign = fixture.Store.Documents[foreignId];
+        fixture.Store.Documents[foreignId] = foreign with { Info = foreign.Info with { PatientId = own.ContractIdentity.Patient.ResourceId.Value } };
+
+        var history = new ConsultationHistory(own.ContractIdentity.Patient.ResourceId.Value, Guid.NewGuid());
+        await history.LoadAsync(fixture.Workflow, CancellationToken.None);
+
+        Assert.Equal(1, history.FailedCount);
+        Assert.Equal(own.ContractIdentity.Consultation.ResourceId.Value, Assert.Single(history.Entries).ConsultationId);
+        fixture.Store.Documents.Remove(foreignId);
+        await history.ReloadAsync(fixture.Workflow, CancellationToken.None);
+        Assert.Equal(0, history.FailedCount);
+    }
+
+    /// <summary>取消不留下永久加载状态；重试后排除已保存的本次咨询。</summary>
+    [Fact]
+    public async Task Cancelled_history_can_retry_and_does_not_include_current_consultation()
+    {
+        var fixture = CreateFixture();
+        var current = CreateWorkspace("取消测试对象");
+        await fixture.Workflow.SaveCurrentAsync(current);
+        var history = new ConsultationHistory(current.ContractIdentity.Patient.ResourceId.Value, current.ContractIdentity.Consultation.ResourceId.Value);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => history.LoadAsync(fixture.Workflow, cancellation.Token));
+        Assert.False(history.IsLoading);
+        Assert.False(history.IsLoaded);
+        await history.LoadAsync(fixture.Workflow, CancellationToken.None);
+        Assert.True(history.IsLoaded);
+        Assert.Empty(history.Entries);
+    }
+
+    /// <summary>项目时间缺失时明确回退到咨询时间，读取不依赖文档标识等于咨询标识。</summary>
+    [Fact]
+    public async Task History_keeps_time_provenance_and_accepts_provider_document_identifiers()
+    {
+        var fixture = CreateFixture();
+        var workspace = CreateWorkspace("时间测试对象");
+        await fixture.Workflow.SaveCurrentAsync(workspace);
+        var stored = Assert.Single(fixture.Store.Documents).Value;
+        var document = fixture.Codec.Documents.Values.Single();
+        var consultation = document.Bundle.Entries.OfType<ConsultationResource>().Single();
+        var changed = consultation with
+        {
+            SubjectSnapshot = consultation.SubjectSnapshot! with
+            {
+                Weight = consultation.SubjectSnapshot!.Weight! with { EffectiveAt = null }
+            }
+        };
+        fixture.Codec.Documents[document.Bundle.BundleId.Value] = document with
+        {
+            Bundle = document.Bundle with { Entries = document.Bundle.Entries.Select(resource => ReferenceEquals(resource, consultation) ? changed : resource).ToArray() }
+        };
+        var providerId = Guid.NewGuid();
+        fixture.Store.Documents[providerId] = stored with { Info = stored.Info with { DocumentId = providerId } };
+
+        var result = await fixture.Workflow.ReadHistoryAsync(workspace.ContractIdentity.Patient.ResourceId.Value, providerId);
+        Assert.True(result.Operation.IsSuccess);
+        var weight = Assert.Single(result.Entry!.Facts, fact => fact.Item == ConsultationHistoryItem.Weight);
+        Assert.True(weight.UsesConsultationTime);
+        Assert.Equal(consultation.Period.Start, weight.EffectiveAt);
+        Assert.Equal(55m, weight.Quantity!.Value);
+        Assert.Equal("kg", weight.Quantity.UnitCode);
+        Assert.False(Assert.Single(result.Entry.Facts, fact => fact.Item == ConsultationHistoryItem.Height).UsesConsultationTime);
+    }
+
     [Fact]
     public async Task Default_workflow_saves_browses_and_opens_without_exposing_the_codec_to_ui()
     {
@@ -386,7 +512,8 @@ public sealed class ArchiveWorkflowTests
             "application/x-archive-test",
             "测试档案格式",
             ".archive-test");
-        private ArchiveDocument? document;
+        public Dictionary<Guid, ArchiveDocument> Documents { get; } = [];
+        public int ReadCount { get; private set; }
 
         public Uri CodecIdentifier { get; } = new("https://example.invalid/codecs/memory");
 
@@ -400,13 +527,20 @@ public sealed class ArchiveWorkflowTests
 
         public int WriteCount { get; private set; }
 
-        public ValueTask<ArchiveReadResult> ReadAsync(
+        public async ValueTask<ArchiveReadResult> ReadAsync(
             Stream source,
-            CancellationToken cancellationToken = default) => ValueTask.FromResult(new ArchiveReadResult
+            CancellationToken cancellationToken = default)
+        {
+            ReadCount++;
+            using var reader = new StreamReader(source, leaveOpen: true);
+            var key = await reader.ReadToEndAsync(cancellationToken);
+            var document = Guid.TryParse(key, out var id) ? Documents.GetValueOrDefault(id) : null;
+            return new ArchiveReadResult
             {
                 Document = document is null ? null : document with { SourceFormat = Format },
                 Validation = new ArchiveValidationResult()
-            });
+            };
+        }
 
         public async ValueTask<ArchiveWriteResult> WriteAsync(
             ArchiveWriteRequest request,
@@ -416,8 +550,8 @@ public sealed class ArchiveWorkflowTests
             WriteCount++;
             WriteStarted?.Set();
             ContinueWrite?.Wait(cancellationToken);
-            document = request.Document;
-            await destination.WriteAsync(Encoding.UTF8.GetBytes("<archive />"), cancellationToken);
+            Documents[request.Document.Bundle.BundleId.Value] = request.Document;
+            await destination.WriteAsync(Encoding.UTF8.GetBytes(request.Document.Bundle.BundleId.Value.ToString("D")), cancellationToken);
             return new ArchiveWriteResult
             {
                 TargetFormat = request.TargetFormat,

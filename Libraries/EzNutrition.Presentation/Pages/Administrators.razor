@@ -9,32 +9,47 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IMessageService Message
 @inject ILogger<Administrators> Logger
-<PageTitle>站点管理</PageTitle>
+<PageTitle>日常管理</PageTitle>
 <header class="admin-page-heading">
-    <span>系统管理</span>
-    <h1>站点管理</h1>
+    <span>站点管理</span>
+    <h1>日常管理</h1>
     <p>管理账户、专业认证、角色权限与站内通知。复杂表格建议在桌面端操作。</p>
 </header>
 <AuthorizeView Policy="@PolicyList.Admin">
     <Authorized>
+        <section class="admin-content" aria-label="日常管理工作区">
         <Tabs>
-            <TabPane Tab="注册用户列表">
+            <TabPane Tab="注册用户">
+                <div class="section-heading">
+                    <div><h2>注册用户</h2><p>查看账户资料与安全状态，编辑用户角色和权限。</p></div>
+                    <span class="section-count">当前列表 @UserList.Count 个账户</span>
+                </div>
                 <Table TItem="UserDto" DataSource="UserList" Size="TableSize.Middle" Style="width:100%" ScrollX="1366">
                     <ChildContent Context="userListContext">
-                        <PropertyColumn Property="r=>r.Id" Title="ID"/>
+                        <PropertyColumn Property="r=>r.Id" Title="用户 ID">
+                            <span class="record-id">@userListContext.Id</span>
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.UserName" Title="用户名"/>
-                        <PropertyColumn Property="r=>r.NormalizedUserName" Title="标化用户名"/>
+                        <PropertyColumn Property="r=>r.NormalizedUserName" Title="标准化用户名"/>
                         <PropertyColumn Property="r=>r.Email" Title="邮箱地址"/>
-                        <PropertyColumn Property="r=>r.EmailConfirmed" Title="已确认邮箱" Filterable FilterMultiple />
+                        <PropertyColumn Property="r=>r.EmailConfirmed" Title="邮箱确认" Filterable FilterMultiple>
+                            <span class="@(userListContext.EmailConfirmed ? "status-label status-success" : "status-label status-muted")">@(userListContext.EmailConfirmed ? "已确认" : "未确认")</span>
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.PhoneNumber" Title="手机号码"/>
-                        <PropertyColumn Property="r=>r.PhoneNumberConfirmed" Title="已确认手机" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.LockoutEnabled" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.AccessFailedCount" />
+                        <PropertyColumn Property="r=>r.PhoneNumberConfirmed" Title="手机确认" Filterable FilterMultiple>
+                            <span class="@(userListContext.PhoneNumberConfirmed ? "status-label status-success" : "status-label status-muted")">@(userListContext.PhoneNumberConfirmed ? "已确认" : "未确认")</span>
+                        </PropertyColumn>
+                        <PropertyColumn Property="r=>r.TwoFactorEnabled" Title="双因子认证" Filterable FilterMultiple>
+                            @(userListContext.TwoFactorEnabled ? "已启用" : "未启用")
+                        </PropertyColumn>
+                        <PropertyColumn Property="r=>r.LockoutEnabled" Title="允许锁定" Filterable FilterMultiple>
+                            @(userListContext.LockoutEnabled ? "是" : "否")
+                        </PropertyColumn>
+                        <PropertyColumn Property="r=>r.AccessFailedCount" Title="登录失败次数" />
                         <ActionColumn Title="操作" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
-                                    <Button Type="ButtonType.Primary" OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
+                                    <Button OnClick="(x)=>EditBtnClick(userListContext)" AutoLoading>
                                         编辑
                                     </Button>
                                 </SpaceItem>
@@ -48,17 +63,34 @@
                     </ChildContent>
                 </Table>
             </TabPane>
-            <TabPane Tab="专业认证申请列表">
+            <TabPane Tab="专业认证">
+                <div class="section-heading">
+                    <div><h2>专业认证申请</h2><p>核对申请资料与证件，完成认证审核。</p></div>
+                    <span class="section-count">当前列表 @ProfessionalCertificationRequestList.Count(x => x.Status == RequestStatus.Pending) 条待审核</span>
+                </div>
                 <Table TItem="ProfessionalCertificationRequestDto" DataSource="ProfessionalCertificationRequestList" Size="TableSize.Middle" Style="width:100%" ScrollX="1366">
                     <ChildContent Context="requestListContext">
-                        <PropertyColumn Property="r=>r.Id" />
-                        <PropertyColumn Property="r=>r.UserId" />
+                        <PropertyColumn Property="r=>r.Id" Title="申请 ID"><span class="record-id">@requestListContext.Id</span></PropertyColumn>
+                        <PropertyColumn Property="r=>r.UserId" Title="用户 ID"><span class="record-id">@requestListContext.UserId</span></PropertyColumn>
                         <PropertyColumn Property="r=>r.RequestTime" Title="申请时间">
                             <LocalDateTimeDisplay Value="@requestListContext.RequestTime" />
                         </PropertyColumn>
-                        <PropertyColumn Property="r=>r.IdentityType" Filterable FilterMultiple />
-                        <PropertyColumn Property="r=>r.InstitutionName" />
-                        <PropertyColumn Property="r=>r.Status" Filterable FilterMultiple />
+                        <PropertyColumn Property="r=>r.IdentityType" Title="申请身份" Filterable FilterMultiple />
+                        <PropertyColumn Property="r=>r.InstitutionName" Title="所属机构" />
+                        <PropertyColumn Property="r=>r.Status" Title="审核状态" Filterable FilterMultiple>
+                            @switch (requestListContext.Status)
+                            {
+                                case RequestStatus.Pending:
+                                    <span class="status-label status-pending">待审核</span>
+                                    break;
+                                case RequestStatus.Approved:
+                                    <span class="status-label status-success">已通过</span>
+                                    break;
+                                case RequestStatus.Rejected:
+                                    <span class="status-label status-muted">已拒绝</span>
+                                    break;
+                            }
+                        </PropertyColumn>
                         <PropertyColumn Property="r=>r.ProcessedTime" Title="审核时间">
                             @if (requestListContext.ProcessedTime is { } processedTime)
                             {
@@ -69,14 +101,14 @@
                                 <span>—</span>
                             }
                         </PropertyColumn>
-                        <PropertyColumn Property="r=>r.ProcessDetails" />
-                        <PropertyColumn Property="r=>r.CertificateTicket" />
-                        <PropertyColumn Property="r=>r.Remarks" />
+                        <PropertyColumn Property="r=>r.ProcessDetails" Title="处理意见" />
+                        <PropertyColumn Property="r=>r.CertificateTicket" Title="证件标识"><span class="record-id">@requestListContext.CertificateTicket</span></PropertyColumn>
+                        <PropertyColumn Property="r=>r.Remarks" Title="备注" />
                         <ActionColumn Title="操作" Width="150" Fixed="ColumnFixPlacement.Right">
                             <Space>
                                 <SpaceItem>
-                                    <Button Danger OnClick="(x)=>EditBtnClick(requestListContext)" AutoLoading>
-                                    审核
+                                    <Button OnClick="(x)=>EditBtnClick(requestListContext)" AutoLoading>
+                                    @(requestListContext.Status == RequestStatus.Pending ? "审核" : "查看详情")
                                     </Button>
                                 </SpaceItem>
                             </Space>
@@ -85,25 +117,30 @@
                 </Table>
             </TabPane>
             <TabPane Tab="角色管理">
-                <AntList Bordered DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical" Style="width:100%">
-                    <Header>角色名称</Header>
+                <div class="section-heading">
+                    <div><h2>角色与权限</h2><p>按角色维护权限声明，修改后保存对应角色。</p></div>
+                    <span class="section-count">@RoleList.Count 个角色</span>
+                </div>
+                <div class="role-editor">
+                <AntList DataSource="RoleList" ItemLayout="@ListItemLayout.Vertical" Style="width:100%">
                     <ChildContent Context="item">
                         <ListItem>
                             <ChildContent>
-                                @($"角色: {item.RoleName}")
+                                <h3 class="role-name"><Icon Type="team" Theme="IconThemeType.Outline" /> @item.RoleName</h3>
+                                <span class="field-hint">@item.Claims.Count 条权限声明</span>
                             </ChildContent>
                             <Extra>
                                 @foreach (var claim in item.Claims)
                                 {
                                     <div class="claim-row">
-                                        <Input placeholder="权限声明类型" @bind-Value="claim.Type" />
-                                        <Input placeholder="权限声明值" @bind-Value="claim.Value" />
+                                        <label class="claim-field"><span>声明类型</span><Input placeholder="权限声明类型" @bind-Value="claim.Type" /></label>
+                                        <label class="claim-field"><span>声明值</span><Input placeholder="权限声明值" @bind-Value="claim.Value" /></label>
                                         <Button Danger OnClick="@(x => RemoveRoleClaim(claim,item))" Type="ButtonType.Default">删除</Button>
                                     </div>
                                 }
                                 <div class="claim-actions">
-                                    <Button OnClick="@(x=>AddRoleClaim(item))" Type="ButtonType.Primary">添加权限声明</Button>
-                                    <Button OnClick="@(x=>SaveRoleClaims(item))" Type="ButtonType.Primary">保存修改</Button>
+                                    <Button OnClick="@(x=>AddRoleClaim(item))">添加权限声明</Button>
+                                    <Button OnClick="@(x=>SaveRoleClaims(item))" Type="ButtonType.Primary" AutoLoading>保存修改</Button>
                                 </div>
                             </Extra>
                         </ListItem>
@@ -115,8 +152,13 @@
                         </div>
                     </Footer>
                 </AntList>
+                </div>
             </TabPane>
-            <TabPane Tab="通知">
+            <TabPane Tab="通知发布">
+                <div class="section-heading">
+                    <div><h2>发布站点内容</h2><p>选择内容类型，发布后该类型将展示最新内容。</p></div>
+                </div>
+                <div class="notification-editor">
                 <Form Model="NewNotification" Layout="FormLayout.Vertical">
                     <ChildContent Context="notice">
                         <FormItem Label="内容类型">
@@ -131,15 +173,17 @@
                             <Input @bind-Value="@notice.NoticeTitle" />
                         </FormItem>
                         <FormItem Label="通知内容">
-                            <TextArea @bind-Value="@notice.NoticeDescription" Rows="20" />
+                            <TextArea @bind-Value="@notice.NoticeDescription" Rows="14" />
                         </FormItem>
                         <FormItem>
-                            <Button Type="ButtonType.Primary" OnClick="SubmitNotification">提交</Button>
+                            <Button Type="ButtonType.Primary" OnClick="SubmitNotification" AutoLoading>发布内容</Button>
                         </FormItem>
                     </ChildContent>
                 </Form>
+                </div>
             </TabPane>
         </Tabs>
+        </section>
         <Drawer Width="800" Closable="true" @bind-Visible="drawerVisible" Title="@("编辑用户信息")">
             @if (userInfoDto is not null)
             {
@@ -247,8 +291,8 @@
                                 <Input @bind-Value="userInfoExtensionContext.PrimarySubject" />
                             </FormItem>
                             <FormItem>
-                                <Button type="ButtonType.Default" OnClick="ApproveBtnClick">通过</Button>
-                                <Button type="ButtonType.Dashed" OnClick="RejectBtnClick">拒绝</Button>
+                                <Button type="ButtonType.Default" OnClick="ApproveBtnClick" AutoLoading>通过</Button>
+                                <Button type="ButtonType.Dashed" OnClick="RejectBtnClick" AutoLoading>拒绝</Button>
                             </FormItem>
                         </ChildContent>
                     </Form>
@@ -524,10 +568,11 @@
 
     private async Task ApproveBtnClick()
     {
+        var review = requestDto;
         if (userInfoDto is null)
             return;
 
-        if (requestDto is null)
+        if (review is null)
             return;
 
         if (userInfoExtension is null)
@@ -541,11 +586,11 @@
 
 
         //根据Require验证UserInfoExtension模型是否合法
-        if (!userInfoDto.Roles.Contains(requestDto.IdentityType, StringComparer.Ordinal))
+        if (!userInfoDto.Roles.Contains(review.IdentityType, StringComparer.Ordinal))
         {
-            userInfoDto.Roles.Add(requestDto.IdentityType);
+            userInfoDto.Roles.Add(review.IdentityType);
         }
-        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, requestDto.InstitutionName);
+        AddClaimIfMissing(userInfoDto, UserClaimTypes.InstitutionName, review.InstitutionName);
         AddClaimIfMissing(userInfoDto, UserClaimTypes.RealName, userInfoExtension.RealName);
 
         if (userInfoExtension.PracticingType is not null)
@@ -572,14 +617,14 @@
 
         try
         {
-            requestDto.Status = RequestStatus.Approved;
+            review.Status = RequestStatus.Approved;
             // 获取带授权的 HttpClient
             using var httpClient = HttpClientFactory.CreateClient("Authorize");
 
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
             using var response = await httpClient.PutAsJsonAsync(
                 "Admin/UpdateRequest",
-                requestDto,
+                review,
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
@@ -591,9 +636,13 @@
                 drawerVisible = false;
                 await TryRefreshCertificationRequestsAsync();
             }
+            else if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.NotFound)
+            {
+                await RefreshConflictingReviewAsync(rolesUpdated: true);
+            }
             else
             {
-                requestDto.Status = RequestStatus.Pending;
+                review.Status = RequestStatus.Pending;
                 await Message.ErrorAsync("用户权限已更新，但审核记录更新失败，请立即重试。");
             }
         }
@@ -602,18 +651,19 @@
         }
         catch (Exception ex)
         {
-            requestDto.Status = RequestStatus.Pending;
-            Logger.LogError(ex, "Unable to approve certification request {RequestId}.", requestDto.Id);
+            review.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to approve certification request {RequestId}.", review.Id);
             await Message.ErrorAsync("用户权限已更新，但审核记录更新异常，请立即重试。");
         }
     }
 
     private async Task RejectBtnClick()
     {
-        if (requestDto is null)
+        var review = requestDto;
+        if (review is null)
             return;
 
-        requestDto.Status = RequestStatus.Rejected;
+        review.Status = RequestStatus.Rejected;
 
         try
         {
@@ -622,7 +672,7 @@
             // 发送 PUT 请求，传入 userInfoDto 对象，注意接口地址应与后端路由匹配
             using var response = await httpClient.PutAsJsonAsync(
                 "Admin/UpdateRequest",
-                requestDto,
+                review,
                 lifetimeCancellation.Token);
             if (response.IsSuccessStatusCode)
             {
@@ -634,9 +684,13 @@
                 drawerVisible = false;
                 await TryRefreshCertificationRequestsAsync();
             }
+            else if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.NotFound)
+            {
+                await RefreshConflictingReviewAsync(rolesUpdated: false);
+            }
             else
             {
-                requestDto.Status = RequestStatus.Pending;
+                review.Status = RequestStatus.Pending;
                 await Message.ErrorAsync("审核记录更新失败，请检查提交内容后重试。");
             }
         }
@@ -645,8 +699,8 @@
         }
         catch (Exception ex)
         {
-            requestDto.Status = RequestStatus.Pending;
-            Logger.LogError(ex, "Unable to reject certification request {RequestId}.", requestDto.Id);
+            review.Status = RequestStatus.Pending;
+            Logger.LogError(ex, "Unable to reject certification request {RequestId}.", review.Id);
             await Message.ErrorAsync("审核记录更新异常，请稍后重试。");
         }
     }
@@ -894,6 +948,20 @@
         }
     }
 
+    /// <summary>结束冲突的编辑会话并重新读取列表，不把已经处理的申请在本地改回待审核。</summary>
+    private async Task RefreshConflictingReviewAsync(bool rolesUpdated)
+    {
+        ImageDataUrl = string.Empty;
+        currentRequestId = Guid.Empty;
+        userInfoDto = null;
+        userInfoExtension = null;
+        drawerVisible = false;
+        await Message.WarningAsync(rolesUpdated
+            ? "用户权限已更新；申请可能已被处理或删除，或仍存在并发修改，请根据最新清单确认审核结果。"
+            : "申请可能已被处理或删除，或仍存在并发修改，请根据最新清单确认审核结果。");
+        await TryRefreshCertificationRequestsAsync();
+    }
+
     private async Task TryRefreshCertificationRequestsAsync()
     {
         try
@@ -906,7 +974,7 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Unable to refresh the certification request list.");
-            await Message.WarningAsync("审核操作已提交，但列表刷新失败；请重新打开页面确认结果。");
+            await Message.WarningAsync("审核列表刷新失败，请重新打开页面确认最新结果。");
         }
     }
 

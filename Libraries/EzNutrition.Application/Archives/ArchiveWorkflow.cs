@@ -397,6 +397,34 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
     private bool HasWritableCodec => codecs.Any(codec => codec.WritableFormats.Count > 0);
 
+    /// <inheritdoc />
+    public async ValueTask<ConsultationHistoryReadResult> ReadHistoryAsync(
+        Guid patientId, Guid documentId, CancellationToken cancellationToken = default)
+    {
+        if (!Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse))
+            return new(Unavailable("当前运行环境没有配置档案调阅能力。"), null);
+
+        try
+        {
+            var stored = await store.GetAsync(documentId, cancellationToken);
+            if (stored is null)
+                return new(Failed("历史档案已不存在。"), null);
+
+            var decoded = await ReadDocumentAsync(stored.Content, stored.Info.MediaType,
+                stored.Info.FormatIdentifier, stored.Info.FormatVersion, cancellationToken).ConfigureAwait(false);
+            if (decoded.Document is null) return new(decoded.Operation, null);
+
+            var entry = ConsultationHistoryProjector.Create(decoded.Document, patientId, documentId, stored.Info.LastSavedAt);
+            return entry is null
+                ? new(Invalid("历史档案的患者或咨询归属不一致，未载入。"), null)
+                : new(decoded.Operation, entry);
+        }
+        catch (Exception exception) when (IsExpectedHostFailure(exception))
+        {
+            return new(Failed("历史档案读取失败，请检查存储是否可用。"), null);
+        }
+    }
+
     private bool HasReadableCodec => codecs.Any(codec => codec.ReadableFormats.Count > 0);
 
     private ArchiveFormatDescriptor CreateStoredFormat(StoredArchiveDocumentInfo info)
@@ -462,35 +490,44 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         },
         cancellationToken);
 
-    private Task<ArchiveOpenResult> DecodeAsync(
+    private async Task<ArchiveOpenResult> DecodeAsync(
         ReadOnlyMemory<byte> content,
         string? mediaType,
         string? formatIdentifier,
         string? formatVersion,
-        CancellationToken cancellationToken) => Task.Run(
+        CancellationToken cancellationToken)
+    {
+        var decoded = await ReadDocumentAsync(content, mediaType, formatIdentifier, formatVersion, cancellationToken).ConfigureAwait(false);
+        return new ArchiveOpenResult
+        {
+            Operation = decoded.Operation,
+            Review = decoded.Document is { } document ? ArchiveReviewProjector.Create(document) : null
+        };
+    }
+
+    /// <summary>复用格式选择与解码结果，避免历史读取依赖普通调阅的显示文本。</summary>
+    private Task<(ArchiveDocument? Document, ArchiveOperationResult Operation)> ReadDocumentAsync(
+        ReadOnlyMemory<byte> content,
+        string? mediaType,
+        string? formatIdentifier,
+        string? formatVersion,
+        CancellationToken cancellationToken) => Task.Run<(ArchiveDocument?, ArchiveOperationResult)>(
         async () =>
         {
             var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
             if (codec is null)
             {
-                return new ArchiveOpenResult { Operation = Invalid("无法识别该档案文档的格式。") };
+                return (null, Invalid("无法识别该档案文档的格式。"));
             }
 
             await using var source = new MemoryStream(content.ToArray(), writable: false);
             var readResult = await codec.ReadAsync(source, cancellationToken);
             if (!readResult.IsSuccess || readResult.Document is null)
             {
-                return new ArchiveOpenResult
-                {
-                    Operation = Invalid("档案文档未通过格式或语义校验。", readResult.Validation)
-                };
+                return (null, Invalid("档案文档未通过格式或语义校验。", readResult.Validation));
             }
 
-            return new ArchiveOpenResult
-            {
-                Operation = Success("档案已安全打开。", ToNotices(readResult.Validation)),
-                Review = ArchiveReviewProjector.Create(readResult.Document)
-            };
+            return (readResult.Document, Success("档案已安全打开。", ToNotices(readResult.Validation)));
         },
         cancellationToken);
 
