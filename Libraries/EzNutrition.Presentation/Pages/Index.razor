@@ -55,6 +55,10 @@
                         <Icon Type="plus-circle" Theme="IconThemeType.Outline" />
                         开启新咨询
                     </Button>
+                    <Button Block OnClick="@(()=>{Navigator.NavigateTo("archives");})">
+                        <Icon Type="folder-open" Theme="IconThemeType.Outline" />
+                        开启复诊咨询
+                    </Button>
                     <Button Block OnClick="@(()=>{Navigator.NavigateTo("drisinsights");})">
                         <Icon Type="medicine-box" Theme="IconThemeType.Outline" />
                         DRIs 速查
