@@ -249,6 +249,20 @@
     color: #a8071a;
 }
 
+.cleanup-progress {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: #e6f4ff;
+    border-radius: 8px;
+}
+
+.cleanup-progress p {
+    margin: 6px 0 0;
+    color: var(--ez-text-secondary);
+}
+
 .confirmation-details {
     display: grid;
     gap: 10px;

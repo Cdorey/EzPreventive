@@ -293,13 +293,29 @@
                    @bind-Visible="executionConfirmationVisible"
                    MaskClosable="@(!cleanupExecuting)"
                    Closable="@(!cleanupExecuting)"
+                   Keyboard="@(!cleanupExecuting)"
+                   CancelButtonProps="@(new ButtonProps { Disabled = cleanupExecuting })"
+                   OkText="@(cleanupExecuting ? "正在清理…" : "确认删除")"
                    OnCancel="CloseExecutionConfirmation"
                    OnOk="ExecuteCleanupAsync"
                    ConfirmLoading="@cleanupExecuting">
-                <Alert Type="AlertType.Error"
-                       Message="此操作不可撤销"
-                       Description="将按刚才的预览条件重新复核并删除符合条件的账号。配置发生变化时，服务器会拒绝执行。"
-                       ShowIcon="true" />
+                @if (cleanupExecuting)
+                {
+                    <div class="cleanup-progress" role="status" aria-live="polite">
+                        <Spin />
+                        <div>
+                            <strong>正在逐个检查并清理账号…</strong>
+                            <p>账号较多时可能需要一些时间，请保持页面打开并等待结果。</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <Alert Type="AlertType.Error"
+                           Message="此操作不可撤销"
+                           Description="将按刚才的预览条件重新复核并删除符合条件的账号。配置发生变化时，服务器会拒绝执行。"
+                           ShowIcon="true" />
+                }
                 <dl class="confirmation-details">
                     <div><dt>规则</dt><dd>@RuleLabel(cleanupResult?.Rule ?? selectedRule)</dd></div>
                     <div><dt>候选账号</dt><dd>@(cleanupResult?.Items.Count ?? 0)</dd></div>

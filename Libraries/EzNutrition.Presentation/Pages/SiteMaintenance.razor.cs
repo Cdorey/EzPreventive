@@ -284,6 +284,12 @@ public partial class SiteMaintenance : ComponentBase, IDisposable
     /// <summary>使用预览返回的配置版本和截止时间执行账号删除。</summary>
     private async Task ExecuteCleanupAsync()
     {
+        // 执行期间忽略重复确认，避免同时发起多轮删除。
+        if (cleanupExecuting)
+        {
+            return;
+        }
+
         if (cleanupResult is not { DryRun: true } preview || preview.Items.Count == 0)
         {
             executionConfirmationVisible = false;
@@ -303,7 +309,16 @@ public partial class SiteMaintenance : ComponentBase, IDisposable
                 lifetimeCancellation.Token);
             if (!response.IsSuccessStatusCode)
             {
-                await HandleFailureAsync(response, "执行账号清理");
+                cleanupResult = null;
+                if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized
+                    or HttpStatusCode.Forbidden or HttpStatusCode.Conflict)
+                {
+                    await HandleFailureAsync(response, "执行账号清理");
+                }
+                else
+                {
+                    await Message.WarningAsync("未能确认执行结果，请重新预览核对账号状态。");
+                }
                 return;
             }
 
@@ -318,7 +333,16 @@ public partial class SiteMaintenance : ComponentBase, IDisposable
 
             cleanupResult = result;
             executionConfirmationVisible = false;
-            await Message.SuccessAsync("账号清理已经执行，结果已更新。");
+            if (result.IsCanceled || result.Items.Any(item =>
+                item.Status is AccountCleanupItemStatus.Failed or AccountCleanupItemStatus.WouldDelete ||
+                item.CertificateFileCleanupFailures > 0))
+            {
+                await Message.WarningAsync($"清理存在未完成事项，请查看结果清单。{CleanupSummary}");
+            }
+            else
+            {
+                await Message.SuccessAsync($"清理完成。{CleanupSummary}");
+            }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -326,11 +350,13 @@ public partial class SiteMaintenance : ComponentBase, IDisposable
         catch (Exception exception)
         {
             Logger.LogError(exception, "Unable to execute account cleanup rule {Rule}.", preview.Rule);
-            await Message.ErrorAsync("执行账号清理失败，请稍后重新预览。");
+            cleanupResult = null;
+            await Message.WarningAsync("未能确认执行结果，请重新预览核对账号状态。");
         }
         finally
         {
             cleanupExecuting = false;
+            executionConfirmationVisible = false;
         }
     }
 
