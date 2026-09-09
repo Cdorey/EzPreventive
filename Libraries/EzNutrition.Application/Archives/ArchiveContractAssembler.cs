@@ -188,10 +188,23 @@ public sealed class ArchiveContractAssembler
 
         var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
         var consultation = CreateConsultation(archive, [], subject, capturedAt);
-        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        consultation = consultation with
+        {
+            Metadata = FreezeVersion(consultation.Metadata),
+            // 量表按开始时的对象快照评分；报告不能用后来修改的身高、体重或年龄替换输入。
+            SubjectSnapshot = consultation.SubjectSnapshot! with
+            {
+                ChronologicalAgeAtConsultation = new ContractChronologicalAge(assessment.Subject.AgeInYears),
+                AgeAtConsultation = ArchiveContractCoding.Quantity(assessment.Subject.AgeInYears, "a"),
+                Height = assessment.Subject.HeightInCentimeters is { } height
+                    ? Measurement(height, "cm", assessment.CreatedAt) : null,
+                Weight = assessment.Subject.WeightInKilograms is { } weight
+                    ? Measurement(weight, "kg", assessment.CreatedAt) : null
+            }
+        };
         var consultationReference = new VersionedResourceReference(
             consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
-        var scale = CreateNutritionScaleAssessment(assessment, subject, consultationReference, capturedAt);
+        var scale = CreateNutritionScaleAssessment(assessment, subject, consultationReference, capturedAt, includeUnanswered: true);
         scale = scale with { Metadata = FreezeVersion(scale.Metadata) };
         consultation = consultation with
         {
@@ -770,7 +783,8 @@ public sealed class ArchiveContractAssembler
         NutritionAssessmentRun run,
         LogicalResourceReference subjectReference,
         VersionedResourceReference consultationReference,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        bool includeUnanswered = false)
     {
         var definition = run.Definition;
         var evaluation = run.Evaluation;
@@ -780,7 +794,11 @@ public sealed class ArchiveContractAssembler
             {
                 if (!run.Answers.TryGetValue(item.Code, out var answer))
                 {
-                    return null;
+                    return includeUnanswered ? new AssessmentItemResponse
+                    {
+                        Item = AssessmentCoding(definition, $"{definition.Code}/item/{item.Code}", item.Prompt),
+                        AnswerAbsentReason = DataAbsentReasonCode.NotAsked
+                    } : null;
                 }
 
                 return new AssessmentItemResponse

@@ -45,6 +45,18 @@ public sealed class AssessmentReportTests
         Assert.DoesNotContain(current.Bundle.Entries, resource => resource is NutritionReportResource);
     }
 
+    /// <summary>报告显示实际评分时的年龄和测量输入，不采用后来编辑的对象信息。</summary>
+    [Fact]
+    public void Report_preserves_the_subject_used_by_the_assessment()
+    {
+        var (workspace, run, factory, _) = Scenario();
+        ((ClientInfo)workspace.Client).Weight = 90;
+        var draft = factory.Create(workspace, run, Template, Physician, DateTimeOffset.UtcNow);
+        var subject = draft.Document.Bundle.Entries.OfType<ConsultationResource>().Single().SubjectSnapshot!;
+        Assert.Equal(60m, subject.Weight!.Value.Value);
+        Assert.Equal(run.Subject.AgeInYears, subject.ChronologicalAgeAtConsultation!.Years);
+    }
+
     /// <summary>正式签发满足契约引用闭包，且只将报告标为正式确认。</summary>
     [Fact]
     public void Signing_binds_exact_pdf_without_finalizing_the_entire_consultation()
@@ -78,6 +90,8 @@ public sealed class AssessmentReportTests
             factory.Create(workspace, run, Template, Physician, DateTimeOffset.UtcNow));
         var draft = factory.Create(workspace, run, Template, null, DateTimeOffset.UtcNow);
         Assert.Equal("evaluation", draft.Report.Purpose.Code);
+        Assert.Contains(draft.Assessment.Responses, response => response.Answer is null
+            && response.AnswerAbsentReason == DataAbsentReasonCode.NotAsked);
         Assert.Throws<InvalidOperationException>(() =>
             draft.BindSignedPdf("%PDF-1.7"u8, new ArchiveContractValidator()));
     }
