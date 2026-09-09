@@ -54,12 +54,23 @@ export async function render(data) {
     return await renderPdf(createDefinition(data));
 }
 
-/** 预览同一份待保存字节；隐藏查看器工具栏，应用自身的输出入口单独检查权限。 */
-export function createPreview(bytes) {
-    return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+const previews = new Map();
+
+/** 预览固定字节；组件被移除时直接在 JS 端回收，不依赖宿主关闭阶段的互操作。 */
+export function createPreview(bytes, owner) {
+    if (!owner?.isConnected) throw new Error("报告预览所属组件已关闭。");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const observer = new MutationObserver(() => {
+        if (!owner.isConnected) releasePreview(url);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    previews.set(url, observer);
+    return url;
 }
 
 /** 预览关闭后释放本机原件引用。 */
 export function releasePreview(url) {
+    previews.get(url)?.disconnect();
+    previews.delete(url);
     URL.revokeObjectURL(url);
 }

@@ -38,6 +38,28 @@ try {
     });
     await page.goto(origin);
     await mkdir(output, { recursive: true });
+    // 真实 DOM 验证：主动关闭和离开组件都回收 Blob，不能依赖 .NET 的关闭回调。
+    await page.evaluate(async () => {
+        const { createPreview, releasePreview } = await import("/reports/assessment-report.mjs");
+        const owner = document.body.appendChild(document.createElement("div"));
+        const revoked = [];
+        const revoke = URL.revokeObjectURL.bind(URL);
+        URL.revokeObjectURL = url => { revoked.push(url); revoke(url); };
+        try {
+            const first = createPreview(new Uint8Array([1, 2, 3]), owner);
+            if ((await (await fetch(first)).arrayBuffer()).byteLength !== 3) throw new Error("预览字节不一致");
+            releasePreview(first);
+            const second = createPreview(new Uint8Array([4]), owner);
+            owner.remove();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (revoked.length !== 2 || revoked[0] !== first || revoked[1] !== second)
+                throw new Error("关闭/组件移除没有各自回收一次预览");
+            let rejected = false;
+            try { createPreview(new Uint8Array([5]), owner); } catch { rejected = true; }
+            if (!rejected) throw new Error("已移除组件仍可创建预览");
+        } finally { URL.revokeObjectURL = revoke; owner.remove(); }
+    });
+    console.log("预览主动关闭、组件移除及过期组件保护验证通过。");
     const sample = {
         title: "营养不良通用筛查工具 MUST 报告",
         reportNumber: "00000000-0000-0000-0000-000000000001",

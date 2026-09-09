@@ -6,10 +6,8 @@ using Microsoft.JSInterop;
 namespace EzNutrition.Presentation.Reports;
 
 /// <summary>将 DRIs 结果格式化后交给本机 PDF 模板，与量表共用字体和水印资源。</summary>
-public sealed class PdfMakeDriEvaluationRenderer(IJSRuntime js) : IDriEvaluationRenderer, IAsyncDisposable
+public sealed class PdfMakeDriEvaluationRenderer(IJSRuntime js) : IDriEvaluationRenderer
 {
-    private IJSObjectReference? module;
-
     /// <inheritdoc />
     public async ValueTask<byte[]> RenderAsync(DriEvaluationSnapshot snapshot, CancellationToken cancellationToken = default)
     {
@@ -35,18 +33,9 @@ public sealed class PdfMakeDriEvaluationRenderer(IJSRuntime js) : IDriEvaluation
             }).ToArray(),
             Issues = snapshot.Issues.Select(issue => $"{issue.Nutrient}：{issue.Message}").ToArray()
         };
-        module ??= await js.InvokeAsync<IJSObjectReference>("import", cancellationToken,
+        // 句柄随本次操作释放；宿主关闭时不再通过已停止接收消息的 WebView 清理模块。
+        await using var module = await js.InvokeAsync<IJSObjectReference>("import", cancellationToken,
             "./_content/EzNutrition.Presentation/reports/dri-evaluation.mjs");
         return await module.InvokeAsync<byte[]>("render", cancellationToken, model);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        if (module is not null)
-        {
-            try { await module.DisposeAsync(); }
-            catch (JSDisconnectedException) { /* 宿主已经关闭。 */ }
-        }
     }
 }

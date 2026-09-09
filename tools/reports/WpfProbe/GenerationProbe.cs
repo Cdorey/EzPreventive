@@ -70,7 +70,7 @@ internal static class GenerationProbe
             await File.WriteAllLinesAsync(Path.Combine(output, "requests.txt"), state.Requests);
             await using var screenshot = File.Create(Path.Combine(output, "generation.png"));
             await core!.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, screenshot);
-            Console.WriteLine("WPF Blazor 实际生成三种量表正式/评估 PDF 和 DRIs 评估稿；只访问本机静态资源。");
+            Console.WriteLine("七份 PDF 已生成；正在释放 BlazorWebView。");
         }
         catch (Exception error)
         {
@@ -79,10 +79,18 @@ internal static class GenerationProbe
         }
         finally
         {
-            await view.DisposeAsync();
-            window.Close();
-            System.Windows.Application.Current.DispatcherUnhandledException -= failure;
+            try
+            {
+                // 将退出挂起作为验收失败，不让自动化无限等待，也不掩盖生成或清理错误。
+                await view.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(15));
+            }
+            finally
+            {
+                window.Close();
+                System.Windows.Application.Current.DispatcherUnhandledException -= failure;
+            }
         }
+        Console.WriteLine("WPF Blazor 本机生成与控件释放完成；请继续检查成品内容和视觉效果。");
     }
 
     /// <summary>保存本次探针的输出位置和完成状态，仅在隔离宿主中使用。</summary>

@@ -31,9 +31,11 @@ WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/mic
 
 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate tmp/reports/wpf-generation` 用于验证 WPF Blazor 内生成 PDF：探针复用产品宿主的静态资源清单和真实 PDF 适配器，以合成输入生成三种量表正式/评估稿和 DRIs 评估稿。它记录资源请求、成品摘要及失败诊断，不用模拟 JS 字节代替实际生成。使用新的输出目录，并检查进程成功退出及当次文件，不能只检查旧文件是否存在。
 
-2026-09-09 的本机运行在 `WebView2CompositionControl` 的 `CreateD3D9Device` 阶段报 `0x8876086A`，尚未进入 PDF 生成组件。已验证失败诊断能够写出，但桌面生成成功路径仍需在可运行的图形环境复验；现有 PDF 查看与打印探针的成功结果不覆盖该项。
+`python tools/reports/check-wpf-generation.py <输出目录>` 核对七份合成 PDF 的内容、分值、水印、字体、摘要及本机请求。它只检查成品，不能代替进程正常退出与视觉验收。
 
-同日后续检查确认自动化进程处于 `Disconnected` 的 Windows 会话，与控制台会话不同。遇到相同情况，应在正常交互桌面终端中运行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`，再检查当次输出。不要通过修改产品控件或更换驱动来迁就尚未确认的测试环境问题。
+2026-09-09 在 Active 桌面会话已生成七份合格 PDF，但探针退出时挂起。报告适配器已改为在生成操作内释放 JS 模块句柄；预览主动关闭时释放 Blob，组件移除时由 MutationObserver 回收，组件 Dispose 不再等待 JS。`verify-pdf.mjs` 同时验证预览回收及过期组件保护，PDF 模板版本不变，因为版式和成品内容未改动。
+
+修改后复验时会话已回到 Disconnected，图形初始化报 `0x8876086A`，因此仍需在正常交互桌面终端中运行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`，确认成功退出并检查当次输出。探针的生成与释放均有有限等待时间，超时按失败处理。不要通过修改产品控件或更换驱动来迁就测试环境；完整证据见 `docs/report-acceptance-audit.md`。
 
 `node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。
 

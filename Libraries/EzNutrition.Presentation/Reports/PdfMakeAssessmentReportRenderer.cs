@@ -6,10 +6,8 @@ using Microsoft.JSInterop;
 namespace EzNutrition.Presentation.Reports;
 
 /// <summary>由两种 Blazor 宿主共用的本机 PDF 适配，不依赖具体浏览器或 Windows 打印接口。</summary>
-public sealed class PdfMakeAssessmentReportRenderer(IJSRuntime js) : IAssessmentReportRenderer, IAsyncDisposable
+public sealed class PdfMakeAssessmentReportRenderer(IJSRuntime js) : IAssessmentReportRenderer
 {
-    private IJSObjectReference? module;
-
     /// <inheritdoc />
     public CanonicalReference Template { get; } = new(
         new Uri("https://eznutrition.cdorey.net/report-templates/nutrition-assessment"), "3");
@@ -32,20 +30,11 @@ public sealed class PdfMakeAssessmentReportRenderer(IJSRuntime js) : IAssessment
 
     private async ValueTask<byte[]> RenderModelAsync(AssessmentReportPdfModel model, CancellationToken cancellationToken)
     {
-        module ??= await js.InvokeAsync<IJSObjectReference>("import", cancellationToken,
+        // 浏览器会缓存模块；句柄只在本次操作中持有，避免 WebView 关闭后再等待 JS 释放。
+        await using var module = await js.InvokeAsync<IJSObjectReference>("import", cancellationToken,
             "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
         var pdf = await module.InvokeAsync<byte[]>("render", cancellationToken, model);
         _ = ReportPdf.Identity(pdf);
         return pdf;
-    }
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        if (module is not null)
-        {
-            try { await module.DisposeAsync(); }
-            catch (JSDisconnectedException) { /* 宿主已关闭，无需再向已断开的 WebView 释放句柄。 */ }
-        }
     }
 }

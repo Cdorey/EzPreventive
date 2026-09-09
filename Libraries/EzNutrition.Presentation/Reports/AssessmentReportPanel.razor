@@ -1,11 +1,11 @@
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Reports
 @using EzNutrition.Shared.Policies
-@implements IAsyncDisposable
+@implements IDisposable
 @inject ReportWorkflow Workflow
 @inject IJSRuntime JS
 
-<div class="report-actions">
+<div class="report-actions" @ref="previewOwner">
     <AuthorizeView Policy="@PolicyList.IssueReport">
         <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="() => PrepareAsync(true)">签发报告</Button>
         <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="ChooseRevisionAsync">更正已签发报告</Button>
@@ -85,7 +85,7 @@
     [Parameter, EditorRequired] public NutritionAssessmentRun Assessment { get; set; } = null!;
 
     private readonly CancellationTokenSource lifetime = new();
-    private IJSObjectReference? module;
+    private ElementReference previewOwner;
     private PreparedAssessmentReport? prepared;
     private IReadOnlyList<ReportRevisionCandidate>? revisions;
     private string? previewUrl;
@@ -119,9 +119,9 @@
         prepared = revisionId is { } id
             ? await Workflow.PrepareRevisionAsync(Workspace, Assessment, id, lifetime.Token)
             : await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
-        module ??= await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
+        await using var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
             "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
-        previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, prepared.Pdf.ToArray());
+        previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, prepared.Pdf.ToArray(), previewOwner);
     });
 
     private Task IssueAsync() => RunAsync(async () =>
@@ -174,23 +174,20 @@
 
     private async ValueTask ReleasePreviewAsync()
     {
-        if (module is not null && previewUrl is not null)
+        if (previewUrl is not null)
         {
-            await module.InvokeVoidAsync("releasePreview", previewUrl);
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
+                "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
+            await module.InvokeVoidAsync("releasePreview", lifetime.Token, previewUrl);
             previewUrl = null;
         }
     }
 
     /// <inheritdoc />
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
         lifetime.Cancel();
-        try
-        {
-            await ReleasePreviewAsync();
-            if (module is not null) await module.DisposeAsync();
-        }
-        catch (JSDisconnectedException) { }
+        // DOM 移除时由 JS 观察器回收 Blob；WebView 关闭阶段不能再等待 JS 调用。
         lifetime.Dispose();
     }
 }

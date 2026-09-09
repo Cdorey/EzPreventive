@@ -2,9 +2,11 @@
 
 日期：2026-09-09。分支：`codex/report-issuance-printing`。
 
-本审计以[工作方案](report-issuance-printing-plan.md)和实际代码、测试、生成文件为依据。当前不能宣布全部验收完成：WPF Blazor 内生成 PDF 的探针在图形控件初始化阶段失败，尚未运行到产品生成器。已经通过的 WPF PDF 查看和打印对话框验收不替代这一项。
+本审计以[工作方案](report-issuance-printing-plan.md)和实际代码、测试、生成文件为依据。核心功能已经实现。WPF Blazor 已实际生成七份合成 PDF，成品内容与视觉检查通过，但当次进程在释放阶段挂起；资源生命周期已经调整，仍需在正常桌面会话确认修改后的生成及退出流程。因此当前不能宣布全部验收完成。
 
-后续只读检查确认：本次自动化进程位于 Windows 会话 10，`WTSQuerySessionInformation` 返回 `Disconnected`；`WTSGetActiveConsoleSessionId` 返回另一会话 9。这是当前运行环境的明确差异，不能将探针的 Direct3D 初始化失败直接认定为正常交互桌面的产品缺陷。没有切换、连接或修改任何 Windows 会话；应在正常交互桌面运行同一探针补足证据，不继续在断开的会话中重复尝试。
+运行环境曾在同一 Windows 会话 10 的 `Active` 与 `Disconnected` 间变化：Active 时生成成功；生命周期修改后的复验又在 `CreateD3D9Device` 报 `0x8876086A`，随后 `query session` 确认会话 10 为 Disconnected、控制台 9 为 Connected。没有切换、连接或修改任何 Windows 会话，也不将断开会话的图形初始化失败推断为正常桌面的产品缺陷。
+
+释放挂起的代码路径有明确依据：当前依赖的 [BlazorWebView.DisposeAsync](https://github.com/dotnet/maui/blob/10.0.100/src/BlazorWebView/src/Wpf/BlazorWebView.cs) 先调用 MarkAsDisposing；[WebView2WebViewManager.SendMessage](https://github.com/dotnet/maui/blob/10.0.100/src/BlazorWebView/src/SharedSource/WebView2WebViewManager.cs) 此后忽略消息。报告生成器此前在服务释放时等待 JS 模块释放，存在无法收到回应的路径。现改为每次生成操作内持有并释放模块句柄，浏览器仍缓存模块；预览 Blob 由 JS 观察组件移除并回收，组件 Dispose 不再调用 JS。探针为控件释放增加 15 秒失败期限，避免无限等待。浏览器的主动关闭、组件移除、过期组件保护及签发更正回归已通过；桌面正常退出仍是待补证据。
 
 ## 需求与证据
 
@@ -25,11 +27,11 @@
 | 共享模板与宿主适配遵循包边界 | Common 保持题目、计分和业务解释；Application 提供快照与流程；Presentation 提供 PDF、字体及页面连接；Client/WPF 适配本机存储与打印。现有架构测试已执行 | 通过；没有新建通用报告框架或修改 Common 的排版职责 |
 | WASM 发布产物实际可运行 | 本地 `dotnet publish` 成功后，以本机静态服务运行真实发布目录，复验三种正式量表、MUST 更正/速查及 DRIs 多页输出，核对 PDF 内容与原件字节 | 通过；未部署到外部服务 |
 | WPF 查看和打印实际交互 | `WpfProbe <合成PDF> <目录>` 运行产品实际 PDF 窗口，核对交付流、捕获预览并从可访问性树确认打印对话框；量表及 DRIs 均通过 | 通过；没有提交实体打印任务 |
-| WPF Blazor 内实际生成 PDF | 新增 `WpfProbe --generate <目录>`，复用产品静态资源清单、真实 `BlazorWebView` 和产品两个 PDF 适配器。当前运行在 `CreateD3D9Device` 处报 `0x8876086A`，尚未进入组件生成 | **未通过运行验收**；不能用浏览器成功或桌面 PDF 查看成功代替 |
+| WPF Blazor 内实际生成 PDF | `wpf-generation-active` 的三种量表正式/评估各一份及 DRIs 评估一份均由真实 BlazorWebView 和产品适配器生成；七份内容、分值、水印、字体嵌入、摘要及本机请求检查通过，全部页面经 Poppler 渲染并检查。MUST 原件又交给实际 WPF 查看器，字节一致且打印对话框出现 | **成品通过，完整运行验收未完成**；修改后仍需正常生成并退出，不能用旧成品证明释放问题已修复 |
 
 ## 验证入口
 
-最新全解决方案 Release 构建成功（0 错误，保留既有 2FA 提示），680 项测试通过：Common 26、Contracts 79、XML 8、Application 82、Client 245、WPF 65、Server 175。桌面生成探针独立运行且失败，不包含在这一测试总数中。
+最近一次全解决方案 Release 构建成功（0 错误，保留既有 2FA 提示），680 项测试通过：Common 26、Contracts 79、XML 8、Application 82、Client 245、WPF 65、Server 175。本轮生命周期调整后，Client Release 重新构建及 245 项测试通过，WPF 探针编译通过；真实浏览器 MUST 签发更正重印、DRIs 输出及预览回收检查通过。桌面生成探针独立计结果，不包含在单元测试总数中。
 
 - `dotnet build EzPreventive.sln -c Release --no-restore`
 - `dotnet test EzPreventive.sln -c Release --no-build --no-restore`
@@ -37,7 +39,8 @@
 - `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris`；MUST 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
 - `node tools/reports/verify-storage.mjs` 验证真实 IndexedDB 原子提交。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- <合成报告.pdf> <输出目录>` 验证桌面原件查看与打印交互。
-- `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate <新输出目录>` 验证桌面 Blazor 生成。必须以命令成功、当次生成文件和请求记录共同判断；目前只获得失败诊断，不能标为成功。
+- `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate <新输出目录>` 验证桌面 Blazor 生成。必须以命令成功退出、当次生成文件和请求记录共同判断；当前已有合格成品，尚缺修改后的完整成功运行。
+- `python tools/reports/check-wpf-generation.py <输出目录>` 检查七份合成成品、分值、水印、嵌入字体、摘要和本机请求；这条检查不证明探针正常退出。
 
 待补的具体操作：在正常 Windows 桌面终端、仓库根目录执行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`。成功后检查当次七份 PDF（三种量表各正式/评估两份，加 DRIs 评估一份）、`requests.txt` 与摘要记录，再逐页核对中文、分值、水印和分页。探针不登录真实账号，不发送实体打印任务。
 
