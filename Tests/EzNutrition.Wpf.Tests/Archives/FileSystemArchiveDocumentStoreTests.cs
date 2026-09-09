@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using EzNutrition.Application.Archives;
 using EzNutrition.Wpf.Archives;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -36,9 +37,9 @@ public sealed class FileSystemArchiveDocumentStoreTests
             .Order(StringComparer.Ordinal)
             .ToArray();
         Assert.Equal(
-            new[] { $"{older.Info.DocumentId:N}.xml", $"{newer.Info.DocumentId:N}.xml" }
+            new[] { older.Info.DocumentId.ToString("N"), newer.Info.DocumentId.ToString("N") }
                 .Order(StringComparer.Ordinal),
-            contentNames);
+            contentNames.Select(name => name!.Split('.')[0]));
         Assert.DoesNotContain(contentNames, name => name!.Contains("虚构对象", StringComparison.Ordinal));
     }
 
@@ -59,8 +60,8 @@ public sealed class FileSystemArchiveDocumentStoreTests
         await store.SaveAsync(first);
         await store.SaveAsync(replacement);
 
-        Assert.False(File.Exists(Path.Combine(temporary.RootPath, $"{documentId:N}.xml")));
-        Assert.True(File.Exists(Path.Combine(temporary.RootPath, $"{documentId:N}.archive")));
+        Assert.Empty(Directory.EnumerateFiles(temporary.RootPath, $"{documentId:N}*.xml"));
+        Assert.Single(Directory.EnumerateFiles(temporary.RootPath, $"{documentId:N}*.archive"));
         Assert.Equal(
             Encoding.UTF8.GetBytes("replacement"),
             (await store.GetAsync(documentId))?.Content.ToArray());
@@ -142,15 +143,98 @@ public sealed class FileSystemArchiveDocumentStoreTests
             temporary.RootPath,
             ".catalog",
             $"{document.Info.DocumentId:N}.json");
-        var catalog = await File.ReadAllTextAsync(catalogPath);
-        catalog = catalog.Replace(
-            $"{document.Info.DocumentId:N}.xml",
-            $"{document.Info.DocumentId:N}-other.xml",
-            StringComparison.Ordinal);
-        await File.WriteAllTextAsync(catalogPath, catalog);
+        var catalog = JsonNode.Parse(await File.ReadAllTextAsync(catalogPath))!;
+        catalog["contentFileName"] = $"{document.Info.DocumentId:N}-other.xml";
+        await File.WriteAllTextAsync(catalogPath, catalog.ToJsonString());
 
         await Assert.ThrowsAsync<InvalidDataException>(
             () => store.GetAsync(document.Info.DocumentId).AsTask());
+    }
+
+    /// <summary>核对条件提交拒绝旧预览覆盖已经更新的本机版本。</summary>
+    [Fact]
+    public async Task Compare_exchange_requires_the_exact_previous_content()
+    {
+        using var temporary = new TempDirectory();
+        using var store = CreateStore(temporary.RootPath);
+        var original = CreateDocument(Guid.NewGuid(), "并发提交样本", DateTimeOffset.UtcNow);
+        var replacement = original with { Content = Encoding.UTF8.GetBytes("updated") };
+
+        Assert.True(await store.CompareExchangeAsync(original, null));
+        Assert.False(await store.CompareExchangeAsync(replacement, null));
+        Assert.False(await store.CompareExchangeAsync(replacement, "wrong"u8.ToArray()));
+        Assert.True(await store.CompareExchangeAsync(replacement, original.Content));
+        Assert.False(await store.CompareExchangeAsync(original, original.Content));
+        Assert.Equal(replacement.Content.ToArray(), (await store.GetAsync(original.Info.DocumentId))!.Content.ToArray());
+    }
+
+    /// <summary>模拟索引提交失败；新正文写完也不能破坏旧索引所对应的正文。</summary>
+    [Fact]
+    public async Task Failed_catalog_commit_keeps_the_previous_document_readable()
+    {
+        using var temporary = new TempDirectory();
+        using var store = CreateStore(temporary.RootPath);
+        var original = CreateDocument(Guid.NewGuid(), "中断提交样本", DateTimeOffset.UtcNow);
+        var replacement = original with { Content = Encoding.UTF8.GetBytes("new content") };
+        await store.SaveAsync(original);
+        var catalogPath = Path.Combine(temporary.RootPath, ".catalog", $"{original.Info.DocumentId:N}.json");
+        using (var heldCatalog = new FileStream(catalogPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var failure = await Record.ExceptionAsync(() => store.CompareExchangeAsync(replacement, original.Content).AsTask());
+            Assert.True(failure is IOException or UnauthorizedAccessException);
+        }
+
+        var retained = await store.GetAsync(original.Info.DocumentId);
+        Assert.Equal(original.Info, retained!.Info);
+        Assert.Equal(original.Content.ToArray(), retained.Content.ToArray());
+        Assert.True(await store.CompareExchangeAsync(replacement, original.Content));
+        Assert.Single(Directory.EnumerateFiles(temporary.RootPath, "*.xml"));
+    }
+
+    /// <summary>独立存储实例共享目录时，竞争提交只能产生一个获胜版本。</summary>
+    [Fact]
+    public async Task Separate_instances_cannot_both_commit_against_the_same_previous_content()
+    {
+        using var temporary = new TempDirectory();
+        using var first = CreateStore(temporary.RootPath);
+        using var second = CreateStore(temporary.RootPath);
+        var original = CreateDocument(Guid.NewGuid(), "双窗口样本", DateTimeOffset.UtcNow);
+        await first.SaveAsync(original);
+        var left = original with { Content = "left"u8.ToArray() };
+        var right = original with { Content = "right"u8.ToArray() };
+
+        var attempts = await Task.WhenAll(Attempt(first, left), Attempt(second, right));
+        Assert.Single(attempts.Where(success => success));
+        var current = await first.GetAsync(original.Info.DocumentId);
+        Assert.Equal((attempts[0] ? left : right).Content.ToArray(), current!.Content.ToArray());
+        Assert.False(await second.CompareExchangeAsync(original, original.Content));
+
+        async Task<bool> Attempt(FileSystemArchiveDocumentStore target, StoredArchiveDocument document)
+        {
+            try { return await target.CompareExchangeAsync(document, original.Content); }
+            catch (IOException) { return false; } // 另一个写入者仍持有目录锁，提示重试亦属于明确拒绝。
+        }
+    }
+
+    /// <summary>已有不带内容指纹的文档文件仍可读取并迁移，索引格式不需重写升级。</summary>
+    [Fact]
+    public async Task Legacy_document_file_names_remain_readable()
+    {
+        using var temporary = new TempDirectory();
+        using var store = CreateStore(temporary.RootPath);
+        var original = CreateDocument(Guid.NewGuid(), "旧档案样本", DateTimeOffset.UtcNow);
+        await store.SaveAsync(original);
+        var catalogPath = Path.Combine(temporary.RootPath, ".catalog", $"{original.Info.DocumentId:N}.json");
+        var catalog = JsonNode.Parse(await File.ReadAllTextAsync(catalogPath))!;
+        var currentPath = Path.Combine(temporary.RootPath, catalog["contentFileName"]!.GetValue<string>());
+        var legacyName = $"{original.Info.DocumentId:N}.xml";
+        File.Move(currentPath, Path.Combine(temporary.RootPath, legacyName));
+        catalog["contentFileName"] = legacyName;
+        await File.WriteAllTextAsync(catalogPath, catalog.ToJsonString());
+
+        Assert.Equal(original.Content.ToArray(), (await store.GetAsync(original.Info.DocumentId))!.Content.ToArray());
+        Assert.True(await store.CompareExchangeAsync(original with { Content = "revision"u8.ToArray() }, original.Content));
+        Assert.False(File.Exists(Path.Combine(temporary.RootPath, legacyName)));
     }
 
     private static FileSystemArchiveDocumentStore CreateStore(string rootPath) =>

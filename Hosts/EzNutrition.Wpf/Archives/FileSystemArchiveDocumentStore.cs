@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Security.Cryptography;
 using EzNutrition.Application.Archives;
 using Microsoft.Extensions.Logging;
 
@@ -38,7 +39,8 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
         ArchiveDocumentStoreCapabilities.Save |
         ArchiveDocumentStoreCapabilities.Browse |
         ArchiveDocumentStoreCapabilities.Delete |
-        ArchiveDocumentStoreCapabilities.Clear;
+        ArchiveDocumentStoreCapabilities.Clear |
+        ArchiveDocumentStoreCapabilities.CompareExchange;
 
     /// <inheritdoc />
     public async ValueTask SaveAsync(
@@ -56,29 +58,77 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
         try
         {
             EnsureDirectories();
-            var extension = GetSafeExtension(document.Info.PreferredFileExtension);
-            var contentFileName = $"{document.Info.DocumentId:N}{extension}";
-            var contentPath = Path.Combine(storage.RootPath, contentFileName);
-            var catalogPath = GetCatalogPath(document.Info.DocumentId);
-            var catalog = new CatalogEntry
-            {
-                Version = CatalogVersion,
-                Info = document.Info,
-                ContentFileName = contentFileName
-            };
-
-            await ArchiveFileIO.WriteAtomicallyAsync(contentPath, document.Content, cancellationToken);
-            await ArchiveFileIO.WriteAtomicallyAsync(
-                catalogPath,
-                JsonSerializer.SerializeToUtf8Bytes(catalog, JsonOptions),
-                cancellationToken);
-            DeleteSupersededContentFiles(document.Info.DocumentId, contentFileName);
+            using var writer = AcquireWriter();
+            await SaveCoreAsync(document, cancellationToken);
         }
         finally
         {
             gate.Release();
         }
     }
+
+    /// <inheritdoc />
+    public async ValueTask<bool> CompareExchangeAsync(
+        StoredArchiveDocument document,
+        ReadOnlyMemory<byte>? expectedContent,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ValidateInfo(document.Info);
+        if (document.Content.IsEmpty || document.Content.Length > ArchiveFileIO.MaximumDocumentBytes)
+            throw new InvalidDataException("档案正文为空或超出桌面宿主允许的大小。");
+
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            EnsureDirectories();
+            using var writer = AcquireWriter();
+            var catalogPath = GetCatalogPath(document.Info.DocumentId);
+            if (File.Exists(catalogPath))
+            {
+                if (expectedContent is null) return false;
+                var current = await ReadCatalogEntryAsync(catalogPath, cancellationToken);
+                var bytes = await ArchiveFileIO.ReadAllBytesAsync(GetContentPath(current), cancellationToken);
+                if (!bytes.AsSpan().SequenceEqual(expectedContent.Value.Span)) return false;
+            }
+            else if (expectedContent is not null)
+            {
+                return false;
+            }
+
+            await SaveCoreAsync(document, cancellationToken);
+            return true;
+        }
+        finally { gate.Release(); }
+    }
+
+    /// <summary>通过正文指纹分离文件版本，以索引替换作为唯一提交点。</summary>
+    private async ValueTask SaveCoreAsync(StoredArchiveDocument document, CancellationToken cancellationToken)
+    {
+        var extension = GetSafeExtension(document.Info.PreferredFileExtension);
+        var fingerprint = Convert.ToHexString(SHA256.HashData(document.Content.Span));
+        var contentFileName = $"{document.Info.DocumentId:N}.{fingerprint}{extension}";
+        var contentPath = Path.Combine(storage.RootPath, contentFileName);
+        var catalog = new CatalogEntry
+        {
+            Version = CatalogVersion,
+            Info = document.Info,
+            ContentFileName = contentFileName
+        };
+
+        await ArchiveFileIO.WriteAtomicallyAsync(contentPath, document.Content, cancellationToken);
+        await ArchiveFileIO.WriteAtomicallyAsync(
+            GetCatalogPath(document.Info.DocumentId),
+            JsonSerializer.SerializeToUtf8Bytes(catalog, JsonOptions), cancellationToken);
+        // 索引已经提交成功。清理失败不应把一次成功保存伪装成失败，旧文件可稍后清理。
+        try { DeleteSupersededContentFiles(document.Info.DocumentId, contentFileName); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        { logger.LogWarning(exception, "Archive was committed but obsolete content files could not be removed."); }
+    }
+
+    /// <summary>串行化同一档案目录的跨进程写入；占用时明确失败，交由用户重试。</summary>
+    private FileStream AcquireWriter() => new(
+        Path.Combine(CatalogPath, ".write.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
     /// <inheritdoc />
     public async ValueTask<IReadOnlyList<StoredArchiveDocumentInfo>> ListAsync(
@@ -176,6 +226,8 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
         await gate.WaitAsync(cancellationToken);
         try
         {
+            EnsureDirectories();
+            using var writer = AcquireWriter();
             var catalogPath = GetCatalogPath(documentId);
             if (!File.Exists(catalogPath))
             {
@@ -199,6 +251,7 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
         try
         {
             EnsureDirectories();
+            using var writer = AcquireWriter();
             foreach (var catalogPath in Directory.EnumerateFiles(CatalogPath, "*.json", SearchOption.TopDirectoryOnly))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -239,10 +292,7 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
     {
         var fileName = Path.GetFileName(entry.ContentFileName);
         if (!string.Equals(fileName, entry.ContentFileName, StringComparison.Ordinal) ||
-            !string.Equals(
-                Path.GetFileNameWithoutExtension(fileName),
-                entry.Info.DocumentId.ToString("N"),
-                StringComparison.OrdinalIgnoreCase))
+            !HasDocumentFileName(fileName, entry.Info.DocumentId))
         {
             throw new InvalidDataException("档案索引包含不安全的文档文件名。");
         }
@@ -294,7 +344,8 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
                      $"{documentId:N}.*",
                      SearchOption.TopDirectoryOnly))
         {
-            if (!string.Equals(Path.GetFileName(path), currentFileName, StringComparison.OrdinalIgnoreCase))
+            if (HasDocumentFileName(Path.GetFileName(path), documentId)
+                && !string.Equals(Path.GetFileName(path), currentFileName, StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(path);
             }
@@ -307,11 +358,22 @@ public sealed class FileSystemArchiveDocumentStore : IArchiveDocumentStore, IDis
         {
             var fileName = Path.GetFileName(path);
             if (!string.IsNullOrEmpty(Path.GetExtension(fileName)) &&
-                Guid.TryParseExact(Path.GetFileNameWithoutExtension(fileName), "N", out _))
+                Guid.TryParseExact(Path.GetFileNameWithoutExtension(fileName).Split('.')[0], "N", out var id) &&
+                HasDocumentFileName(fileName, id))
             {
                 File.Delete(path);
             }
         }
+    }
+
+    /// <summary>兼容旧版直接文件名和新版带正文指纹的文件名，不接纳任意路径。</summary>
+    private static bool HasDocumentFileName(string fileName, Guid id)
+    {
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        var prefix = id.ToString("N");
+        return string.Equals(stem, prefix, StringComparison.OrdinalIgnoreCase)
+            || (stem.Length == 97 && stem.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase)
+                && stem.AsSpan(33).IndexOfAnyExcept("0123456789abcdefABCDEF") < 0);
     }
 
     private static string GetSafeExtension(string? preferredExtension)

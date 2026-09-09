@@ -91,15 +91,7 @@ public sealed class ReportWorkflow(
         };
         var bytes = await package.WriteAsync(signed, cancellationToken);
         var record = CreateStoredDocument(signed, bytes);
-        var existing = await store.GetAsync(record.Info.DocumentId, cancellationToken);
-        if (existing is not null)
-        {
-            if (!existing.Content.Span.SequenceEqual(bytes))
-                throw new InvalidDataException("相同报告版本已经存在不同内容，不能覆盖原件。");
-            return record.Info.DocumentId;
-        }
-
-        await store.SaveAsync(record, cancellationToken);
+        await SaveNewAsync(record, cancellationToken);
         return record.Info.DocumentId;
     }
 
@@ -141,21 +133,23 @@ public sealed class ReportWorkflow(
         RequireStorage();
         var report = await package.ReadAsync(external.Content, cancellationToken);
         var document = CreateStoredDocument(report, external.Content);
-        var existing = await store.GetAsync(document.Info.DocumentId, cancellationToken);
-        if (existing is not null)
-        {
-            // 不同 ZIP 压缩参数可能携带同一个原件；不能静默覆盖未知的已有档案。
-            if (!existing.Content.Span.SequenceEqual(external.Content.Span))
-                throw new InvalidDataException("本机已存在同一报告版本，未覆盖既有报告包。");
-            return document.Info.DocumentId;
-        }
-        await store.SaveAsync(document, cancellationToken);
+        await SaveNewAsync(document, cancellationToken);
         return document.Info.DocumentId;
+    }
+
+    /// <summary>以不存在为条件原子新增；同一成品重试可复用结果，其他内容不能覆盖原件。</summary>
+    private async ValueTask SaveNewAsync(StoredArchiveDocument document, CancellationToken cancellationToken)
+    {
+        if (await store.CompareExchangeAsync(document, expectedContent: null, cancellationToken)) return;
+        var existing = await store.GetAsync(document.Info.DocumentId, cancellationToken);
+        if (existing is null || !existing.Content.Span.SequenceEqual(document.Content.Span))
+            throw new InvalidDataException("本机已存在不同内容或档案已变化，未覆盖既有报告包，请重新读取后核对。");
     }
 
     private void RequireStorage()
     {
-        const ArchiveDocumentStoreCapabilities required = ArchiveDocumentStoreCapabilities.Save | ArchiveDocumentStoreCapabilities.Browse;
+        const ArchiveDocumentStoreCapabilities required = ArchiveDocumentStoreCapabilities.Save
+            | ArchiveDocumentStoreCapabilities.Browse | ArchiveDocumentStoreCapabilities.CompareExchange;
         if ((store.Capabilities & required) != required)
             throw new InvalidOperationException("当前宿主不支持正式报告保存和原件读取。");
     }

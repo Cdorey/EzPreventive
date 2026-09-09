@@ -225,7 +225,17 @@ public sealed class ReportWorkflowTests
         public int Saves { get; private set; }
         public bool FailSave { get; set; }
         public ArchiveDocumentStoreCapabilities Capabilities => ArchiveDocumentStoreCapabilities.Save
-            | ArchiveDocumentStoreCapabilities.Browse | ArchiveDocumentStoreCapabilities.Delete | ArchiveDocumentStoreCapabilities.Clear;
+            | ArchiveDocumentStoreCapabilities.Browse | ArchiveDocumentStoreCapabilities.Delete | ArchiveDocumentStoreCapabilities.Clear
+            | ArchiveDocumentStoreCapabilities.CompareExchange;
+        public async ValueTask<bool> CompareExchangeAsync(StoredArchiveDocument document, ReadOnlyMemory<byte>? expectedContent,
+            CancellationToken cancellationToken = default)
+        {
+            var existing = Documents.GetValueOrDefault(document.Info.DocumentId);
+            if (expectedContent is null ? existing is not null
+                : existing is null || !existing.Content.Span.SequenceEqual(expectedContent.Value.Span)) return false;
+            await SaveAsync(document, cancellationToken);
+            return true;
+        }
         public ValueTask SaveAsync(StoredArchiveDocument document, CancellationToken cancellationToken = default)
         {
             if (FailSave) throw new IOException("模拟存储故障");

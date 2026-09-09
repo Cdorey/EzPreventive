@@ -20,7 +20,8 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         ArchiveDocumentStoreCapabilities.Save |
         ArchiveDocumentStoreCapabilities.Browse |
         ArchiveDocumentStoreCapabilities.Delete |
-        ArchiveDocumentStoreCapabilities.Clear;
+        ArchiveDocumentStoreCapabilities.Clear |
+        ArchiveDocumentStoreCapabilities.CompareExchange;
 
     /// <inheritdoc />
     public bool CanOpen => true;
@@ -46,6 +47,26 @@ public sealed class BrowserArchiveGateway(IJSRuntime jsRuntime) :
         catch (JSException exception)
         {
             throw new IOException("浏览器无法保存本机档案。", exception);
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<bool> CompareExchangeAsync(
+        StoredArchiveDocument document,
+        ReadOnlyMemory<byte>? expectedContent,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var browserModule = await GetModuleAsync(cancellationToken);
+        try
+        {
+            return await browserModule.InvokeAsync<bool>(
+                "compareExchangeDocument", cancellationToken,
+                BrowserStoredArchiveInfo.From(document.Info), document.Content.ToArray(), expectedContent?.ToArray());
+        }
+        catch (JSException exception)
+        {
+            throw new IOException("浏览器无法提交本机档案，请重新读取后重试。", exception);
         }
     }
 

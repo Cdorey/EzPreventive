@@ -26,3 +26,5 @@
 Windows 桌面运行验收使用 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- tmp/reports/must/browser-printed.pdf tmp/reports/wpf`。该工具需要 Windows 桌面会话、SDK 和 WebView2 Runtime；在指定输出目录建立隔离的 WebView2 配置，使用产品中的实际 PDF 窗口，核对宿主交付的 PDF 流并通过可访问性树确认打印对话框出现。支持中文或英文系统，截图用于人工检查；不提交打印任务。它通过反射访问内部窗口，窗口重构时应同步更新工具，不为此扩大产品 API。
 
 WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print)。内容截图不包含原生打印对话框，因此不能单凭截图认定打印交互成功。
+
+`node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。

@@ -89,6 +89,41 @@ export async function listDocuments() {
     }
 }
 
+// 在同一个读写事务内核对正文并提交。比较过程不等待网络或 Web Crypto，避免事务提前结束。
+export async function compareExchangeDocument(info, content, expectedContent) {
+    const database = await openDatabase();
+    try {
+        const transaction = database.transaction(
+            [documentStoreName, documentContentStoreName], "readwrite");
+        const completion = transactionCompleted(transaction);
+        const infos = transaction.objectStore(documentStoreName);
+        const contents = transaction.objectStore(documentContentStoreName);
+        let updated = false;
+        const readInfo = infos.get(info.documentId);
+        readInfo.onsuccess = () => {
+            const readContent = contents.get(info.documentId);
+            readContent.onsuccess = () => {
+                const currentInfo = readInfo.result;
+                const current = readContent.result;
+                const matches = expectedContent == null
+                    ? currentInfo === undefined && current === undefined
+                    : currentInfo !== undefined && current !== undefined
+                        && current.length === expectedContent.length
+                        && current.every((value, index) => value === expectedContent[index]);
+                if (matches) {
+                    infos.put(info);
+                    contents.put(new Uint8Array(content), info.documentId);
+                    updated = true;
+                }
+            };
+        };
+        await completion;
+        return updated;
+    } finally {
+        database.close();
+    }
+}
+
 export async function getDocument(documentId) {
     const database = await openDatabase();
     try {

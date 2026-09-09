@@ -21,7 +21,10 @@ public enum ArchiveDocumentStoreCapabilities
     Delete = 4,
 
     /// <summary>可以清空档案文档存储。</summary>
-    Clear = 8
+    Clear = 8,
+
+    /// <summary>可以原子核对旧内容后提交新文档，避免并发覆盖。</summary>
+    CompareExchange = 16
 }
 
 /// <summary>
@@ -87,6 +90,17 @@ public interface IArchiveDocumentStore
 
     /// <summary>新增或覆盖一个编码档案文档。</summary>
     ValueTask SaveAsync(StoredArchiveDocument document, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 仅在当前正文与预期旧正文完全一致时提交文档。预期为空表示文档必须尚不存在。
+    /// 核对和提交必须是同一次原子操作；返回假表示发生并发变更，调用方应重新读取并审核。
+    /// </summary>
+    /// <remarks>未声明 CompareExchange 能力的宿主拒绝该操作，不能降级为先读取再覆盖。</remarks>
+    ValueTask<bool> CompareExchangeAsync(
+        StoredArchiveDocument document,
+        ReadOnlyMemory<byte>? expectedContent,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("当前宿主不支持档案的并发提交检查。");
 
     /// <summary>列出存储中的档案文档。</summary>
     ValueTask<IReadOnlyList<StoredArchiveDocumentInfo>> ListAsync(
