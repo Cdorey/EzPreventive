@@ -29,6 +29,10 @@ Windows 桌面运行验收使用 `dotnet run --project tools/reports/WpfProbe/Wp
 
 WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print)。内容截图不包含原生打印对话框，因此不能单凭截图认定打印交互成功。
 
+`dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate tmp/reports/wpf-generation` 用于验证 WPF Blazor 内生成 PDF：探针复用产品宿主的静态资源清单和真实 PDF 适配器，以合成输入生成三种量表正式/评估稿和 DRIs 评估稿。它记录资源请求、成品摘要及失败诊断，不用模拟 JS 字节代替实际生成。使用新的输出目录，并检查进程成功退出及当次文件，不能只检查旧文件是否存在。
+
+2026-09-09 的本机运行在 `WebView2CompositionControl` 的 `CreateD3D9Device` 阶段报 `0x8876086A`，尚未进入 PDF 生成组件。已验证失败诊断能够写出，但桌面生成成功路径仍需在可运行的图形环境复验；现有 PDF 查看与打印探针的成功结果不覆盖该项。
+
 `node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。
 
 浏览器脚本追加 `--revision`（目前使用 `must`）可验证初版签发后更正、刷新重印及历史原件保留；配套运行 `python tools/reports/check-browser.py must --revision`。结果位于 `tmp/reports/must-revision/`。

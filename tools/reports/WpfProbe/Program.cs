@@ -18,7 +18,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            Console.Error.WriteLine("用法：WpfProbe <合成报告.pdf> <验收输出目录>");
+            Console.Error.WriteLine("用法：WpfProbe <合成报告.pdf> <验收输出目录>，或 WpfProbe --generate <验收输出目录>");
             return 2;
         }
 
@@ -29,6 +29,12 @@ internal static class Program
             Window? window = null;
             try
             {
+                if (args[0] == "--generate")
+                {
+                    await GenerationProbe.RunAsync(Path.GetFullPath(args[1]));
+                    exitCode = 0;
+                    return;
+                }
                 var pdf = await File.ReadAllBytesAsync(Path.GetFullPath(args[0]));
                 var output = Path.GetFullPath(args[1]);
                 Directory.CreateDirectory(output);

@@ -9,4 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="../../../Hosts/EzNutrition.Wpf/EzNutrition.Wpf.csproj" />
   </ItemGroup>
+  <!-- 探针使用产品宿主的真实资源清单；不作为第二个 Razor 宿主重复收集 Blazor 脚本。 -->
+  <Target Name="UseHostStaticWebAssets" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetDir)EzNutrition.Wpf.staticwebassets.runtime.json"
+          DestinationFiles="$(TargetDir)WpfProbe.staticwebassets.runtime.json" />
+  </Target>
 </Project>

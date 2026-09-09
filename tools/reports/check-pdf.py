@@ -18,6 +18,15 @@ for name in ("signed", "evaluation", "multipage"):
             assert "未经医师审核" in page.extract_text()
     for page in pages:
         assert "00000000-0000-0000-0000-000000000001" in page.extract_text()
+        # 原件必须携带字体，重印不能依赖另一台设备安装同名中文字体。
+        fonts = page["/Resources"]["/Font"].get_object().values()
+        for reference in fonts:
+            font = reference.get_object()
+            descendants = font.get("/DescendantFonts", [font])
+            for descendant in descendants:
+                descriptor = descendant.get_object()["/FontDescriptor"].get_object()
+                embedded = next((descriptor[key] for key in ("/FontFile", "/FontFile2", "/FontFile3") if key in descriptor), None)
+                assert embedded is not None and embedded.get_object().get_data(), "PDF 缺少嵌入字体"
     if name == "multipage":
         for number in range(1, 46):
             assert f"模拟项目 {number}" in text
