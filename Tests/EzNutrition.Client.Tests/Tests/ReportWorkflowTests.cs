@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using EzNutrition.Archives.Contracts.Metadata;
+using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Application.Reports;
@@ -316,6 +317,38 @@ public sealed class ReportWorkflowTests
         await Assert.ThrowsAsync<InvalidDataException>(() => target.Workflow.ImportAsync(
             new ExternalArchiveDocument { Content = bytes }).AsTask());
         Assert.Single((await target.Workflow.ReadStoredAsync(id)).Versions);
+    }
+
+    /// <summary>允许报告引用多个患者版本作为输入，调阅时使用咨询的明确对象快照。</summary>
+    [Fact]
+    public async Task Report_review_handles_multiple_patient_input_versions_without_choosing_one_arbitrarily()
+    {
+        var source = new Harness();
+        var id = await source.Workflow.IssueAsync(await source.Workflow.PrepareAsync(source.Workspace, source.Run, true));
+        ((ClientInfo)source.Workspace.Client).Name = "更正后患者";
+        await source.Workflow.IssueAsync(await source.Workflow.PrepareRevisionAsync(source.Workspace, source.Run, id));
+        var revised = await source.Workflow.ReadStoredAsync(id);
+        var oldPatient = revised.Document.Bundle.Entries.OfType<PatientResource>().First();
+        var current = revised.Report;
+        var changed = revised with
+        {
+            Document = revised.Document with
+            {
+                Bundle = revised.Document.Bundle with
+                {
+                    Entries = revised.Document.Bundle.Entries.Select(resource => resource.Metadata.VersionId == current.Metadata.VersionId
+                        ? current with { InputResourceReferences = current.InputResourceReferences.Append(
+                            new VersionedResourceReference(oldPatient.Metadata.ResourceId, oldPatient.Metadata.VersionId, oldPatient.ResourceType)).ToArray() }
+                        : resource).ToArray()
+                }
+            }
+        };
+        var target = new Harness();
+        await target.Workflow.ImportAsync(new ExternalArchiveDocument { Content = await source.Package.WriteAsync(changed) });
+        var opened = await target.Archives.OpenStoredAsync(id);
+        Assert.True(opened.Operation.IsSuccess);
+        Assert.NotNull(opened.Review);
+        Assert.Equal("更正后患者", opened.Review.SubjectDisplay);
     }
 
     /// <summary>版本 2 读取器保留对已发出的版本 1 单报告容器的兼容。</summary>

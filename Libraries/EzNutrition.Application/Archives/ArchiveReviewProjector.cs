@@ -21,8 +21,10 @@ internal static class ArchiveReviewProjector
         var consultation = report is null ? (consultations.Length == 1 ? consultations[0] : null)
             : consultations.SingleOrDefault(item => item.Metadata.VersionId == report.ConsultationReference.VersionId);
         var patients = bundle.Entries.OfType<PatientResource>().ToArray();
-        var patient = report is null ? (patients.Length == 1 ? patients[0] : null)
-            : patients.SingleOrDefault(item => report.InputResourceReferences.Any(reference => reference.VersionId == item.Metadata.VersionId));
+        var patientInputs = report is null ? patients : patients.Where(item => report.InputResourceReferences.Any(
+            reference => reference.VersionId == item.Metadata.VersionId)).ToArray();
+        // 合法报告可同时引用多个历史患者版本；不能任意选一个覆盖咨询的明确对象快照。
+        var patient = patientInputs.Length == 1 ? patientInputs[0] : null;
         var subject = PatientDisplay(patient, consultation);
         var title = report?.Title ?? consultation?.Title ?? $"{subject}的营养档案";
         var sections = new List<ArchiveReviewSection>();
