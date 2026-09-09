@@ -21,6 +21,8 @@
 
 角色声明更新同样是完整替换，`[]` 清空全部声明；不能提交 `{claims:[...]}` 信封。更新会使该角色用户的旧会话失效。角色创建会去除名称首尾空白，重名返回 409 文本。用户或角色不存在通常返回 404；验证失败为 400 文本、Identity 错误数组或框架验证响应，参见[通用错误约定](./README.md#错误与重试)。
 
+`UpdateRoleClaims` 将声明替换与成员安全标记更新放在同一事务中，只修改成员的 `SecurityStamp` 和 `ConcurrencyStamp`，不重新校验或改写邮箱等资料。旧账号的重复邮箱不会阻止权限变更，正常账号资料编辑的唯一性校验仍保留。并发冲突返回 409，数据库写入失败返回 500，整次修改回滚。该动作主动返回的业务错误使用 `{success:false,message}`：空声明或保留声明类型为 400，角色不存在为 404；框架绑定/认证/限流错误沿用通用约定。管理页显示具体原因，失败后保留输入。
+
 单用户删除结果包含 `message`、`deletedAiAudits`、`deletedCertificationRequests`、`certificateFileCleanupAttempts`、`certificateFileCleanupFailures`。数据库删除成功后，即使证件文件清理失败仍返回成功；文件失败数需单独展示。用户不存在返回 404，Identity 拒绝删除返回 400 错误数组。
 
 ## 发布公告与政策文本
