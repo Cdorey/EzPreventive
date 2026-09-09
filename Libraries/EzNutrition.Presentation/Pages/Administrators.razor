@@ -860,10 +860,22 @@
             if (response.IsSuccessStatusCode)
             {
                 await Message.SuccessAsync("角色Claims更新成功！");
+                await TryRefreshRoleListAsync();
             }
             else
             {
-                await Message.ErrorAsync("角色 Claims 更新失败，请检查提交内容。");
+                AccountOperationResultDto? error = null;
+                try
+                {
+                    error = await response.Content.ReadFromJsonAsync<AccountOperationResultDto>(lifetimeCancellation.Token);
+                }
+                catch (Exception exception) when (exception is System.Text.Json.JsonException or NotSupportedException)
+                {
+                    Logger.LogWarning("角色 Claims 接口返回无法识别的错误格式，HTTP {StatusCode}。", (int)response.StatusCode);
+                }
+                await Message.ErrorAsync(string.IsNullOrWhiteSpace(error?.Message)
+                    ? $"角色 Claims 更新失败（HTTP {(int)response.StatusCode}），请稍后重试。"
+                    : error.Message);
             }
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
@@ -873,13 +885,6 @@
         {
             Logger.LogError(ex, "Unable to update claims for role {RoleName}.", roleClaimsDto.RoleName);
             await Message.ErrorAsync("角色 Claims 更新异常，请稍后重试。");
-        }
-        finally
-        {
-            if (!lifetimeCancellation.IsCancellationRequested)
-            {
-                await TryRefreshRoleListAsync();
-            }
         }
     }
 

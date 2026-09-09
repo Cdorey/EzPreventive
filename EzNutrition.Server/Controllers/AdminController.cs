@@ -124,10 +124,11 @@ namespace EzNutrition.Server.Controllers
         }
 
         /// <summary>
-        /// 更新指定角色的 Claim 列表
+        /// 在同一事务中更新角色声明及成员登录版本；仅变更安全标记，不重新校验或改写账号资料。
         /// </summary>
         /// <param name="roleName">角色名称</param>
         /// <param name="newClaims">新的 Claim 列表</param>
+        /// <param name="cancellationToken">取消本次数据库操作的信号。</param>
         /// <returns>更新结果</returns>
         [HttpPut("{roleName}")]
         public async Task<IActionResult> UpdateRoleClaims(
@@ -136,14 +137,16 @@ namespace EzNutrition.Server.Controllers
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(roleName) || newClaims is null ||
-                newClaims.Any(claim => string.IsNullOrWhiteSpace(claim.Type) || string.IsNullOrWhiteSpace(claim.Value)))
+                newClaims.Any(claim => claim is null || string.IsNullOrWhiteSpace(claim.Type) || string.IsNullOrWhiteSpace(claim.Value)))
             {
-                return BadRequest("Role name and non-empty claim type/value pairs are required.");
+                return BadRequest(new AccountOperationResultDto
+                { Success = false, Message = "角色名称、声明类型和声明值均不能为空。" });
             }
 
             if (newClaims.Any(claim => JwtService.IsReservedClaimType(claim.Type)))
             {
-                return BadRequest("System identity claims cannot be assigned to a role.");
+                return BadRequest(new AccountOperationResultDto
+                { Success = false, Message = "系统身份声明不能分配给角色，请移除保留的声明类型。" });
             }
 
             newClaims = newClaims
@@ -154,50 +157,66 @@ namespace EzNutrition.Server.Controllers
             var role = await roleManager.FindByNameAsync(roleName);
             if (role == null)
             {
-                return NotFound("Role not found");
+                return NotFound(new AccountOperationResultDto
+                { Success = false, Message = "角色不存在，请刷新角色列表。" });
             }
 
             // 获取现有的 Claim 列表
             var existingClaims = await roleManager.GetClaimsAsync(role);
             await using var transaction = await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            // 移除所有现有 Claim
-            foreach (var claim in existingClaims)
+            try
             {
-                var removeResult = await roleManager.RemoveClaimAsync(role, claim);
-                if (!removeResult.Succeeded)
+                foreach (var claim in existingClaims)
                 {
-                    return BadRequest("Failed to remove existing claims");
+                    var removeResult = await roleManager.RemoveClaimAsync(role, claim);
+                    if (!removeResult.Succeeded)
+                    {
+                        return BadRequest(new AccountOperationResultDto
+                        {
+                            Success = false,
+                            Message = "移除原有角色声明失败：" + string.Join("；", removeResult.Errors.Select(error => error.Description))
+                        });
+                    }
                 }
-            }
 
-            // 添加新传入的 Claim
-            foreach (var claimDto in newClaims)
+                foreach (var claimDto in newClaims)
+                {
+                    var addResult = await roleManager.AddClaimAsync(role, new Claim(claimDto.Type, claimDto.Value));
+                    if (!addResult.Succeeded)
+                    {
+                        return BadRequest(new AccountOperationResultDto
+                        {
+                            Success = false,
+                            Message = "添加角色声明失败：" + string.Join("；", addResult.Errors.Select(error => error.Description))
+                        });
+                    }
+                }
+
+                var usersInRole = await userManager.GetUsersInRoleAsync(roleName);
+                foreach (var user in usersInRole)
+                {
+                    // 本用例只更新登录版本，不编辑用户资料，因此不调用会重新校验邮箱的 UserManager.Update。
+                    // EF 跟踪修改的两列，并以原 ConcurrencyStamp 检查并发；不覆盖密码、邮箱等资料。
+                    user.SecurityStamp = Guid.NewGuid().ToString("N");
+                    user.ConcurrencyStamp = Guid.NewGuid().ToString("N");
+                }
+
+                await applicationDbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException exception)
             {
-                var claim = new Claim(claimDto.Type, claimDto.Value);
-                var addResult = await roleManager.AddClaimAsync(role, claim);
-                if (!addResult.Succeeded)
-                {
-                    return BadRequest($"Failed to add claim: {claimDto.Type}");
-                }
+                logger.LogWarning(exception, "角色 {RoleName} 的声明或成员在保存期间被其他请求修改。", roleName);
+                return Conflict(new AccountOperationResultDto
+                { Success = false, Message = "角色或成员账号已被其他请求修改，本次保存已撤销，请刷新后重试。" });
             }
-
-            var usersInRole = await userManager.GetUsersInRoleAsync(roleName);
-            foreach (var user in usersInRole)
+            catch (DbUpdateException exception)
             {
-                var stampResult = await userManager.UpdateSecurityStampAsync(user);
-                if (!stampResult.Succeeded)
-                {
-                    logger.LogError(
-                        "更新角色 {RoleName} 后使用户 {UserId} 的登录凭据失效失败：{Errors}",
-                        roleName,
-                        user.Id,
-                        stampResult.Errors);
-                    return BadRequest(stampResult.Errors);
-                }
+                logger.LogError(exception, "保存角色 {RoleName} 的声明和成员登录版本失败。", roleName);
+                return StatusCode(StatusCodes.Status500InternalServerError, new AccountOperationResultDto
+                { Success = false, Message = "角色声明或成员登录版本未能写入数据库，本次保存已撤销，请稍后重试。" });
             }
-
-            await transaction.CommitAsync(cancellationToken);
             return Ok(new { Message = "Role claims updated successfully" });
         }
 
