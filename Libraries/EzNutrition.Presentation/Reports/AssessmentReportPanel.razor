@@ -8,6 +8,7 @@
 <div class="report-actions">
     <AuthorizeView Policy="@PolicyList.IssueReport">
         <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="() => PrepareAsync(true)">签发报告</Button>
+        <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="ChooseRevisionAsync">更正已签发报告</Button>
     </AuthorizeView>
     <AuthorizeView Policy="@PolicyList.PrintReport">
         <Button Disabled="@busy" OnClick="() => PrepareAsync(false)">打印当前评估稿</Button>
@@ -22,7 +23,7 @@
     <p role="status">@feedback</p>
 }
 
-<Modal Title="@(prepared?.Draft.Signer is null ? "量表评估稿" : "报告签发审核")"
+<Modal Title="@(revisions is not null ? "选择要更正的报告" : prepared?.Draft.Previous is not null ? "报告更正审核" : prepared?.Draft.Signer is null ? "量表评估稿" : "报告签发审核")"
        Visible="@visible" Width="1000" Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
     <ChildContent>
         @if (feedback is not null)
@@ -33,11 +34,24 @@
         {
             <p role="status">正在本机生成报告…</p>
         }
+        @if (revisions is not null)
+        {
+            @foreach (var candidate in revisions)
+            {
+                <Button Disabled="@busy" OnClick="() => PrepareAsync(true, candidate.DocumentId)">
+                    更正第 @candidate.RevisionNumber 版 · @candidate.FinalizedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") · 报告 @candidate.ReportId
+                </Button>
+            }
+        }
         @if (previewUrl is not null)
         {
             @if (issuedId is null && prepared?.Draft.Signer is not null)
             {
                 <p>请核对以下固定快照。确认签发后保存此 PDF 原件，后续修改咨询不会改变它。</p>
+                @if (prepared.Draft.Previous is { } previous)
+                {
+                    <p>本次将以第 @prepared.Draft.Report.Metadata.RevisionNumber.Value 版替代第 @previous.Report.Metadata.RevisionNumber.Value 版。旧版原件保留在报告包中；关闭预览不会改变旧版。</p>
+                }
             }
             <iframe class="report-preview" title="报告 PDF 预览" src="@(previewUrl + "#toolbar=0&navpanes=0")"></iframe>
         }
@@ -46,7 +60,7 @@
         @if (prepared is not null && issuedId is null && prepared.Draft.Signer is not null)
         {
             <AuthorizeView Policy="@PolicyList.IssueReport">
-                <Button Type="@ButtonType.Primary" Disabled="@busy" OnClick="IssueAsync">确认审核并签发</Button>
+                <Button Type="@ButtonType.Primary" Disabled="@busy" OnClick="IssueAsync">@(prepared.Draft.Previous is null ? "确认审核并签发" : "确认更正并签发")</Button>
             </AuthorizeView>
         }
         <AuthorizeView Policy="@PolicyList.PrintReport">
@@ -73,6 +87,7 @@
     private readonly CancellationTokenSource lifetime = new();
     private IJSObjectReference? module;
     private PreparedAssessmentReport? prepared;
+    private IReadOnlyList<ReportRevisionCandidate>? revisions;
     private string? previewUrl;
     private string? feedback;
     private Guid? issuedId;
@@ -82,15 +97,28 @@
     private DateTimeOffset assessmentModifiedAt;
     private string? patientName;
 
-    private Task PrepareAsync(bool forIssuance) => RunAsync(async () =>
+    private Task ChooseRevisionAsync() => RunAsync(async () =>
     {
         visible = true;
         await ReleasePreviewAsync();
         prepared = null;
         issuedId = null;
+        revisions = await Workflow.ListRevisableAsync(Workspace, Assessment, lifetime.Token);
+        if (revisions.Count == 0) feedback = "当前量表还没有可更正的正式报告。";
+    });
+
+    private Task PrepareAsync(bool forIssuance, Guid? revisionId = null) => RunAsync(async () =>
+    {
+        visible = true;
+        await ReleasePreviewAsync();
+        prepared = null;
+        revisions = null;
+        issuedId = null;
         assessmentModifiedAt = Assessment.LastModifiedAt;
         patientName = Workspace.Client.Name;
-        prepared = await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
+        prepared = revisionId is { } id
+            ? await Workflow.PrepareRevisionAsync(Workspace, Assessment, id, lifetime.Token)
+            : await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
         module ??= await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
             "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
         previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, prepared.Pdf.ToArray());
@@ -141,6 +169,7 @@
         visible = false;
         await ReleasePreviewAsync();
         prepared = null;
+        revisions = null;
     }
 
     private async ValueTask ReleasePreviewAsync()

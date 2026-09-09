@@ -12,11 +12,18 @@ internal static class ArchiveReviewProjector
     public static ArchiveReview Create(ArchiveDocument document)
     {
         var bundle = document.Bundle;
-        var patient = bundle.Entries.OfType<PatientResource>().SingleOrDefault();
-        var consultation = bundle.Entries.OfType<ConsultationResource>().SingleOrDefault();
-        var subject = PatientDisplay(patient, consultation);
         var reports = bundle.Entries.OfType<NutritionReportResource>().ToArray();
-        var report = reports.Length == 1 ? reports[0] : null;
+        var superseded = reports.Where(item => item.Metadata.Supersedes is not null)
+            .Select(item => item.Metadata.Supersedes!.VersionId).ToHashSet();
+        var heads = reports.Where(item => !superseded.Contains(item.Metadata.VersionId)).ToArray();
+        var report = heads.Length == 1 ? heads[0] : null;
+        var consultations = bundle.Entries.OfType<ConsultationResource>().ToArray();
+        var consultation = report is null ? (consultations.Length == 1 ? consultations[0] : null)
+            : consultations.SingleOrDefault(item => item.Metadata.VersionId == report.ConsultationReference.VersionId);
+        var patients = bundle.Entries.OfType<PatientResource>().ToArray();
+        var patient = report is null ? (patients.Length == 1 ? patients[0] : null)
+            : patients.SingleOrDefault(item => report.InputResourceReferences.Any(reference => reference.VersionId == item.Metadata.VersionId));
+        var subject = PatientDisplay(patient, consultation);
         var title = report?.Title ?? consultation?.Title ?? $"{subject}的营养档案";
         var sections = new List<ArchiveReviewSection>();
 
@@ -26,9 +33,25 @@ internal static class ArchiveReviewProjector
         }
 
         foreach (var resource in bundle.Entries.Where(resource =>
-                     resource is not PatientResource and not ConsultationResource))
+                     resource is not PatientResource and not ConsultationResource
+                     && (report is null || resource is NutritionReportResource
+                         || report.InputResourceReferences.Any(reference => reference.VersionId == resource.Metadata.VersionId)))
+                     .OrderBy(resource => resource is NutritionReportResource version
+                         ? superseded.Contains(version.Metadata.VersionId) ? 2 : 0 : 1))
         {
-            sections.Add(CreateResourceSection(resource));
+            var section = CreateResourceSection(resource);
+            if (resource is NutritionReportResource version)
+                section = section with
+                {
+                    Title = $"报告第 {version.Metadata.RevisionNumber.Value} 版",
+                    Description = superseded.Contains(version.Metadata.VersionId)
+                        ? "已被后续签发版本替代；历史原件保留在报告包中。" : section.Description,
+                    Fields = superseded.Contains(version.Metadata.VersionId)
+                        ? section.Fields.Select(field => field.Label == "状态"
+                            ? new ArchiveReviewField("状态", "已被替代（原件保留）") : field).ToArray()
+                        : section.Fields
+                };
+            sections.Add(section);
         }
 
         var format = document.SourceFormat;

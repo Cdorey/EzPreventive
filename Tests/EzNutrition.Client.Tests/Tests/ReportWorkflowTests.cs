@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using System.Text;
+using System.Text.Json.Nodes;
+using EzNutrition.Archives.Contracts.Metadata;
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Application.Reports;
@@ -154,6 +157,153 @@ public sealed class ReportWorkflowTests
         Assert.Empty(h.Printer.Printed);
     }
 
+    /// <summary>更正只在提交后替代旧版，保留旧资源和 PDF，并从同一档案入口重印新版。</summary>
+    [Fact]
+    public async Task Revision_keeps_old_original_and_commits_a_closed_version_chain()
+    {
+        var h = new Harness();
+        var initial = await h.Workflow.PrepareAsync(h.Workspace, h.Run, true);
+        var id = await h.Workflow.IssueAsync(initial);
+        var original = await h.Workflow.ReadStoredAsync(id);
+        h.Run.SetAnswer("bmi-score", "below-18-5");
+        var correction = await h.Workflow.PrepareRevisionAsync(h.Workspace, h.Run, id);
+        Assert.Equal(original.Report.Metadata.VersionId, correction.Draft.Report.Metadata.BasedOn!.VersionId);
+        Assert.Null(correction.Draft.Report.Metadata.Supersedes);
+        Assert.Single((await h.Workflow.ReadStoredAsync(id)).Versions);
+        Assert.Equal(id, await h.Workflow.IssueAsync(correction));
+        Assert.Equal(id, await h.Workflow.IssueAsync(correction));
+        var revised = await h.Workflow.ReadStoredAsync(id);
+        Assert.Equal(2, revised.Versions.Count);
+        Assert.Equal(original.Report.Metadata.ResourceId, revised.Report.Metadata.ResourceId);
+        Assert.Equal(original.Report.Metadata.VersionId, revised.Report.Metadata.Supersedes!.VersionId);
+        Assert.Equal(ResourceLifecycleStatus.Final, revised.Versions[0].Metadata.Status);
+        Assert.Equal(ResourceLifecycleStatus.Amended, revised.Report.Metadata.Status);
+        Assert.Equal(original.Pdf.ToArray(), revised.PreviousPdfs[original.Report.Metadata.VersionId.Value].ToArray());
+        Assert.Equal(correction.Pdf.ToArray(), revised.Pdf.ToArray());
+        Assert.Single(h.Store.Documents);
+        Assert.Equal(2, h.Store.Saves);
+        var opened = await h.Archives.OpenStoredAsync(id);
+        Assert.True(opened.Operation.IsSuccess);
+        Assert.Contains(opened.Review!.Sections, section => section.Description?.Contains("已被后续") == true);
+        h.Access.Issue = false;
+        await h.Workflow.PrintStoredAsync(id);
+        Assert.Equal(correction.Pdf.ToArray(), Assert.Single(h.Printer.Printed));
+    }
+
+    /// <summary>修订保存失败不改变旧档案；两个审核预览竞争提交时，后提交者必须重新审核。</summary>
+    [Fact]
+    public async Task Revision_failure_and_stale_preview_do_not_replace_current_version()
+    {
+        var h = new Harness();
+        var id = await h.Workflow.IssueAsync(await h.Workflow.PrepareAsync(h.Workspace, h.Run, true));
+        var originalBytes = h.Store.Documents[id].Content.ToArray();
+        var first = await h.Workflow.PrepareRevisionAsync(h.Workspace, h.Run, id);
+        var stale = await h.Workflow.PrepareRevisionAsync(h.Workspace, h.Run, id);
+        h.Store.FailSave = true;
+        await Assert.ThrowsAsync<IOException>(() => h.Workflow.IssueAsync(first).AsTask());
+        Assert.Equal(originalBytes, h.Store.Documents[id].Content.ToArray());
+        h.Store.FailSave = false;
+        await h.Workflow.IssueAsync(first);
+        await Assert.ThrowsAsync<InvalidDataException>(() => h.Workflow.IssueAsync(stale).AsTask());
+        Assert.Equal(first.Draft.Report.Metadata.VersionId, (await h.Workflow.ReadStoredAsync(id)).Report.Metadata.VersionId);
+    }
+
+    /// <summary>同名量表的新一次评估不能更正旧评估报告，候选查询也不会混入它。</summary>
+    [Fact]
+    public async Task Revision_requires_the_same_assessment_instance()
+    {
+        var h = new Harness();
+        var id = await h.Workflow.IssueAsync(await h.Workflow.PrepareAsync(h.Workspace, h.Run, true));
+        var service = new NutritionAssessmentApplicationService([new MustInstrument()]);
+        Assert.Single(await h.Workflow.ListRevisableAsync(h.Workspace, h.Run));
+        h.Workspace.NutritionAssessments.Remove(h.Run);
+        var another = service.StartRun(h.Workspace, service.Definitions.Single());
+        foreach (var item in h.Run.Definition.Sections.SelectMany(section => section.Items))
+            another.SetAnswer(item.Code, h.Run.GetAnswer(item.Code)!);
+        Assert.Empty(await h.Workflow.ListRevisableAsync(h.Workspace, another));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => h.Workflow.PrepareRevisionAsync(h.Workspace, another, id).AsTask());
+    }
+
+    /// <summary>导入完整修订包保留所有历史原件；历史 PDF 损坏也必须拒绝整个包。</summary>
+    [Fact]
+    public async Task Revision_package_round_trip_checks_every_original()
+    {
+        var h = new Harness();
+        var id = await h.Workflow.IssueAsync(await h.Workflow.PrepareAsync(h.Workspace, h.Run, true));
+        var initial = h.Store.Documents[id].Content.ToArray();
+        var target = new Harness();
+        await target.Workflow.ImportAsync(new ExternalArchiveDocument { Content = initial });
+        await h.Workflow.IssueAsync(await h.Workflow.PrepareRevisionAsync(h.Workspace, h.Run, id));
+        await h.Workflow.IssueAsync(await h.Workflow.PrepareRevisionAsync(h.Workspace, h.Run, id));
+        await target.Workflow.ImportAsync(new ExternalArchiveDocument { Content = h.Store.Documents[id].Content });
+        Assert.Equal(3, (await target.Workflow.ReadStoredAsync(id)).Versions.Count);
+        await Assert.ThrowsAsync<InvalidDataException>(() => target.Workflow.ImportAsync(
+            new ExternalArchiveDocument { Content = initial }).AsTask());
+        using var corrupt = new MemoryStream();
+        corrupt.Write(h.Store.Documents[id].Content.Span);
+        using (var zip = new ZipArchive(corrupt, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = zip.Entries.First(item => item.FullName.StartsWith("history/", StringComparison.Ordinal));
+            using var body = entry.Open();
+            body.SetLength(0);
+            body.Write("%PDF-1.7\nchanged"u8);
+        }
+        await Assert.ThrowsAsync<InvalidDataException>(() => target.Workflow.ImportAsync(
+            new ExternalArchiveDocument { Content = corrupt.ToArray() }).AsTask());
+    }
+
+    /// <summary>版本标识和旧 PDF 都相同也不足以覆盖本机历史，导入必须保留旧资源的全部事实。</summary>
+    [Fact]
+    public async Task Import_rejects_modified_historical_facts_even_with_unchanged_pdf()
+    {
+        var source = new Harness();
+        var id = await source.Workflow.IssueAsync(await source.Workflow.PrepareAsync(source.Workspace, source.Run, true));
+        var target = new Harness();
+        await target.Workflow.ImportAsync(new ExternalArchiveDocument { Content = source.Store.Documents[id].Content });
+        await source.Workflow.IssueAsync(await source.Workflow.PrepareRevisionAsync(source.Workspace, source.Run, id));
+        var revised = await source.Workflow.ReadStoredAsync(id);
+        var changed = revised with
+        {
+            Document = revised.Document with
+            {
+                Bundle = revised.Document.Bundle with
+                {
+                    Entries = revised.Document.Bundle.Entries.Select(resource =>
+                        resource is NutritionReportResource report && report.Metadata.RevisionNumber.Value == 1
+                            ? report with { Title = "被改写的旧版标题" } : resource).ToArray()
+                }
+            }
+        };
+        var bytes = await source.Package.WriteAsync(changed);
+        await Assert.ThrowsAsync<InvalidDataException>(() => target.Workflow.ImportAsync(
+            new ExternalArchiveDocument { Content = bytes }).AsTask());
+        Assert.Single((await target.Workflow.ReadStoredAsync(id)).Versions);
+    }
+
+    /// <summary>版本 2 读取器保留对已发出的版本 1 单报告容器的兼容。</summary>
+    [Fact]
+    public async Task Version_one_single_report_packages_remain_readable()
+    {
+        var h = new Harness();
+        var id = await h.Workflow.IssueAsync(await h.Workflow.PrepareAsync(h.Workspace, h.Run, true));
+        using var legacy = new MemoryStream();
+        legacy.Write(h.Store.Documents[id].Content.Span);
+        using (var zip = new ZipArchive(legacy, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = zip.GetEntry("manifest.json")!;
+            JsonNode manifest;
+            using (var body = entry.Open()) manifest = JsonNode.Parse(body)!;
+            manifest["version"] = 1;
+            using var output = entry.Open();
+            output.SetLength(0);
+            output.Write(Encoding.UTF8.GetBytes(manifest.ToJsonString()));
+        }
+        var target = new Harness();
+        Assert.Equal(id, await target.Workflow.ImportAsync(new ExternalArchiveDocument { Content = legacy.ToArray() }));
+        Assert.Equal("1", target.Store.Documents[id].Info.FormatVersion);
+        Assert.Single((await target.Workflow.ReadStoredAsync(id)).Versions);
+    }
+
     private sealed class Harness
     {
         public ConsultationWorkspace Workspace { get; } = new(new ClientInfo
@@ -168,6 +318,7 @@ public sealed class ReportWorkflowTests
         public Transport Transport { get; } = new();
         public ReportWorkflow Workflow { get; }
         public ArchiveWorkflow Archives { get; }
+        public ReportPackage Package { get; }
 
         public Harness()
         {
@@ -179,7 +330,8 @@ public sealed class ReportWorkflowTests
             var assembler = new ArchiveContractAssembler(new ApplicationIdentity(new Uri("urn:test:report"), "报告测试", "1"));
             var validator = new ArchiveContractValidator();
             IArchiveCodec[] codecs = [new XmlArchiveCodec(validator)];
-            Workflow = new(new(assembler), Renderer, Access, validator, new(codecs, validator), Store, Printer);
+            Package = new(codecs, validator);
+            Workflow = new(new(assembler), Renderer, Access, validator, Package, Store, Printer);
             Archives = new(assembler, validator, codecs, Store, Transport, Access);
         }
     }
@@ -205,7 +357,7 @@ public sealed class ReportWorkflowTests
         public ValueTask<byte[]> RenderAsync(AssessmentReportDraft draft, CancellationToken cancellationToken = default)
         {
             Calls++;
-            return ValueTask.FromResult("%PDF-1.7\nfixture"u8.ToArray());
+            return ValueTask.FromResult(Encoding.UTF8.GetBytes($"%PDF-1.7\nfixture {draft.Assessment.TotalScore} revision {draft.Report.Metadata.RevisionNumber.Value}"));
         }
     }
 

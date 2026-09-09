@@ -12,7 +12,9 @@ const samples = {
 };
 const sample = samples[scaleCode];
 if (!sample) throw new Error("请选择 must、nrs-2002 或 mna-sf。");
-const output = `tmp/reports/${scaleCode}`;
+const amend = process.argv[4] === "--revision";
+if (amend && scaleCode !== "must") throw new Error("更正验收样本当前使用 MUST。");
+const output = `tmp/reports/${scaleCode}${amend ? "-revision" : ""}`;
 if (!new Set(["127.0.0.1", "localhost"]).has(new URL(origin).hostname)) throw new Error("仅允许本机测试宿主。");
 const expiry = Math.floor(Date.now() / 1000) + 3600;
 const sessionId = randomUUID();
@@ -86,12 +88,28 @@ try {
         throw new Error("评估打印不应建立正式报告档案。");
     await page.getByRole("button", { name: "签发报告", exact: true }).click();
     await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
+    if (amend) {
+        const initialUrl = await page.locator("iframe.report-preview").getAttribute("src");
+        const initialBytes = await page.evaluate(async url =>
+            Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), initialUrl);
+        await writeFile(`${output}/browser-initial.pdf`, new Uint8Array(initialBytes));
+    }
     await page.getByRole("button", { name: "确认审核并签发" }).click();
     await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: "关闭", exact: true }).click();
+    if (amend) {
+        await assessment.locator("input[value='below-18-5']").check();
+        await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
+        await page.getByRole("button", { name: /更正第 1 版/ }).click();
+        await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
+        await page.getByRole("button", { name: "确认更正并签发", exact: true }).click();
+        await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
+        await page.getByRole("button", { name: "关闭", exact: true }).click();
+    }
     await page.goto(origin + "/archives");
     await page.getByRole("button", { name: sample.title + "报告", exact: false }).click();
     await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
+    if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
     const records = await page.evaluate(async () => {
         const storage = await import("/js/archive-storage.js");
         const records = await storage.listDocuments();

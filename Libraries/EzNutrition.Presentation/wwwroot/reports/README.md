@@ -1,6 +1,6 @@
 # 本机量表 PDF 模板
 
-`assessment-report.mjs` 是浏览器和 WPF 共用的模板版本 1。依赖、字体和图片只允许使用随应用发布的资源；不得引入远程报告转换、患者资料上传或远程字体服务。
+`assessment-report.mjs` 是浏览器和 WPF 共用的模板版本 2，页脚同时显示报告编号与修订号。依赖、字体和图片只允许使用随应用发布的资源；不得引入远程报告转换、患者资料上传或远程字体服务。历史报告继续使用原 PDF，不因模板升级而重排。
 
 ## 固定依赖
 
@@ -28,3 +28,5 @@ Windows 桌面运行验收使用 `dotnet run --project tools/reports/WpfProbe/Wp
 WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print)。内容截图不包含原生打印对话框，因此不能单凭截图认定打印交互成功。
 
 `node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。
+
+浏览器脚本追加 `--revision`（目前使用 `must`）可验证初版签发后更正、刷新重印及历史原件保留；配套运行 `python tools/reports/check-browser.py must --revision`。结果位于 `tmp/reports/must-revision/`。

@@ -57,7 +57,9 @@ XML 文档和浏览器 IndexedDB 都不会因为档案操作而上传到服务�
 
 WASM 宿主在 IndexedDB 中将轻量文档摘要与 XML 字节分别保存。浏览档案只读取摘要，选择具体咨询或开始后续咨询时才读取并解码对应 XML；两个部分由同一个 IndexedDB 事务原子写入。旧版内联保存的文档在数据库升级时原子迁移，不改变 Application、UI 或 XML codec 的接口和语义。
 
-WPF 宿主在 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives` 保存以文档 GUID 命名的 XML，并在隐藏的 `.catalog` 目录保存调阅摘要。外部打开使用 Windows 文件选择器；导出使用“另存为”，成功后由资源管理器选中新文件。详细运行和备份边界见 [WPF Hybrid 宿主](./wpf-hybrid-host.md)。
+WPF 宿主在 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives` 保存以文档 GUID 和正文指纹命名的文档（XML 或报告包），并在隐藏的 `.catalog` 目录保存调阅摘要。新正文先写入独立文件，再原子替换索引作为提交点，失败时旧正文仍与旧索引对应；同一目录的写入由文件锁串行化。旧版仅以文档 GUID 命名的文件仍可读取。外部打开使用 Windows 文件选择器；导出使用“另存为”，成功后由资源管理器选中新文件。详细运行和备份边界见 [WPF Hybrid 宿主](./wpf-hybrid-host.md)。
+
+报告包在上述文档存储内保留全部签发版本和 PDF，以初版报告版本 ID 作为稳定文档键。更正通过现有 Supersedes 表达，按预期旧正文进行原子条件提交；普通重印使用当前原件。报告不进入咨询复诊历史，详见 [报告使用说明](./report-user-guide.md)。
 
 ## 时间语义
 

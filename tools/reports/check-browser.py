@@ -6,15 +6,24 @@ import zipfile
 from pypdf import PdfReader
 
 scale = sys.argv[1] if len(sys.argv) > 1 else "must"
+amend = "--revision" in sys.argv[2:]
 expected = {
     "must": ("MUST", "0 分", "营养不良低风险"),
     "nrs-2002": ("NRS 2002", "1 分", "目前没有营养风险"),
     "mna-sf": ("MNA-SF", "13 分", "未提示营养不良风险"),
 }[scale]
-root = Path("tmp/reports") / scale
+if amend:
+    assert scale == "must"
+    expected = ("MUST", "2 分", "营养不良高风险", "第 2 版")
+root = Path("tmp/reports") / (scale + ("-revision" if amend else ""))
 with zipfile.ZipFile(root / "browser-issued.ezreport") as package:
     original = package.read("report.pdf")
     archive = package.read("archive").decode("utf-8-sig")
+    if amend:
+        history = [name for name in package.namelist() if name.startswith("history/")]
+        assert len(history) == 1
+        assert package.read(history[0]) == (root / "browser-initial.pdf").read_bytes()
+        assert "Supersedes" in archive
 printed = (root / "browser-printed.pdf").read_bytes()
 assert original == printed, "打印窗口使用的不是签发时保存的 PDF 原件"
 assert hashlib.sha256(original).hexdigest().upper() in archive

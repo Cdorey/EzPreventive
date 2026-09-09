@@ -10,6 +10,8 @@ internal sealed record AssessmentReportPdfModel
 {
     public required string Title { get; init; }
     public required string ReportNumber { get; init; }
+    /// <summary>获取报告的修订序号，与量表定义版本及排版模板版本分别表达。</summary>
+    public required int RevisionNumber { get; init; }
     public required string InstrumentVersion { get; init; }
     public required string PatientName { get; init; }
     public required string Sex { get; init; }
@@ -35,6 +37,7 @@ internal sealed record AssessmentReportPdfModel
         {
             Title = draft.Report.Title ?? "营养量表报告",
             ReportNumber = draft.Report.Metadata.ResourceId.Value.ToString("D"),
+            RevisionNumber = draft.Report.Metadata.RevisionNumber.Value,
             InstrumentVersion = scale.Instrument.Version ?? "未记录",
             PatientName = subject?.IdentityDisplay ?? "未关联患者",
             Sex = subject?.AdministrativeSex?.Display ?? "未提供",

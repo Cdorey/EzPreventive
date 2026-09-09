@@ -11,7 +11,7 @@ public sealed class PdfMakeAssessmentReportRenderer(IJSRuntime js) : IAssessment
 
     /// <inheritdoc />
     public CanonicalReference Template { get; } = new(
-        new Uri("https://eznutrition.cdorey.net/report-templates/nutrition-assessment"), "1");
+        new Uri("https://eznutrition.cdorey.net/report-templates/nutrition-assessment"), "2");
 
     /// <inheritdoc />
     public async ValueTask<byte[]> RenderAsync(AssessmentReportDraft draft, CancellationToken cancellationToken = default)

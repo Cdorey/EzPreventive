@@ -21,12 +21,14 @@ public sealed class AssessmentReportFactory(ArchiveContractAssembler assembler)
     /// <param name="template">渲染器提供的模板标识与版本。</param>
     /// <param name="signer">通过现有权限检查后取得的拟签发人；评估输出传空。</param>
     /// <param name="capturedAt">预览中显示的报告时间。</param>
+    /// <param name="previous">同一量表报告的当前正式版本；为空时建立初版。</param>
     public AssessmentReportDraft Create(
         ConsultationWorkspace workspace,
         NutritionAssessmentRun assessment,
         CanonicalReference template,
         ActorReference? signer,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        SignedReport? previous = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(assessment);
@@ -57,13 +59,27 @@ public sealed class AssessmentReportFactory(ArchiveContractAssembler assembler)
         var document = assembler.CreateAssessmentDocument(workspace, assessment, capturedAt);
         var consultation = document.Bundle.Entries.OfType<ConsultationResource>().Single();
         var scale = document.Bundle.Entries.OfType<NutritionScaleAssessmentResource>().Single();
+        if (previous is not null)
+        {
+            if (signer is null || previous.Document.ContainsUnknownContent)
+                throw new InvalidOperationException("更正需要签发人，且旧报告不能包含当前版本无法解释的内容。");
+            if (previous.Report.SubjectReference != consultation.SubjectReference
+                || previous.Report.ConsultationReference.ResourceId != consultation.Metadata.ResourceId
+                || !previous.Report.InputResourceReferences.Any(reference => reference.ResourceId == scale.Metadata.ResourceId
+                    && reference.ExpectedResourceType == scale.ResourceType))
+                throw new InvalidOperationException("只能更正同一患者、同一次咨询及同一次量表评估的报告。");
+            if (capturedAt < previous.Report.Metadata.FinalizedAt)
+                throw new InvalidOperationException("当前时间早于旧报告签发时间，请核对设备时间后重试。");
+        }
         var report = new NutritionReportResource
         {
             Metadata = new ResourceMetadata
             {
-                ResourceId = new ResourceId(Guid.NewGuid()),
+                ResourceId = previous?.Report.Metadata.ResourceId ?? new ResourceId(Guid.NewGuid()),
                 VersionId = new ResourceVersionId(Guid.NewGuid()),
-                RevisionNumber = new RevisionNumber(1),
+                RevisionNumber = new RevisionNumber((previous?.Report.Metadata.RevisionNumber.Value ?? 0) + 1),
+                BasedOn = previous is null ? null : new VersionedResourceReference(
+                    previous.Report.Metadata.ResourceId, previous.Report.Metadata.VersionId, previous.Report.ResourceType),
                 Status = ResourceLifecycleStatus.Draft,
                 CreatedAt = capturedAt,
                 LastModifiedAt = capturedAt,
@@ -97,6 +113,6 @@ public sealed class AssessmentReportFactory(ArchiveContractAssembler assembler)
             {
                 Entries = [document.Bundle.Entries.OfType<PatientResource>().Single(), consultation, scale, report]
             }
-        }, signer);
+        }, signer, previous);
     }
 }

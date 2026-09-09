@@ -16,22 +16,40 @@ public sealed record SignedReport
     /// <summary>获取签发时保存的 PDF 原件。</summary>
     public required ReadOnlyMemory<byte> Pdf { get; init; }
 
-    /// <summary>获取报告契约记录。</summary>
-    public NutritionReportResource Report => Document.Bundle.Entries.OfType<NutritionReportResource>().Single();
+    /// <summary>保留读取时的容器版本，用于原包导入的索引；新生成报告采用当前版本。</summary>
+    internal string? SourcePackageVersion { get; init; }
+
+    /// <summary>获取各历史版本的 PDF 原件，以确切版本标识定位。</summary>
+    public IReadOnlyDictionary<Guid, ReadOnlyMemory<byte>> PreviousPdfs { get; init; } =
+        new Dictionary<Guid, ReadOnlyMemory<byte>>();
+
+    /// <summary>获取已经验证为单链的报告版本，按修订号排列；顺序本身不替代 Supersedes 校验。</summary>
+    public IReadOnlyList<NutritionReportResource> Versions => Document.Bundle.Entries.OfType<NutritionReportResource>()
+        .OrderBy(report => report.Metadata.RevisionNumber.Value).ToArray();
+
+    /// <summary>获取当前正式版本。报告包读取和写出前须核对完整版本链。</summary>
+    public NutritionReportResource Report => Versions[^1];
+
+    /// <summary>获取稳定的宿主文档标识，沿用初版报告的版本标识，修订不另建索引。</summary>
+    public Guid DocumentId => Versions[0].Metadata.VersionId.Value;
+
+    /// <summary>获取当前报告所属的确切咨询快照。</summary>
+    public ConsultationResource Consultation => Document.Bundle.Entries.OfType<ConsultationResource>()
+        .Single(resource => resource.Metadata.VersionId == Report.ConsultationReference.VersionId);
 }
 
 /// <summary>
 /// 将现有档案格式和 PDF 原件封装为一个本机报告包；不把附件字节或文件路径加入档案契约。
 /// </summary>
 /// <remarks>
-/// 一个包只有清单、档案和 PDF 三项。读取时限制解压大小并直接读取指定条目，
-/// 不解压到文件系统；外部包不会控制本机路径。当前格式仅承载一份正式报告。
+/// 一个包保存清单、档案、当前 PDF 及各历史 PDF。读取时限制解压大小并直接读取指定条目，
+/// 不解压到文件系统；外部包不会控制本机路径。版本 2 承载一条完整报告修订链，兼容读取版本 1。
 /// </remarks>
 public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveValidator validator)
 {
     /// <summary>获取报告包的稳定格式身份。</summary>
     public static ArchiveFormatDescriptor Format { get; } = new(
-        new Uri("https://eznutrition.cdorey.net/formats/report-package"), "1",
+        new Uri("https://eznutrition.cdorey.net/formats/report-package"), "2",
         "application/vnd.eznutrition.report+zip", "EzNutrition 报告包", ".ezreport");
 
     /// <summary>获取包和单个正文允许的最大字节数，与本机档案大小限制协调。</summary>
@@ -60,16 +78,18 @@ public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveVal
         }, archiveContent, cancellationToken);
         if (!written.IsSuccess)
             throw new InvalidDataException("报告档案无法编码，未保存任何正式成品。");
-        if (archiveContent.Length + report.Pdf.Length > MaximumBytes)
+        if (archiveContent.Length + report.Pdf.Length + report.PreviousPdfs.Values.Sum(pdf => (long)pdf.Length) > MaximumBytes - 4096)
             throw new InvalidDataException("报告包超过允许的大小。");
 
-        var manifest = new Manifest(1, choice.Format.Identifier.AbsoluteUri, choice.Format.Version);
+        var manifest = new Manifest(2, choice.Format.Identifier.AbsoluteUri, choice.Format.Version);
         using var output = new MemoryStream();
         using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
             await WriteEntry(zip, "manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions), cancellationToken);
             await WriteEntry(zip, "archive", archiveContent.ToArray(), cancellationToken);
             await WriteEntry(zip, "report.pdf", report.Pdf, cancellationToken);
+            foreach (var previous in report.PreviousPdfs.OrderBy(pair => pair.Key))
+                await WriteEntry(zip, HistoryPath(previous.Key), previous.Value, cancellationToken);
         }
         if (output.Length > MaximumBytes) throw new InvalidDataException("报告包超过允许的大小。");
         return output.ToArray();
@@ -82,9 +102,8 @@ public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveVal
             throw new InvalidDataException("不是受支持的报告包，或报告包过大。");
         using var input = new MemoryStream(content.ToArray(), writable: false);
         using var zip = new ZipArchive(input, ZipArchiveMode.Read);
-        if (zip.Entries.Count != 3
-            || zip.Entries.Select(entry => entry.FullName).Distinct(StringComparer.Ordinal).Count() != 3
-            || zip.Entries.Any(entry => entry.FullName is not ("manifest.json" or "archive" or "report.pdf"))
+        if (zip.Entries.Count is < 3 or > 1024
+            || zip.Entries.Select(entry => entry.FullName).Distinct(StringComparer.Ordinal).Count() != zip.Entries.Count
             || zip.Entries.Any(entry => entry.Length > MaximumBytes)
             || zip.Entries.Sum(entry => entry.Length) > MaximumBytes)
             throw new InvalidDataException("报告包的组成或大小不符合约定。");
@@ -97,7 +116,7 @@ public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveVal
                 ?? throw new InvalidDataException("报告包缺少清单。");
         }
         catch (JsonException exception) { throw new InvalidDataException("报告包清单无法读取。", exception); }
-        if (manifest.Version != 1) throw new InvalidDataException("当前版本不支持该报告包格式。");
+        if (manifest.Version is not (1 or 2)) throw new InvalidDataException("当前版本不支持该报告包格式。");
         var codec = codecs.FirstOrDefault(candidate => candidate.ReadableFormats.Any(format =>
             format.Identifier.AbsoluteUri == manifest.ArchiveFormat && format.Version == manifest.ArchiveVersion))
             ?? throw new InvalidDataException("当前宿主不能读取报告包内的档案格式。");
@@ -106,10 +125,25 @@ public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveVal
         var read = await codec.ReadAsync(archiveStream, cancellationToken);
         if (!read.IsSuccess || read.Document is null)
             throw new InvalidDataException("报告包内的档案未通过校验。");
+        var versions = ValidateHistory(read.Document);
+        if (manifest.Version == 1 && versions.Count != 1)
+            throw new InvalidDataException("版本 1 的报告包只能包含一个正式报告版本。");
+        var names = new HashSet<string>(["manifest.json", "archive", "report.pdf"], StringComparer.Ordinal);
+        var previousPdfs = new Dictionary<Guid, ReadOnlyMemory<byte>>();
+        foreach (var previous in versions.Take(versions.Count - 1))
+        {
+            var id = previous.Metadata.VersionId.Value;
+            names.Add(HistoryPath(id));
+            previousPdfs.Add(id, await ReadEntry(zip, HistoryPath(id), MaximumBytes, cancellationToken));
+        }
+        if (!names.SetEquals(zip.Entries.Select(entry => entry.FullName)))
+            throw new InvalidDataException("报告包包含缺失、多余或无法对应版本的文件。");
         var result = new SignedReport
         {
             Document = read.Document,
-            Pdf = await ReadEntry(zip, "report.pdf", MaximumBytes, cancellationToken)
+            Pdf = await ReadEntry(zip, "report.pdf", MaximumBytes, cancellationToken),
+            PreviousPdfs = previousPdfs,
+            SourcePackageVersion = manifest.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
         Validate(result);
         return result;
@@ -118,13 +152,75 @@ public sealed class ReportPackage(IEnumerable<IArchiveCodec> codecs, IArchiveVal
     private void Validate(SignedReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var reports = report.Document.Bundle.Entries.OfType<NutritionReportResource>().ToArray();
-        if (reports.Length != 1 || reports[0].Metadata.Status is not (ResourceLifecycleStatus.Final or ResourceLifecycleStatus.Amended)
-            || reports[0].RenderedArtifact is null
-            || validator.ValidateBundle(report.Document.Bundle, ArchiveValidationScope.Finalization).HasErrors)
-            throw new InvalidDataException("报告包需要一份完整有效的正式签发记录。");
-        ReportPdf.Verify(report.Pdf.Span, reports[0].RenderedArtifact!);
+        var reports = ValidateHistory(report.Document);
+        var expected = reports.Take(reports.Count - 1).Select(version => version.Metadata.VersionId.Value).ToHashSet();
+        if (!expected.SetEquals(report.PreviousPdfs.Keys))
+            throw new InvalidDataException("报告的历史 PDF 与版本记录不对应。");
+        ReportPdf.Verify(report.Pdf.Span, reports[^1].RenderedArtifact!);
+        foreach (var previous in reports.Take(reports.Count - 1))
+            ReportPdf.Verify(report.PreviousPdfs[previous.Metadata.VersionId.Value].Span, previous.RenderedArtifact!);
     }
+
+    /// <summary>
+    /// 核对导入包是否完整保留本机既有历史。使用现有 codec 比较相同历史范围的规范写出结果，
+    /// 同时覆盖全部资源字段和 PDF；不只比较版本号或指纹，也不另建语义比较器。
+    /// </summary>
+    public async ValueTask<bool> PreservesHistoryAsync(SignedReport incoming, SignedReport existing,
+        CancellationToken cancellationToken = default)
+    {
+        if (incoming.Document.ContainsUnknownContent || existing.Document.ContainsUnknownContent) return false;
+        var prior = existing.Versions;
+        if (!incoming.Versions.Take(prior.Count).Select(version => version.Metadata.VersionId)
+                .SequenceEqual(prior.Select(version => version.Metadata.VersionId))) return false;
+        var resources = incoming.Document.Bundle.Entries.ToDictionary(resource => resource.Metadata.VersionId);
+        if (existing.Document.Bundle.Entries.Any(resource => !resources.ContainsKey(resource.Metadata.VersionId))) return false;
+        var historical = existing with
+        {
+            Document = existing.Document with
+            {
+                Bundle = existing.Document.Bundle with
+                {
+                    Entries = existing.Document.Bundle.Entries.Select(resource => resources[resource.Metadata.VersionId]).ToArray()
+                }
+            },
+            Pdf = incoming.Report.Metadata.VersionId == existing.Report.Metadata.VersionId
+                ? incoming.Pdf : incoming.PreviousPdfs[existing.Report.Metadata.VersionId.Value],
+            PreviousPdfs = prior.Take(prior.Count - 1).ToDictionary(version => version.Metadata.VersionId.Value,
+                version => incoming.PreviousPdfs[version.Metadata.VersionId.Value])
+        };
+        var originalBytes = await WriteAsync(existing, cancellationToken);
+        var importedBytes = await WriteAsync(historical, cancellationToken);
+        return originalBytes.AsSpan().SequenceEqual(importedBytes);
+    }
+
+    /// <summary>复用契约校验，并要求此交换包只表达同一报告的完整单链，不按时间戳选取冲突分支。</summary>
+    private IReadOnlyList<NutritionReportResource> ValidateHistory(ArchiveDocument document)
+    {
+        var reports = document.Bundle.Entries.OfType<NutritionReportResource>()
+            .OrderBy(report => report.Metadata.RevisionNumber.Value).ToArray();
+        if (reports.Length is 0 or > 1022 || reports.Any(report => report.RenderedArtifact is null)
+            || validator.ValidateBundle(document.Bundle, ArchiveValidationScope.Finalization).HasErrors)
+            throw new InvalidDataException("报告包需要完整有效的签发记录与输入快照。");
+        for (var index = 0; index < reports.Length; index++)
+        {
+            var current = reports[index];
+            var metadata = current.Metadata;
+            var predecessor = index == 0 ? null : reports[index - 1];
+            if (metadata.ResourceId != reports[0].Metadata.ResourceId
+                || metadata.RevisionNumber.Value != index + 1
+                || current.SubjectReference != reports[0].SubjectReference
+                || current.ConsultationReference.ResourceId != reports[0].ConsultationReference.ResourceId
+                || (predecessor is null
+                    ? metadata.Status != ResourceLifecycleStatus.Final || metadata.Supersedes is not null
+                    : metadata.Status != ResourceLifecycleStatus.Amended
+                        || metadata.Supersedes?.VersionId != predecessor.Metadata.VersionId
+                        || metadata.CreatedAt < predecessor.Metadata.FinalizedAt))
+                throw new InvalidDataException("报告修订链不完整、存在冲突，或更改了报告所属对象。");
+        }
+        return reports;
+    }
+
+    private static string HistoryPath(Guid versionId) => $"history/{versionId:N}.pdf";
 
     private static async Task WriteEntry(ZipArchive zip, string name, ReadOnlyMemory<byte> bytes, CancellationToken token)
     {

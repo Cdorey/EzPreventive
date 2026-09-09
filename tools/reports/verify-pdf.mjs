@@ -41,6 +41,7 @@ try {
     const sample = {
         title: "营养不良通用筛查工具 MUST 报告",
         reportNumber: "00000000-0000-0000-0000-000000000001",
+        revisionNumber: 1,
         instrumentVersion: "BAPEN MUST", patientName: "模拟患者·长姓名测试", sex: "女", age: "70岁",
         height: "165 cm", weight: "60 kg", assessedAt: "2026-09-09 10:00:00 +08:00", performer: "模拟评估员",
         totalScore: "0 分", interpretation: "营养不良低风险",

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using EzNutrition.Archives.Contracts.Identity;
+using EzNutrition.Archives.Contracts.Bundles;
 using EzNutrition.Archives.Contracts.Metadata;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
@@ -13,10 +14,11 @@ namespace EzNutrition.Application.Reports;
 /// </summary>
 public sealed class AssessmentReportDraft
 {
-    internal AssessmentReportDraft(ArchiveDocument document, ActorReference? signer)
+    internal AssessmentReportDraft(ArchiveDocument document, ActorReference? signer, SignedReport? previous = null)
     {
         Document = document;
         Signer = signer;
+        Previous = previous;
     }
 
     /// <summary>获取报告及其确切输入资源；此时报告仍为草稿。</summary>
@@ -24,6 +26,9 @@ public sealed class AssessmentReportDraft
 
     /// <summary>获取拟签发人的身份快照；为空时只能生成带水印的评估稿。</summary>
     public ActorReference? Signer { get; }
+
+    /// <summary>获取本次明确更正的旧报告及历史原件；草稿不会使其失效。</summary>
+    public SignedReport? Previous { get; }
 
     /// <summary>获取本次报告的契约记录。</summary>
     public NutritionReportResource Report => Document.Bundle.Entries.OfType<NutritionReportResource>().Single();
@@ -51,18 +56,32 @@ public sealed class AssessmentReportDraft
         {
             Metadata = Report.Metadata with
             {
-                Status = ResourceLifecycleStatus.Final,
+                Status = Previous is null ? ResourceLifecycleStatus.Final : ResourceLifecycleStatus.Amended,
+                Supersedes = Report.Metadata.BasedOn,
+                BasedOn = null,
                 FinalizedAt = Report.Metadata.CreatedAt,
                 FinalizedBy = Signer
             },
             RenderedArtifact = ReportPdf.Identity(pdf)
         };
+        var currentEntries = Document.Bundle.Entries.Select(resource =>
+            resource is NutritionReportResource ? signed : resource).ToArray();
+        var entries = currentEntries;
+        if (Previous is not null)
+        {
+            var previousIds = Previous.Document.Bundle.Entries.Select(resource => resource.Metadata.VersionId).ToHashSet();
+            if (currentEntries.Any(resource => resource is not PatientResource && previousIds.Contains(resource.Metadata.VersionId)))
+                throw new InvalidOperationException("新快照重复使用了既有临床资源版本，不能提交。");
+            // 复诊可能继续引用同一个不可变 Patient 版本；保留已归档资源，其余快照使用独立版本。
+            entries = [.. Previous.Document.Bundle.Entries,
+                .. currentEntries.Where(resource => !previousIds.Contains(resource.Metadata.VersionId))];
+        }
         var document = Document with
         {
             Bundle = Document.Bundle with
             {
-                Entries = Document.Bundle.Entries.Select(resource =>
-                    resource is NutritionReportResource ? signed : resource).ToArray()
+                BundleType = Previous is null ? ArchiveBundleType.ConsultationDocument : ArchiveBundleType.TransferPackage,
+                Entries = entries
             }
         };
         var validation = validator.ValidateBundle(document.Bundle, ArchiveValidationScope.Finalization);

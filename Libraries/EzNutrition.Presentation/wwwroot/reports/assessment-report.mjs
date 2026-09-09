@@ -1,4 +1,4 @@
-// 模板版本 1：只消费已捕获的报告文字，不读取页面、认证信息或当前工作区。
+// 模板版本 2：显示修订号，只消费已捕获的报告文字，不读取页面、认证信息或当前工作区。
 const evaluationNotice = "仅供教学或功能评估使用 · 未经医师审核签发";
 let enginePromise;
 
@@ -76,7 +76,7 @@ export function createDefinition(data) {
             stack: [
                 { text: data.isEvaluation ? evaluationNotice : `审核签发：${data.signer}`, margin: [0, 0, 0, 3] },
                 { text: `${data.isEvaluation ? "生成" : "签发"}时间：${data.reportTime}`, margin: [0, 0, 0, 3] },
-                { columns: [{ text: `报告编号：${data.reportNumber}`, width: "*" },
+                { columns: [{ text: `报告编号：${data.reportNumber} · 第 ${data.revisionNumber} 版`, width: "*" },
                     { text: `${currentPage} / ${pageCount}`, alignment: "right", width: 45 }] }
             ]
         }),
