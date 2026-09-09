@@ -18,6 +18,44 @@ namespace EzNutrition.Client.Tests.Tests;
 /// <summary>通过真实 XML codec 验证签发、保存、导出和原件重印的应用流程。</summary>
 public sealed class ReportWorkflowTests
 {
+    /// <summary>验证只有打印权限也可输出快照，后续作答不进入成品且不触发归档。</summary>
+    [Fact]
+    public async Task Standalone_print_captures_answers_without_archiving_or_requiring_issuance()
+    {
+        var h = new Harness();
+        h.Access.Issue = false;
+        h.Renderer.AfterEvaluation = () => h.Run.SetAnswer("bmi-score", "below-18-5");
+
+        await h.Workflow.PrintStandaloneAsync(h.Run);
+
+        Assert.Equal(0m, h.Renderer.Evaluation!.TotalScore);
+        Assert.Equal(2m, h.Run.Evaluation.TotalScore);
+        Assert.Equal("above-20", ((CodingArchiveValue)h.Renderer.Evaluation.Responses[0].Answer!).Value.Code.Split('/').Last());
+        Assert.Single(h.Printer.Printed);
+        Assert.Empty(h.Store.Documents);
+        Assert.Equal(0, h.Store.Saves);
+    }
+
+    /// <summary>验证未完成项目保留缺失标记，生成期间失去打印权限时不打开输出窗口。</summary>
+    [Fact]
+    public async Task Standalone_print_preserves_unanswered_items_and_checks_current_permission()
+    {
+        var h = new Harness();
+        h.Run.ClearAnswer("bmi-score");
+        h.Renderer.AfterEvaluation = () => h.Access.Print = false;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Workflow.PrintStandaloneAsync(h.Run).AsTask());
+
+        Assert.Null(h.Renderer.Evaluation!.TotalScore);
+        Assert.Equal(DataAbsentReasonCode.NotEstablished, h.Renderer.Evaluation.TotalScoreAbsentReason);
+        Assert.Equal(3, h.Renderer.Evaluation.Responses.Count);
+        Assert.Equal(DataAbsentReasonCode.NotAsked, h.Renderer.Evaluation.Responses[0].AnswerAbsentReason);
+        Assert.Empty(h.Printer.Printed);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Workflow.PrintStandaloneAsync(h.Run).AsTask());
+        Assert.Equal(1, h.Renderer.Calls);
+        Assert.Empty(h.Store.Documents);
+    }
+
     /// <summary>签发和打印分别受控，拥有打印权限的人不必拥有签发权限。</summary>
     [Theory]
     [InlineData(false, false)]
@@ -353,6 +391,16 @@ public sealed class ReportWorkflowTests
     private sealed class Renderer : IAssessmentReportRenderer
     {
         public int Calls { get; private set; }
+        public NutritionAssessmentSnapshot? Evaluation { get; private set; }
+        public Action? AfterEvaluation { get; set; }
+        public ValueTask<byte[]> RenderEvaluationAsync(NutritionAssessmentSnapshot snapshot, DateTimeOffset generatedAt,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            Evaluation = snapshot;
+            AfterEvaluation?.Invoke();
+            return ValueTask.FromResult(Encoding.UTF8.GetBytes("%PDF-1.7\nevaluation"));
+        }
         public CanonicalReference Template { get; } = new(new Uri("urn:test:template"), "1");
         public ValueTask<byte[]> RenderAsync(AssessmentReportDraft draft, CancellationToken cancellationToken = default)
         {

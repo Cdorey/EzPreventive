@@ -60,6 +60,19 @@ public sealed class ReportWorkflow(
     IArchiveDocumentStore store,
     IReportPrinter printer)
 {
+    /// <summary>打印独立速查结果；只捕获当前量表，不建立咨询、签发记录或本机档案。</summary>
+    public async ValueTask PrintStandaloneAsync(NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(assessment);
+        await authorization.RequirePrintAsync(cancellationToken);
+        var snapshot = NutritionAssessmentSnapshot.Capture(assessment);
+        var pdf = await renderer.RenderEvaluationAsync(snapshot, DateTimeOffset.UtcNow, cancellationToken);
+        _ = ReportPdf.Identity(pdf);
+        // 生成期间账号可能退出或切换；正常输出入口仍按当前会话检查权限。
+        await authorization.RequirePrintAsync(cancellationToken);
+        await printer.PrintAsync(pdf, $"{snapshot.Instrument.Code.Display} · 评估稿", cancellationToken);
+    }
+
     /// <summary>生成待审核的正式成品或带水印评估稿，未确认前不写入档案库。</summary>
     public async ValueTask<PreparedAssessmentReport> PrepareAsync(
         ConsultationWorkspace workspace,

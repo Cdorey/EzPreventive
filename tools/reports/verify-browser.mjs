@@ -13,15 +13,16 @@ const samples = {
 const sample = samples[scaleCode];
 if (!sample) throw new Error("请选择 must、nrs-2002 或 mna-sf。");
 const amend = process.argv[4] === "--revision";
+const standalone = process.argv[4] === "--standalone";
 if (amend && scaleCode !== "must") throw new Error("更正验收样本当前使用 MUST。");
-const output = `tmp/reports/${scaleCode}${amend ? "-revision" : ""}`;
+const output = `tmp/reports/${scaleCode}${amend ? "-revision" : standalone ? "-standalone" : ""}`;
 if (!new Set(["127.0.0.1", "localhost"]).has(new URL(origin).hostname)) throw new Error("仅允许本机测试宿主。");
 const expiry = Math.floor(Date.now() / 1000) + 3600;
 const sessionId = randomUUID();
 const encode = value => Buffer.from(JSON.stringify(value)).toString("base64url");
 const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({
     sub: "report-test-doctor", unique_name: "report-test-doctor", sid: sessionId, exp: expiry,
-    Permission: ["IssueReport", "PrintReport"], RealName: "模拟医师", InstitutionName: "模拟机构"
+    Permission: standalone ? ["PrintReport"] : ["IssueReport", "PrintReport"], RealName: "模拟医师", InstitutionName: "模拟机构"
 })}.`;
 const tokens = { sessionId, accessToken: token, accessTokenExpiresAtUtc: new Date(expiry * 1000).toISOString(),
     refreshExpiresAtUtc: new Date((expiry + 3600) * 1000).toISOString(),
@@ -54,84 +55,116 @@ try {
     page = await context.newPage();
     page.setDefaultTimeout(30000);
     page.on("pageerror", error => console.error("PAGE ERROR", error.message));
-    await page.goto(origin);
-    await page.getByRole("button", { name: "开启新咨询" }).click();
-    await page.locator("#name").fill("模拟报告患者");
-    await page.locator("#gender").getByText("女", { exact: true }).click();
-    await page.getByText("已知整岁", { exact: true }).click();
-    await page.locator("#age input").fill("70");
-    await page.locator(".ant-form-item").filter({ hasText: "身高（cm）" }).locator("input").fill("165");
-    await page.locator(".ant-form-item").filter({ hasText: "体重（kg）" }).locator("input").fill("60");
-    await page.getByRole("button", { name: "确认并进入核算" }).click();
-    await page.getByRole("button", { name: "添加量表" }).click();
-    await page.locator(".ant-dropdown:visible").getByText(sample.title, { exact: true }).click();
-    const assessment = page.locator(".assessment-card").filter({ hasText: sample.title });
-    // 某些量表在不同题目中复用选项编码，按正式题序定位各自的单选组。
-    const groups = assessment.locator("fieldset.assessment-item");
-    for (const [index, answer] of sample.answers.entries())
-        await groups.nth(index).locator(`input[value='${answer}']`).check();
-    reportPhase = true;
-    await mkdir(output, { recursive: true });
-    await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
-    await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
-    const evaluationPopupPromise = context.waitForEvent("page");
-    await page.getByRole("button", { name: "打开打印窗口", exact: true }).click();
-    const evaluationPopup = await evaluationPopupPromise;
-    await evaluationPopup.waitForURL(/^blob:/);
-    const evaluationBytes = await page.evaluate(async url =>
-        Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), evaluationPopup.url());
-    await writeFile(`${output}/browser-evaluation.pdf`, new Uint8Array(evaluationBytes));
-    await evaluationPopup.close();
-    await page.getByRole("button", { name: "关闭", exact: true }).click();
-    const beforeIssue = await page.evaluate(async () => (await import("/js/archive-storage.js")).listDocuments());
-    if (beforeIssue.some(record => record.formatIdentifier.endsWith("report-package")))
-        throw new Error("评估打印不应建立正式报告档案。");
-    await page.getByRole("button", { name: "签发报告", exact: true }).click();
-    await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
-    if (amend) {
-        const initialUrl = await page.locator("iframe.report-preview").getAttribute("src");
-        const initialBytes = await page.evaluate(async url =>
-            Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), initialUrl);
-        await writeFile(`${output}/browser-initial.pdf`, new Uint8Array(initialBytes));
-    }
-    await page.getByRole("button", { name: "确认审核并签发" }).click();
-    await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "关闭", exact: true }).click();
-    if (amend) {
-        await assessment.locator("input[value='below-18-5']").check();
-        await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
-        await page.getByRole("button", { name: /更正第 1 版/ }).click();
+    if (standalone) {
+        await page.goto(`${origin}/assessmentinsights/${scaleCode}`);
+        await page.getByText("已知整岁", { exact: true }).click();
+        await page.locator("#age input").fill("70");
+        await page.locator(".ant-form-item").filter({ hasText: "身高（cm，可选）" }).locator("input").fill("165");
+        await page.locator(".ant-form-item").filter({ hasText: "体重（kg，可选）" }).locator("input").fill("60");
+        await page.getByRole("button", { name: "开始评估", exact: true }).click();
+        const groups = page.locator("fieldset.assessment-item");
+        reportPhase = true;
+        await mkdir(output, { recursive: true });
+        for (const complete of [false, true]) {
+            if (complete) {
+                for (const [index, answer] of sample.answers.entries())
+                    await groups.nth(index).locator(`input[value='${answer}']`).check();
+            }
+            const popupPromise = context.waitForEvent("page");
+            await page.getByRole("button", { name: "打印评估稿", exact: true }).click();
+            const popup = await popupPromise;
+            await popup.waitForURL(/^blob:/);
+            const bytes = await page.evaluate(async url =>
+                Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), popup.url());
+            await writeFile(`${output}/${complete ? "complete" : "incomplete"}.pdf`, new Uint8Array(bytes));
+            await popup.close();
+        }
+        const records = await page.evaluate(async () => (await import("/js/archive-storage.js")).listDocuments());
+        if (records.length) throw new Error("独立速查打印不应建立任何咨询或报告档案。");
+        if (await page.getByRole("button", { name: "签发报告", exact: true }).count())
+            throw new Error("独立速查不应提供签发入口。");
+        await page.screenshot({ path: `${output}/standalone-browser.png`, fullPage: true });
+        console.log(scaleCode, "独立速查未完成/完整结果打印成功，没有建立档案。");
+    } else {
+        await page.goto(origin);
+        await page.getByRole("button", { name: "开启新咨询" }).click();
+        await page.locator("#name").fill("模拟报告患者");
+        await page.locator("#gender").getByText("女", { exact: true }).click();
+        await page.getByText("已知整岁", { exact: true }).click();
+        await page.locator("#age input").fill("70");
+        await page.locator(".ant-form-item").filter({ hasText: "身高（cm）" }).locator("input").fill("165");
+        await page.locator(".ant-form-item").filter({ hasText: "体重（kg）" }).locator("input").fill("60");
+        await page.getByRole("button", { name: "确认并进入核算" }).click();
+        await page.getByRole("button", { name: "添加量表" }).click();
+        await page.locator(".ant-dropdown:visible").getByText(sample.title, { exact: true }).click();
+        const assessment = page.locator(".assessment-card").filter({ hasText: sample.title });
+        // 某些量表在不同题目中复用选项编码，按正式题序定位各自的单选组。
+        const groups = assessment.locator("fieldset.assessment-item");
+        for (const [index, answer] of sample.answers.entries())
+            await groups.nth(index).locator(`input[value='${answer}']`).check();
+        reportPhase = true;
+        await mkdir(output, { recursive: true });
+        await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
         await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
-        await page.getByRole("button", { name: "确认更正并签发", exact: true }).click();
+        const evaluationPopupPromise = context.waitForEvent("page");
+        await page.getByRole("button", { name: "打开打印窗口", exact: true }).click();
+        const evaluationPopup = await evaluationPopupPromise;
+        await evaluationPopup.waitForURL(/^blob:/);
+        const evaluationBytes = await page.evaluate(async url =>
+            Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), evaluationPopup.url());
+        await writeFile(`${output}/browser-evaluation.pdf`, new Uint8Array(evaluationBytes));
+        await evaluationPopup.close();
+        await page.getByRole("button", { name: "关闭", exact: true }).click();
+        const beforeIssue = await page.evaluate(async () => (await import("/js/archive-storage.js")).listDocuments());
+        if (beforeIssue.some(record => record.formatIdentifier.endsWith("report-package")))
+            throw new Error("评估打印不应建立正式报告档案。");
+        await page.getByRole("button", { name: "签发报告", exact: true }).click();
+        await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
+        if (amend) {
+            const initialUrl = await page.locator("iframe.report-preview").getAttribute("src");
+            const initialBytes = await page.evaluate(async url =>
+                Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), initialUrl);
+            await writeFile(`${output}/browser-initial.pdf`, new Uint8Array(initialBytes));
+        }
+        await page.getByRole("button", { name: "确认审核并签发" }).click();
         await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
         await page.getByRole("button", { name: "关闭", exact: true }).click();
+        if (amend) {
+            await assessment.locator("input[value='below-18-5']").check();
+            await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
+            await page.getByRole("button", { name: /更正第 1 版/ }).click();
+            await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
+            await page.getByRole("button", { name: "确认更正并签发", exact: true }).click();
+            await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
+            await page.getByRole("button", { name: "关闭", exact: true }).click();
+        }
+        await page.goto(origin + "/archives");
+        await page.getByRole("button", { name: sample.title + "报告", exact: false }).click();
+        await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
+        if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
+        const records = await page.evaluate(async () => {
+            const storage = await import("/js/archive-storage.js");
+            const records = await storage.listDocuments();
+            const report = records.find(record => record.formatIdentifier.endsWith("report-package"));
+            const document = await storage.getDocument(report.documentId);
+            return { report, bytes: Array.from(document.content) };
+        });
+        await writeFile(`${output}/browser-issued.ezreport`, new Uint8Array(records.bytes));
+        const popupPromise = context.waitForEvent("page");
+        await page.getByRole("button", { name: "打印报告原件" }).click();
+        const popup = await popupPromise;
+        await popup.waitForURL(/^blob:/);
+        const printedBytes = await page.evaluate(async url =>
+            Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), popup.url());
+        await writeFile(`${output}/browser-printed.pdf`, new Uint8Array(printedBytes));
+        await popup.close();
+        await page.screenshot({ path: `${output}/archive-browser.png`, fullPage: true });
+        console.log(scaleCode, "浏览器签发、IndexedDB 归档及刷新后调阅完成：", records.report.documentId);
     }
-    await page.goto(origin + "/archives");
-    await page.getByRole("button", { name: sample.title + "报告", exact: false }).click();
-    await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
-    if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
-    const records = await page.evaluate(async () => {
-        const storage = await import("/js/archive-storage.js");
-        const records = await storage.listDocuments();
-        const report = records.find(record => record.formatIdentifier.endsWith("report-package"));
-        const document = await storage.getDocument(report.documentId);
-        return { report, bytes: Array.from(document.content) };
-    });
-    await writeFile(`${output}/browser-issued.ezreport`, new Uint8Array(records.bytes));
-    const popupPromise = context.waitForEvent("page");
-    await page.getByRole("button", { name: "打印报告原件" }).click();
-    const popup = await popupPromise;
-    await popup.waitForURL(/^blob:/);
-    const printedBytes = await page.evaluate(async url =>
-        Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), popup.url());
-    await writeFile(`${output}/browser-printed.pdf`, new Uint8Array(printedBytes));
-    await popup.close();
-    await page.screenshot({ path: `${output}/archive-browser.png`, fullPage: true });
     const unexpected = reportRequests.filter(request => request.path !== "/archives"
         && !request.path.startsWith("/SystemInfo/") && !request.path.startsWith("/Auth/Browser/"));
     if (unexpected.length || externalRequests.length || reportRequests.some(request => request.body?.includes("模拟报告患者")))
         throw new Error("报告路径存在非预期网络请求。");
-    console.log(scaleCode, "浏览器签发、IndexedDB 归档及刷新后调阅完成：", records.report.documentId);
     console.log("报告阶段仅有现有认证、公共信息和页面加载请求；已捕获打印窗口中的实际 PDF。");
 } catch (error) {
     await mkdir(output, { recursive: true });

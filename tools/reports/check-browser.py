@@ -7,11 +7,27 @@ from pypdf import PdfReader
 
 scale = sys.argv[1] if len(sys.argv) > 1 else "must"
 amend = "--revision" in sys.argv[2:]
+standalone = "--standalone" in sys.argv[2:]
 expected = {
     "must": ("MUST", "0 分", "营养不良低风险"),
     "nrs-2002": ("NRS 2002", "1 分", "目前没有营养风险"),
     "mna-sf": ("MNA-SF", "13 分", "未提示营养不良风险"),
 }[scale]
+if standalone:
+    root = Path("tmp/reports") / (scale + "-standalone")
+    for name in ("incomplete", "complete"):
+        reader = PdfReader(root / f"{name}.pdf")
+        assert len(reader.pages) == 1
+        for page in reader.pages:
+            text = page.extract_text()
+            assert "仅供教学或功能评估使用" in text
+            assert "未经医师审核签发" in text
+            assert "独立量表速查" in text and "未关联咨询档案" in text
+            assert "报告编号" not in text and "模拟医师" not in text
+            for value in expected if name == "complete" else ("尚未完成", "未回答"):
+                assert value in text, f"速查评估稿缺少预期内容：{value}"
+    print(f"{scale}：独立速查完整/未完成内容和水印通过，无正式报告编号。")
+    sys.exit(0)
 if amend:
     assert scale == "must"
     expected = ("MUST", "2 分", "营养不良高风险", "第 2 版")

@@ -38,6 +38,7 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 | `EzNutrition.Archives.Xml` | Contracts 的版本化 XML 编解码与安全读取 | 应用用例、WPF/浏览器存储、临床计算 |
 | `EzNutrition.Shared` | 客户端与服务端共同认可的 HTTP DTO、参考数据记录形状和授权策略 | 页面、宿主服务、桌面 API；也不应仅因代码“通用”就放入此处 |
 | `EzNutrition.Domain` | 咨询、评估、膳食与营养计算规则 | 网络、持久化、UI 和具体档案格式 |
+| `EzNutrition.Assessments.Common` | 具体量表的题目、选项、正式分组与题序、计分及解释规则；仅引用 Domain | 报告模板、字体、分页、PDF、签发流程或宿主打印 |
 | `EzNutrition.Application` | 用例编排、咨询工作区、档案流程与外部能力端口 | HTTP、WebView、IndexedDB、Windows 文件系统 |
 | `EzNutrition.UI` | 可单独复用和渲染测试的传输无关 Razor 组件 | HttpClient、认证令牌、具体宿主或 XML codec |
 | `EzNutrition.Presentation` | 共享 App/Router、页面、布局、会话、宿主认证端口、客户端 HTTP/SSE 适配与公共静态资源 | DPAPI、Cookie 操作、证书绕过、IndexedDB、文件对话框、WPF Shell、宿主启动代码 |
@@ -55,6 +56,10 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 `EzNutrition.Server → EzNutrition.Client` 是 hosted Blazor WebAssembly 的发布关系：Server 借此收集并提供 WASM 静态资源。Client 不引用 Server，WPF 也不参与该关系，因此它不构成两个客户端宿主互相依赖。
 
 ## 自动保护
+
+报告功能沿用上述边界：Application 捕获业务结果和档案快照，编排签发、归档与重印；Presentation 提供跨宿主共用的报告展示模型、PDF 排版及静态字体；两个宿主只适配本机文件与打印交互。量表结果快照可用于咨询报告或独立速查，不为速查虚构患者、咨询资源。量表定义版本与报告模板版本分别记录，历史重印读取保存的 PDF 原件。
+
+量表的正式题序属于 Common，纸张上的列宽、分页和签发栏属于 Presentation。当前 UI、Presentation 和 Application 都不直接依赖 Common，宿主注册具体量表，应用通过 Domain 定义的公共接口获取内容。
 
 架构测试会验证：
 

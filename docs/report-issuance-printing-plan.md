@@ -23,7 +23,7 @@
 | 当前实现 | 对本功能的影响 |
 | --- | --- |
 | `PolicyList` 已统一注册基于 Claims 的 Permission | 可扩展现有策略，不需要另建权限系统 |
-| `Printer.razor` 是自动调用 `window.print` 的占位页面 | 需要接入实际报告预览及宿主打印能力 |
+| 原 `Printer.razor` 自动打印占位页面已移除，且没有调用方 | 报告入口统一使用实际 PDF 与宿主打印能力 |
 | `NutritionReportResource` 已表达用途、确切输入版本、模板、参与人员及成品指纹 | 优先复用；PDF 字节和宿主路径不进入该资源 |
 | XML codec 已认识 `NutritionReport` | 主要缺口在运行态组装、签发用例、成品存储及报告调阅 |
 | `ArchiveWorkflow.SaveCurrentAsync` 按咨询逻辑 ID 覆盖草稿文档 | 正式报告不能复用这一覆盖入口 |
@@ -241,5 +241,8 @@ PrintReport 管理应用自身提供的输出入口，无法控制操作系统�
 - 已实现明确选择旧报告的更正入口。新草稿记录 BasedOn，确认后使用 Amended/Supersedes，完整历史以 TransferPackage 组织；不放宽 ConsultationDocument 的单咨询规则。PDF 显示修订号；普通重印读取当前原件，档案库展示当前内容及历史签发记录。
 - 更正时使用审核前的原包作原子提交条件；失败不会替代旧版，过期预览被拒绝。同一预览重试复用结果。导入仅接受完整保留本机历史的后续版本；复用现有 codec 对同一历史范围规范编码比较，连同旧 PDF 一起核对，拒绝回退及历史事实改写。
 - 新增测试覆盖三版包交换、逐份原件校验、版本 1 兼容、错误评估实例、保存失败、过期预览和导入历史保护。Client 236 项、Application 79 项、WPF 65 项已通过；真实浏览器 MUST 更正、刷新重印、旧 PDF 保留与新版样张已验证。
-- 尚待完成：独立量表速查评估输出、完整回归与 Release 验证、最终需求审计。当前更正需要原咨询和原评估仍在工作区，不额外实现历史档案恢复编辑；历史原件目前保存在交换包中，应用内专门历史 PDF 调阅仍待评估。
+- 三种试行量表的独立速查评估输出已接入。提取 Application 量表结果快照，与原档案映射共用答案及结果转换；不改变 Common 的业务边界，不建立虚构患者或咨询。模板版本 3 明确标记独立速查，每页带水印；生成前及打开打印窗口前沿用现有打印 policy。
+- Client 238 项与 Application 79 项测试通过，三种量表在真实浏览器中分别验证未完成与完整的速查输出、仅打印权限、无档案写入及无新增业务请求；MUST 签发更正流程回归通过。
+- 已完成 `dotnet build EzPreventive.sln -c Release --no-restore` 和 `dotnet test EzPreventive.sln -c Release --no-build --no-restore`：构建 0 错误，670 项测试通过（Common 26、Contracts 79、XML 8、Application 79、Client 238、WPF 65、Server 175）。构建保留既有 AuthManagerRepository 的 2FA 提示，未将其作为报告功能改动。
+- 尚待完成：最终需求审计；DRIs 速查输出仍未接入。当前更正需要原咨询和原评估仍在工作区，不额外实现历史档案恢复编辑；历史原件目前保存在交换包中，应用内专门历史 PDF 调阅仍待评估。
 - 独立作废、历史标记副本及正式报告删除仍需业务决策；目前不提供这些入口。含正式报告时暂不开放整库清空，避免通过清空绕过尚未确定的删除规则。

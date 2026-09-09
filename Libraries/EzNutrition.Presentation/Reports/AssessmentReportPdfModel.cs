@@ -1,5 +1,6 @@
 using System.Globalization;
 using EzNutrition.Application.Reports;
+using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.ValueObjects;
 
@@ -29,6 +30,30 @@ internal sealed record AssessmentReportPdfModel
     public required string Institution { get; init; }
     public required string ReportTime { get; init; }
 
+    /// <summary>将独立速查快照投影为评估稿；不虚构患者姓名、签发人或正式报告编号。</summary>
+    public static AssessmentReportPdfModel From(NutritionAssessmentSnapshot snapshot, DateTimeOffset generatedAt) => new()
+    {
+        Title = $"{snapshot.Instrument.Code.Display} · 评估稿",
+        ReportNumber = "",
+        RevisionNumber = 0,
+        InstrumentVersion = snapshot.Instrument.Version ?? "未记录",
+        PatientName = "未关联患者（独立速查）",
+        Sex = "未提供",
+        Age = $"{snapshot.Subject.AgeInYears} 岁",
+        Height = snapshot.Subject.HeightInCentimeters is { } height ? $"{Number(height)} cm" : "未提供",
+        Weight = snapshot.Subject.WeightInKilograms is { } weight ? $"{Number(weight)} kg" : "未提供",
+        AssessedAt = Time(snapshot.EffectiveAt),
+        Performer = "未记录",
+        TotalScore = Score(snapshot.TotalScore, snapshot.TotalScoreAbsentReason),
+        Interpretation = snapshot.Interpretation?.Display ?? "量表未完成，暂无完整结果",
+        Responses = ResponseRows(snapshot.Responses),
+        Results = ResultRows(snapshot.DerivedResults),
+        IsEvaluation = true,
+        Signer = "未经医师审核签发",
+        Institution = "",
+        ReportTime = Time(generatedAt)
+    };
+
     public static AssessmentReportPdfModel From(AssessmentReportDraft draft)
     {
         var scale = draft.Assessment;
@@ -46,23 +71,29 @@ internal sealed record AssessmentReportPdfModel
             Weight = Measurement(subject?.Weight),
             AssessedAt = Time(scale.EffectiveAt),
             Performer = scale.Performer?.Display ?? "未记录",
-            TotalScore = scale.TotalScore is { } score ? Number(score) + " 分"
-                : scale.TotalScoreAbsentReason == DataAbsentReasonCode.NotApplicable ? "不适用" : "尚未完成",
+            TotalScore = Score(scale.TotalScore, scale.TotalScoreAbsentReason),
             Interpretation = scale.Interpretation?.Display ?? "量表未完成，暂无完整结果",
-            Responses = scale.Responses.Select(response => new[]
-            {
-                response.Item.Display ?? response.Item.Code,
-                response.Answer is null ? "未回答" : Answer(response.Answer),
-                response.ScoreContribution is { } contribution ? Number(contribution) : "—"
-            }).ToArray(),
-            Results = scale.DerivedResults.Select(result => new[]
-                { result.Name.Display ?? result.Name.Code, Answer(result.Value) }).ToArray(),
+            Responses = ResponseRows(scale.Responses),
+            Results = ResultRows(scale.DerivedResults),
             IsEvaluation = draft.Signer is null,
             Signer = draft.Signer?.Display ?? "未经医师审核签发",
             Institution = draft.Signer?.Organization?.Display ?? "",
             ReportTime = Time(draft.Report.Metadata.CreatedAt)
         };
     }
+
+    private static string Score(decimal? score, DataAbsentReasonCode? absentReason) => score is { } value
+        ? Number(value) + " 分" : absentReason == DataAbsentReasonCode.NotApplicable ? "不适用" : "尚未完成";
+
+    private static string[][] ResponseRows(IEnumerable<AssessmentItemResponse> responses) => responses.Select(response => new[]
+    {
+        response.Item.Display ?? response.Item.Code,
+        response.Answer is null ? "未回答" : Answer(response.Answer),
+        response.ScoreContribution is { } contribution ? Number(contribution) : "—"
+    }).ToArray();
+
+    private static string[][] ResultRows(IEnumerable<NamedArchiveValue> results) => results.Select(result => new[]
+        { result.Name.Display ?? result.Name.Code, Answer(result.Value) }).ToArray();
 
     private static string Answer(ArchiveValue answer) => answer switch
     {
