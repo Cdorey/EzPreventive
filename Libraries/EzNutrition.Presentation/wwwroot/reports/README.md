@@ -1,5 +1,7 @@
 # 本机量表 PDF 模板
 
+DRIs 独立速查使用 `dri-evaluation.mjs` 模板版本 1，包含逐项参考值、指标类型、单位、来源说明及聚合冲突。它始终输出评估稿，不生成报告编号。两种模板通过 `report-pdf.mjs` 共用本机引擎、字体、表格基础样式和评估水印；各自保留正文排版。
+
 `assessment-report.mjs` 是浏览器和 WPF 共用的模板版本 3：咨询报告页脚显示报告编号与修订号；独立速查显示未关联咨询档案，不生成正式编号。依赖、字体和图片只允许使用随应用发布的资源；不得引入远程报告转换、患者资料上传或远程字体服务。历史报告继续使用原 PDF，不因模板升级而重排。
 
 ## 固定依赖
@@ -32,3 +34,5 @@ WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/mic
 浏览器脚本追加 `--revision`（目前使用 `must`）可验证初版签发后更正、刷新重印及历史原件保留；配套运行 `python tools/reports/check-browser.py must --revision`。结果位于 `tmp/reports/must-revision/`。
 
 浏览器脚本追加 `--standalone` 可验证三种试行量表的独立速查打印；使用仅有打印权限的会话，分别输出未完成及完整结果，检查没有任何档案写入。配套运行 `python tools/reports/check-browser.py must --standalone`（也支持另两种编码）。
+
+`node tools/reports/verify-browser.mjs http://127.0.0.1:5186 dris` 使用合成参考记录验证 DRIs 多页输出、查询失败和空结果时清除旧打印入口，以及打印不触发新查询或档案写入。运行 `python tools/reports/check-browser.py dris` 核对内容及每页水印，再用 Poppler 检查所有页面。

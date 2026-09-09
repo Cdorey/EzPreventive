@@ -8,6 +8,22 @@ from pypdf import PdfReader
 scale = sys.argv[1] if len(sys.argv) > 1 else "must"
 amend = "--revision" in sys.argv[2:]
 standalone = "--standalone" in sys.argv[2:]
+if scale == "dris":
+    reader = PdfReader(Path("tmp/reports/dris/evaluation.pdf"))
+    assert len(reader.pages) >= 2
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    for page in reader.pages:
+        assert "仅供教学或功能评估使用" in page.extract_text()
+        assert "未经医师审核签发" in page.extract_text()
+        assert "未关联咨询档案" in page.extract_text()
+    for value in ("80 g", "AMDR 下限", "AMDR 上限", "20 %", "30 %", "PI-NCD", "SPL", "AI", "RNI",
+                  "部分参考值需要人工核定", "数据存在冲突，需手工核定", "女", "35 岁", "合成调整记录"):
+        assert "".join(value.split()) in "".join(text.split()), f"DRIs 评估稿缺少内容：{value}"
+    for index in range(1, 37):
+        assert f"合成参考{index:02d}" in text
+    assert "报告编号" not in text
+    print(f"DRIs：{len(reader.pages)} 页，参考值、上下限、冲突及每页水印通过。")
+    sys.exit(0)
 expected = {
     "must": ("MUST", "0 分", "营养不良低风险"),
     "nrs-2002": ("NRS 2002", "1 分", "目前没有营养风险"),

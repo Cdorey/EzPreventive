@@ -10,8 +10,9 @@ const samples = {
     "nrs-2002": { title: "临床营养风险筛查 NRS 2002", answers: ["bmi-at-least-18-5", "no-scored-weight-loss", "no-scored-intake-reduction", "no-scored-disease-severity"] },
     "mna-sf": { title: "微营养评定法（简表）MNA-SF", answers: ["unchanged", "none", "goes-out", "no", "none"] }
 };
+const dris = scaleCode === "dris";
 const sample = samples[scaleCode];
-if (!sample) throw new Error("请选择 must、nrs-2002 或 mna-sf。");
+if (!sample && !dris) throw new Error("请选择 must、nrs-2002 或 mna-sf。");
 const amend = process.argv[4] === "--revision";
 const standalone = process.argv[4] === "--standalone";
 if (amend && scaleCode !== "must") throw new Error("更正验收样本当前使用 MUST。");
@@ -22,7 +23,7 @@ const sessionId = randomUUID();
 const encode = value => Buffer.from(JSON.stringify(value)).toString("base64url");
 const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({
     sub: "report-test-doctor", unique_name: "report-test-doctor", sid: sessionId, exp: expiry,
-    Permission: standalone ? ["PrintReport"] : ["IssueReport", "PrintReport"], RealName: "模拟医师", InstitutionName: "模拟机构"
+    Permission: standalone || dris ? ["PrintReport"] : ["IssueReport", "PrintReport"], RealName: "模拟医师", InstitutionName: "模拟机构"
 })}.`;
 const tokens = { sessionId, accessToken: token, accessTokenExpiresAtUtc: new Date(expiry * 1000).toISOString(),
     refreshExpiresAtUtc: new Date((expiry + 3600) * 1000).toISOString(),
@@ -30,6 +31,19 @@ const tokens = { sessionId, accessToken: token, accessTokenExpiresAtUtc: new Dat
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 let page;
 let reportPhase = false;
+let driOutcome = "full";
+const driRecords = [
+    { nutrient: "蛋白质", recordType: 1, value: 65, measureUnit: "g" },
+    { nutrient: "蛋白质", recordType: 1, value: 15, measureUnit: "g", isOffset: true, detail: "合成调整记录" },
+    { nutrient: "脂肪", recordType: 4, value: 20, measureUnit: "%" },
+    { nutrient: "脂肪", recordType: 5, value: 30, measureUnit: "%" },
+    { nutrient: "钠", recordType: 6, value: 2000, measureUnit: "mg", detail: "合成 PI-NCD 记录" },
+    { nutrient: "钾", recordType: 7, value: 3600, measureUnit: "mg" },
+    { nutrient: "冲突参考", recordType: 1, value: 10, measureUnit: "mg" },
+    { nutrient: "冲突参考", recordType: 1, value: 20, measureUnit: "mg" },
+    ...Array.from({ length: 36 }, (_, i) => ({ nutrient: `合成参考${String(i + 1).padStart(2, "0")}`,
+        recordType: i % 4, value: i + 1, measureUnit: "mg", detail: "仅用于本机排版与分页验证的合成数据" }))
+];
 const reportRequests = [];
 const externalRequests = [];
 try {
@@ -45,6 +59,10 @@ try {
         if (path === "/Auth/Browser/Csrf") return fulfill({ requestToken: "local-test" });
         if (path.startsWith("/Auth/Browser/")) return fulfill(tokens);
         if (path.startsWith("/SystemInfo/")) return fulfill({ caseNumber: "test", serverVersion: "test", description: "本机测试" });
+        if (dris && path.startsWith("/Energy/DRIs/")) {
+            if (driOutcome === "error") return route.fulfill({ status: 503, body: "fixture failure" });
+            return fulfill(driOutcome === "empty" ? [] : driRecords);
+        }
         if (path.startsWith("/Energy/DRIs/")) return fulfill([{ nutrient: "蛋白质", value: 65, measureUnit: "g", recordType: 0, gender: "女" }]);
         if (path === "/FoodComposition/Foods") return fulfill([{ foodId: randomUUID(), friendlyCode: "test-food", name: "模拟食物" }]);
         if (path === "/FoodComposition/Nutrients") return fulfill([{ nutrientId: 1, name: "蛋白质", defaultMeasureUnit: "g" }]);
@@ -55,7 +73,41 @@ try {
     page = await context.newPage();
     page.setDefaultTimeout(30000);
     page.on("pageerror", error => console.error("PAGE ERROR", error.message));
-    if (standalone) {
+    if (dris) {
+        await page.goto(origin + "/drisinsights");
+        await page.getByRole("heading", { name: "DRIs 速查", exact: true }).waitFor();
+        if (await page.getByRole("button", { name: "打印评估稿", exact: true }).count())
+            throw new Error("未查询时不应出现打印入口。");
+        await page.getByText("已知整岁", { exact: true }).click();
+        await page.locator("#age input").fill("35");
+        await page.locator("#gender").getByText("女", { exact: true }).click();
+        await page.getByRole("button", { name: "打印评估稿", exact: true }).waitFor();
+        reportPhase = true;
+        const popupPromise = context.waitForEvent("page");
+        await page.getByRole("button", { name: "打印评估稿", exact: true }).click();
+        const popup = await popupPromise;
+        await popup.waitForURL(/^blob:/);
+        const bytes = await page.evaluate(async url =>
+            Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), popup.url());
+        await mkdir(output, { recursive: true });
+        await writeFile(`${output}/evaluation.pdf`, new Uint8Array(bytes));
+        await popup.close();
+        const records = await page.evaluate(async () => (await import("/js/archive-storage.js")).listDocuments());
+        if (records.length) throw new Error("DRIs 打印不应建立档案。");
+        await page.screenshot({ path: `${output}/dris-browser.png`, fullPage: true });
+        reportPhase = false;
+        driOutcome = "empty";
+        await page.locator("#gender").getByText("男", { exact: true }).click();
+        await page.getByText("暂无适用的膳食参考摄入量", { exact: true }).waitFor();
+        if (await page.getByRole("button", { name: "打印评估稿", exact: true }).count())
+            throw new Error("空结果仍保留旧打印入口。");
+        driOutcome = "error";
+        await page.locator("#gender").getByText("女", { exact: true }).click();
+        await page.getByText("未能取得适用的参考摄入量", { exact: true }).waitFor();
+        if (await page.getByRole("button", { name: "打印评估稿", exact: true }).count())
+            throw new Error("查询失败仍保留旧打印入口。");
+        console.log("DRIs 多页结果打印、无归档、空结果及失败清除旧输出入口通过。");
+    } else if (standalone) {
         await page.goto(`${origin}/assessmentinsights/${scaleCode}`);
         await page.getByText("已知整岁", { exact: true }).click();
         await page.locator("#age input").fill("70");

@@ -95,6 +95,8 @@ public static class PresentationServiceCollectionExtensions
         services.AddScoped<ReportWorkflow>();
         services.AddScoped<IReportAuthorization, ReportAuthorization>();
         services.AddScoped<IAssessmentReportRenderer, PdfMakeAssessmentReportRenderer>();
+        services.AddScoped<IDriEvaluationRenderer, PdfMakeDriEvaluationRenderer>();
+        services.AddScoped<DriEvaluationWorkflow>();
         services.AddScoped<ConsultationApplicationService>();
         services.AddScoped<ConsultationWorkspaceManager>();
         services.AddScoped<AccountService>();

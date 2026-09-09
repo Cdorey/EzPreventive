@@ -1,42 +1,5 @@
 // 模板版本 3：共用量表正文，独立速查不显示正式报告编号；只消费已捕获的文字。
-const evaluationNotice = "仅供教学或功能评估使用 · 未经医师审核签发";
-let enginePromise;
-
-async function engine() {
-    if (!enginePromise) {
-        enginePromise = import("./vendor/pdfmake.min.js").then(() => {
-            const pdfMake = globalThis.pdfMake;
-            if (!pdfMake) throw new Error("本机 PDF 生成组件加载失败。");
-            const font = new URL("./fonts/NotoSansCJKsc-Regular.otf", import.meta.url).href;
-            pdfMake.addFonts({ ReportSans: { normal: font, bold: font, italics: font, bolditalics: font } });
-            return pdfMake;
-        }).catch(error => {
-            enginePromise = undefined;
-            throw error;
-        });
-    }
-    return enginePromise;
-}
-
-function table(headers, rows, widths) {
-    return {
-        table: {
-            headerRows: 1,
-            dontBreakRows: true,
-            widths,
-            body: [headers.map(text => ({ text, fillColor: "#eef2f3", color: "#183b45" })), ...rows]
-        },
-        layout: {
-            hLineWidth: () => 0.4,
-            vLineWidth: () => 0,
-            hLineColor: () => "#d2dadc",
-            paddingLeft: () => 7,
-            paddingRight: () => 7,
-            paddingTop: () => 3,
-            paddingBottom: () => 3
-        }
-    };
-}
+import { evaluationNotice, evaluationWatermark, table, renderPdf } from "./report-pdf.mjs";
 
 /** 按 A4 排版，跨页表格重复表头，评估用途进入每一页的水印及页脚。 */
 export function createDefinition(data) {
@@ -69,7 +32,7 @@ export function createDefinition(data) {
         styles: { section: { fontSize: 12, color: "#183b45", margin: [0, 10, 0, 6] } },
         info: { title: data.title, creator: "EzNutrition", producer: "EzNutrition local report renderer" },
         watermark: data.isEvaluation
-            ? { text: "教学 / 功能评估 · 未经医师审核", font: "ReportSans", color: "#7c8790", opacity: 0.16, fontSize: 25, angle: -32 }
+            ? evaluationWatermark()
             : undefined,
         footer: (currentPage, pageCount) => ({
             margin: [40, 10, 40, 0], fontSize: 8, color: "#56636a",
@@ -88,8 +51,7 @@ export function createDefinition(data) {
 
 /** 返回实际 PDF 字节，供 Blazor 保存原件；不打开打印窗口，不调用远程转换服务。 */
 export async function render(data) {
-    const pdfMake = await engine();
-    return new Uint8Array(await pdfMake.createPdf(createDefinition(data)).getBuffer());
+    return await renderPdf(createDefinition(data));
 }
 
 /** 预览同一份待保存字节；隐藏查看器工具栏，应用自身的输出入口单独检查权限。 */

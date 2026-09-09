@@ -1,0 +1,9 @@
+@using EzNutrition.Application.Reports
+@inject DriEvaluationWorkflow Workflow
+
+<EvaluationPrintButton Print="token => Workflow.PrintAsync(Snapshot, token)" />
+
+@code {
+    /// <summary>获取查询成功时捕获的 DRIs 结果，后续查询使用新的组件实例。</summary>
+    [Parameter, EditorRequired] public DriEvaluationSnapshot Snapshot { get; set; } = null!;
+}

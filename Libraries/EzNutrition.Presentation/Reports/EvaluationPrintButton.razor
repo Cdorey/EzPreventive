@@ -1,0 +1,43 @@
+@using EzNutrition.Shared.Policies
+@implements IDisposable
+
+<AuthorizeView Policy="@PolicyList.PrintReport">
+    <Button Loading="@busy" Disabled="@busy" OnClick="PrintAsync">打印评估稿</Button>
+    <p>仅输出带水印的速查结果，不会签发或加入咨询档案。</p>
+</AuthorizeView>
+@if (feedback is not null)
+{
+    <Alert Type="AlertType.Error" Message="@feedback" ShowIcon="true" />
+}
+
+@code {
+    /// <summary>获取本次输出使用的打印操作。</summary>
+    [Parameter, EditorRequired] public Func<CancellationToken, ValueTask> Print { get; set; } = null!;
+
+    private readonly CancellationTokenSource lifetime = new();
+    private bool busy;
+    private string? feedback;
+
+    private async Task PrintAsync()
+    {
+        if (busy) return;
+        busy = true;
+        feedback = null;
+        try { await Print(lifetime.Token); }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception exception) when (exception is InvalidOperationException or UnauthorizedAccessException
+            or InvalidDataException or NotSupportedException)
+        { feedback = exception.Message; }
+        catch (JSException)
+        { feedback = "PDF 生成或查看器打开失败，请允许本站打开报告窗口后重试。"; }
+        catch (IOException) { feedback = "本机报告查看器打开失败，请重试。"; }
+        finally { busy = false; }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        lifetime.Cancel();
+        lifetime.Dispose();
+    }
+}
