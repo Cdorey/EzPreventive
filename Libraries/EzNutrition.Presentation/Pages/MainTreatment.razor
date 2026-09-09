@@ -2,6 +2,7 @@
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Archives
 @using EzNutrition.Presentation.Services
+@using EzNutrition.Presentation.Reports
 @using EzNutrition.Domain.Assessments
 @using EzNutrition.Domain.Calculations
 @using EzNutrition.Domain.Consultations
@@ -252,7 +253,12 @@
                                              Tab="@assessment.Definition.DisplayName"
                                              Closable="true">
                                         <NutritionAssessmentScale Assessment="assessment"
+                                                                  OnChanged="StateHasChanged"
                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        @if (assessment.Definition.Code is "nrs-2002" or "mna-sf" or "must")
+                                        {
+                                            <AssessmentReportPanel Workspace="CurrentArchive" Assessment="assessment" />
+                                        }
                                     </TabPane>
                                 }
                             </ChildContent>

@@ -1,0 +1,167 @@
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Reports
+@using EzNutrition.Shared.Policies
+@implements IAsyncDisposable
+@inject ReportWorkflow Workflow
+@inject IJSRuntime JS
+
+<div class="report-actions">
+    <AuthorizeView Policy="@PolicyList.IssueReport">
+        <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="() => PrepareAsync(true)">签发报告</Button>
+    </AuthorizeView>
+    <AuthorizeView Policy="@PolicyList.PrintReport">
+        <Button Disabled="@busy" OnClick="() => PrepareAsync(false)">打印当前评估稿</Button>
+        @if (lastIssuedId is { } savedId)
+        {
+            <Button Disabled="@busy" OnClick="() => PrintStoredAsync(savedId)">打印已签发报告</Button>
+        }
+    </AuthorizeView>
+</div>
+@if (!visible && feedback is not null)
+{
+    <p role="status">@feedback</p>
+}
+
+<Modal Title="@(prepared?.Draft.Signer is null ? "量表评估稿" : "报告签发审核")"
+       Visible="@visible" Width="1000" Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
+    <ChildContent>
+        @if (feedback is not null)
+        {
+            <p role="status">@feedback</p>
+        }
+        @if (busy && previewUrl is null)
+        {
+            <p role="status">正在本机生成报告…</p>
+        }
+        @if (previewUrl is not null)
+        {
+            @if (issuedId is null && prepared?.Draft.Signer is not null)
+            {
+                <p>请核对以下固定快照。确认签发后保存此 PDF 原件，后续修改咨询不会改变它。</p>
+            }
+            <iframe class="report-preview" title="报告 PDF 预览" src="@(previewUrl + "#toolbar=0&navpanes=0")"></iframe>
+        }
+    <div class="report-actions">
+        <Button Disabled="@busy" OnClick="CloseAsync">关闭</Button>
+        @if (prepared is not null && issuedId is null && prepared.Draft.Signer is not null)
+        {
+            <AuthorizeView Policy="@PolicyList.IssueReport">
+                <Button Type="@ButtonType.Primary" Disabled="@busy" OnClick="IssueAsync">确认审核并签发</Button>
+            </AuthorizeView>
+        }
+        <AuthorizeView Policy="@PolicyList.PrintReport">
+            @if (issuedId is { } documentId)
+            {
+                <Button Disabled="@busy" OnClick="() => PrintStoredAsync(documentId)">打印原件</Button>
+            }
+            else if (prepared is not null && prepared.Draft.Signer is null)
+            {
+                <Button Disabled="@busy" OnClick="PrintEvaluationAsync">打开打印窗口</Button>
+            }
+        </AuthorizeView>
+    </div>
+    </ChildContent>
+</Modal>
+
+@code {
+    /// <summary>获取本次报告所属的当前咨询。</summary>
+    [Parameter, EditorRequired] public ConsultationWorkspace Workspace { get; set; } = null!;
+
+    /// <summary>获取用户选定的量表运行实例。</summary>
+    [Parameter, EditorRequired] public NutritionAssessmentRun Assessment { get; set; } = null!;
+
+    private readonly CancellationTokenSource lifetime = new();
+    private IJSObjectReference? module;
+    private PreparedAssessmentReport? prepared;
+    private string? previewUrl;
+    private string? feedback;
+    private Guid? issuedId;
+    private Guid? lastIssuedId;
+    private bool busy;
+    private bool visible;
+    private DateTimeOffset assessmentModifiedAt;
+    private string? patientName;
+
+    private Task PrepareAsync(bool forIssuance) => RunAsync(async () =>
+    {
+        visible = true;
+        await ReleasePreviewAsync();
+        prepared = null;
+        issuedId = null;
+        assessmentModifiedAt = Assessment.LastModifiedAt;
+        patientName = Workspace.Client.Name;
+        prepared = await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
+            "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
+        previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, prepared.Pdf.ToArray());
+    });
+
+    private Task IssueAsync() => RunAsync(async () =>
+    {
+        if (prepared is null) return;
+        if (!Workspace.NutritionAssessments.Contains(Assessment) || Assessment.LastModifiedAt != assessmentModifiedAt
+            || Workspace.Client.Name != patientName)
+            throw new InvalidOperationException("量表或患者身份已变化，请关闭预览后重新准备报告。");
+        issuedId = await Workflow.IssueAsync(prepared, lifetime.Token);
+        lastIssuedId = issuedId;
+        feedback = "报告已签发并保存到本机档案库。";
+    });
+
+    private Task PrintStoredAsync(Guid id) => RunAsync(async () =>
+    {
+        await Workflow.PrintStoredAsync(id, lifetime.Token);
+        feedback = "已打开报告打印窗口，请在查看器中选择打印机。";
+    });
+
+    private Task PrintEvaluationAsync() => RunAsync(async () =>
+    {
+        if (prepared is null) return;
+        await Workflow.PrintEvaluationAsync(prepared, lifetime.Token);
+        feedback = "已打开带水印评估稿的打印窗口。";
+    });
+
+    private async Task RunAsync(Func<Task> operation)
+    {
+        if (busy) return;
+        busy = true;
+        feedback = null;
+        try { await operation(); }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception exception) when (exception is InvalidOperationException or UnauthorizedAccessException
+            or InvalidDataException or NotSupportedException)
+        { feedback = exception.Message; }
+        catch (JSException) { feedback = "PDF 生成或查看器打开失败，请检查资源是否加载完整，并允许本站打开报告窗口后重试。"; }
+        catch (IOException) { feedback = "本机报告文件操作失败，请重试。"; }
+        finally { busy = false; }
+    }
+
+    private async Task CloseAsync()
+    {
+        if (busy) return;
+        visible = false;
+        await ReleasePreviewAsync();
+        prepared = null;
+    }
+
+    private async ValueTask ReleasePreviewAsync()
+    {
+        if (module is not null && previewUrl is not null)
+        {
+            await module.InvokeVoidAsync("releasePreview", previewUrl);
+            previewUrl = null;
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        lifetime.Cancel();
+        try
+        {
+            await ReleasePreviewAsync();
+            if (module is not null) await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        lifetime.Dispose();
+    }
+}

@@ -95,6 +95,9 @@ public sealed record ArchiveOperationResult
 /// </summary>
 public sealed record ArchiveRecordSummary
 {
+    /// <summary>获取该条目是否为独立签发报告；不能将局部报告快照作为一次完整复诊。</summary>
+    public bool IsReport { get; init; }
+
     /// <summary>获取宿主管理的文档标识。</summary>
     public required Guid DocumentId { get; init; }
 

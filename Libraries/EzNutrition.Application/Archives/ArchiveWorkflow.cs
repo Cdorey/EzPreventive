@@ -1,4 +1,5 @@
 using EzNutrition.Application.Consultations;
+using EzNutrition.Application.Reports;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
@@ -15,6 +16,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
     private readonly IReadOnlyList<IArchiveCodec> codecs;
     private readonly IArchiveDocumentStore store;
     private readonly IArchiveDocumentTransport transport;
+    private readonly ReportPackage reportPackage;
+    private readonly IReportAuthorization? reportAuthorization;
 
     /// <summary>
     /// 初始化档案工作流。
@@ -24,7 +27,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         IArchiveValidator validator,
         IEnumerable<IArchiveCodec> codecs,
         IArchiveDocumentStore store,
-        IArchiveDocumentTransport transport)
+        IArchiveDocumentTransport transport,
+        IReportAuthorization? reportAuthorization = null)
     {
         ArgumentNullException.ThrowIfNull(assembler);
         ArgumentNullException.ThrowIfNull(validator);
@@ -37,6 +41,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         this.codecs = codecs.OrderBy(codec => codec.CodecIdentifier.AbsoluteUri, StringComparer.Ordinal).ToArray();
         this.store = store;
         this.transport = transport;
+        reportPackage = new ReportPackage(this.codecs, validator);
+        this.reportAuthorization = reportAuthorization;
     }
 
     /// <inheritdoc />
@@ -230,6 +236,12 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
             var info = stored.Info;
             var format = CreateStoredFormat(info);
+            if (info.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri)
+            {
+                if (reportAuthorization is null) return Denied("当前宿主未配置报告输出权限检查。");
+                await reportAuthorization.RequirePrintAsync(cancellationToken);
+                _ = await reportPackage.ReadAsync(stored.Content, cancellationToken);
+            }
             var saved = await transport.SaveAsync(new ArchiveDocumentExport
             {
                 SuggestedFileNameStem = $"eznutrition-{documentId:N}",
@@ -270,6 +282,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
+            if ((await store.GetAsync(documentId, cancellationToken))?.Info.FormatIdentifier
+                == ReportPackage.Format.Identifier.AbsoluteUri)
+                return Denied("正式报告的单独删除规则尚未开放；删除与业务作废是不同操作。");
             await store.DeleteAsync(documentId, cancellationToken);
             return Success("档案已从本机档案库删除。");
         }
@@ -298,6 +313,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
+            if ((await store.ListAsync(cancellationToken)).Any(record =>
+                record.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri))
+                return Denied("档案库包含正式报告，当前版本暂不支持清空这些原件。");
             await store.ClearAsync(cancellationToken);
             return Success("本机档案库已清空。");
         }
@@ -409,6 +427,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
             var stored = await store.GetAsync(documentId, cancellationToken);
             if (stored is null)
                 return new(Failed("历史档案已不存在。"), null);
+            if (stored.Info.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri)
+                return new(Invalid("局部报告快照不能作为完整咨询历史载入。"), null);
 
             var decoded = await ReadDocumentAsync(stored.Content, stored.Info.MediaType,
                 stored.Info.FormatIdentifier, stored.Info.FormatVersion, cancellationToken).ConfigureAwait(false);
@@ -514,6 +534,11 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         CancellationToken cancellationToken) => Task.Run<(ArchiveDocument?, ArchiveOperationResult)>(
         async () =>
         {
+            if (formatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri || ReportPackage.HasZipHeader(content.Span))
+            {
+                var report = await reportPackage.ReadAsync(content, cancellationToken);
+                return (report.Document, Success("报告包已打开，PDF 原件及其内容指纹已核对。"));
+            }
             var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
             if (codec is null)
             {

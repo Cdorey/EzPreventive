@@ -175,6 +175,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IArchiveDocumentTransport>(provider =>
             provider.GetRequiredService<WpfArchiveDocumentTransport>());
         services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
+        services.AddScoped<EzNutrition.Application.Reports.IReportPrinter, EzNutrition.Wpf.Reports.WpfReportPrinter>();
 
         services.AddSingleton<DesktopFileLauncher>();
         services.AddSingleton<VelopackUpdateService>();

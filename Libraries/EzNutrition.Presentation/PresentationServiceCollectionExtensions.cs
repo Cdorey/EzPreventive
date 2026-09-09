@@ -1,6 +1,8 @@
 using AntDesign;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Application.Ports;
+using EzNutrition.Application.Reports;
+using EzNutrition.Presentation.Reports;
 using EzNutrition.Presentation.Infrastructure;
 using EzNutrition.Presentation.Services;
 using EzNutrition.Shared.Policies;
@@ -88,6 +90,11 @@ public static class PresentationServiceCollectionExtensions
                 provider.GetRequiredService<HttpNutritionDataSource>()));
         services.AddScoped<AiAdviceApplicationService>();
         services.AddScoped<NutritionAssessmentApplicationService>();
+        services.AddScoped<AssessmentReportFactory>();
+        services.AddScoped<ReportPackage>();
+        services.AddScoped<ReportWorkflow>();
+        services.AddScoped<IReportAuthorization, ReportAuthorization>();
+        services.AddScoped<IAssessmentReportRenderer, PdfMakeAssessmentReportRenderer>();
         services.AddScoped<ConsultationApplicationService>();
         services.AddScoped<ConsultationWorkspaceManager>();
         services.AddScoped<AccountService>();

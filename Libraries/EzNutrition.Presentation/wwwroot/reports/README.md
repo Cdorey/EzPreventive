@@ -18,3 +18,11 @@
 `node tools/reports/verify-pdf.mjs` 使用 Playwright 和本机 Edge，在仅允许本地资源的环境中生成正式、评估和多页样本至 `tmp/reports/`。需配置本机 Node 能解析 Playwright。脚本不连接应用账号、不使用真实患者，也不实际向打印机发送任务。
 
 随后使用 Poppler 渲染各页，并检查中文、长文本、表头、水印、签发页脚和分页。PDF 字节生成成功不能代替视觉验收。
+
+`python tools/reports/check-pdf.py` 检查上述样本页数、逐项内容和每页标记。
+
+启动本机 Client 开发宿主后，可运行 `node tools/reports/verify-browser.mjs http://127.0.0.1:5186 must` 和 `python tools/reports/check-browser.py must`。最后一个参数也支持 `nrs-2002`、`mna-sf`，结果分别保存在 `tmp/reports/<量表编码>/`。测试在独立浏览器会话中拦截认证与参考接口，使用合成资料实际作答、打印评估稿、签发归档、刷新调阅并打开 PDF 打印窗口；核对评分、水印、正式档案及窗口原件的一致性。它不向实体打印机发送任务。修改并重新构建 WASM 后，应先重启开发宿主以更新静态资源映射。
+
+Windows 桌面运行验收使用 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- tmp/reports/must/browser-printed.pdf tmp/reports/wpf`。该工具需要 Windows 桌面会话、SDK 和 WebView2 Runtime；在指定输出目录建立隔离的 WebView2 配置，使用产品中的实际 PDF 窗口，核对宿主交付的 PDF 流并通过可访问性树确认打印对话框出现。支持中文或英文系统，截图用于人工检查；不提交打印任务。它通过反射访问内部窗口，窗口重构时应同步更新工具，不为此扩大产品 API。
+
+WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print)。内容截图不包含原生打印对话框，因此不能单凭截图认定打印交互成功。

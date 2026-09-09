@@ -100,7 +100,8 @@ public sealed class ConsultationHistory(Guid patientId, Guid currentConsultation
             }
 
             var entries = new List<ConsultationHistoryEntry>();
-            foreach (var record in browse.Records.Where(record => record.PatientId == patientId && record.DocumentId != currentConsultationId))
+            foreach (var record in browse.Records.Where(record => !record.IsReport
+                && record.PatientId == patientId && record.DocumentId != currentConsultationId))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await workflow.ReadHistoryAsync(patientId, record.DocumentId, cancellationToken);

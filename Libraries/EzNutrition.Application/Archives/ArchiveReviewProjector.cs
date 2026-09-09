@@ -15,7 +15,9 @@ internal static class ArchiveReviewProjector
         var patient = bundle.Entries.OfType<PatientResource>().SingleOrDefault();
         var consultation = bundle.Entries.OfType<ConsultationResource>().SingleOrDefault();
         var subject = PatientDisplay(patient, consultation);
-        var title = consultation?.Title ?? $"{subject}的营养档案";
+        var reports = bundle.Entries.OfType<NutritionReportResource>().ToArray();
+        var report = reports.Length == 1 ? reports[0] : null;
+        var title = report?.Title ?? consultation?.Title ?? $"{subject}的营养档案";
         var sections = new List<ArchiveReviewSection>();
 
         if (patient is not null || consultation is not null)
@@ -36,7 +38,7 @@ internal static class ArchiveReviewProjector
             Title = title,
             SubjectDisplay = subject,
             CreatedAt = bundle.CreatedAt,
-            FormatDisplay = format is null ? "当前应用档案" : FormatDisplay(format),
+            FormatDisplay = report is not null ? "报告档案" : format is null ? "当前应用档案" : FormatDisplay(format),
             ContainsUnknownContent = document.ContainsUnknownContent,
             PatientContext = patient is null ? null : new ArchivePatientContext(patient, consultation?.SubjectSnapshot),
             Sections = sections
@@ -45,6 +47,7 @@ internal static class ArchiveReviewProjector
 
     public static ArchiveRecordSummary CreateSummary(StoredArchiveDocumentInfo info) => new()
     {
+        IsReport = info.FormatIdentifier == Reports.ReportPackage.Format.Identifier.AbsoluteUri,
         DocumentId = info.DocumentId,
         PatientId = info.PatientId,
         Title = info.Title,
@@ -127,6 +130,26 @@ internal static class ArchiveReviewProjector
             ]
         },
         NutritionScaleAssessmentResource scale => CreateNutritionScaleAssessmentSection(scale),
+        NutritionReportResource report => new ArchiveReviewSection
+        {
+            Title = report.Title ?? "营养报告",
+            Description = "本页展示报告来源与签发信息；再次打印应读取保存的 PDF 原件。",
+            Fields =
+            [
+                Field("报告编号", report.Metadata.ResourceId.Value.ToString("D")),
+                Field("版本", report.Metadata.RevisionNumber.Value.ToString(CultureInfo.InvariantCulture)),
+                Field("状态", report.Metadata.Status switch
+                {
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.Final => "已签发",
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.Amended => "已更正签发",
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.EnteredInError => "已标记错误",
+                    _ => "草稿"
+                }),
+                Field("用途", FormatCoding(report.Purpose)),
+                Field("签发人", FormatActor(report.Metadata.FinalizedBy)),
+                DateTimeField("签发时间", report.Metadata.FinalizedAt)
+            ]
+        },
         SoapNoteResource soap => new ArchiveReviewSection
         {
             Title = "SOAP 病史",

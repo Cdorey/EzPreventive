@@ -41,7 +41,7 @@ public sealed class WpfArchiveDocumentTransport : IArchiveDocumentTransport
             var dialog = new OpenFileDialog
             {
                 Title = "打开 EzNutrition 档案",
-                Filter = "EzNutrition XML 档案 (*.xml)|*.xml|所有文件 (*.*)|*.*",
+                Filter = "EzNutrition 档案与报告 (*.xml;*.ezreport)|*.xml;*.ezreport|所有文件 (*.*)|*.*",
                 CheckFileExists = true,
                 Multiselect = false,
                 ValidateNames = true

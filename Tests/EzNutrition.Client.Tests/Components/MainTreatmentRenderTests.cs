@@ -115,6 +115,10 @@ public sealed class MainTreatmentRenderTests
         services.AddSingleton<IFoodCompositionDataSource>(nutritionDataSource);
         services.AddSingleton<IAiAdviceGateway, EmptyAiAdviceGateway>();
         services.AddSingleton<IArchiveWorkflow, UnavailableArchiveWorkflow>();
+        services.AddSingleton<EzNutrition.Archives.Contracts.Validation.IArchiveValidator, EzNutrition.Archives.Contracts.Validation.ArchiveContractValidator>();
+        services.AddSingleton<EzNutrition.Archives.Contracts.Serialization.IArchiveCodec, EzNutrition.Archives.Xml.XmlArchiveCodec>();
+        services.AddSingleton<IArchiveDocumentStore, EzNutrition.Client.Infrastructure.BrowserArchiveGateway>();
+        services.AddSingleton<EzNutrition.Application.Reports.IReportPrinter, EzNutrition.Client.Infrastructure.BrowserReportPrinter>();
         services.AddSingleton(new ArchiveContractAssembler(new ArchiveApplicationIdentity(
             new Uri("https://app.example.test/assessment-render-test"),
             "工作台渲染测试",

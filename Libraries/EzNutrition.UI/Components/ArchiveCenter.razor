@@ -1,6 +1,7 @@
 @implements IDisposable
 @inject IArchiveWorkflow ArchiveWorkflow
 @inject IMessageService Message
+@using EzNutrition.Shared.Policies
 
 <section class="archive-center">
     <div class="mobile-archive-note">
@@ -18,6 +19,10 @@
                 <p>档案保存在当前应用的本机档案库中，也可以打开外部档案文档；这些操作不会把文档上传到服务端。</p>
             </div>
             <div class="archive-toolbar-actions">
+                @if (OnImportReport.HasDelegate)
+                {
+                    <Button Disabled="@OperationInProgress" OnClick="ImportReportAsync">导入报告包</Button>
+                }
                 @if (CanImport)
                 {
                     <Button OnClick="ImportAsync" AutoLoading Disabled="@OperationInProgress">
@@ -25,7 +30,17 @@
                         打开文档
                     </Button>
                 }
-                @if (CanExportStored)
+                @if (SelectedIsReport && OnPrintReport.HasDelegate)
+                {
+                    <AuthorizeView Policy="@PolicyList.PrintReport">
+                        <Button Disabled="@OperationInProgress" OnClick="PrintReportAsync">打印报告原件</Button>
+                        @if (CanExportStored)
+                        {
+                            <Button Disabled="@OperationInProgress" OnClick="ExportStoredAsync">导出报告包</Button>
+                        }
+                    </AuthorizeView>
+                }
+                @if (CanExportStored && !SelectedIsReport)
                 {
                     <Button OnClick="ExportStoredAsync"
                             AutoLoading
@@ -105,14 +120,19 @@
                             <header class="archive-patient-heading">
                                 <div>
                                     <strong>@group.SubjectDisplay</strong>
-                                    <small>@group.Consultations.Count 次咨询</small>
+                                    <small>@group.Consultations.Count(record => !record.IsReport) 次咨询
+                                        @if (group.Consultations.Any(record => record.IsReport))
+                                        {
+                                            <span> · @group.Consultations.Count(record => record.IsReport) 份报告</span>
+                                        }
+                                    </small>
                                     <small>最近保存 <LocalDateTimeDisplay Value="@group.LastSavedAt" Format="yyyy-MM-dd HH:mm" /></small>
                                     @if (group.PatientId is null)
                                     {
                                         <small class="archive-legacy-note">旧版未关联档案</small>
                                     }
                                 </div>
-                                @if (group.PatientId is not null && OnStartFollowUp.HasDelegate)
+                                @if (group.PatientId is not null && OnStartFollowUp.HasDelegate && group.Consultations.Any(record => !record.IsReport))
                                 {
                                     <button type="button"
                                             class="archive-follow-up"
@@ -132,12 +152,13 @@
                                                 disabled="@OperationInProgress"
                                                 @onclick="() => OpenStoredAsync(record.DocumentId)">
                                             <strong>@record.Title</strong>
+                                            @if (record.IsReport) { <small>已签发报告</small> }
                                             <small>
                                                 咨询 <LocalDateTimeDisplay Value="@record.ConsultationStartedAt" Format="yyyy-MM-dd" />
                                                 · 保存 <LocalDateTimeDisplay Value="@record.LastSavedAt" Format="MM-dd HH:mm" />
                                             </small>
                                         </button>
-                                        @if (CanDelete)
+                                        @if (CanDelete && !record.IsReport)
                                         {
                                             <button type="button"
                                                     class="archive-record-delete"
@@ -227,6 +248,15 @@
     [Parameter]
     public EventCallback<ArchivePatientContext> OnStartFollowUp { get; set; }
 
+    /// <summary>将报告打印请求交给展示层的授权与宿主适配。</summary>
+    [Parameter] public EventCallback<Guid> OnPrintReport { get; set; }
+
+    /// <summary>请求展示层选择并保存报告包，完成后刷新本机列表。</summary>
+    [Parameter] public EventCallback OnImportReport { get; set; }
+
+    private bool reportOperation;
+    private bool SelectedIsReport => records.Any(record => record.DocumentId == selectedDocumentId && record.IsReport);
+
     private readonly CancellationTokenSource lifetimeCancellation = new();
     private IReadOnlyList<ArchiveRecordSummary> records = Array.Empty<ArchiveRecordSummary>();
     private ArchiveReview? review;
@@ -262,10 +292,11 @@
 
     private bool CanDelete => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Delete);
 
-    private bool CanClear => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear);
+    private bool CanClear => ArchiveWorkflow.Capabilities.HasFlag(ArchiveWorkflowCapabilities.Clear)
+        && !records.Any(record => record.IsReport);
 
     private bool OperationInProgress =>
-        loading || opening || exporting || mutating || deleteDialogVisible || clearDialogVisible;
+        loading || opening || exporting || mutating || reportOperation || deleteDialogVisible || clearDialogVisible;
 
     private ButtonProps DestructiveOkButtonProps => new() { Danger = true, Disabled = mutating };
 
@@ -326,6 +357,26 @@
     {
         selectedDocumentId = documentId;
         await OpenAsync(() => ArchiveWorkflow.OpenStoredAsync(documentId, lifetimeCancellation.Token));
+    }
+
+    private async Task PrintReportAsync()
+    {
+        if (OperationInProgress || selectedDocumentId is not { } id || !SelectedIsReport) return;
+        reportOperation = true;
+        try { await OnPrintReport.InvokeAsync(id); }
+        finally { reportOperation = false; }
+    }
+
+    private async Task ImportReportAsync()
+    {
+        if (OperationInProgress) return;
+        reportOperation = true;
+        try
+        {
+            await OnImportReport.InvokeAsync();
+            await LoadRecordsAsync();
+        }
+        finally { reportOperation = false; }
     }
 
     private async Task ImportAsync()
@@ -484,7 +535,8 @@
             return;
         }
 
-        var latest = group.Consultations[0];
+        var latest = group.Consultations.FirstOrDefault(record => !record.IsReport);
+        if (latest is null) return;
         selectedDocumentId = latest.DocumentId;
         opening = true;
         try

@@ -148,7 +148,7 @@ export function openDocument(maximumBytes) {
     return new Promise((resolve, reject) => {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = ".xml,.ezarchive.xml,application/xml,application/vnd.eznutrition.archive+xml";
+        input.accept = ".xml,.ezarchive.xml,.ezreport,application/xml,application/vnd.eznutrition.archive+xml,application/vnd.eznutrition.report+zip";
         input.hidden = true;
         document.body.appendChild(input);
 
