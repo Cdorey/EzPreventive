@@ -34,7 +34,7 @@
 | JSON、类型或字段验证失败 | 通常 400 ValidationProblemDetails，含 `status`、`title`、`errors`；框架还可能返回 415 或请求过大时的 413 |
 | 业务校验失败 | 400；按端点可能是文本、`{success,message}` 或错误数组 |
 | 不存在 | 404；正文可能为框架 ProblemDetails、文本或空，不统一转换成空列表 |
-| 并发冲突 | 409；认证/审批为 `{code,message}`，维护配置为 `{key,message}`，角色重名为文本 |
+| 并发冲突 | 409；认证/审批为 `{code,message}`，维护配置为 `{key,message}`，角色声明更新为 `{success:false,message}`，角色重名为文本 |
 | 限流 | 429，不保证业务错误正文 |
 | 服务异常 | 5xx，正文不属于稳定业务契约 |
 

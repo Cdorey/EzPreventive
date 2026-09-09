@@ -2,7 +2,7 @@
 
 ## 前后端对接
 
-[HTTP API 2.2](./http-api/README.md) 是跨端接口契约的统一入口，描述请求、响应、鉴权、错误和调用顺序。覆盖当前 2.2 源码（包括维护清理分支），不代表所有部署环境均已上线。
+[HTTP API 2.2](./http-api/README.md) 是跨端接口契约的统一入口，描述请求、响应、鉴权、错误和调用顺序。覆盖当前 2.2 源码；部署方应核对实际安装版本。
 
 ## 实现与部署
 
@@ -13,6 +13,9 @@
 - [认证审核实现](./certification-review.md)：并发更新、超时处理与页面编排。
 - [每日维护任务](./maintenance-cleanup.md)：调度与后台任务。
 - [档案架构](./archive-architecture.md)
+- [报告使用说明](./report-user-guide.md)：试行量表、权限配置、签发、更正、打印和备份。
+- [报告实现说明](./report-issuance-printing-plan.md)：当前流程、包结构、代码归属和待讨论事项。
+- [报告验收审计](./report-acceptance-audit.md)：浏览器、WPF 与失败恢复的验证证据和复验入口。
 - [WPF 宿主](./wpf-hybrid-host.md)
 - [版本管理](./versioning.md)
 

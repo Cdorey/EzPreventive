@@ -2,7 +2,7 @@
 
 日期：2026-09-09。分支：`codex/report-issuance-printing`。
 
-本审计以[工作方案](report-issuance-printing-plan.md)和实际代码、测试、生成文件为依据。约定的首版试行功能已实现并完成验收；下文列出的业务待定项按用户授权保留讨论。最后的 WPF 生成及退出复验在 Active 桌面会话通过：产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0；当次成品内容及全部页面视觉检查通过。
+本审计记录首版验收及 `881e835` 的失败恢复回归，功能范围见[实现说明](report-issuance-printing-plan.md)。首版试行已完成验收；WPF 生成及退出复验在 Active 桌面会话通过，产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0，当次成品内容及全部页面视觉检查通过。待讨论业务列在文末。
 
 运行环境曾在同一 Windows 会话 10 的 `Active` 与 `Disconnected` 间变化：Active 时生成成功；生命周期修改后的复验又在 `CreateD3D9Device` 报 `0x8876086A`，随后 `query session` 确认会话 10 为 Disconnected、控制台 9 为 Connected。没有切换、连接或修改任何 Windows 会话，也不将断开会话的图形初始化失败推断为正常桌面的产品缺陷。
 
@@ -17,12 +17,15 @@
 | 先试行 NRS 2002、MNA-SF、MUST，模块分别提供签发和打印 | `MainTreatment`、`AssessmentReportPanel` 的三种入口；浏览器实际作答、评估打印、审核签发、刷新后档案重印，PDF 文本检查覆盖三种结果 | 通过；其他正式报告模板没有自动开放 |
 | 未签发输出有水印，正式输出使用干净原件 | 模板按评估用途生成逐页水印及固定说明；`PrintEvaluationAsync` 拒绝未保存的正式预览；`PrintStoredAsync` 读取已保存 PDF | 通过；拥有签发权限不会自动去除评估稿水印 |
 | 冻结所选量表及输入，审核前后内容一致 | `AssessmentReportFactory`、`AssessmentReportDraft` 和 `ArchiveContractAssembler` 捕获独立版本；`PreparedAssessmentReport` 绑定预览字节；确认再次核对签发人。`AssessmentReportTests` 覆盖范围、版本、评分对象资料和后续修改隔离 | 通过；只确认报告，不提升整次咨询状态 |
+| 预览失败后阻止确认签发 | `AssessmentReportPanel` 在成功创建预览后设置待签发状态；回归用例注入模块加载、预览创建、空地址、旧预览清理及模块释放失败，验证失败时不归档、重试成功后可签发 | 通过；组件事件测试，JS 故障使用受控替身 |
 | 正式报告有档案记录及可重复输出的成品 | `.ezreport` 包保存 `NutritionReport`、输入快照和 PDF；报告文档键与咨询草稿分离。浏览器捕获打印窗口 PDF，与包内原件逐字节比较，并核对契约中的 SHA-256 | 通过；摘要用于一致性检查，不是电子签章 |
 | 重印的字体与排版稳定 | PDF 自带字体；`check-pdf.py` 逐页检查字体描述符中的嵌入字体数据。真实模板正式/评估单页和六页长表格样本已生成，中文、分页、表头及每页水印已检查 | 通过；实体设备的纸张、缩放、色差仍由打印设置决定 |
 | 保存失败、重试、多窗口竞争不破坏旧报告 | `ReportWorkflow.CommitAsync` 使用宿主 CompareExchange；IndexedDB 同一事务提交索引与正文；WPF 使用写锁、不同内容文件及索引替换作为提交点。真实 IndexedDB 竞争/中止脚本及 WPF 文件存储测试覆盖失败保留、过期预览和并发赢家 | 通过 |
 | 更正复用现有版本链，不追加第二套状态 | 草稿 `BasedOn`，确认后 `Amended`/`Supersedes`；新版成功提交才替代旧版；历史版本及每份 PDF 保留。测试覆盖三版交换、错误评估实例、失败和过期预览 | 通过；更正需要原咨询及原评估仍在工作区 |
-| 导入、导出、兼容和冲突处理 | `ReportPackage` 兼容版本 1/2，限制 ZIP 条目及解压大小，校验每份 PDF 和完整引用；更旧、分叉及改写本机历史的包不能覆盖。报告导出复用 PrintReport；通用档案导出不能绕过 | 通过；未新增患者数据传输接口 |
+| 单份损坏报告与更正列表隔离 | 测试覆盖损坏包位于正常包之前或之后、文件缺失和 I/O 失败，正常报告仍可选择；全部不可读时组件提示跳过数量。取消、权限和目录查询错误继续传播 | 通过；损坏报告的直接更正及打印仍被拒绝 |
+| 导入、导出、兼容和冲突处理 | `ReportPackage` 兼容版本 1/2，限制 ZIP 条目及解压大小，校验每份 PDF 和完整引用；更旧、分叉及改写本机历史的包不能覆盖。报告包经通用档案导出入口输出时同样检查 PrintReport，普通咨询 XML 沿用档案规则 | 通过；文件交换由本机宿主适配 |
 | 档案库区分报告和咨询 | `ArchiveCenter` 区分计数、原件打印与导入；报告不进入复诊历史。审计增加了合法报告引用多个患者版本的用例，修复调阅失败并验证采用确切咨询对象快照 | 通过 |
+| 普通 XML 完整调阅 | 用包含报告及额外 SOAP 的同一份契约文档分别编码 XML 和报告包，确认 XML 保留 SOAP、咨询标题及格式，报告包按当前报告范围展示 | 通过；使用真实 XML codec 与报告包校验 |
 | 独立速查可输出评估稿，不虚构咨询档案 | 三种量表速查捕获已有答案；DRIs 在查询成功时捕获条件和结果。单元测试及浏览器验证无档案写入、无重查、未回答标记、DRIs 上下限/冲突，以及空结果和失败清除旧入口 | 通过 |
 | 共享模板与宿主适配遵循包边界 | Common 保持题目、计分和业务解释；Application 提供快照与流程；Presentation 提供 PDF、字体及页面连接；Client/WPF 适配本机存储与打印。现有架构测试已执行 | 通过；没有新建通用报告框架或修改 Common 的排版职责 |
 | WASM 发布产物实际可运行 | 本地 `dotnet publish` 成功后，以本机静态服务运行真实发布目录，复验三种正式量表、MUST 更正/速查及 DRIs 多页输出，核对 PDF 内容与原件字节 | 通过；未部署到外部服务 |
@@ -31,10 +34,13 @@
 
 ## 验证入口
 
-生命周期修正后的最终全解决方案 Release 构建成功（0 错误，保留既有 2FA 提示），680 项测试通过：Common 26、Contracts 79、XML 8、Application 82、Client 245、WPF 65、Server 175，无失败或跳过。真实浏览器 MUST 签发更正重印、DRIs 输出及预览回收检查通过。桌面生成探针独立计结果，不包含在单元测试总数中。
+首版验收基线（`8dc93cc`）：生命周期修正后的全解决方案 Release 构建成功（0 错误，保留既有 2FA 提示），680 项测试通过：Common 26、Contracts 79、XML 8、Application 82、Client 245、WPF 65、Server 175，无失败或跳过。真实浏览器 MUST 签发更正重印、DRIs 输出及预览回收检查通过。桌面生成探针独立计结果。
+
+失败恢复回归（`881e835`）：新增 15 项用例，见 `Tests/EzNutrition.Client.Tests/Tests/ReportWorkflowTests.ReviewFailures.cs`。Client Release 260 项、Application Release 82 项全部通过，`git diff --check` 通过。本轮采用真实工作流、XML codec 和受控组件事件验证；浏览器与桌面的视觉验收证据来自上述首版基线。
 
 - `dotnet build EzPreventive.sln -c Release --no-restore`
 - `dotnet test EzPreventive.sln -c Release --no-build --no-restore`
+- 针对调阅与失败恢复：`dotnet test Tests/EzNutrition.Client.Tests/EzNutrition.Client.Tests.csproj -c Release --filter FullyQualifiedName~ReportWorkflowTests`。
 - `node tools/reports/verify-pdf.mjs`，随后 `python tools/reports/check-pdf.py` 和 Poppler 逐页检查。
 - `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris`；MUST 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
 - `node tools/reports/verify-storage.mjs` 验证真实 IndexedDB 原子提交。
