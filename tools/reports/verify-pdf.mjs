@@ -90,6 +90,22 @@ try {
         await writeFile(resolve(output, `${name}.pdf`), new Uint8Array(bytes));
         console.log(`${name}: ${bytes.length} bytes`);
     }
+    if (process.argv[3]) {
+        const dietary = JSON.parse(await readFile(resolve(process.argv[3]), "utf8"));
+        for (const [name, data] of [
+            ["dietary-signed", dietary],
+            ["dietary-evaluation", { ...dietary, isEvaluation: true }],
+            ["dietary-long", { ...dietary, isEvaluation: true,
+                foods: Array.from({ length: 60 }, (_, i) => ["午餐", `分页食物 ${i + 1} · ` + "合成长名称".repeat(5), "200 g", "75%", "150 g"]) }]
+        ]) {
+            const bytes = await page.evaluate(async data => {
+                const { render } = await import("/reports/dietary-report.mjs");
+                return Array.from(await render(data));
+            }, data);
+            await writeFile(resolve(output, `${name}.pdf`), new Uint8Array(bytes));
+            console.log(`${name}: ${bytes.length} bytes`);
+        }
+    }
     if (externalRequests.length) throw new Error("发现外部请求：" + externalRequests.join(", "));
     console.log("全部 PDF 由本地资源生成，无外部网络请求。");
 } finally {

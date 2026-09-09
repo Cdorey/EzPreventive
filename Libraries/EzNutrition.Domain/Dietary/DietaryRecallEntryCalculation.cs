@@ -2,6 +2,12 @@ namespace EzNutrition.Domain.Dietary;
 
 public sealed record DietaryRecallEntryCalculation
 {
+    /// <summary>获取核算所依据的录入条目标识。</summary>
+    public Guid EntryId { get; init; }
+
+    /// <summary>获取核算所依据的食物标识。</summary>
+    public Guid FoodId { get; init; }
+
     public required string FoodName { get; init; }
 
     public decimal RecordedWeight { get; init; }

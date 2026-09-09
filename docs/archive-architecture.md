@@ -62,6 +62,8 @@ WPF 宿主在 `%LOCALAPPDATA%\EzSuit\EzNutrition\Archives` 保存以文档 GUID 
 
 报告包在上述文档存储内保留全部签发版本和 PDF，以初版报告版本 ID 作为稳定文档键。更正通过现有 Supersedes 表达，按预期旧正文进行原子条件提交；普通重印使用当前原件。报告不进入咨询复诊历史，详见 [报告使用说明](./report-user-guide.md)。
 
+膳食报告通过 `CreateDietaryDocument` 保存本次膳食记录、已核算结果、采用的 DRIs 及患者咨询快照，使用现有 DietaryRecall、DriAssessment 和 NutritionReport 资源。独立报告包的输入范围由确切资源引用确定。
+
 ## 时间语义
 
 档案契约使用 `DateTimeOffset` 表示绝对时刻；应用新建的审计时间使用 UTC，导入文档中已有的明确偏移则被忠实保留。XML、存储和 Application 不按当前设备时区改写档案时间。

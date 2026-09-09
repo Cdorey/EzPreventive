@@ -225,6 +225,39 @@ public sealed class ArchiveContractAssembler
         };
     }
 
+    /// <summary>捕获膳食调查、采用的 DRIs 及患者咨询快照，供报告独立保存。</summary>
+    public ArchiveDocument CreateDietaryDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.DietaryRecallSurvey is null)
+            throw new InvalidOperationException("当前咨询尚未建立膳食调查。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var recall = CreateDietaryRecall(archive, archive.ContractIdentity, subject, reference, capturedAt, useCalculatedValues: true);
+        recall = recall with { Metadata = FreezeVersion(recall.Metadata) };
+        var dri = CreateDriAssessment(archive.DietaryRecallSurvey.DRIs, archive.ContractIdentity, subject, reference, capturedAt);
+        dri = dri with { Metadata = FreezeVersion(dri.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = new IArchiveResource[] { recall, dri }.Select(resource =>
+                new VersionedResourceReference(resource.Metadata.ResourceId, resource.Metadata.VersionId, resource.ResourceType)).ToArray()
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, recall, dri]
+            }
+        };
+    }
+
     private static ResourceMetadata FreezeVersion(ResourceMetadata metadata) => metadata with
     {
         VersionId = new ResourceVersionId(Guid.NewGuid())
@@ -596,14 +629,16 @@ public sealed class ArchiveContractAssembler
         ArchiveContractIdentity identity,
         LogicalResourceReference subjectReference,
         VersionedResourceReference consultationReference,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        bool useCalculatedValues = false)
     {
         var survey = archive.DietaryRecallSurvey!;
         var entries = survey.RecallEntries;
+        var calculations = useCalculatedValues ? survey.EntryCalculations.ToDictionary(value => value.EntryId) : null;
         var meals = entries
             .GroupBy(entry => entry.MealOccasion)
             .OrderBy(group => (int)group.Key)
-            .Select((group, index) => CreateMealRecall(survey, group.Key, group.ToArray(), index + 1))
+            .Select((group, index) => CreateMealRecall(survey, group.Key, group.ToArray(), index + 1, calculations))
             .ToArray();
         var totalSummary = survey.SummaryCalculationTable is null
             ? Array.Empty<NutrientAmount>()
@@ -640,9 +675,10 @@ public sealed class ArchiveContractAssembler
         DietaryRecallSurvey survey,
         MealOccasion occasion,
         IReadOnlyList<DietaryRecallEntry> entries,
-        int sequence)
+        int sequence,
+        IReadOnlyDictionary<Guid, DietaryRecallEntryCalculation>? calculations = null)
     {
-        var mappedEntries = entries.Select((entry, index) => CreateFoodEntry(survey, entry, index + 1)).ToArray();
+        var mappedEntries = entries.Select((entry, index) => CreateFoodEntry(survey, entry, index + 1, calculations?.GetValueOrDefault(entry.EntryId))).ToArray();
         var summary = survey.SummaryCalculationTable is null
             ? Array.Empty<NutrientAmount>()
             : survey.SummaryCalculationTable[occasion]
@@ -663,13 +699,20 @@ public sealed class ArchiveContractAssembler
     private FoodIntakeEntry CreateFoodEntry(
         DietaryRecallSurvey survey,
         DietaryRecallEntry entry,
-        int sequence)
+        int sequence,
+        DietaryRecallEntryCalculation? calculation = null)
     {
         var edibleFraction = entry.IsAllEdible
             ? 1m
             : (entry.Food.EdiblePortion ?? 100) / 100m;
         var consumedAmount = entry.Weight * edibleFraction;
-        var contributions = (entry.Food.FoodNutrientValues ?? [])
+        var contributions = calculation is not null
+            ? survey.Nutrients.Select(nutrient => new NutrientAmount
+            {
+                Nutrient = ArchiveContractCoding.Nutrient(nutrient.FriendlyName),
+                Amount = ArchiveContractCoding.Quantity(calculation.NutrientValues.GetValueOrDefault(nutrient.NutrientId), nutrient.DefaultMeasureUnit)
+            }).ToArray()
+            : (entry.Food.FoodNutrientValues ?? [])
             .Select(value =>
             {
                 var nutrient = value.Nutrient ?? survey.Nutrients.FirstOrDefault(candidate =>

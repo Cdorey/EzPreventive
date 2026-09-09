@@ -13,7 +13,7 @@
 - [认证审核实现](./certification-review.md)：并发更新、超时处理与页面编排。
 - [每日维护任务](./maintenance-cleanup.md)：调度与后台任务。
 - [档案架构](./archive-architecture.md)
-- [报告使用说明](./report-user-guide.md)：试行量表、权限配置、签发、更正、打印和备份。
+- [报告使用说明](./report-user-guide.md)：量表与膳食报告、权限配置、签发、更正、打印和备份。
 - [报告实现说明](./report-issuance-printing-plan.md)：当前流程、包结构、代码归属和待讨论事项。
 - [报告验收审计](./report-acceptance-audit.md)：浏览器、WPF 与失败恢复的验证证据和复验入口。
 - [WPF 宿主](./wpf-hybrid-host.md)

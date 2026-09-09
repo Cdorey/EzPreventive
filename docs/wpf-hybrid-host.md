@@ -50,7 +50,7 @@ dotnet run --project .\Hosts\EzNutrition.Wpf\EzNutrition.Wpf.csproj
 
 ## 报告预览与打印
 
-共享 Presentation 在 BlazorWebView 内用随应用发布的 pdfmake 和中文字体生成 PDF。咨询中的三种试行量表支持签发与更正，独立量表和 DRIs 速查提供带水印评估稿。权限和使用步骤见[报告说明](./report-user-guide.md)。
+共享 Presentation 在 BlazorWebView 内用随应用发布的 pdfmake 和中文字体生成 PDF。咨询中的三种试行量表及已完成核算的膳食调查支持签发与更正，独立量表和 DRIs 速查提供带水印评估稿。权限和使用步骤见[报告说明](./report-user-guide.md)。
 
 `WpfReportPrinter` 将内存 PDF 交给独立 WebView2 窗口，使用者在查看器中打开打印对话框并选择设备。已签发报告读取本机包中的原件，后续模板更新保留历史 PDF。打开窗口表示已交付查看器，实际纸张输出由打印对话框和设备决定。
 

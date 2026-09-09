@@ -1,3 +1,4 @@
+using EzNutrition.Archives.Contracts.Identity;
 using EzNutrition.Application.Archives;
 using EzNutrition.Application.Consultations;
 using EzNutrition.Archives.Contracts.Resources;
@@ -24,9 +25,9 @@ public interface IReportPrinter
 }
 
 /// <summary>将一次审核预览与其确切 PDF 绑定；确认时复用这些字节，不再次生成。</summary>
-public sealed class PreparedAssessmentReport
+public sealed class PreparedReport
 {
-    internal PreparedAssessmentReport(AssessmentReportDraft draft, byte[] pdf, ReadOnlyMemory<byte>? expectedContent = null)
+    internal PreparedReport(ReportDraft draft, byte[] pdf, ReadOnlyMemory<byte>? expectedContent = null)
     {
         Draft = draft;
         Pdf = pdf;
@@ -34,7 +35,7 @@ public sealed class PreparedAssessmentReport
     }
 
     /// <summary>获取捕获的数据与拟签发信息。</summary>
-    public AssessmentReportDraft Draft { get; }
+    public ReportDraft Draft { get; }
 
     /// <summary>获取实际审核的 PDF 字节。</summary>
     public ReadOnlyMemory<byte> Pdf { get; }
@@ -43,7 +44,7 @@ public sealed class PreparedAssessmentReport
     internal ReadOnlyMemory<byte>? ExpectedContent { get; }
 }
 
-/// <summary>表示同一量表可以明确选择更正的一份报告，不按时间戳自动选取。</summary>
+/// <summary>表示当前模块可以明确选择更正的一份报告，不按时间戳自动选取。</summary>
 /// <param name="DocumentId">本机报告档案标识。</param>
 /// <param name="ReportId">打印在原件上的逻辑报告编号。</param>
 /// <param name="RevisionNumber">当前修订号。</param>
@@ -56,14 +57,16 @@ public sealed record ReportRevisionCandidate(Guid DocumentId, Guid ReportId, int
 public sealed record ReportRevisionList(IReadOnlyList<ReportRevisionCandidate> Candidates, int UnreadableCount);
 
 /// <summary>编排本机报告预览、签发保存和原件打印；临床内容不会进入后端接口。</summary>
-public sealed class ReportWorkflow(
+public sealed partial class ReportWorkflow(
     AssessmentReportFactory factory,
     IAssessmentReportRenderer renderer,
     IReportAuthorization authorization,
     IArchiveValidator validator,
     ReportPackage package,
     IArchiveDocumentStore store,
-    IReportPrinter printer)
+    IReportPrinter printer,
+    DietaryReportFactory dietaryFactory,
+    IDietaryReportRenderer dietaryRenderer)
 {
     /// <summary>打印独立速查结果；只捕获当前量表，不建立咨询、签发记录或本机档案。</summary>
     public async ValueTask PrintStandaloneAsync(NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)
@@ -79,7 +82,7 @@ public sealed class ReportWorkflow(
     }
 
     /// <summary>生成待审核的正式成品或带水印评估稿，未确认前不写入档案库。</summary>
-    public async ValueTask<PreparedAssessmentReport> PrepareAsync(
+    public async ValueTask<PreparedReport> PrepareAsync(
         ConsultationWorkspace workspace,
         NutritionAssessmentRun assessment,
         bool forIssuance,
@@ -99,11 +102,11 @@ public sealed class ReportWorkflow(
         var draft = factory.Create(workspace, assessment, renderer.Template, signer, DateTimeOffset.UtcNow);
         var pdf = await renderer.RenderAsync(draft, cancellationToken);
         _ = ReportPdf.Identity(pdf);
-        return new PreparedAssessmentReport(draft, pdf);
+        return new PreparedReport(draft, pdf);
     }
 
     /// <summary>准备同一患者、咨询及量表的报告更正；不会立即改变旧报告的有效状态。</summary>
-    public async ValueTask<PreparedAssessmentReport> PrepareRevisionAsync(
+    public async ValueTask<PreparedReport> PrepareRevisionAsync(
         ConsultationWorkspace workspace, NutritionAssessmentRun assessment, Guid documentId,
         CancellationToken cancellationToken = default)
     {
@@ -115,12 +118,17 @@ public sealed class ReportWorkflow(
         var draft = factory.Create(workspace, assessment, renderer.Template, signer, DateTimeOffset.UtcNow, previous);
         var pdf = await renderer.RenderAsync(draft, cancellationToken);
         _ = ReportPdf.Identity(pdf);
-        return new PreparedAssessmentReport(draft, pdf, stored.Content);
+        return new PreparedReport(draft, pdf, stored.Content);
     }
 
     /// <summary>列出当前量表的既有报告，供用户明确选择更正对象；不同评估实例不互相替代。</summary>
     public async ValueTask<ReportRevisionList> ListRevisableAsync(
         ConsultationWorkspace workspace, NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)
+        => await ListRevisableAsync(workspace, assessment.ArchiveIdentity.ResourceId, ArchiveResourceTypes.NutritionScaleAssessment, cancellationToken);
+
+    private async ValueTask<ReportRevisionList> ListRevisableAsync(
+        ConsultationWorkspace workspace, ResourceId resourceId,
+        ResourceTypeCode resourceType, CancellationToken cancellationToken)
     {
         var result = new List<ReportRevisionCandidate>();
         var unreadableCount = 0;
@@ -142,7 +150,8 @@ public sealed class ReportWorkflow(
                 continue;
             }
             if (stored.Report.ConsultationReference.ResourceId == workspace.ContractIdentity.Consultation.ResourceId
-                && stored.Report.InputResourceReferences.Any(reference => reference.ResourceId == assessment.ArchiveIdentity.ResourceId))
+                && stored.Report.InputResourceReferences.Any(reference => reference.ResourceId == resourceId
+                    && reference.ExpectedResourceType == resourceType))
                 result.Add(new ReportRevisionCandidate(info.DocumentId, stored.Report.Metadata.ResourceId.Value, stored.Report.Metadata.RevisionNumber.Value,
                     stored.Report.Metadata.FinalizedAt!.Value));
         }
@@ -152,13 +161,14 @@ public sealed class ReportWorkflow(
     /// <summary>
     /// 用户确认预览后保存报告包。重复确认同一预览复用文档标识；保存成功才算签发完成。
     /// </summary>
-    public async ValueTask<Guid> IssueAsync(PreparedAssessmentReport prepared, CancellationToken cancellationToken = default)
+    public async ValueTask<Guid> IssueAsync(PreparedReport prepared, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prepared);
         RequireStorage();
         var signer = await authorization.RequireIssuerAsync(cancellationToken);
         if (prepared.Draft.Signer != signer)
             throw new UnauthorizedAccessException("签发人已变化，请重新准备和审核报告。");
+        if (prepared.Draft is DietaryReportDraft dietary) dietary.EnsureCurrent();
 
         var previousPdfs = prepared.Draft.Previous?.PreviousPdfs.ToDictionary(pair => pair.Key, pair => pair.Value)
             ?? new Dictionary<Guid, ReadOnlyMemory<byte>>();
@@ -177,7 +187,7 @@ public sealed class ReportWorkflow(
     }
 
     /// <summary>打印评估稿；未保存的正式预览不能从此入口当作已签发原件输出。</summary>
-    public async ValueTask PrintEvaluationAsync(PreparedAssessmentReport prepared, CancellationToken cancellationToken = default)
+    public async ValueTask PrintEvaluationAsync(PreparedReport prepared, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prepared);
         await authorization.RequirePrintAsync(cancellationToken);

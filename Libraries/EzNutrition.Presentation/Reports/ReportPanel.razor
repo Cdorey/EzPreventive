@@ -7,11 +7,11 @@
 
 <div class="report-actions" @ref="previewOwner">
     <AuthorizeView Policy="@PolicyList.IssueReport">
-        <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="() => PrepareAsync(true)">签发报告</Button>
-        <Button Disabled="@(busy || !Assessment.Evaluation.IsComplete)" OnClick="ChooseRevisionAsync">更正已签发报告</Button>
+        <Button Disabled="@(busy || !CanIssue)" OnClick="() => BeginPrepareAsync(true)">签发报告</Button>
+        <Button Disabled="@(busy || !CanIssue)" OnClick="ChooseRevisionAsync">更正已签发报告</Button>
     </AuthorizeView>
     <AuthorizeView Policy="@PolicyList.PrintReport">
-        <Button Disabled="@busy" OnClick="() => PrepareAsync(false)">打印当前评估稿</Button>
+        <Button Disabled="@(busy || (IsDietary && !CanIssue))" OnClick="() => BeginPrepareAsync(false)">打印当前评估稿</Button>
         @if (lastIssuedId is { } savedId)
         {
             <Button Disabled="@busy" OnClick="() => PrintStoredAsync(savedId)">打印已签发报告</Button>
@@ -23,8 +23,23 @@
     <p role="status">@feedback</p>
 }
 
-<Modal Title="@(revisions is not null ? "选择要更正的报告" : prepared?.Draft.Previous is not null ? "报告更正审核" : prepared?.Draft.Signer is null ? "量表评估稿" : "报告签发审核")"
-       Visible="@visible" Width="1000" Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
+@* 两个步骤使用独立的固定尺寸弹窗，配置与预览分别管理各自的布局。 *@
+<Modal Title="膳食报告设置" Visible="@(visible && configuration is not null)" Width="520"
+       Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
+    <ChildContent>
+        @if (configuration is not null)
+        {
+            @if (feedback is not null)
+            {
+                <p role="status">@feedback</p>
+            }
+            <DietaryReportOptionsEditor Options="dietaryOptions" Busy="busy" OnConfirm="ConfirmConfigurationAsync" OnCancel="CloseAsync" />
+        }
+    </ChildContent>
+</Modal>
+
+<Modal Title="@(revisions is not null ? "选择要更正的报告" : prepared?.Draft.Previous is not null ? "报告更正审核" : prepared?.Draft.Signer is null ? "报告评估稿" : "报告签发审核")"
+       Visible="@(visible && configuration is null)" Width="1000" Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
     <ChildContent>
         @if (feedback is not null)
         {
@@ -38,7 +53,7 @@
         {
             @foreach (var candidate in revisions)
             {
-                <Button Disabled="@busy" OnClick="() => PrepareAsync(true, candidate.DocumentId)">
+                <Button Disabled="@busy" OnClick="() => BeginPrepareAsync(true, candidate.DocumentId)">
                     更正第 @candidate.RevisionNumber 版 · @candidate.FinalizedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") · 报告 @candidate.ReportId
                 </Button>
             }
@@ -82,11 +97,18 @@
     [Parameter, EditorRequired] public ConsultationWorkspace Workspace { get; set; } = null!;
 
     /// <summary>获取用户选定的量表运行实例。</summary>
-    [Parameter, EditorRequired] public NutritionAssessmentRun Assessment { get; set; } = null!;
+    [Parameter] public NutritionAssessmentRun? Assessment { get; set; }
+
+    /// <summary>指定本次操作为当前咨询的膳食调查报告。</summary>
+    [Parameter] public bool IsDietary { get; set; }
+
+    private bool CanIssue => IsDietary
+        ? Workspace.DietaryRecallSurvey is { SummaryCalculationTable: not null } survey && survey.RecallEntries.Count > 0
+        : Assessment?.Evaluation.IsComplete == true;
 
     private readonly CancellationTokenSource lifetime = new();
     private ElementReference previewOwner;
-    private PreparedAssessmentReport? prepared;
+    private PreparedReport? prepared;
     private IReadOnlyList<ReportRevisionCandidate>? revisions;
     private string? previewUrl;
     private string? feedback;
@@ -96,6 +118,29 @@
     private bool visible;
     private DateTimeOffset assessmentModifiedAt;
     private string? patientName;
+    private DietaryReportOptions dietaryOptions = new();
+    private DietaryPreparationRequest? configuration;
+    private sealed record DietaryPreparationRequest(bool ForIssuance, Guid? RevisionId);
+
+    private Task BeginPrepareAsync(bool forIssuance, Guid? revisionId = null) => !IsDietary
+        ? PrepareAsync(forIssuance, revisionId)
+        : RunAsync(async () =>
+        {
+            visible = true;
+            prepared = null;
+            issuedId = null;
+            revisions = null;
+            await ReleasePreviewAsync();
+            configuration = new(forIssuance, revisionId);
+        });
+
+    private Task ConfirmConfigurationAsync(DietaryReportOptions options)
+    {
+        if (busy || configuration is not { } request) return Task.CompletedTask;
+        dietaryOptions = options;
+        configuration = null;
+        return PrepareAsync(request.ForIssuance, request.RevisionId);
+    }
 
     private Task ChooseRevisionAsync() => RunAsync(async () =>
     {
@@ -103,13 +148,16 @@
         prepared = null;
         issuedId = null;
         revisions = null;
+        configuration = null;
         await ReleasePreviewAsync();
-        var listed = await Workflow.ListRevisableAsync(Workspace, Assessment, lifetime.Token);
+        var listed = IsDietary
+            ? await Workflow.ListDietaryRevisableAsync(Workspace, lifetime.Token)
+            : await Workflow.ListRevisableAsync(Workspace, Assessment!, lifetime.Token);
         revisions = listed.Candidates;
-        if (revisions.Count == 0) feedback = "当前量表还没有可更正的正式报告。";
+        if (revisions.Count == 0) feedback = "当前模块还没有可更正的正式报告。";
         if (listed.UnreadableCount > 0)
             feedback = $"已跳过 {listed.UnreadableCount} 份损坏、缺失或无法读取的报告。"
-                + (revisions.Count == 0 ? "其余报告中没有当前量表可更正的正式报告。" : "其余可用报告仍可选择更正。");
+                + (revisions.Count == 0 ? "其余报告中没有当前模块可更正的正式报告。" : "其余可用报告仍可选择更正。");
     });
 
     private Task PrepareAsync(bool forIssuance, Guid? revisionId = null) => RunAsync(async () =>
@@ -119,11 +167,13 @@
         revisions = null;
         issuedId = null;
         await ReleasePreviewAsync();
-        assessmentModifiedAt = Assessment.LastModifiedAt;
+        assessmentModifiedAt = Assessment?.LastModifiedAt ?? default;
         patientName = Workspace.Client.Name;
-        var pending = revisionId is { } id
-            ? await Workflow.PrepareRevisionAsync(Workspace, Assessment, id, lifetime.Token)
-            : await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
+        var pending = IsDietary
+            ? await Workflow.PrepareDietaryAsync(Workspace, forIssuance, revisionId, dietaryOptions, lifetime.Token)
+            : revisionId is { } id
+                ? await Workflow.PrepareRevisionAsync(Workspace, Assessment!, id, lifetime.Token)
+                : await Workflow.PrepareAsync(Workspace, Assessment!, forIssuance, lifetime.Token);
         await using (var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
             "./_content/EzNutrition.Presentation/reports/assessment-report.mjs"))
         {
@@ -142,9 +192,9 @@
     private Task IssueAsync() => RunAsync(async () =>
     {
         if (prepared is null || previewUrl is null || issuedId is not null) return;
-        if (!Workspace.NutritionAssessments.Contains(Assessment) || Assessment.LastModifiedAt != assessmentModifiedAt
-            || Workspace.Client.Name != patientName)
-            throw new InvalidOperationException("量表或患者身份已变化，请关闭预览后重新准备报告。");
+        if (Workspace.Client.Name != patientName || (!IsDietary
+            && (Assessment is null || !Workspace.NutritionAssessments.Contains(Assessment) || Assessment.LastModifiedAt != assessmentModifiedAt)))
+            throw new InvalidOperationException("报告输入或患者身份已变化，请关闭预览后重新准备报告。");
         issuedId = await Workflow.IssueAsync(prepared, lifetime.Token);
         lastIssuedId = issuedId;
         feedback = "报告已签发并保存到本机档案库。";
@@ -184,6 +234,7 @@
         visible = false;
         prepared = null;
         revisions = null;
+        configuration = null;
         await ReleasePreviewAsync();
     }
 

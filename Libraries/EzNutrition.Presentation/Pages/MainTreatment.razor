@@ -1,4 +1,4 @@
-﻿@page "/maintreatment/{id?}"
+@page "/maintreatment/{id?}"
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Application.Archives
 @using EzNutrition.Presentation.Services
@@ -243,6 +243,7 @@
                                         <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
                                                        OnCalculationCompleted="DietarySurveyCalculationCompleted"
                                                        OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        <ReportPanel @key="CurrentArchive.DietaryRecallSurvey" Workspace="CurrentArchive" IsDietary="true" />
                                         <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.DietaryEnergy" Title="既往膳食记录总能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
@@ -257,7 +258,7 @@
                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
                                         @if (assessment.Definition.Code is "nrs-2002" or "mna-sf" or "must")
                                         {
-                                            <AssessmentReportPanel Workspace="CurrentArchive" Assessment="assessment" />
+                                            <ReportPanel Workspace="CurrentArchive" Assessment="assessment" />
                                         }
                                     </TabPane>
                                 }

@@ -11,11 +11,16 @@ const samples = {
     "mna-sf": { title: "微营养评定法（简表）MNA-SF", answers: ["unchanged", "none", "goes-out", "no", "none"] }
 };
 const dris = scaleCode === "dris";
+const dietary = scaleCode === "dietary";
 const sample = samples[scaleCode];
-if (!sample && !dris) throw new Error("请选择 must、nrs-2002 或 mna-sf。");
+if (!sample && !dris && !dietary) throw new Error("请选择 must、nrs-2002、mna-sf、dris 或 dietary。");
 const amend = process.argv[4] === "--revision";
 const standalone = process.argv[4] === "--standalone";
-if (amend && scaleCode !== "must") throw new Error("更正验收样本当前使用 MUST。");
+if (amend && scaleCode !== "must" && !dietary) throw new Error("更正验收样本使用 MUST 或膳食调查。");
+const food = { foodId: randomUUID(), friendlyCode: "test-food", friendlyName: "模拟食物", ediblePortion: 75 };
+const nutrients = ["能量", "蛋白质", "脂肪", "碳水化合物", "钾", "钠", "镁", "铁", "锰", "锌", "磷", "硒", "铜",
+    "总维生素A", "视黄醇", "胡萝卜素", "硫胺素", "核黄素", "烟酸", "维生素C", "总维生素E"]
+    .map((friendlyName, index) => ({ nutrientId: index + 1, friendlyName, defaultMeasureUnit: index === 0 ? "kcal" : index < 4 ? "g" : "mg" }));
 const output = `tmp/reports/${scaleCode}${amend ? "-revision" : standalone ? "-standalone" : ""}`;
 if (!new Set(["127.0.0.1", "localhost"]).has(new URL(origin).hostname)) throw new Error("仅允许本机测试宿主。");
 const expiry = Math.floor(Date.now() / 1000) + 3600;
@@ -64,8 +69,12 @@ try {
             return fulfill(driOutcome === "empty" ? [] : driRecords);
         }
         if (path.startsWith("/Energy/DRIs/")) return fulfill([{ nutrient: "蛋白质", value: 65, measureUnit: "g", recordType: 0, gender: "女" }]);
-        if (path === "/FoodComposition/Foods") return fulfill([{ foodId: randomUUID(), friendlyCode: "test-food", name: "模拟食物" }]);
-        if (path === "/FoodComposition/Nutrients") return fulfill([{ nutrientId: 1, name: "蛋白质", defaultMeasureUnit: "g" }]);
+        if (path === "/FoodComposition/Foods") return fulfill([food]);
+        if (path === "/FoodComposition/Nutrients") return fulfill(dietary ? nutrients : [{ nutrientId: 1, friendlyName: "蛋白质", defaultMeasureUnit: "g" }]);
+        if (dietary && path === "/FoodComposition/CompositionData") return fulfill(nutrients.map((nutrient, index) => ({
+            nutrientId: nutrient.nutrientId, nutrient, foodId: food.foodId,
+            value: [165, 10, 5, 20][index] ?? 1, measureUnit: nutrient.defaultMeasureUnit
+        })));
         if (path.startsWith("/Energy/") || path.startsWith("/FoodComposition/")) return fulfill([]);
         if (path.startsWith("/User/")) return fulfill({});
         return route.continue();
@@ -73,6 +82,8 @@ try {
     page = await context.newPage();
     page.setDefaultTimeout(30000);
     page.on("pageerror", error => console.error("PAGE ERROR", error.message));
+    page.on("console", message => { if (message.type() === "error") console.error("BROWSER ERROR", message.text()); });
+    page.on("requestfailed", request => console.error("REQUEST FAILED", request.url(), request.failure()?.errorText));
     if (dris) {
         await page.goto(origin + "/drisinsights");
         await page.getByRole("heading", { name: "DRIs 速查", exact: true }).waitFor();
@@ -147,16 +158,75 @@ try {
         await page.locator(".ant-form-item").filter({ hasText: "身高（cm）" }).locator("input").fill("165");
         await page.locator(".ant-form-item").filter({ hasText: "体重（kg）" }).locator("input").fill("60");
         await page.getByRole("button", { name: "确认并进入核算" }).click();
+        let assessment;
+        if (dietary) {
+            await page.getByRole("tab", { name: "膳食调查", exact: true }).click();
+            await page.locator(".food-picker input").click();
+            await page.locator(".food-picker input").pressSequentially("模拟", { delay: 150 });
+            await page.locator(".ant-select-dropdown:visible").getByText("模拟食物", { exact: true }).click();
+            await page.locator(".entry-table").getByRole("spinbutton").fill("200");
+            await page.locator(".entry-table").getByRole("switch").click();
+            await page.getByRole("button", { name: "计算膳食摄入" }).click();
+            await page.getByText("已完成核算", { exact: true }).waitFor();
+        } else {
         await page.getByRole("button", { name: "添加量表" }).click();
         await page.locator(".ant-dropdown:visible").getByText(sample.title, { exact: true }).click();
-        const assessment = page.locator(".assessment-card").filter({ hasText: sample.title });
+        assessment = page.locator(".assessment-card").filter({ hasText: sample.title });
         // 某些量表在不同题目中复用选项编码，按正式题序定位各自的单选组。
         const groups = assessment.locator("fieldset.assessment-item");
         for (const [index, answer] of sample.answers.entries())
             await groups.nth(index).locator(`input[value='${answer}']`).check();
+        }
         reportPhase = true;
         await mkdir(output, { recursive: true });
         await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
+        const configureDietary = async (showAll, includeDri) => {
+            if (!dietary) return;
+            await page.getByText("膳食报告设置", { exact: true }).waitFor();
+            if (await page.locator("iframe.report-preview").count()) throw new Error("配置确认前已生成预览。");
+            const editor = page.locator(".dietary-report-options");
+            await page.waitForFunction(() => {
+                const modal = document.querySelector(".dietary-report-options")?.closest(".ant-modal");
+                return modal && Math.abs(modal.getBoundingClientRect().width - 520) < 2;
+            }, undefined, { timeout: 5000 });
+            await editor.getByRole("checkbox", { name: "显示全部食材" }).setChecked(false);
+            await editor.getByRole("spinbutton").fill("");
+            await editor.getByRole("spinbutton").press("Tab");
+            await editor.locator("button:disabled").waitFor();
+            await editor.getByRole("spinbutton").fill("1");
+            await editor.getByRole("checkbox", { name: "显示全部食材" }).setChecked(showAll);
+            await editor.getByRole("checkbox", { name: "包含独立的 DRIs 参考资料节" }).setChecked(includeDri);
+            await page.locator(".ant-modal-content:visible").screenshot({ path: `${output}/report-options.png` });
+            await editor.getByRole("button", { name: "生成预览" }).click();
+        };
+        const assertPreviewWidth = async () => {
+            await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
+            await page.waitForFunction(() => {
+                const modal = document.querySelector("iframe.report-preview")?.closest(".ant-modal");
+                return modal && Math.abs(modal.getBoundingClientRect().width - 1000) < 2;
+            }, undefined, { timeout: 5000 });
+        };
+        if (dietary) {
+            await page.getByText("膳食报告设置", { exact: true }).waitFor();
+            await page.getByRole("button", { name: "取消", exact: true }).click();
+            if (await page.locator("iframe.report-preview").count()) throw new Error("取消配置留下了预览。");
+            await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
+        }
+        await configureDietary(false, false);
+        await assertPreviewWidth();
+        if (dietary) {
+            await page.setViewportSize({ width: 640, height: 900 });
+            await page.waitForFunction(() => {
+                const frame = document.querySelector("iframe.report-preview");
+                const modal = frame?.closest(".ant-modal");
+                return modal && modal.getBoundingClientRect().width <= innerWidth
+                    && frame.getBoundingClientRect().width <= modal.getBoundingClientRect().width;
+            }, undefined, { timeout: 5000 });
+            await page.setViewportSize({ width: 1440, height: 1000 });
+            await assertPreviewWidth();
+            await page.locator(".ant-modal-content").filter({ has: page.locator("iframe.report-preview") })
+                .screenshot({ path: `${output}/report-preview-width.png` });
+        }
         await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
         const evaluationPopupPromise = context.waitForEvent("page");
         await page.getByRole("button", { name: "打开打印窗口", exact: true }).click();
@@ -171,6 +241,8 @@ try {
         if (beforeIssue.some(record => record.formatIdentifier.endsWith("report-package")))
             throw new Error("评估打印不应建立正式报告档案。");
         await page.getByRole("button", { name: "签发报告", exact: true }).click();
+        await configureDietary(true, true);
+        await assertPreviewWidth();
         await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
         if (amend) {
             const initialUrl = await page.locator("iframe.report-preview").getAttribute("src");
@@ -182,16 +254,25 @@ try {
         await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
         await page.getByRole("button", { name: "关闭", exact: true }).click();
         if (amend) {
+            if (dietary) {
+                await page.getByRole("button", { name: "修改记录", exact: true }).click();
+                await page.locator(".entry-table").getByRole("spinbutton").fill("400");
+                await page.getByRole("button", { name: "计算膳食摄入" }).click();
+                await page.getByText("已完成核算", { exact: true }).waitFor();
+            } else {
             await assessment.locator("input[value='below-18-5']").check();
+            }
             await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
             await page.getByRole("button", { name: /更正第 1 版/ }).click();
+            await configureDietary(false, false);
+            await assertPreviewWidth();
             await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
             await page.getByRole("button", { name: "确认更正并签发", exact: true }).click();
             await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
             await page.getByRole("button", { name: "关闭", exact: true }).click();
         }
         await page.goto(origin + "/archives");
-        await page.getByRole("button", { name: sample.title + "报告", exact: false }).click();
+        await page.getByRole("button", { name: dietary ? "24 小时膳食调查报告" : sample.title + "报告", exact: false }).click();
         await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
         if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
         const records = await page.evaluate(async () => {

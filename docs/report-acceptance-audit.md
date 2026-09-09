@@ -2,7 +2,7 @@
 
 日期：2026-09-09。分支：`codex/report-issuance-printing`。
 
-本审计记录首版验收及 `881e835` 的失败恢复回归，功能范围见[实现说明](report-issuance-printing-plan.md)。首版试行已完成验收；WPF 生成及退出复验在 Active 桌面会话通过，产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0，当次成品内容及全部页面视觉检查通过。待讨论业务列在文末。
+本审计记录量表首版验收、`881e835` 的失败恢复回归及膳食报告验证，功能范围见[实现说明](report-issuance-printing-plan.md)。首版试行已完成验收；WPF 生成及退出复验在 Active 桌面会话通过，产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0，当次成品内容及全部页面视觉检查通过。待讨论业务列在文末。
 
 运行环境曾在同一 Windows 会话 10 的 `Active` 与 `Disconnected` 间变化：Active 时生成成功；生命周期修改后的复验又在 `CreateD3D9Device` 报 `0x8876086A`，随后 `query session` 确认会话 10 为 Disconnected、控制台 9 为 Connected。没有切换、连接或修改任何 Windows 会话，也不将断开会话的图形初始化失败推断为正常桌面的产品缺陷。
 
@@ -14,10 +14,10 @@
 | --- | --- | --- |
 | 独立的签发、打印权限，沿用前端会话 | `PolicyList` 注册两个 Permission；`ReportAuthorization` 使用 `UserSessionService` 和同一 `IAuthorizationService`。`ReportAuthorizationTests` 用真实 JWT 解析、policy 和受控会话验证四种组合、姓名缺失、退出及会话到期；不从医师角色或处方权限推导 | 通过；实际资质核验及授权由管理员执行 |
 | 报告操作不发送患者数据至服务端 | Application 没有新增报告 HTTP 端口；模板只访问随应用发布的资源。浏览器完整流程记录请求，并拒绝报告阶段的新业务请求或外部请求；使用合成账号和参考数据 | 浏览器已验证；登录、既有参考查询和用户主动 AI 操作保持原边界 |
-| 先试行 NRS 2002、MNA-SF、MUST，模块分别提供签发和打印 | `MainTreatment`、`AssessmentReportPanel` 的三种入口；浏览器实际作答、评估打印、审核签发、刷新后档案重印，PDF 文本检查覆盖三种结果 | 通过；其他正式报告模板没有自动开放 |
+| 先试行 NRS 2002、MNA-SF、MUST，模块分别提供签发和打印 | `MainTreatment`、`ReportPanel` 的三种入口；浏览器实际作答、评估打印、审核签发、刷新后档案重印，PDF 文本检查覆盖三种结果 | 通过；其他正式报告模板没有自动开放 |
 | 未签发输出有水印，正式输出使用干净原件 | 模板按评估用途生成逐页水印及固定说明；`PrintEvaluationAsync` 拒绝未保存的正式预览；`PrintStoredAsync` 读取已保存 PDF | 通过；拥有签发权限不会自动去除评估稿水印 |
-| 冻结所选量表及输入，审核前后内容一致 | `AssessmentReportFactory`、`AssessmentReportDraft` 和 `ArchiveContractAssembler` 捕获独立版本；`PreparedAssessmentReport` 绑定预览字节；确认再次核对签发人。`AssessmentReportTests` 覆盖范围、版本、评分对象资料和后续修改隔离 | 通过；只确认报告，不提升整次咨询状态 |
-| 预览失败后阻止确认签发 | `AssessmentReportPanel` 在成功创建预览后设置待签发状态；回归用例注入模块加载、预览创建、空地址、旧预览清理及模块释放失败，验证失败时不归档、重试成功后可签发 | 通过；组件事件测试，JS 故障使用受控替身 |
+| 冻结所选量表及输入，审核前后内容一致 | `AssessmentReportFactory`、`AssessmentReportDraft` 和 `ArchiveContractAssembler` 捕获独立版本；`PreparedReport` 绑定预览字节；确认再次核对签发人。`AssessmentReportTests` 覆盖范围、版本、评分对象资料和后续修改隔离 | 通过；只确认报告，不提升整次咨询状态 |
+| 预览失败后阻止确认签发 | `ReportPanel` 在成功创建预览后设置待签发状态；回归用例注入模块加载、预览创建、空地址、旧预览清理及模块释放失败，验证失败时不归档、重试成功后可签发 | 通过；组件事件测试，JS 故障使用受控替身 |
 | 正式报告有档案记录及可重复输出的成品 | `.ezreport` 包保存 `NutritionReport`、输入快照和 PDF；报告文档键与咨询草稿分离。浏览器捕获打印窗口 PDF，与包内原件逐字节比较，并核对契约中的 SHA-256 | 通过；摘要用于一致性检查，不是电子签章 |
 | 重印的字体与排版稳定 | PDF 自带字体；`check-pdf.py` 逐页检查字体描述符中的嵌入字体数据。真实模板正式/评估单页和六页长表格样本已生成，中文、分页、表头及每页水印已检查 | 通过；实体设备的纸张、缩放、色差仍由打印设置决定 |
 | 保存失败、重试、多窗口竞争不破坏旧报告 | `ReportWorkflow.CommitAsync` 使用宿主 CompareExchange；IndexedDB 同一事务提交索引与正文；WPF 使用写锁、不同内容文件及索引替换作为提交点。真实 IndexedDB 竞争/中止脚本及 WPF 文件存储测试覆盖失败保留、过期预览和并发赢家 | 通过 |
@@ -38,11 +38,24 @@
 
 失败恢复回归（`881e835`）：新增 15 项用例，见 `Tests/EzNutrition.Client.Tests/Tests/ReportWorkflowTests.ReviewFailures.cs`。Client Release 260 项、Application Release 82 项全部通过，`git diff --check` 通过。本轮采用真实工作流、XML codec 和受控组件事件验证；浏览器与桌面的视觉验收证据来自上述首版基线。
 
+膳食报告验证（2026-09-09）：`ReportWorkflowTests.Dietary.cs` 新增 15 项用例，覆盖四种权限组合、独立快照、重量口径、未核算与修改后拦截、预览故障、原件交换重印及更正隔离。全解决方案 Release 测试 719 项通过：Common 26、Contracts 79、XML 8、Application 82、Client 275、WPF 65、Server 184，无失败或跳过。浏览器使用合成食物完成评估打印、初次签发、更正、刷新调阅和原件重印；包内当前 PDF 与打印窗口字节一致，旧版 PDF 保留，契约指纹匹配。报告阶段请求记录通过本机边界检查。
+
+膳食实际模板生成正式和评估样本各 2 页、60 条长名称食物样本 5 页，逐页核对中文、单位、表头、分页及水印，并检查嵌入字体。全解决方案 Release 构建成功，0 警告、0 错误；MUST 浏览器签发、更正及原件重印回归通过。此轮膳食视觉验证使用浏览器引擎；WPF 执行共享代码构建及自动测试，桌面窗口的交互证据仍来自上述首版验收。
+
+膳食模板版本 2 排版回归：Client Release 284 项通过；新增 9 项用例覆盖双边界、单边界、等于边界时的箭头、AI/AMDR 类型、专项参考与比较边界的区分，以及矿物质顺序、生育酚缩进和水分归组。扩充合成模型后，正式/评估样本各 3 页、60 条食物样本 6 页；真实模板通过内容、箭头、参考类型、每页水印和字体检查，全部页面完成视觉复核。既有签发原件继续使用保存的 PDF。
+
+膳食模板版本 3：食材贡献排名拆为蛋白质、脂肪、碳水化合物三表，各表独立编号，贡献量相同者并列。报告工作流及排版相关测试 60 项通过，新增用例覆盖排序、并列及各表名次重置；真实 PDF 的三表内容、分页、水印和字体检查通过。
+
+膳食模板版本 4 配置回归：Client Release 288 项通过，全解决方案 Release 构建成功（保留既有 2FA 警告）。组件事件验证配置确认前不生成 PDF、取消后不能继续旧请求、选项固定及修订保留旧版；排名测试覆盖截止位次的并列项。浏览器验证取消、空排名禁用生成、显示全部、关闭独立 DRIs 小节，以及初次签发到更正的配置切换。当前包和历史 PDF 分别核对了所选范围及参考小节，重印字节和签发指纹一致；MUST 原有签发、更正流程回归通过。配置弹窗及实际 PDF 页面完成视觉复核。
+
+配置到预览的宽度回归：浏览器检查在修复前复现预览未达到 1000px。配置与预览改用两个固定宽度 Modal 后，评估稿、初次签发及更正的切换均通过 520px/1000px 实测，640px 视口下弹窗与 iframe 均保持在视口内。报告工作流 53 项测试及 Client Release 构建通过，原件字节检查通过。宽度检查已纳入 `verify-browser.mjs`，等待打开动画完成后测量。
+
 - `dotnet build EzPreventive.sln -c Release --no-restore`
 - `dotnet test EzPreventive.sln -c Release --no-build --no-restore`
 - 针对调阅与失败恢复：`dotnet test Tests/EzNutrition.Client.Tests/EzNutrition.Client.Tests.csproj -c Release --filter FullyQualifiedName~ReportWorkflowTests`。
 - `node tools/reports/verify-pdf.mjs`，随后 `python tools/reports/check-pdf.py` 和 Poppler 逐页检查。
-- `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris`；MUST 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
+- 膳食合成模型：设置 `EZNUTRITION_REPORT_TEST_OUTPUT=tmp/reports/dietary` 后执行 Client 报告测试；再执行 `node tools/reports/verify-pdf.mjs tmp/reports/dietary tmp/reports/dietary/dietary-model.json`、`python tools/reports/check-dietary.py` 和 Poppler 逐页检查。
+- `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris|dietary`；MUST 和 dietary 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
 - `node tools/reports/verify-storage.mjs` 验证真实 IndexedDB 原子提交。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- <合成报告.pdf> <输出目录>` 验证桌面原件查看与打印交互。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate <新输出目录>` 验证桌面 Blazor 生成。必须以命令成功退出、当次生成文件和请求记录共同判断，已在修正后通过。
@@ -59,6 +72,6 @@
 1. 独立作废：没有后继报告时如何作废，谁可操作，是否需说明及历史状态版本；当前不开放入口。
 2. 已被替代的旧版输出：历史 PDF 保留，但普通重印只输出当前版本。是否提供原件查看、带“已被替代”标记的副本及对应权限，仍需决定。
 3. 正式报告删除和整库清空：当前保护正式报告，不通过清空绕过待定的删除规则。
-4. 其他模块的正式报告、图表类模板、咨询总报告、SOAP 和 AI 正文：本轮正式报告以三种量表试行为范围，后续需明确各自内容与签发条件。
+4. 其他模块的正式报告、图表类模板、咨询总报告、SOAP 和 AI 正文：当前正式报告覆盖三种量表及膳食调查，后续需明确各自内容与签发条件。
 
 操作与备份说明见[使用说明](report-user-guide.md)。本模块没有实现身份独立认证、密码学电子签章或自动免责机制。

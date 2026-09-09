@@ -1,5 +1,6 @@
 """核对真实浏览器签发包与打印窗口中的原件完全一致。"""
 import hashlib
+import io
 import sys
 from pathlib import Path
 import zipfile
@@ -28,6 +29,7 @@ expected = {
     "must": ("MUST", "0 分", "营养不良低风险"),
     "nrs-2002": ("NRS 2002", "1 分", "目前没有营养风险"),
     "mna-sf": ("MNA-SF", "13 分", "未提示营养不良风险"),
+    "dietary": ("24 小时膳食调查报告", "模拟食物", "247.5 kcal", "150 g", "75%"),
 }[scale]
 if standalone:
     root = Path("tmp/reports") / (scale + "-standalone")
@@ -45,8 +47,9 @@ if standalone:
     print(f"{scale}：独立速查完整/未完成内容和水印通过，无正式报告编号。")
     sys.exit(0)
 if amend:
-    assert scale == "must"
-    expected = ("MUST", "2 分", "营养不良高风险", "第 2 版")
+    assert scale in ("must", "dietary")
+    expected = (("24 小时膳食调查报告", "模拟食物", "495 kcal", "300 g", "第 2 版")
+                if scale == "dietary" else ("MUST", "2 分", "营养不良高风险", "第 2 版"))
 root = Path("tmp/reports") / (scale + ("-revision" if amend else ""))
 with zipfile.ZipFile(root / "browser-issued.ezreport") as package:
     original = package.read("report.pdf")
@@ -56,17 +59,28 @@ with zipfile.ZipFile(root / "browser-issued.ezreport") as package:
         assert len(history) == 1
         assert package.read(history[0]) == (root / "browser-initial.pdf").read_bytes()
         assert "Supersedes" in archive
+        if scale == "dietary":
+            initial_text = "\n".join(page.extract_text() for page in PdfReader(io.BytesIO(package.read(history[0]))).pages)
+            assert "各表列示全部食材" in initial_text and "DRIs 参考资料" in initial_text
 printed = (root / "browser-printed.pdf").read_bytes()
 assert original == printed, "打印窗口使用的不是签发时保存的 PDF 原件"
 assert hashlib.sha256(original).hexdigest().upper() in archive
 reader = PdfReader(root / "browser-printed.pdf")
-assert len(reader.pages) == 1
+assert len(reader.pages) >= 1 if scale == "dietary" else len(reader.pages) == 1
 text = "\n".join(page.extract_text() for page in reader.pages)
 assert "模拟报告患者" in text and "模拟医师" in text
 assert "未经医师审核" not in text
 for value in expected:
     assert value in text, f"正式报告缺少预期内容：{value}"
+if scale == "dietary":
+    assert ("各表列示前 1 位" if amend else "各表列示全部食材") in text
+    assert ("DRIs 参考资料" in text) == (not amend)
+    assert "参考范围" in text and "参考类型" in text
 evaluation = PdfReader(root / "browser-evaluation.pdf")
+if scale == "dietary":
+    evaluation_text = "\n".join(page.extract_text() for page in evaluation.pages)
+    assert "各表列示前 1 位" in evaluation_text
+    assert "DRIs 参考资料" not in evaluation_text
 for page in evaluation.pages:
     assert "仅供教学或功能评估使用" in page.extract_text()
     assert "未经医师审核签发" in page.extract_text()

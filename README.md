@@ -80,7 +80,7 @@ WPF 默认以严格 HTTPS 连接 `https://eznutrition.cdorey.net/`，服务端�
 
 ## 近期重要变更
 
-- **2026-09-09 — 量表报告签发与打印试行**：完成三种量表的本机 PDF、审核签发、版本更正、报告包交换和原件重印，以及量表/DRIs 速查评估输出；浏览器与 WPF 验收通过。补充普通 XML 完整调阅、预览失败阻止签发和损坏报告隔离的回归修复。见[报告实现说明](./docs/report-issuance-printing-plan.md)及[验收审计](./docs/report-acceptance-audit.md)。
+- **2026-09-09 — 报告签发与打印试行**：三种量表与膳食调查支持本机 PDF、审核签发、版本更正、报告包交换和原件重印；量表/DRIs 速查支持评估输出。量表完成浏览器及 WPF 验收，膳食完成浏览器流程和多页模板验证。普通 XML 完整调阅、预览失败拦截和损坏报告隔离已有回归覆盖。见[报告实现说明](./docs/report-issuance-printing-plan.md)及[验收审计](./docs/report-acceptance-audit.md)。
 - **2026-09 — 2.2 认证与维护**：接入一次性刷新凭据、跨窗口会话协调、数据库配置及每日维护清理。角色声明变更与成员资料校验解耦；旧重复邮箱账号的登录限制见[认证会话说明](./docs/authentication-sessions.md#已知限制旧账号的重复邮箱)。
 - **2026-08-24 — WPF 机构连接与安全免登录**：增加原生连接设置窗口、默认严格 HTTPS、自签名/HTTP 显式风险模式、持续安全警示、端点级 DPAPI 登录信息和重启自动登录；登录流程的共享端口仍位于 Presentation，具体保护与证书策略只属于 WPF。
 - **2026-08-23 — WPF Blazor Hybrid 本地宿主**：以独立宿主引用共享 Presentation RCL，加入 Windows 文件系统档案、打开/另存为对话框、导出后资源管理器定位、本机目录入口及发布期 WebView2 数据目录；WPF 不引用 WASM，Domain 和服务端计算逻辑保持不变。

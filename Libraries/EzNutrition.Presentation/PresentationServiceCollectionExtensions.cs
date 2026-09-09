@@ -91,6 +91,8 @@ public static class PresentationServiceCollectionExtensions
         services.AddScoped<AiAdviceApplicationService>();
         services.AddScoped<NutritionAssessmentApplicationService>();
         services.AddScoped<AssessmentReportFactory>();
+        services.AddScoped<DietaryReportFactory>();
+        services.AddScoped<IDietaryReportRenderer, PdfMakeDietaryReportRenderer>();
         services.AddScoped<ReportPackage>();
         services.AddScoped<ReportWorkflow>();
         services.AddScoped<IReportAuthorization, ReportAuthorization>();

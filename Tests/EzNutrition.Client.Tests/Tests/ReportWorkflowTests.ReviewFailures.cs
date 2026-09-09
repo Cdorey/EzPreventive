@@ -138,7 +138,7 @@ public sealed partial class ReportWorkflowTests
 
         await InvokePanelAsync(panel, "ChooseRevisionAsync");
 
-        var feedback = (string)typeof(AssessmentReportPanel)
+        var feedback = (string)typeof(ReportPanel)
             .GetField("feedback", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!;
         Assert.Contains("已跳过 1 份", feedback);
         Assert.Contains("其余报告中没有", feedback);
@@ -169,24 +169,24 @@ public sealed partial class ReportWorkflowTests
         Assert.Single(h.Store.Documents);
     }
 
-    private static AssessmentReportPanel CreatePanel(Harness h, PreviewRuntime js)
+    private static ReportPanel CreatePanel(Harness h, PreviewRuntime js)
     {
-        var panel = new AssessmentReportPanel();
+        var panel = new ReportPanel();
         ParameterView.FromDictionary(new Dictionary<string, object?>
         {
-            [nameof(AssessmentReportPanel.Workspace)] = h.Workspace,
-            [nameof(AssessmentReportPanel.Assessment)] = h.Run
+            [nameof(ReportPanel.Workspace)] = h.Workspace,
+            [nameof(ReportPanel.Assessment)] = h.Run
         }).SetParameterProperties(panel);
         SetPanelProperty(panel, "Workflow", h.Workflow);
         SetPanelProperty(panel, "JS", js);
         return panel;
     }
 
-    private static void SetPanelProperty(AssessmentReportPanel panel, string name, object value) =>
-        typeof(AssessmentReportPanel).GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(panel, value);
+    private static void SetPanelProperty(ReportPanel panel, string name, object value) =>
+        typeof(ReportPanel).GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(panel, value);
 
-    private static Task InvokePanelAsync(AssessmentReportPanel panel, string name, params object?[] arguments) =>
-        (Task)typeof(AssessmentReportPanel).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, arguments)!;
+    private static Task InvokePanelAsync(ReportPanel panel, string name, params object?[] arguments) =>
+        (Task)typeof(ReportPanel).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, arguments)!;
 
     private sealed class PreviewRuntime : IJSRuntime, IJSObjectReference
     {

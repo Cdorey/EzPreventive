@@ -1,0 +1,43 @@
+@using EzNutrition.Application.Reports
+
+<div class="dietary-report-options">
+    <label class="rank-setting">
+        <span>食材贡献排名（前 N 位）</span>
+        <AntDesign.InputNumber TValue="int?" @bind-Value="rankLimit" Min="1" Step="1" Precision="0"
+                               Disabled="@(Busy || showAll)" />
+    </label>
+    <Checkbox Checked="showAll" CheckedChanged="value => showAll = value" Disabled="@Busy">显示全部食材</Checkbox>
+    <p class="help">三种宏量营养素分别取前 N 位，保留截止位次的并列食材。</p>
+    <Checkbox Checked="includeDriReferences" CheckedChanged="value => includeDriReferences = value" Disabled="@Busy">包含独立的 DRIs 参考资料节</Checkbox>
+    <p class="help">营养素结果表中的参考范围和类型始终保留。</p>
+    <div class="options-actions">
+        <Button Disabled="@Busy" OnClick="OnCancel">取消</Button>
+        <Button Type="@ButtonType.Primary" Disabled="@(Busy || (!showAll && rankLimit is null or <= 0))"
+                OnClick="ConfirmAsync">生成预览</Button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DietaryReportOptions Options { get; set; } = new();
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<DietaryReportOptions> OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private DietaryReportOptions? loadedOptions;
+    private int? rankLimit;
+    private bool showAll;
+    private bool includeDriReferences;
+
+    protected override void OnParametersSet()
+    {
+        if (Options == loadedOptions) return;
+        loadedOptions = Options;
+        rankLimit = Options.ContributionRankLimit ?? 10;
+        showAll = Options.ContributionRankLimit is null;
+        includeDriReferences = Options.IncludeDriReferences;
+    }
+
+    private Task ConfirmAsync() => Busy || (!showAll && rankLimit is null or <= 0)
+        ? Task.CompletedTask
+        : OnConfirm.InvokeAsync(new DietaryReportOptions(showAll ? null : rankLimit, includeDriReferences));
+}
