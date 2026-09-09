@@ -4,6 +4,8 @@
 
 本审计以[工作方案](report-issuance-printing-plan.md)和实际代码、测试、生成文件为依据。当前不能宣布全部验收完成：WPF Blazor 内生成 PDF 的探针在图形控件初始化阶段失败，尚未运行到产品生成器。已经通过的 WPF PDF 查看和打印对话框验收不替代这一项。
 
+后续只读检查确认：本次自动化进程位于 Windows 会话 10，`WTSQuerySessionInformation` 返回 `Disconnected`；`WTSGetActiveConsoleSessionId` 返回另一会话 9。这是当前运行环境的明确差异，不能将探针的 Direct3D 初始化失败直接认定为正常交互桌面的产品缺陷。没有切换、连接或修改任何 Windows 会话；应在正常交互桌面运行同一探针补足证据，不继续在断开的会话中重复尝试。
+
 ## 需求与证据
 
 | 需求 | 已检查的实现和证据 | 结论 |
@@ -36,6 +38,8 @@
 - `node tools/reports/verify-storage.mjs` 验证真实 IndexedDB 原子提交。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- <合成报告.pdf> <输出目录>` 验证桌面原件查看与打印交互。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- --generate <新输出目录>` 验证桌面 Blazor 生成。必须以命令成功、当次生成文件和请求记录共同判断；目前只获得失败诊断，不能标为成功。
+
+待补的具体操作：在正常 Windows 桌面终端、仓库根目录执行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`。成功后检查当次七份 PDF（三种量表各正式/评估两份，加 DRIs 评估一份）、`requests.txt` 与摘要记录，再逐页核对中文、分值、水印和分页。探针不登录真实账号，不发送实体打印任务。
 
 所有运行输入均为合成资料。生成文件位于忽略目录 `tmp/reports/`；验证脚本和说明纳入仓库，患者资料不作为测试夹具提交。
 

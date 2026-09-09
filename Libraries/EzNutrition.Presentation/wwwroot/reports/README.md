@@ -33,6 +33,8 @@ WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/mic
 
 2026-09-09 的本机运行在 `WebView2CompositionControl` 的 `CreateD3D9Device` 阶段报 `0x8876086A`，尚未进入 PDF 生成组件。已验证失败诊断能够写出，但桌面生成成功路径仍需在可运行的图形环境复验；现有 PDF 查看与打印探针的成功结果不覆盖该项。
 
+同日后续检查确认自动化进程处于 `Disconnected` 的 Windows 会话，与控制台会话不同。遇到相同情况，应在正常交互桌面终端中运行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`，再检查当次输出。不要通过修改产品控件或更换驱动来迁就尚未确认的测试环境问题。
+
 `node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。
 
 浏览器脚本追加 `--revision`（目前使用 `must`）可验证初版签发后更正、刷新重印及历史原件保留；配套运行 `python tools/reports/check-browser.py must --revision`。结果位于 `tmp/reports/must-revision/`。
