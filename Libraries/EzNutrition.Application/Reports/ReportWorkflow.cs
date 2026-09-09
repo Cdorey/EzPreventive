@@ -50,6 +50,11 @@ public sealed class PreparedAssessmentReport
 /// <param name="FinalizedAt">当前版本签发时间，仅用于展示。</param>
 public sealed record ReportRevisionCandidate(Guid DocumentId, Guid ReportId, int RevisionNumber, DateTimeOffset FinalizedAt);
 
+/// <summary>表示可更正报告与本次查询中无法读取的报告数量。</summary>
+/// <param name="Candidates">通过原件校验且属于当前评估的报告。</param>
+/// <param name="UnreadableCount">同一患者下因损坏、缺失或文件读取失败而跳过的报告数量。</param>
+public sealed record ReportRevisionList(IReadOnlyList<ReportRevisionCandidate> Candidates, int UnreadableCount);
+
 /// <summary>编排本机报告预览、签发保存和原件打印；临床内容不会进入后端接口。</summary>
 public sealed class ReportWorkflow(
     AssessmentReportFactory factory,
@@ -114,21 +119,34 @@ public sealed class ReportWorkflow(
     }
 
     /// <summary>列出当前量表的既有报告，供用户明确选择更正对象；不同评估实例不互相替代。</summary>
-    public async ValueTask<IReadOnlyList<ReportRevisionCandidate>> ListRevisableAsync(
+    public async ValueTask<ReportRevisionList> ListRevisableAsync(
         ConsultationWorkspace workspace, NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)
     {
         var result = new List<ReportRevisionCandidate>();
+        var unreadableCount = 0;
         foreach (var info in await store.ListAsync(cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (info.FormatIdentifier != ReportPackage.Format.Identifier.AbsoluteUri
                 || info.PatientId != workspace.ContractIdentity.Patient.ResourceId.Value) continue;
-            var stored = await ReadStoredAsync(info.DocumentId, cancellationToken);
+            SignedReport stored;
+            try
+            {
+                stored = await ReadStoredAsync(info.DocumentId, cancellationToken);
+            }
+            catch (Exception exception) when (exception is InvalidDataException or IOException)
+            {
+                // 单份原件损坏不遮蔽其他报告；取消、权限和存储目录查询故障仍向调用方传播。
+                cancellationToken.ThrowIfCancellationRequested();
+                unreadableCount++;
+                continue;
+            }
             if (stored.Report.ConsultationReference.ResourceId == workspace.ContractIdentity.Consultation.ResourceId
                 && stored.Report.InputResourceReferences.Any(reference => reference.ResourceId == assessment.ArchiveIdentity.ResourceId))
                 result.Add(new ReportRevisionCandidate(info.DocumentId, stored.Report.Metadata.ResourceId.Value, stored.Report.Metadata.RevisionNumber.Value,
                     stored.Report.Metadata.FinalizedAt!.Value));
         }
-        return result.OrderByDescending(candidate => candidate.FinalizedAt).ToArray();
+        return new ReportRevisionList(result.OrderByDescending(candidate => candidate.FinalizedAt).ToArray(), unreadableCount);
     }
 
     /// <summary>

@@ -521,38 +521,38 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         return new ArchiveOpenResult
         {
             Operation = decoded.Operation,
-            Review = decoded.Document is { } document ? ArchiveReviewProjector.Create(document) : null
+            Review = decoded.Document is { } document ? ArchiveReviewProjector.Create(document, decoded.Report) : null
         };
     }
 
     /// <summary>复用格式选择与解码结果，避免历史读取依赖普通调阅的显示文本。</summary>
-    private Task<(ArchiveDocument? Document, ArchiveOperationResult Operation)> ReadDocumentAsync(
+    private Task<(ArchiveDocument? Document, ArchiveOperationResult Operation, NutritionReportResource? Report)> ReadDocumentAsync(
         ReadOnlyMemory<byte> content,
         string? mediaType,
         string? formatIdentifier,
         string? formatVersion,
-        CancellationToken cancellationToken) => Task.Run<(ArchiveDocument?, ArchiveOperationResult)>(
+        CancellationToken cancellationToken) => Task.Run<(ArchiveDocument?, ArchiveOperationResult, NutritionReportResource?)>(
         async () =>
         {
             if (formatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri || ReportPackage.HasZipHeader(content.Span))
             {
                 var report = await reportPackage.ReadAsync(content, cancellationToken);
-                return (report.Document, Success("报告包已打开，PDF 原件及其内容指纹已核对。"));
+                return (report.Document, Success("报告包已打开，PDF 原件及其内容指纹已核对。"), report.Report);
             }
             var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
             if (codec is null)
             {
-                return (null, Invalid("无法识别该档案文档的格式。"));
+                return (null, Invalid("无法识别该档案文档的格式。"), null);
             }
 
             await using var source = new MemoryStream(content.ToArray(), writable: false);
             var readResult = await codec.ReadAsync(source, cancellationToken);
             if (!readResult.IsSuccess || readResult.Document is null)
             {
-                return (null, Invalid("档案文档未通过格式或语义校验。", readResult.Validation));
+                return (null, Invalid("档案文档未通过格式或语义校验。", readResult.Validation), null);
             }
 
-            return (readResult.Document, Success("档案已安全打开。", ToNotices(readResult.Validation)));
+            return (readResult.Document, Success("档案已安全打开。", ToNotices(readResult.Validation)), null);
         },
         cancellationToken);
 

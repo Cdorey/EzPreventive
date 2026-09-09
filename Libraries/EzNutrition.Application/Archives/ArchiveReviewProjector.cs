@@ -9,14 +9,13 @@ namespace EzNutrition.Application.Archives;
 
 internal static class ArchiveReviewProjector
 {
-    public static ArchiveReview Create(ArchiveDocument document)
+    // 只有已校验的报告包提供调阅范围；普通 XML 中存在报告资源不改变整份档案的展示。
+    public static ArchiveReview Create(ArchiveDocument document, NutritionReportResource? report = null)
     {
         var bundle = document.Bundle;
         var reports = bundle.Entries.OfType<NutritionReportResource>().ToArray();
         var superseded = reports.Where(item => item.Metadata.Supersedes is not null)
             .Select(item => item.Metadata.Supersedes!.VersionId).ToHashSet();
-        var heads = reports.Where(item => !superseded.Contains(item.Metadata.VersionId)).ToArray();
-        var report = heads.Length == 1 ? heads[0] : null;
         var consultations = bundle.Entries.OfType<ConsultationResource>().ToArray();
         var consultation = report is null ? (consultations.Length == 1 ? consultations[0] : null)
             : consultations.SingleOrDefault(item => item.Metadata.VersionId == report.ConsultationReference.VersionId);

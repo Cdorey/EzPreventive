@@ -57,7 +57,7 @@
         }
     <div class="report-actions">
         <Button Disabled="@busy" OnClick="CloseAsync">关闭</Button>
-        @if (prepared is not null && issuedId is null && prepared.Draft.Signer is not null)
+        @if (prepared is not null && previewUrl is not null && issuedId is null && prepared.Draft.Signer is not null)
         {
             <AuthorizeView Policy="@PolicyList.IssueReport">
                 <Button Type="@ButtonType.Primary" Disabled="@busy" OnClick="IssueAsync">@(prepared.Draft.Previous is null ? "确认审核并签发" : "确认更正并签发")</Button>
@@ -100,33 +100,48 @@
     private Task ChooseRevisionAsync() => RunAsync(async () =>
     {
         visible = true;
-        await ReleasePreviewAsync();
         prepared = null;
         issuedId = null;
-        revisions = await Workflow.ListRevisableAsync(Workspace, Assessment, lifetime.Token);
+        revisions = null;
+        await ReleasePreviewAsync();
+        var listed = await Workflow.ListRevisableAsync(Workspace, Assessment, lifetime.Token);
+        revisions = listed.Candidates;
         if (revisions.Count == 0) feedback = "当前量表还没有可更正的正式报告。";
+        if (listed.UnreadableCount > 0)
+            feedback = $"已跳过 {listed.UnreadableCount} 份损坏、缺失或无法读取的报告。"
+                + (revisions.Count == 0 ? "其余报告中没有当前量表可更正的正式报告。" : "其余可用报告仍可选择更正。");
     });
 
     private Task PrepareAsync(bool forIssuance, Guid? revisionId = null) => RunAsync(async () =>
     {
         visible = true;
-        await ReleasePreviewAsync();
         prepared = null;
         revisions = null;
         issuedId = null;
+        await ReleasePreviewAsync();
         assessmentModifiedAt = Assessment.LastModifiedAt;
         patientName = Workspace.Client.Name;
-        prepared = revisionId is { } id
+        var pending = revisionId is { } id
             ? await Workflow.PrepareRevisionAsync(Workspace, Assessment, id, lifetime.Token)
             : await Workflow.PrepareAsync(Workspace, Assessment, forIssuance, lifetime.Token);
-        await using var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
-            "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
-        previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, prepared.Pdf.ToArray(), previewOwner);
+        await using (var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
+            "./_content/EzNutrition.Presentation/reports/assessment-report.mjs"))
+        {
+            previewUrl = await module.InvokeAsync<string>("createPreview", lifetime.Token, pending.Pdf.ToArray(), previewOwner);
+        }
+        if (string.IsNullOrWhiteSpace(previewUrl))
+        {
+            previewUrl = null;
+            throw new InvalidOperationException("PDF 预览未能打开，请重新生成并审核报告。");
+        }
+        // 预览创建完成后才开放确认，生成或 JS 调用失败不能留下待签发成品。
+        lifetime.Token.ThrowIfCancellationRequested();
+        prepared = pending;
     });
 
     private Task IssueAsync() => RunAsync(async () =>
     {
-        if (prepared is null) return;
+        if (prepared is null || previewUrl is null || issuedId is not null) return;
         if (!Workspace.NutritionAssessments.Contains(Assessment) || Assessment.LastModifiedAt != assessmentModifiedAt
             || Workspace.Client.Name != patientName)
             throw new InvalidOperationException("量表或患者身份已变化，请关闭预览后重新准备报告。");
@@ -167,19 +182,20 @@
     {
         if (busy) return;
         visible = false;
-        await ReleasePreviewAsync();
         prepared = null;
         revisions = null;
+        await ReleasePreviewAsync();
     }
 
     private async ValueTask ReleasePreviewAsync()
     {
         if (previewUrl is not null)
         {
+            var previousUrl = previewUrl;
+            previewUrl = null;
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
                 "./_content/EzNutrition.Presentation/reports/assessment-report.mjs");
-            await module.InvokeVoidAsync("releasePreview", lifetime.Token, previewUrl);
-            previewUrl = null;
+            await module.InvokeVoidAsync("releasePreview", lifetime.Token, previousUrl);
         }
     }
 

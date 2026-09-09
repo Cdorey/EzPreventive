@@ -17,7 +17,7 @@ using EzNutrition.Domain.Consultations;
 namespace EzNutrition.Client.Tests.Tests;
 
 /// <summary>通过真实 XML codec 验证签发、保存、导出和原件重印的应用流程。</summary>
-public sealed class ReportWorkflowTests
+public sealed partial class ReportWorkflowTests
 {
     /// <summary>验证只有打印权限也可输出快照，后续作答不进入成品且不触发归档。</summary>
     [Fact]
@@ -254,12 +254,12 @@ public sealed class ReportWorkflowTests
         var h = new Harness();
         var id = await h.Workflow.IssueAsync(await h.Workflow.PrepareAsync(h.Workspace, h.Run, true));
         var service = new NutritionAssessmentApplicationService([new MustInstrument()]);
-        Assert.Single(await h.Workflow.ListRevisableAsync(h.Workspace, h.Run));
+        Assert.Single((await h.Workflow.ListRevisableAsync(h.Workspace, h.Run)).Candidates);
         h.Workspace.NutritionAssessments.Remove(h.Run);
         var another = service.StartRun(h.Workspace, service.Definitions.Single());
         foreach (var item in h.Run.Definition.Sections.SelectMany(section => section.Items))
             another.SetAnswer(item.Code, h.Run.GetAnswer(item.Code)!);
-        Assert.Empty(await h.Workflow.ListRevisableAsync(h.Workspace, another));
+        Assert.Empty((await h.Workflow.ListRevisableAsync(h.Workspace, another)).Candidates);
         await Assert.ThrowsAsync<InvalidOperationException>(() => h.Workflow.PrepareRevisionAsync(h.Workspace, another, id).AsTask());
     }
 
@@ -457,6 +457,8 @@ public sealed class ReportWorkflowTests
         public Dictionary<Guid, StoredArchiveDocument> Documents { get; } = [];
         public int Saves { get; private set; }
         public bool FailSave { get; set; }
+        public Func<Guid, Exception?>? ReadFailure { get; set; }
+        public Exception? ListFailure { get; set; }
         public ArchiveDocumentStoreCapabilities Capabilities => ArchiveDocumentStoreCapabilities.Save
             | ArchiveDocumentStoreCapabilities.Browse | ArchiveDocumentStoreCapabilities.Delete | ArchiveDocumentStoreCapabilities.Clear
             | ArchiveDocumentStoreCapabilities.CompareExchange;
@@ -477,9 +479,11 @@ public sealed class ReportWorkflowTests
             return ValueTask.CompletedTask;
         }
         public ValueTask<IReadOnlyList<StoredArchiveDocumentInfo>> ListAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult<IReadOnlyList<StoredArchiveDocumentInfo>>(Documents.Values.Select(doc => doc.Info).ToArray());
+            ListFailure is { } exception ? throw exception
+                : ValueTask.FromResult<IReadOnlyList<StoredArchiveDocumentInfo>>(Documents.Values.Select(doc => doc.Info).ToArray());
         public ValueTask<StoredArchiveDocument?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(Documents.GetValueOrDefault(id));
+            ReadFailure?.Invoke(id) is { } exception ? throw exception
+                : ValueTask.FromResult(Documents.GetValueOrDefault(id));
         public ValueTask DeleteAsync(Guid id, CancellationToken cancellationToken = default) { Documents.Remove(id); return ValueTask.CompletedTask; }
         public ValueTask ClearAsync(CancellationToken cancellationToken = default) { Documents.Clear(); return ValueTask.CompletedTask; }
     }
