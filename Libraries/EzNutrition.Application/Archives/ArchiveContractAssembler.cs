@@ -155,6 +155,68 @@ public sealed class ArchiveContractAssembler
         };
     }
 
+    /// <summary>
+    /// 捕获单份量表报告所需的患者、咨询和评估资源，不带入其他未经审核的模块。
+    /// </summary>
+    /// <remarks>
+    /// 快照使用独立版本，后续保存咨询草稿不会改变这些确切版本代表的内容。
+    /// 此处只捕获数据；报告签发不等于将整个咨询及其患者资料标为正式确认。
+    /// </remarks>
+    public ArchiveDocument CreateAssessmentDocument(
+        RuntimeWorkspace archive,
+        NutritionAssessmentRun assessment,
+        DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        ArgumentNullException.ThrowIfNull(assessment);
+        if (!archive.NutritionAssessments.Contains(assessment))
+        {
+            throw new ArgumentException("该量表不属于当前咨询。", nameof(assessment));
+        }
+
+        if (capturedAt < archive.ContractIdentity.CreatedAt || capturedAt < assessment.LastModifiedAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capturedAt), "快照时间不能早于咨询或量表修改时间。");
+        }
+
+        var patient = CreatePatient(archive, capturedAt);
+        // 复诊的患者资源已经是既有快照；只有当前工作区产生的患者草稿需要独立版本。
+        if (archive.ExistingPatient is null)
+        {
+            patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        }
+
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var consultationReference = new VersionedResourceReference(
+            consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var scale = CreateNutritionScaleAssessment(assessment, subject, consultationReference, capturedAt);
+        scale = scale with { Metadata = FreezeVersion(scale.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences =
+            [new VersionedResourceReference(scale.Metadata.ResourceId, scale.Metadata.VersionId, scale.ResourceType)]
+        };
+
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()),
+                BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt,
+                Producer = sourceApplication,
+                Entries = [patient, consultation, scale]
+            }
+        };
+    }
+
+    private static ResourceMetadata FreezeVersion(ResourceMetadata metadata) => metadata with
+    {
+        VersionId = new ResourceVersionId(Guid.NewGuid())
+    };
+
     private PatientResource CreatePatient(RuntimeWorkspace archive, DateTimeOffset capturedAt)
     {
         if (archive.ExistingPatient is { } existingPatient)

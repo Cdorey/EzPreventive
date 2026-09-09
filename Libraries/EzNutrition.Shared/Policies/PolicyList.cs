@@ -11,6 +11,14 @@ namespace EzNutrition.Shared.Policies
         [PolicyDefined(PolicyType.Permission)]
         public const string AdjustModel = "AdjustModelPermission";
 
+        /// <summary>允许审核并签发正式报告；由管理员向经核验的医师授予。</summary>
+        [PolicyDefined(PolicyType.Permission)]
+        public const string IssueReport = "IssueReportPermission";
+
+        /// <summary>允许输出评估稿或打印已签发报告原件。</summary>
+        [PolicyDefined(PolicyType.Permission)]
+        public const string PrintReport = "PrintReportPermission";
+
         [PolicyDefined(PolicyType.Role)]
         public const string Admin = "AdminRole";
 
