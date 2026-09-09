@@ -35,7 +35,7 @@ WebView2 采用官方 [ShowPrintUI 路线](https://learn.microsoft.com/en-us/mic
 
 2026-09-09 在 Active 桌面会话已生成七份合格 PDF，但探针退出时挂起。报告适配器已改为在生成操作内释放 JS 模块句柄；预览主动关闭时释放 Blob，组件移除时由 MutationObserver 回收，组件 Dispose 不再等待 JS。`verify-pdf.mjs` 同时验证预览回收及过期组件保护，PDF 模板版本不变，因为版式和成品内容未改动。
 
-修改后复验时会话已回到 Disconnected，图形初始化报 `0x8876086A`，因此仍需在正常交互桌面终端中运行 `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj --no-restore -- --generate tmp/reports/wpf-generation-interactive`，确认成功退出并检查当次输出。探针的生成与释放均有有限等待时间，超时按失败处理。不要通过修改产品控件或更换驱动来迁就测试环境；完整证据见 `docs/report-acceptance-audit.md`。
+修改后曾因会话重新断开而在图形初始化报 `0x8876086A`；会话再次恢复 Active 后，以新目录 `tmp/reports/wpf-generation-complete` 复验，七份 PDF 生成、控件释放和进程退出均成功，当次内容与全部页面视觉检查通过。今后复验仍需正常桌面会话、新输出目录和成功退出，不能仅凭旧文件判断。探针的生成与释放均有有限等待时间，超时按失败处理。完整证据见 `docs/report-acceptance-audit.md`。
 
 `node tools/reports/verify-storage.mjs` 在隔离的真实 IndexedDB 中验证两页面竞争提交、旧预览拒绝及事务中止后的索引和正文一致性，不依赖运行中的应用宿主。
 
