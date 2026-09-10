@@ -79,7 +79,7 @@ public sealed class DietaryReportDraft : ReportDraft
     public DietaryReportOptions Options { get; }
 
     /// <summary>确认前核对原咨询、核算结果和录入状态。</summary>
-    public void EnsureCurrent()
+    public override void EnsureCurrent()
     {
         if (!ReferenceEquals(workspace.DietaryRecallSurvey, survey) || !ReferenceEquals(survey.SummaryCalculationTable, summary)
             || !patient.Equals(PatientState(workspace)) || !entries.SequenceEqual(survey.RecallEntries.Select(EntryState.From)))

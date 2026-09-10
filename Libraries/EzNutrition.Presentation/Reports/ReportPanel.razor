@@ -11,7 +11,7 @@
         <Button Disabled="@(busy || !CanIssue)" OnClick="ChooseRevisionAsync">更正已签发报告</Button>
     </AuthorizeView>
     <AuthorizeView Policy="@PolicyList.PrintReport">
-        <Button Disabled="@(busy || (IsDietary && !CanIssue))" OnClick="() => BeginPrepareAsync(false)">打印当前评估稿</Button>
+        <Button Disabled="@(busy || (Kind != ReportKind.Assessment && !CanIssue))" OnClick="() => BeginPrepareAsync(false)">打印当前评估稿</Button>
         @if (lastIssuedId is { } savedId)
         {
             <Button Disabled="@busy" OnClick="() => PrintStoredAsync(savedId)">打印已签发报告</Button>
@@ -24,7 +24,7 @@
 }
 
 @* 两个步骤使用独立的固定尺寸弹窗，配置与预览分别管理各自的布局。 *@
-<Modal Title="膳食报告设置" Visible="@(visible && configuration is not null)" Width="520"
+<Modal Title="@(Kind == ReportKind.Energy ? "能量报告设置" : "膳食报告设置")" Visible="@(visible && configuration is not null)" Width="520"
        Footer="@null" MaskClosable="@(!busy)" Closable="@(!busy)" OnCancel="CloseAsync">
     <ChildContent>
         @if (configuration is not null)
@@ -33,7 +33,14 @@
             {
                 <p role="status">@feedback</p>
             }
-            <DietaryReportOptionsEditor Options="dietaryOptions" Busy="busy" OnConfirm="ConfirmConfigurationAsync" OnCancel="CloseAsync" />
+            @if (Kind == ReportKind.Energy)
+            {
+                <EnergyReportOptionsEditor Options="energyOptions" Busy="busy" OnConfirm="ConfirmEnergyConfigurationAsync" OnCancel="CloseAsync" />
+            }
+            else
+            {
+                <DietaryReportOptionsEditor Options="dietaryOptions" Busy="busy" OnConfirm="ConfirmConfigurationAsync" OnCancel="CloseAsync" />
+            }
         }
     </ChildContent>
 </Modal>
@@ -99,12 +106,15 @@
     /// <summary>获取用户选定的量表运行实例。</summary>
     [Parameter] public NutritionAssessmentRun? Assessment { get; set; }
 
-    /// <summary>指定本次操作为当前咨询的膳食调查报告。</summary>
-    [Parameter] public bool IsDietary { get; set; }
+    /// <summary>指定本次报告所属的咨询模块。</summary>
+    [Parameter] public ReportKind Kind { get; set; }
 
-    private bool CanIssue => IsDietary
-        ? Workspace.DietaryRecallSurvey is { SummaryCalculationTable: not null } survey && survey.RecallEntries.Count > 0
-        : Assessment?.Evaluation.IsComplete == true;
+    private bool CanIssue => Kind switch
+    {
+        ReportKind.Dietary => Workspace.DietaryRecallSurvey is { SummaryCalculationTable: not null } survey && survey.RecallEntries.Count > 0,
+        ReportKind.Energy => Workspace.CurrentEnergyCalculator is { Energy: > 0 },
+        _ => Assessment?.Evaluation.IsComplete == true
+    };
 
     private readonly CancellationTokenSource lifetime = new();
     private ElementReference previewOwner;
@@ -119,10 +129,11 @@
     private DateTimeOffset assessmentModifiedAt;
     private string? patientName;
     private DietaryReportOptions dietaryOptions = new();
-    private DietaryPreparationRequest? configuration;
-    private sealed record DietaryPreparationRequest(bool ForIssuance, Guid? RevisionId);
+    private EnergyReportOptions energyOptions = new();
+    private PreparationRequest? configuration;
+    private sealed record PreparationRequest(bool ForIssuance, Guid? RevisionId);
 
-    private Task BeginPrepareAsync(bool forIssuance, Guid? revisionId = null) => !IsDietary
+    private Task BeginPrepareAsync(bool forIssuance, Guid? revisionId = null) => Kind == ReportKind.Assessment
         ? PrepareAsync(forIssuance, revisionId)
         : RunAsync(async () =>
         {
@@ -142,6 +153,14 @@
         return PrepareAsync(request.ForIssuance, request.RevisionId);
     }
 
+    private Task ConfirmEnergyConfigurationAsync(EnergyReportOptions options)
+    {
+        if (busy || configuration is not { } request) return Task.CompletedTask;
+        energyOptions = options;
+        configuration = null;
+        return PrepareAsync(request.ForIssuance, request.RevisionId);
+    }
+
     private Task ChooseRevisionAsync() => RunAsync(async () =>
     {
         visible = true;
@@ -150,9 +169,12 @@
         revisions = null;
         configuration = null;
         await ReleasePreviewAsync();
-        var listed = IsDietary
-            ? await Workflow.ListDietaryRevisableAsync(Workspace, lifetime.Token)
-            : await Workflow.ListRevisableAsync(Workspace, Assessment!, lifetime.Token);
+        var listed = Kind switch
+        {
+            ReportKind.Energy => await Workflow.ListEnergyRevisableAsync(Workspace, lifetime.Token),
+            ReportKind.Dietary => await Workflow.ListDietaryRevisableAsync(Workspace, lifetime.Token),
+            _ => await Workflow.ListRevisableAsync(Workspace, Assessment!, lifetime.Token)
+        };
         revisions = listed.Candidates;
         if (revisions.Count == 0) feedback = "当前模块还没有可更正的正式报告。";
         if (listed.UnreadableCount > 0)
@@ -169,11 +191,14 @@
         await ReleasePreviewAsync();
         assessmentModifiedAt = Assessment?.LastModifiedAt ?? default;
         patientName = Workspace.Client.Name;
-        var pending = IsDietary
-            ? await Workflow.PrepareDietaryAsync(Workspace, forIssuance, revisionId, dietaryOptions, lifetime.Token)
-            : revisionId is { } id
+        var pending = Kind switch
+        {
+            ReportKind.Energy => await Workflow.PrepareEnergyAsync(Workspace, forIssuance, revisionId, energyOptions, lifetime.Token),
+            ReportKind.Dietary => await Workflow.PrepareDietaryAsync(Workspace, forIssuance, revisionId, dietaryOptions, lifetime.Token),
+            _ => revisionId is { } id
                 ? await Workflow.PrepareRevisionAsync(Workspace, Assessment!, id, lifetime.Token)
-                : await Workflow.PrepareAsync(Workspace, Assessment!, forIssuance, lifetime.Token);
+                : await Workflow.PrepareAsync(Workspace, Assessment!, forIssuance, lifetime.Token)
+        };
         await using (var module = await JS.InvokeAsync<IJSObjectReference>("import", lifetime.Token,
             "./_content/EzNutrition.Presentation/reports/assessment-report.mjs"))
         {
@@ -192,7 +217,7 @@
     private Task IssueAsync() => RunAsync(async () =>
     {
         if (prepared is null || previewUrl is null || issuedId is not null) return;
-        if (Workspace.Client.Name != patientName || (!IsDietary
+        if (Workspace.Client.Name != patientName || (Kind == ReportKind.Assessment
             && (Assessment is null || !Workspace.NutritionAssessments.Contains(Assessment) || Assessment.LastModifiedAt != assessmentModifiedAt)))
             throw new InvalidOperationException("报告输入或患者身份已变化，请关闭预览后重新准备报告。");
         issuedId = await Workflow.IssueAsync(prepared, lifetime.Token);

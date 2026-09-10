@@ -66,7 +66,9 @@ public sealed partial class ReportWorkflow(
     IArchiveDocumentStore store,
     IReportPrinter printer,
     DietaryReportFactory dietaryFactory,
-    IDietaryReportRenderer dietaryRenderer)
+    IDietaryReportRenderer dietaryRenderer,
+    EnergyReportFactory energyFactory,
+    IEnergyReportRenderer energyRenderer)
 {
     /// <summary>打印独立速查结果；只捕获当前量表，不建立咨询、签发记录或本机档案。</summary>
     public async ValueTask PrintStandaloneAsync(NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)
@@ -168,7 +170,7 @@ public sealed partial class ReportWorkflow(
         var signer = await authorization.RequireIssuerAsync(cancellationToken);
         if (prepared.Draft.Signer != signer)
             throw new UnauthorizedAccessException("签发人已变化，请重新准备和审核报告。");
-        if (prepared.Draft is DietaryReportDraft dietary) dietary.EnsureCurrent();
+        prepared.Draft.EnsureCurrent();
 
         var previousPdfs = prepared.Draft.Previous?.PreviousPdfs.ToDictionary(pair => pair.Key, pair => pair.Value)
             ?? new Dictionary<Guid, ReadOnlyMemory<byte>>();

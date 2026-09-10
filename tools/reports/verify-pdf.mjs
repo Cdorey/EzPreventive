@@ -106,6 +106,23 @@ try {
             console.log(`${name}: ${bytes.length} bytes`);
         }
     }
+    if (process.argv[4]) {
+        const energy = JSON.parse(await readFile(resolve(process.argv[4]), "utf8"));
+        for (const [name, data] of [
+            ["energy-signed", energy],
+            ["energy-evaluation", { ...energy, isEvaluation: true }],
+            ["energy-total", { ...energy, options: { includeTotalEnergy: true } }],
+            ["energy-allocation", { ...energy, options: { includeAllocation: true } }],
+            ["energy-exchanges", { ...energy, options: { includeExchanges: true } }]
+        ]) {
+            const bytes = await page.evaluate(async data => {
+                const { render } = await import("/reports/energy-report.mjs");
+                return Array.from(await render(data));
+            }, data);
+            await writeFile(resolve(output, `${name}.pdf`), new Uint8Array(bytes));
+            console.log(`${name}: ${bytes.length} bytes`);
+        }
+    }
     if (externalRequests.length) throw new Error("发现外部请求：" + externalRequests.join(", "));
     console.log("全部 PDF 由本地资源生成，无外部网络请求。");
 } finally {

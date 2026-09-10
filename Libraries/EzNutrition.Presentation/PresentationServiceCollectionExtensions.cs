@@ -93,6 +93,8 @@ public static class PresentationServiceCollectionExtensions
         services.AddScoped<AssessmentReportFactory>();
         services.AddScoped<DietaryReportFactory>();
         services.AddScoped<IDietaryReportRenderer, PdfMakeDietaryReportRenderer>();
+        services.AddScoped<EnergyReportFactory>();
+        services.AddScoped<IEnergyReportRenderer, PdfMakeEnergyReportRenderer>();
         services.AddScoped<ReportPackage>();
         services.AddScoped<ReportWorkflow>();
         services.AddScoped<IReportAuthorization, ReportAuthorization>();

@@ -19,7 +19,7 @@ public sealed partial class ReportWorkflowTests
     {
         var h = DietaryHarness();
         using var panel = CreatePanel(h, new PreviewRuntime());
-        ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ReportPanel.IsDietary)] = true }).SetParameterProperties(panel);
+        ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ReportPanel.Kind)] = ReportKind.Dietary }).SetParameterProperties(panel);
         await InvokePanelAsync(panel, "BeginPrepareAsync", forIssuance, null);
         Assert.Equal(0, h.Renderer.Calls);
         await InvokePanelAsync(panel, "IssueAsync");
@@ -168,7 +168,7 @@ public sealed partial class ReportWorkflowTests
         var h = DietaryHarness();
         var js = new PreviewRuntime { Failure = "createPreview" };
         using var panel = CreatePanel(h, js);
-        ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ReportPanel.IsDietary)] = true }).SetParameterProperties(panel);
+        ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ReportPanel.Kind)] = ReportKind.Dietary }).SetParameterProperties(panel);
         await InvokePanelAsync(panel, "PrepareAsync", true, null);
         await InvokePanelAsync(panel, "IssueAsync");
         Assert.Empty(h.Store.Documents);

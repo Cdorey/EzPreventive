@@ -227,7 +227,11 @@
                                     {
                                         <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator"
                                                                    IsTouchDetected="@UserSession.IsTouchDetected"
-                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync">
+                                            <ReportActions>
+                                                <ReportPanel @key="CurrentArchive.CurrentEnergyCalculator" Workspace="CurrentArchive" Kind="ReportKind.Energy" />
+                                            </ReportActions>
+                                        </EnergyCalculatorTreatment>
                                         <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.AdoptedEnergy" Title="既往采用能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
@@ -243,7 +247,7 @@
                                         <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
                                                        OnCalculationCompleted="DietarySurveyCalculationCompleted"
                                                        OnSoapContributionConfirmed="AppendSoapContributionAsync" />
-                                        <ReportPanel @key="CurrentArchive.DietaryRecallSurvey" Workspace="CurrentArchive" IsDietary="true" />
+                                        <ReportPanel @key="CurrentArchive.DietaryRecallSurvey" Workspace="CurrentArchive" Kind="ReportKind.Dietary" />
                                         <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.DietaryEnergy" Title="既往膳食记录总能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>

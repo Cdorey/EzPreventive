@@ -1,0 +1,16 @@
+.energy-report-options {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.energy-report-options p { margin: 0; }
+
+.energy-report-options ::deep .ant-checkbox-wrapper { margin-inline-start: 0; }
+
+.options-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}

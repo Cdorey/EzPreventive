@@ -12,11 +12,12 @@ const samples = {
 };
 const dris = scaleCode === "dris";
 const dietary = scaleCode === "dietary";
+const energy = scaleCode === "energy";
 const sample = samples[scaleCode];
-if (!sample && !dris && !dietary) throw new Error("请选择 must、nrs-2002、mna-sf、dris 或 dietary。");
+if (!sample && !dris && !dietary && !energy) throw new Error("请选择 must、nrs-2002、mna-sf、dris、dietary 或 energy。");
 const amend = process.argv[4] === "--revision";
 const standalone = process.argv[4] === "--standalone";
-if (amend && scaleCode !== "must" && !dietary) throw new Error("更正验收样本使用 MUST 或膳食调查。");
+if (amend && scaleCode !== "must" && !dietary && !energy) throw new Error("更正验收样本使用 MUST、膳食调查或能量核算。");
 const food = { foodId: randomUUID(), friendlyCode: "test-food", friendlyName: "模拟食物", ediblePortion: 75 };
 const nutrients = ["能量", "蛋白质", "脂肪", "碳水化合物", "钾", "钠", "镁", "铁", "锰", "锌", "磷", "硒", "铜",
     "总维生素A", "视黄醇", "胡萝卜素", "硫胺素", "核黄素", "烟酸", "维生素C", "总维生素E"]
@@ -64,6 +65,7 @@ try {
         if (path === "/Auth/Browser/Csrf") return fulfill({ requestToken: "local-test" });
         if (path.startsWith("/Auth/Browser/")) return fulfill(tokens);
         if (path.startsWith("/SystemInfo/")) return fulfill({ caseNumber: "test", serverVersion: "test", description: "本机测试" });
+        if (energy && path.startsWith("/Energy/EERs/")) return fulfill([{ bee: 25, pal: 1.5, avgBwEER: 2000 }]);
         if (dris && path.startsWith("/Energy/DRIs/")) {
             if (driOutcome === "error") return route.fulfill({ status: 503, body: "fixture failure" });
             return fulfill(driOutcome === "empty" ? [] : driRecords);
@@ -159,7 +161,14 @@ try {
         await page.locator(".ant-form-item").filter({ hasText: "体重（kg）" }).locator("input").fill("60");
         await page.getByRole("button", { name: "确认并进入核算" }).click();
         let assessment;
-        if (dietary) {
+        if (energy) {
+            await page.getByRole("tab", { name: "能量评估", exact: true }).click();
+            await page.locator("#pal").getByText("1.5", { exact: true }).click();
+            await page.getByRole("button", { name: "计算推荐能量", exact: true }).click();
+            await page.locator("#corEnergy input").fill("2000");
+            await page.locator("#corEnergy input").press("Tab");
+            await page.locator(".energy-summary").getByText(/核定总能量2000/).waitFor();
+        } else if (dietary) {
             await page.getByRole("tab", { name: "膳食调查", exact: true }).click();
             await page.locator(".food-picker input").click();
             await page.locator(".food-picker input").pressSequentially("模拟", { delay: 150 });
@@ -180,7 +189,20 @@ try {
         reportPhase = true;
         await mkdir(output, { recursive: true });
         await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
-        const configureDietary = async (showAll, includeDri) => {
+        const configureReport = async (showAll, includeDri) => {
+            if (energy) {
+                await page.getByText("能量报告设置", { exact: true }).waitFor();
+                const editor = page.locator(".energy-report-options");
+                const boxes = editor.getByRole("checkbox");
+                for (let i = 0; i < 3; i++) await boxes.nth(i).uncheck();
+                if (!(await editor.getByRole("button", { name: "生成预览" }).isDisabled()))
+                    throw new Error("未选择节段仍可生成报告。");
+                if (showAll) for (let i = 0; i < 3; i++) await boxes.nth(i).check();
+                else await boxes.nth(2).check();
+                await page.locator(".ant-modal-content:visible").screenshot({ path: `${output}/report-options.png` });
+                await editor.getByRole("button", { name: "生成预览" }).click();
+                return;
+            }
             if (!dietary) return;
             await page.getByText("膳食报告设置", { exact: true }).waitFor();
             if (await page.locator("iframe.report-preview").count()) throw new Error("配置确认前已生成预览。");
@@ -206,15 +228,15 @@ try {
                 return modal && Math.abs(modal.getBoundingClientRect().width - 1000) < 2;
             }, undefined, { timeout: 5000 });
         };
-        if (dietary) {
-            await page.getByText("膳食报告设置", { exact: true }).waitFor();
+        if (dietary || energy) {
+            await page.getByText(energy ? "能量报告设置" : "膳食报告设置", { exact: true }).waitFor();
             await page.getByRole("button", { name: "取消", exact: true }).click();
             if (await page.locator("iframe.report-preview").count()) throw new Error("取消配置留下了预览。");
             await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
         }
-        await configureDietary(false, false);
+        await configureReport(false, false);
         await assertPreviewWidth();
-        if (dietary) {
+        if (dietary || energy) {
             await page.setViewportSize({ width: 640, height: 900 });
             await page.waitForFunction(() => {
                 const frame = document.querySelector("iframe.report-preview");
@@ -241,7 +263,7 @@ try {
         if (beforeIssue.some(record => record.formatIdentifier.endsWith("report-package")))
             throw new Error("评估打印不应建立正式报告档案。");
         await page.getByRole("button", { name: "签发报告", exact: true }).click();
-        await configureDietary(true, true);
+        await configureReport(true, true);
         await assertPreviewWidth();
         await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
         if (amend) {
@@ -254,7 +276,11 @@ try {
         await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
         await page.getByRole("button", { name: "关闭", exact: true }).click();
         if (amend) {
-            if (dietary) {
+            if (energy) {
+                await page.locator("#corEnergy input").fill("2200");
+                await page.locator("#corEnergy input").press("Tab");
+                await page.locator(".energy-summary").getByText(/核定总能量2200/).waitFor();
+            } else if (dietary) {
                 await page.getByRole("button", { name: "修改记录", exact: true }).click();
                 await page.locator(".entry-table").getByRole("spinbutton").fill("400");
                 await page.getByRole("button", { name: "计算膳食摄入" }).click();
@@ -264,7 +290,7 @@ try {
             }
             await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
             await page.getByRole("button", { name: /更正第 1 版/ }).click();
-            await configureDietary(false, false);
+            await configureReport(false, false);
             await assertPreviewWidth();
             await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
             await page.getByRole("button", { name: "确认更正并签发", exact: true }).click();
@@ -272,7 +298,7 @@ try {
             await page.getByRole("button", { name: "关闭", exact: true }).click();
         }
         await page.goto(origin + "/archives");
-        await page.getByRole("button", { name: dietary ? "24 小时膳食调查报告" : sample.title + "报告", exact: false }).click();
+        await page.getByRole("button", { name: energy ? "能量核算报告" : dietary ? "24 小时膳食调查报告" : sample.title + "报告", exact: false }).click();
         await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
         if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
         const records = await page.evaluate(async () => {

@@ -1,6 +1,6 @@
 # 报告签发与打印实现说明
 
-状态：量表首版试行已完成验收，已补充调阅与失败恢复修复（`881e835`）及膳食调查报告。本文维护当前源码行为，沿用原工作方案的文件路径。
+状态：量表首版试行已完成验收，已补充调阅与失败恢复修复（`881e835`）及膳食调查、能量核算报告。本文维护当前源码行为，沿用原工作方案的文件路径。
 
 操作步骤见[使用说明](./report-user-guide.md)，运行验收及历史证据见[验收审计](./report-acceptance-audit.md)。部署环境的功能以实际安装版本为准。
 
@@ -8,6 +8,7 @@
 
 - 门诊咨询中的 NRS 2002、MNA-SF、MUST 提供正式签发、更正、评估稿打印和原件重印，三种量表共用模板。
 - 门诊膳食调查完成核算后提供同样的报告操作，专用模板展示食物、重量、餐次、营养素结果、DRIs 和膳食宝塔比较。
+- 门诊能量核算完成计算或核定后提供同样的报告操作，支持选择总能量、宏量营养素与三餐分配、交换份三个节段。
 - 三种量表的独立速查及 DRIs 速查提供带水印的评估稿，使用当次结果快照，输出范围限于评估用途。
 - 报告准备、确认、存储和打印在 Blazor 及本机宿主内完成。报告路径仅访问随应用发布的资源；登录、参考查询和用户主动使用的 AI 功能保留各自网络边界。
 - 签发表示应用内的人员确认和版本冻结，内容指纹用于检查原件一致性。
@@ -40,7 +41,7 @@ PrintReport 控制应用提供的报告输出。通过通用档案导出入口�
 5. 确认时组件复核量表仍在工作区、最后修改时间及患者姓名；工作流复核当前权限和签发人。确认复用预览 PDF，`BindSignedPdf` 将实际字节的 SHA-256 绑定到 `NutritionReport`，签发时间沿用预览中已展示的时间。
 6. 通过契约校验后，将快照、报告记录、PDF 和索引原子提交；成功后提示已签发。签发范围限于本份报告。
 
-膳食入口为 `PrepareDietaryAsync`。`DietaryReportFactory` 经 `CreateDietaryDocument` 捕获 Patient、Consultation、DietaryRecall 和采用的 DriAssessment；食物贡献采用保存的逐项核算值，参考比较捕获已有结果。`ReportDraftAssembler` 为量表和膳食快照组装共同的报告身份与修订引用，`PreparedReport` 绑定确切 PDF。膳食模板保留回顾日期缺失说明、单日结果解释、参考类型、单位及资料版本。签发范围包含膳食与参考资料。
+膳食入口为 `PrepareDietaryAsync`。`DietaryReportFactory` 经 `CreateDietaryDocument` 捕获 Patient、Consultation、DietaryRecall 和采用的 DriAssessment；食物贡献采用保存的逐项核算值，参考比较捕获已有结果。`ReportDraftAssembler` 为各模块快照组装共同的报告身份与修订引用，`PreparedReport` 绑定确切 PDF。膳食模板保留回顾日期缺失说明、单日结果解释、参考类型、单位及资料版本。签发范围包含膳食与参考资料。
 
 膳食报告准备前，`ReportPanel` 使用独立的固定宽度 Modal：配置窗为 520px，调阅选择与 PDF 预览窗为 1000px；小屏宽度沿用组件的视口约束。配置窗展示 `DietaryReportOptionsEditor`。组件编辑排名范围和独立 DRIs 小节开关，确认后传递 Application 的不可变 `DietaryReportOptions`，由 `DietaryReportDraft` 保持到渲染结束。默认前 10 位及包含参考资料；排名为空表示全部，正整数表示最高名次并保留并列。展示配置只影响成品内容，完整输入快照继续归档。后续展示选项在该配置类型及编辑组件内扩展，存储、权限与原件重印复用现有流程。
 
@@ -48,6 +49,9 @@ PrintReport 控制应用提供的报告输出。通过通用档案导出入口�
 
 同一预览保存重试复用同一版本；普通重印读取已存成品。保存失败保留原有档案，预览失败后可重新准备。签发成功后取消打印仍保留签发结果；原件缺失或指纹不符时停止输出，恢复需使用对应备份。
 
+能量入口为 `PrepareEnergyAsync`。`EnergyReportFactory` 经 `CreateEnergyDocument` 捕获 Patient、Consultation 和现有 EnergyAssessment 契约，完整保存候选计算、采用值及分配方案。Domain 记录计算/核定采用的输入状态，报告工厂检查其与当前患者资料、PAL 一致，同时核对比例和交换份有效性。`EnergyReportDraft` 保存三餐交换份与不可变的 `EnergyReportOptions`，确认前检查患者、核算实例及各项分配是否变化。
+
+`ReportPanel.Kind` 选择量表、膳食或能量流程。能量模块通过 UI 的 `ReportActions` 插槽接入该面板；`EnergyReportOptionsEditor` 编辑三个节段，默认全选且至少一项。配置窗与预览窗继续使用独立固定宽度。`ReportWorkflow` 的模块准备方法共用授权、更正读取与 PDF 检查；各模块提供自己的工厂和渲染器。能量模板版本为 1，位于 Presentation，直接展示现有核算结果；归档、原件重印和版本历史使用共同流程。
 ## 本机存储和交换
 
 报告复用 `IArchiveDocumentStore`，与咨询草稿使用不同文档键。`.ezreport` 是 ZIP 容器，当前写入版本 2，兼容读取版本 1 的单报告包：
@@ -92,13 +96,13 @@ XML 文档用于结构化档案调阅，原样重印需要报告包中的 PDF。
 | `Application/Reports` | 快照、签发条件、工作流、报告包及量表/膳食渲染、授权和打印端口；复用档案存储端口 |
 | `Archives.Contracts`、`Archives.Xml` | 资源语义、版本、校验与 XML 编码 |
 | `UI` | 通用量表及档案调阅组件，档案库报告操作回调与清单 |
-| `Presentation/Reports`、`wwwroot/reports` | `ReportPanel`、权限适配、PDF 展示模型、量表/膳食/DRIs 模板、pdfmake 与静态字体 |
+| `Presentation/Reports`、`wwwroot/reports` | `ReportPanel`、权限适配、PDF 展示模型、量表/膳食/能量/DRIs 模板、pdfmake 与静态字体 |
 | `Client`、`WPF` | 平台存储、文件交换及打印窗口 |
 | `Server` | 现有账号及权限管理 |
 
 当前 PDF 引擎为随应用发布的 pdfmake 0.3.11，中文字体为 Noto Sans CJK SC，依赖许可文件随资源保存。`tools/reports/fetch_assets.py` 固定下载版本和完整性校验，供开发时重建资源。量表模板版本为 3；定义版本、模板版本、报告修订号和容器版本分别记录。
 
-量表、膳食与 DRIs 共用引擎、字体、表格及水印，正文模板分别维护。膳食模板版本为 4：`DietaryReportNutrients` 在 Presentation 组织营养素分组、分项缩进、参考范围与类型；箭头采用已有核算判断。三大宏量营养素的食材贡献排名分为蛋白质、脂肪、碳水化合物三表，各表独立编号，贡献量相同者并列。浏览器通过 PDF 查看器交互，WPF 使用独立 WebView2 窗口接收内存 PDF 并打开打印对话框。PDF 已嵌入字体，每次重印复用成品；纸张、缩放和色差取决于打印机设置。
+量表、膳食、能量与 DRIs 共用引擎、字体、表格及水印，正文模板分别维护。膳食模板版本为 4：`DietaryReportNutrients` 在 Presentation 组织营养素分组、分项缩进、参考范围与类型；箭头采用已有核算判断。三大宏量营养素的食材贡献排名分为蛋白质、脂肪、碳水化合物三表，各表独立编号，贡献量相同者并列。浏览器通过 PDF 查看器交互，WPF 使用独立 WebView2 窗口接收内存 PDF 并打开打印对话框。PDF 已嵌入字体，每次重印复用成品；纸张、缩放和色差取决于打印机设置。
 
 JS 模块句柄在每次生成操作内释放；预览 Blob 主动关闭时释放，组件移除时由 JS 观察器回收。组件 `Dispose` 负责取消任务。实际桌面生成、控件释放和进程退出已通过验收，详见[验收审计](./report-acceptance-audit.md)。
 

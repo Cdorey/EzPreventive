@@ -33,6 +33,9 @@ public class ReportDraft
     /// <summary>获取本次报告的契约记录。</summary>
     public NutritionReportResource Report => Document.Bundle.Entries.OfType<NutritionReportResource>().Single();
 
+    /// <summary>在签发前检查模块输入是否仍与审核快照一致。</summary>
+    public virtual void EnsureCurrent() { }
+
     /// <summary>
     /// 将已审核的最终 PDF 绑定到报告；调用方须在提交前复核当前签发权限和人员身份。
     /// </summary>

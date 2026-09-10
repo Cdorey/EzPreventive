@@ -402,7 +402,7 @@ public sealed partial class ReportWorkflowTests
             var validator = new ArchiveContractValidator();
             IArchiveCodec[] codecs = [new XmlArchiveCodec(validator)];
             Package = new(codecs, validator);
-            Workflow = new(new(assembler), Renderer, Access, validator, Package, Store, Printer, new(assembler), Renderer);
+            Workflow = new(new(assembler), Renderer, Access, validator, Package, Store, Printer, new(assembler), Renderer, new(assembler), Renderer);
             Archives = new(assembler, validator, codecs, Store, Transport, Access);
         }
     }
@@ -421,8 +421,15 @@ public sealed partial class ReportWorkflowTests
             Print ? ValueTask.CompletedTask : throw new UnauthorizedAccessException();
     }
 
-    private sealed class Renderer : IAssessmentReportRenderer, IDietaryReportRenderer
+    private sealed class Renderer : IAssessmentReportRenderer, IDietaryReportRenderer, IEnergyReportRenderer
     {
+        public EnergyReportDraft? EnergyDraft { get; private set; }
+        public ValueTask<byte[]> RenderAsync(EnergyReportDraft draft, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            EnergyDraft = draft;
+            return ValueTask.FromResult(Encoding.UTF8.GetBytes($"%PDF-1.7\nenergy revision {draft.Report.Metadata.RevisionNumber.Value}"));
+        }
         public DietaryReportDraft? DietaryDraft { get; private set; }
         public ValueTask<byte[]> RenderAsync(DietaryReportDraft draft, CancellationToken cancellationToken = default)
         {

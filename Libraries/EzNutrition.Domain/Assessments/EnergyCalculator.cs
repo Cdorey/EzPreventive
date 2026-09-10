@@ -74,6 +74,19 @@ namespace EzNutrition.Domain.Assessments
 
         public FoodExchangeAllocation? FoodExchangeAllocation { get; private set; }
 
+        private EnergyInputs? calculatedInputs;
+        private EnergyInputs? adoptedInputs;
+
+        /// <summary>当前患者资料与 PAL 是否仍对应最近一次计算或核定的能量。</summary>
+        public bool HasCurrentInputs => adoptedInputs is not null && adoptedInputs.Equals(CurrentInputs())
+            && (calculatedInputs is null || calculatedInputs.Equals(CurrentInputs()));
+
+        private EnergyInputs CurrentInputs() => new(Client.Gender, Client.Age, Client.BirthDate,
+            Client.Height, Client.Weight, Client.SpecialPhysiologicalPeriod, PAL, SelectedEer?.BEE);
+
+        private sealed record EnergyInputs(string? Gender, ChronologicalAge? Age, DateOnly? BirthDate,
+            decimal? Height, decimal? Weight, string PhysiologicalPeriod, decimal? Pal, decimal? Bee);
+
         public bool Calculate()
         {
             if (PAL is null)
@@ -144,6 +157,7 @@ namespace EzNutrition.Domain.Assessments
             Summary = strBuild.ToString();
             Allocation = new MacronutrientAllocation(energy);
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
+            calculatedInputs = adoptedInputs = CurrentInputs();
             return true;
         }
 
@@ -167,6 +181,7 @@ namespace EzNutrition.Domain.Assessments
             Summary = strBuild.ToString();
             Allocation = new MacronutrientAllocation(newEnergy);
             FoodExchangeAllocation = new FoodExchangeAllocation(Allocation);
+            adoptedInputs = CurrentInputs();
             return true;
         }
 

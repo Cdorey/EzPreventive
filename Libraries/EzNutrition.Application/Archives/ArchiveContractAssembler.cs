@@ -258,6 +258,36 @@ public sealed class ArchiveContractAssembler
         };
     }
 
+    /// <summary>捕获能量核算报告采用的患者、咨询和能量分配资源。</summary>
+    public ArchiveDocument CreateEnergyDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.CurrentEnergyCalculator is null)
+            throw new InvalidOperationException("当前咨询尚未建立能量核算。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var energy = CreateEnergyAssessment(archive.CurrentEnergyCalculator, archive.ContractIdentity, subject, reference, capturedAt);
+        energy = energy with { Metadata = FreezeVersion(energy.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = [new VersionedResourceReference(energy.Metadata.ResourceId, energy.Metadata.VersionId, energy.ResourceType)]
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, energy]
+            }
+        };
+    }
+
     private static ResourceMetadata FreezeVersion(ResourceMetadata metadata) => metadata with
     {
         VersionId = new ResourceVersionId(Guid.NewGuid())

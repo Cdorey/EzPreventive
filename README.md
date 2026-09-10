@@ -17,7 +17,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 - **机构服务连接**：WPF 可连接机构自行部署的兼容后端，默认执行严格 HTTPS 验证；用户主动确认风险后也可使用自签名 HTTPS 或不加密 HTTP。
 - **登录续期**：短期 JWT 配合一次性刷新凭据，访问临期自动续期；WPF 用端点级 DPAPI 保存刷新凭据，浏览器使用 HttpOnly Cookie。接口协议见 [HTTP API](./docs/http-api/authentication.md)，内部机制与部署见[认证会话说明](./docs/authentication-sessions.md)。
 - **本机档案**：提供格式无关的档案模型、校验与工作流；WASM 使用 IndexedDB，WPF 使用当前用户的应用数据目录。支持 XML 文档打开和导出，WPF 导出后可在资源管理器中定位文件。
-- **报告签发与打印**：NRS 2002、MNA-SF、MUST 试行正式签发和更正，保存固定 PDF 并从档案库重印；量表及 DRIs 速查提供带水印评估稿。报告包支持本机导入导出，签发和打印分别授权。见[报告使用说明](./docs/report-user-guide.md)。
+- **报告签发与打印**：NRS 2002、MNA-SF、MUST、膳食调查和能量核算支持正式签发和更正，保存固定 PDF 并从档案库重印；量表及 DRIs 速查提供带水印评估稿。报告包支持本机导入导出，签发和打印分别授权。见[报告使用说明](./docs/report-user-guide.md)。
 - **维护清理**：支持数据库运行时配置、账号清理预览、认证申请超时拒绝及 LLM 审计保留期，统一由每日维护任务调度。
 - **开放实现**：营养领域逻辑、应用编排和宿主适配已分层，便于测试、复核并复用于未来的其他宿主。
 
