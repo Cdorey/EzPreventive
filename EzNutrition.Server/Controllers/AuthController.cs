@@ -75,7 +75,7 @@ namespace EzNutrition.Server.Controllers
                 if (!result.Success)
                 {
                     logger.LogWarning("Registration failed for user {Username}: {Message}", registrationDto.UserName, result.Message);
-                    return BadRequest(result.Message);
+                    return BadRequest(result);
                 }
                 else
                 {

@@ -57,7 +57,8 @@
                         <GridRow Gutter="(16,0)">
                             <GridCol Xs="24" Md="12">
                                 <FormItem Label="用户名">
-                                    <Input Placeholder="请输入用户名" @bind-Value="@context.UserName" />
+                                    <Input Placeholder="请输入英文字母和数字" @bind-Value="@context.UserName" />
+                                    <div class="username-hint">仅支持英文字母 A–Z 和数字 0–9，不支持中文、空格或符号。</div>
                                 </FormItem>
                             </GridCol>
                             <GridCol Xs="24" Md="12">
@@ -174,14 +175,13 @@
                     "Auth/Register",
                     registrationDto,
                     lifetimeCancellation.Token);
+                var result = await TryReadRegistrationResultAsync(response);
                 if (!response.IsSuccessStatusCode)
                 {
-                    await ShowErrorAsync("提交注册信息失败，请检查填写内容后重试。");
+                    await ShowErrorAsync(GetRegistrationFailureMessage(result));
                     return;
                 }
 
-                var result = await response.Content.ReadFromJsonAsync<RegistrationResultDto>(
-                    lifetimeCancellation.Token);
                 if (result?.Success is not true)
                 {
                     await ShowErrorAsync(result?.Message ?? "注册失败。");
@@ -239,6 +239,36 @@
             loading = false;
         }
     }
+
+    private async Task<RegistrationResultDto?> TryReadRegistrationResultAsync(HttpResponseMessage response)
+    {
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (mediaType?.Contains("json", StringComparison.OrdinalIgnoreCase) is not true)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<RegistrationResultDto>(
+                lifetimeCancellation.Token);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            Logger.LogWarning(ex, "Registration response did not contain the expected public response model.");
+            return null;
+        }
+    }
+
+    private static string GetRegistrationFailureMessage(RegistrationResultDto? result) =>
+        result?.FailureCode switch
+        {
+            RegistrationFailureCode.DuplicateEmail =>
+                "该电子邮箱已注册，请直接登录；如忘记密码，可使用“忘记密码”功能重置。",
+            RegistrationFailureCode.EmailRecipientUnavailable =>
+                "该电子邮箱不存在或暂时无法接收确认邮件，请检查邮箱地址后重试。",
+            _ => "提交注册信息失败，请检查填写内容后重试。"
+        };
 
     private async Task Login()
     {

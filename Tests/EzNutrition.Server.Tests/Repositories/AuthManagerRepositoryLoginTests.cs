@@ -138,6 +138,46 @@ public sealed partial class AuthManagerRepositoryLoginTests
     }
 
     [Fact]
+    public async Task Registration_returns_safe_failure_when_confirmation_recipient_is_rejected()
+    {
+        await using var host = LoginTestHost.Create(
+            emailConfirmationFailure: new EmailRecipientRejectedException(
+                new InvalidOperationException("Simulated SMTP response that must stay on the server.")));
+        var registration = new RegistrationDto
+        {
+            UserName = "rejected-recipient-user",
+            Password = LoginTestHost.InitialPassword,
+            Email = "rejected@example.test"
+        };
+
+        var result = await host.Repository.RegisterUserAsync(registration);
+
+        Assert.False(result.Success);
+        Assert.Equal(RegistrationFailureCode.EmailRecipientUnavailable, result.FailureCode);
+        Assert.DoesNotContain("SMTP", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(await host.UserManager.FindByNameAsync(registration.UserName));
+    }
+
+    [Fact]
+    public async Task Registration_returns_specific_failure_for_duplicate_email()
+    {
+        await using var host = LoginTestHost.Create();
+        await host.CreateUserAsync("existing-email-user", "duplicate@example.test", true);
+        var registration = new RegistrationDto
+        {
+            UserName = "new-user-with-duplicate-email",
+            Password = LoginTestHost.InitialPassword,
+            Email = "duplicate@example.test"
+        };
+
+        var result = await host.Repository.RegisterUserAsync(registration);
+
+        Assert.False(result.Success);
+        Assert.Equal(RegistrationFailureCode.DuplicateEmail, result.FailureCode);
+        Assert.Null(await host.UserManager.FindByNameAsync(registration.UserName));
+    }
+
+    [Fact]
     public async Task Certification_submission_and_review_use_the_injected_utc_clock()
     {
         var utcNow = new DateTimeOffset(2026, 9, 1, 2, 3, 4, TimeSpan.Zero);
@@ -343,7 +383,8 @@ public sealed partial class AuthManagerRepositoryLoginTests
 
         internal static LoginTestHost Create(
             bool failEmailConfirmation = false,
-            TimeProvider? timeProvider = null)
+            TimeProvider? timeProvider = null,
+            Exception? emailConfirmationFailure = null)
         {
             using var rsa = RSA.Create(2048);
             var privateKey = Convert.ToBase64String(rsa.ExportPkcs8PrivateKey());
@@ -387,7 +428,11 @@ public sealed partial class AuthManagerRepositoryLoginTests
             services.Configure<AuthBootstrapSettings>(options =>
                 options.AdminPassword = InitialPassword);
             services.AddSingleton<IAccountEmailSender>(
-                new TestAccountEmailSender(failEmailConfirmation));
+                new TestAccountEmailSender(
+                    emailConfirmationFailure ??
+                    (failEmailConfirmation
+                        ? new InvalidOperationException(TestAccountEmailSender.FailureMessage)
+                        : null)));
             services.AddSingleton<IWebHostEnvironment>(
                 new TestWebHostEnvironment(contentRootPath));
             services.AddSingleton<CertificateFileStore>();
@@ -444,7 +489,7 @@ public sealed partial class AuthManagerRepositoryLoginTests
         public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
-    private sealed class TestAccountEmailSender(bool failConfirmation) : IAccountEmailSender
+    private sealed class TestAccountEmailSender(Exception? confirmationFailure) : IAccountEmailSender
     {
         internal const string FailureMessage = "Simulated email confirmation failure.";
 
@@ -452,8 +497,8 @@ public sealed partial class AuthManagerRepositoryLoginTests
             ApplicationUser user,
             string email,
             string confirmationLink,
-            CancellationToken cancellationToken = default) => failConfirmation
-                ? Task.FromException(new InvalidOperationException(FailureMessage))
+            CancellationToken cancellationToken = default) => confirmationFailure is not null
+                ? Task.FromException(confirmationFailure)
                 : Task.CompletedTask;
 
         public Task SendPasswordResetLinkAsync(

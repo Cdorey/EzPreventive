@@ -188,7 +188,26 @@ namespace EzNutrition.Server.Services
                 smtpSettings.UserName,
                 smtpSettings.Password,
                 deliveryToken);
-            await client.SendAsync(message, deliveryToken);
+            try
+            {
+                await client.SendAsync(message, deliveryToken);
+            }
+            catch (SmtpCommandException ex)
+            {
+                logger.LogError(
+                    ex,
+                    "SMTP 发送失败：ErrorCode={ErrorCode}, StatusCode={StatusCode}, Mailbox={Mailbox}",
+                    ex.ErrorCode,
+                    ex.StatusCode,
+                    ex.Mailbox);
+
+                if (ex.ErrorCode == SmtpErrorCode.RecipientNotAccepted)
+                {
+                    throw new EmailRecipientRejectedException(ex);
+                }
+
+                throw;
+            }
             try
             {
                 await client.DisconnectAsync(true, deliveryToken);

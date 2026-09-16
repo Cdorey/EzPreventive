@@ -190,13 +190,20 @@ namespace EzNutrition.Server.Data.Repositories
             var result = await userManager.CreateAsync(user, registrationDto.Password);
             if (!result.Succeeded)
             {
+                var duplicateEmail = result.Errors.Any(error =>
+                    error.Code == nameof(IdentityErrorDescriber.DuplicateEmail));
                 logger.LogWarning(
                     "用户注册未完成，Identity 错误代码：{ErrorCodes}",
                     string.Join(", ", result.Errors.Select(error => error.Code)));
                 return new RegistrationResultDto
                 {
                     Success = false,
-                    Message = "注册信息无法使用，请更换用户名或邮箱后重试。"
+                    Message = duplicateEmail
+                        ? "该电子邮箱已注册，请直接登录或使用忘记密码功能。"
+                        : "注册信息无法使用，请更换用户名或邮箱后重试。",
+                    FailureCode = duplicateEmail
+                        ? RegistrationFailureCode.DuplicateEmail
+                        : null
                 };
             }
 
@@ -219,6 +226,20 @@ namespace EzNutrition.Server.Data.Repositories
                     Success = true,
                     Message = "Registration successful",
                     UploadTicket = certificateTicket
+                };
+            }
+            catch (EmailRecipientRejectedException ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "用户 {UserName} 的确认邮箱被邮件服务拒绝，正在回滚新建账号。",
+                    registrationDto.UserName);
+                await RollbackFailedRegistrationAsync(user);
+                return new RegistrationResultDto
+                {
+                    Success = false,
+                    Message = "该电子邮箱不存在或暂时无法接收确认邮件，请检查邮箱地址后重试。",
+                    FailureCode = RegistrationFailureCode.EmailRecipientUnavailable
                 };
             }
             catch (Exception ex)

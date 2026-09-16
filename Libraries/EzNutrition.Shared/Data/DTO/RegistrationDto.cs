@@ -7,7 +7,11 @@ namespace EzNutrition.Shared.Data.DTO
         /// <summary>
         /// 用户名，必填且应唯一
         /// </summary>
-        [Required(ErrorMessage = "用户名不能为空"), Display(Name = "用户名")]
+        [Required(ErrorMessage = "用户名不能为空")]
+        [RegularExpression(
+            @"\A[A-Za-z0-9]+\z",
+            ErrorMessage = "用户名只能包含英文字母和数字，不支持中文、空格或符号")]
+        [Display(Name = "用户名")]
         public required string UserName { get; set; }
 
         /// <summary>
