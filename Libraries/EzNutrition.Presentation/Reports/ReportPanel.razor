@@ -113,6 +113,7 @@
     {
         ReportKind.Dietary => Workspace.DietaryRecallSurvey is { SummaryCalculationTable: not null } survey && survey.RecallEntries.Count > 0,
         ReportKind.Energy => Workspace.CurrentEnergyCalculator is { Energy: > 0 },
+        ReportKind.Soap => SoapReportFactory.HasContent(Workspace.SubjectiveObjectiveAssessmentPlanInformation),
         _ => Assessment?.Evaluation.IsComplete == true
     };
 
@@ -133,7 +134,7 @@
     private PreparationRequest? configuration;
     private sealed record PreparationRequest(bool ForIssuance, Guid? RevisionId);
 
-    private Task BeginPrepareAsync(bool forIssuance, Guid? revisionId = null) => Kind == ReportKind.Assessment
+    private Task BeginPrepareAsync(bool forIssuance, Guid? revisionId = null) => Kind is ReportKind.Assessment or ReportKind.Soap
         ? PrepareAsync(forIssuance, revisionId)
         : RunAsync(async () =>
         {
@@ -171,6 +172,7 @@
         await ReleasePreviewAsync();
         var listed = Kind switch
         {
+            ReportKind.Soap => await Workflow.ListSoapRevisableAsync(Workspace, lifetime.Token),
             ReportKind.Energy => await Workflow.ListEnergyRevisableAsync(Workspace, lifetime.Token),
             ReportKind.Dietary => await Workflow.ListDietaryRevisableAsync(Workspace, lifetime.Token),
             _ => await Workflow.ListRevisableAsync(Workspace, Assessment!, lifetime.Token)
@@ -193,6 +195,7 @@
         patientName = Workspace.Client.Name;
         var pending = Kind switch
         {
+            ReportKind.Soap => await Workflow.PrepareSoapAsync(Workspace, forIssuance, revisionId, lifetime.Token),
             ReportKind.Energy => await Workflow.PrepareEnergyAsync(Workspace, forIssuance, revisionId, energyOptions, lifetime.Token),
             ReportKind.Dietary => await Workflow.PrepareDietaryAsync(Workspace, forIssuance, revisionId, dietaryOptions, lifetime.Token),
             _ => revisionId is { } id

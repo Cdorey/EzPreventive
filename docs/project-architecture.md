@@ -61,7 +61,7 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 
 量表的正式题序属于 Common，纸张上的列宽、分页和签发栏属于 Presentation。当前 UI、Presentation 和 Application 都不直接依赖 Common，宿主注册具体量表，应用通过 Domain 定义的公共接口获取内容。
 
-膳食报告沿用同一分层：Domain 保存逐项核算结果，Application 捕获膳食、DRIs 与咨询快照并检查签发条件，Presentation 维护专用 PDF 展示模型和模板。能量报告复用现有 EnergyAssessment 契约，Application 保存节段配置与核算快照，Presentation 定义模板和配置编辑器，UI 通过报告操作插槽接入。量表、膳食与能量共用 `ReportPanel`、报告版本组装、包存储及重印流程，分别筛选更正对象。
+膳食报告沿用同一分层：Domain 保存逐项核算结果，Application 捕获膳食、DRIs 与咨询快照并检查签发条件，Presentation 维护专用 PDF 展示模型和模板。能量报告复用现有 EnergyAssessment 契约，Application 保存节段配置与核算快照，Presentation 定义模板和配置编辑器，UI 通过报告操作插槽接入。SOAP 报告复用 SoapNote 契约，由 Application 冻结四节原文，Presentation 排版为支持长文本分页的 PDF。量表、膳食、能量与 SOAP 共用 `ReportPanel`、报告版本组装、包存储及重印流程，分别筛选更正对象。
 
 架构测试会验证：
 

@@ -278,7 +278,11 @@
                     @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
                     {
                         <section id="nutrition-diagnosis" class="surface-card diagnosis-card" aria-label="营养问题与诊断">
-                            <MedicalInformation Information="medicalInformation" History="CurrentArchive.History" OnLoadHistory="LoadHistoryAsync" />
+                            <MedicalInformation Information="medicalInformation" History="CurrentArchive.History" OnLoadHistory="LoadHistoryAsync">
+                                <ReportActions>
+                                    <ReportPanel @key="medicalInformation" Workspace="CurrentArchive" Kind="ReportKind.Soap" />
+                                </ReportActions>
+                            </MedicalInformation>
                         </section>
                     }
 

@@ -31,6 +31,7 @@ expected = {
     "mna-sf": ("MNA-SF", "13 分", "未提示营养不良风险"),
     "dietary": ("24 小时膳食调查报告", "模拟食物", "247.5 kcal", "150 g", "75%"),
     "energy": ("能量核算报告", "2000 kcal/日", "总能量核算", "三餐分配", "食物类别每日交换份"),
+    "soap": ("SOAP 咨询记录报告", "合成主观资料", "第二行记录", "合成客观资料", "合成问题评估", "合成处理计划"),
 }[scale]
 if standalone:
     root = Path("tmp/reports") / (scale + "-standalone")
@@ -48,11 +49,13 @@ if standalone:
     print(f"{scale}：独立速查完整/未完成内容和水印通过，无正式报告编号。")
     sys.exit(0)
 if amend:
-    assert scale in ("must", "dietary", "energy")
+    assert scale in ("must", "dietary", "energy", "soap")
     expected = (("24 小时膳食调查报告", "模拟食物", "495 kcal", "300 g", "第 2 版")
                 if scale == "dietary" else ("MUST", "2 分", "营养不良高风险", "第 2 版"))
     if scale == "energy":
         expected = ("能量核算报告", "2200 kcal/日", "三餐能量交换份", "食物类别每日交换份", "第 2 版")
+    if scale == "soap":
+        expected = ("SOAP 咨询记录报告", "合成主观资料", "合成客观资料", "合成问题评估", "更正后的合成处理计划", "第 2 版")
 root = Path("tmp/reports") / (scale + ("-revision" if amend else ""))
 with zipfile.ZipFile(root / "browser-issued.ezreport") as package:
     original = package.read("report.pdf")

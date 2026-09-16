@@ -2,7 +2,7 @@
 
 日期：2026-09-09。分支：`codex/report-issuance-printing`。
 
-本审计记录量表首版验收、`881e835` 的失败恢复回归及膳食、能量报告验证，功能范围见[实现说明](report-issuance-printing-plan.md)。首版试行已完成验收；WPF 生成及退出复验在 Active 桌面会话通过，产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0，当次成品内容及全部页面视觉检查通过。待讨论业务列在文末。
+本审计记录量表首版验收、`881e835` 的失败恢复回归及膳食、能量和 SOAP 报告验证，功能范围见[实现说明](report-issuance-printing-plan.md)。首版试行已完成验收；WPF 生成及退出复验在 Active 桌面会话通过，产品适配器生成七份合成 PDF，控件正常释放，进程退出码为 0，当次成品内容及全部页面视觉检查通过。待讨论业务列在文末。
 
 运行环境曾在同一 Windows 会话 10 的 `Active` 与 `Disconnected` 间变化：Active 时生成成功；生命周期修改后的复验又在 `CreateD3D9Device` 报 `0x8876086A`，随后 `query session` 确认会话 10 为 Disconnected、控制台 9 为 Connected。没有切换、连接或修改任何 Windows 会话，也不将断开会话的图形初始化失败推断为正常桌面的产品缺陷。
 
@@ -55,7 +55,7 @@
 - 针对调阅与失败恢复：`dotnet test Tests/EzNutrition.Client.Tests/EzNutrition.Client.Tests.csproj -c Release --filter FullyQualifiedName~ReportWorkflowTests`。
 - `node tools/reports/verify-pdf.mjs`，随后 `python tools/reports/check-pdf.py` 和 Poppler 逐页检查。
 - 膳食合成模型：设置 `EZNUTRITION_REPORT_TEST_OUTPUT=tmp/reports/dietary` 后执行 Client 报告测试；再执行 `node tools/reports/verify-pdf.mjs tmp/reports/dietary tmp/reports/dietary/dietary-model.json`、`python tools/reports/check-dietary.py` 和 Poppler 逐页检查。
-- `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris|dietary|energy`；MUST、dietary 和 energy 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
+- `node tools/reports/verify-browser.mjs <本机地址> must|nrs-2002|mna-sf|dris|dietary|energy|soap`；MUST、dietary、energy 和 soap 支持 `--revision`，三种量表支持 `--standalone`。配套 `check-browser.py` 检查字节、摘要、内容和水印。
 - 能量合成模型：设置 `EZNUTRITION_REPORT_TEST_OUTPUT=tmp/reports/energy` 后执行 Client 报告测试，再执行 `node tools/reports/verify-pdf.mjs tmp/reports/energy "" tmp/reports/energy/energy-model.json`、`python tools/reports/check-energy.py` 和 Poppler 逐页检查。
 - `node tools/reports/verify-storage.mjs` 验证真实 IndexedDB 原子提交。
 - `dotnet run --project tools/reports/WpfProbe/WpfProbe.csproj -- <合成报告.pdf> <输出目录>` 验证桌面原件查看与打印交互。
@@ -71,6 +71,12 @@
 真实浏览器使用合成资料完成仅选交换份的评估打印、全节段签发、修改总能量后的更正、刷新档案库和原件重印。检查配置取消、全空禁用、1000px 预览与小屏适配；报告包当前 PDF 与打印窗口字节一致，历史 PDF 与初版预览字节一致，SHA-256 匹配，报告阶段没有患者数据请求。膳食报告与 MUST 更正流程通过同轮浏览器回归。
 
 能量模板版本 1 的完整正式/评估样本各 2 页，仅选总能量、分配或交换份的样本各 1 页，已逐页查看排版并检查节段、水印、中文和页脚。能量报告沿用两个宿主的共用渲染和打印端口；本轮实际打印交互使用浏览器。
+SOAP 报告验证（2026-09-16）：`ReportWorkflowTests.Soap.cs` 新增 16 项用例，覆盖独立权限、空记录拦截、空节标题与空白正文、四节文本和患者变化拦截、模块更正隔离、固定快照、报告包导入重印及预览失败恢复。全解决方案 Release 测试 779 项通过（Common 26、Contracts 79、XML 8、Application 82、Client 325、WPF 65、Server 194）。完整 Release 构建通过；保留现有 2FA 提醒警告。
+
+浏览器合成记录完成评估打印、签发、修改 P 节后的更正、刷新调阅和原件重印，包内当前 PDF、打印字节与 SHA-256 一致，初版 PDF 原样保留；报告阶段请求检查通过。正式、评估和空节样本各 1 页，长文本样本 5 页，已逐页核对空白正文、换行、分页和每页水印。SOAP 本轮实际打印交互使用浏览器，WPF 完成共享代码构建及自动测试。MUST、膳食和能量报告的签发、更正与重印浏览器回归通过。
+
+合成模型可通过设置 `EZNUTRITION_REPORT_TEST_OUTPUT` 为仓库 `tmp/reports/soap` 的绝对路径，再执行 SOAP 报告测试导出；使用 `node tools/reports/verify-pdf.mjs tmp/reports/soap "" "" tmp/reports/soap/soap-model.json` 生成样本，`python tools/reports/check-soap.py` 检查内容并配合 Poppler 逐页查看。浏览器命令为 `node tools/reports/verify-browser.mjs <本机地址> soap --revision`，使用 `python tools/reports/check-browser.py soap --revision` 检查报告包与实际打印原件。
+
 ## 保留讨论的业务边界
 
 用户允许把不适宜自行决定的特性留待讨论，以下事项没有用技术默认值替代业务决定：
@@ -78,6 +84,6 @@
 1. 独立作废：没有后继报告时如何作废，谁可操作，是否需说明及历史状态版本；当前不开放入口。
 2. 已被替代的旧版输出：历史 PDF 保留，但普通重印只输出当前版本。是否提供原件查看、带“已被替代”标记的副本及对应权限，仍需决定。
 3. 正式报告删除和整库清空：当前保护正式报告，不通过清空绕过待定的删除规则。
-4. 其他模块的正式报告、图表类模板、咨询总报告、SOAP 和 AI 正文：当前正式报告覆盖三种量表、膳食调查及能量核算，后续需明确各自内容与签发条件。
+4. 其他模块的正式报告、图表类模板、咨询总报告和 AI 正文：当前正式报告覆盖三种量表、膳食调查、能量核算及 SOAP，后续需明确各自内容与签发条件。
 
 操作与备份说明见[使用说明](report-user-guide.md)。本模块没有实现身份独立认证、密码学电子签章或自动免责机制。

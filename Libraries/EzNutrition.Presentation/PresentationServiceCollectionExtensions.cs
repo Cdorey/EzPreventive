@@ -95,6 +95,8 @@ public static class PresentationServiceCollectionExtensions
         services.AddScoped<IDietaryReportRenderer, PdfMakeDietaryReportRenderer>();
         services.AddScoped<EnergyReportFactory>();
         services.AddScoped<IEnergyReportRenderer, PdfMakeEnergyReportRenderer>();
+        services.AddScoped<SoapReportFactory>();
+        services.AddScoped<ISoapReportRenderer, PdfMakeSoapReportRenderer>();
         services.AddScoped<ReportPackage>();
         services.AddScoped<ReportWorkflow>();
         services.AddScoped<IReportAuthorization, ReportAuthorization>();

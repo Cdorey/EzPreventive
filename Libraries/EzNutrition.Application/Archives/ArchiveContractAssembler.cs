@@ -288,6 +288,36 @@ public sealed class ArchiveContractAssembler
         };
     }
 
+    /// <summary>捕获 SOAP 报告采用的患者、咨询和记录资源。</summary>
+    public ArchiveDocument CreateSoapDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.SubjectiveObjectiveAssessmentPlanInformation is null)
+            throw new InvalidOperationException("当前咨询尚未建立 SOAP 记录。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var note = CreateSoapNote(archive.SubjectiveObjectiveAssessmentPlanInformation, archive.ContractIdentity, subject, reference, capturedAt);
+        note = note with { Metadata = FreezeVersion(note.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = [new VersionedResourceReference(note.Metadata.ResourceId, note.Metadata.VersionId, note.ResourceType)]
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, note]
+            }
+        };
+    }
+
     private static ResourceMetadata FreezeVersion(ResourceMetadata metadata) => metadata with
     {
         VersionId = new ResourceVersionId(Guid.NewGuid())

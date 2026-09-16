@@ -13,11 +13,12 @@ const samples = {
 const dris = scaleCode === "dris";
 const dietary = scaleCode === "dietary";
 const energy = scaleCode === "energy";
+const soap = scaleCode === "soap";
 const sample = samples[scaleCode];
-if (!sample && !dris && !dietary && !energy) throw new Error("请选择 must、nrs-2002、mna-sf、dris、dietary 或 energy。");
+if (!sample && !dris && !dietary && !energy && !soap) throw new Error("请选择 must、nrs-2002、mna-sf、dris、dietary、energy 或 soap。");
 const amend = process.argv[4] === "--revision";
 const standalone = process.argv[4] === "--standalone";
-if (amend && scaleCode !== "must" && !dietary && !energy) throw new Error("更正验收样本使用 MUST、膳食调查或能量核算。");
+if (amend && scaleCode !== "must" && !dietary && !energy && !soap) throw new Error("更正验收样本使用 MUST、膳食调查、能量核算或 SOAP。");
 const food = { foodId: randomUUID(), friendlyCode: "test-food", friendlyName: "模拟食物", ediblePortion: 75 };
 const nutrients = ["能量", "蛋白质", "脂肪", "碳水化合物", "钾", "钠", "镁", "铁", "锰", "锌", "磷", "硒", "铜",
     "总维生素A", "视黄醇", "胡萝卜素", "硫胺素", "核黄素", "烟酸", "维生素C", "总维生素E"]
@@ -161,7 +162,15 @@ try {
         await page.locator(".ant-form-item").filter({ hasText: "体重（kg）" }).locator("input").fill("60");
         await page.getByRole("button", { name: "确认并进入核算" }).click();
         let assessment;
-        if (energy) {
+        const reportArea = soap ? page.locator("#nutrition-diagnosis") : page.locator(".ant-tabs-tabpane-active");
+        if (soap) {
+            if (!(await reportArea.getByRole("button", { name: "签发报告", exact: true }).isDisabled()))
+                throw new Error("空 SOAP 仍可签发。");
+            const fields = reportArea.locator("textarea");
+            for (const [index, text] of ["合成主观资料\n第二行记录", "合成客观资料", "合成问题评估", "合成处理计划"].entries())
+                await fields.nth(index).fill(text);
+            await fields.last().press("Tab");
+        } else if (energy) {
             await page.getByRole("tab", { name: "能量评估", exact: true }).click();
             await page.locator("#pal").getByText("1.5", { exact: true }).click();
             await page.getByRole("button", { name: "计算推荐能量", exact: true }).click();
@@ -188,7 +197,7 @@ try {
         }
         reportPhase = true;
         await mkdir(output, { recursive: true });
-        await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
+        await reportArea.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
         const configureReport = async (showAll, includeDri) => {
             if (energy) {
                 await page.getByText("能量报告设置", { exact: true }).waitFor();
@@ -232,7 +241,7 @@ try {
             await page.getByText(energy ? "能量报告设置" : "膳食报告设置", { exact: true }).waitFor();
             await page.getByRole("button", { name: "取消", exact: true }).click();
             if (await page.locator("iframe.report-preview").count()) throw new Error("取消配置留下了预览。");
-            await page.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
+            await reportArea.getByRole("button", { name: "打印当前评估稿", exact: true }).click();
         }
         await configureReport(false, false);
         await assertPreviewWidth();
@@ -262,7 +271,7 @@ try {
         const beforeIssue = await page.evaluate(async () => (await import("/js/archive-storage.js")).listDocuments());
         if (beforeIssue.some(record => record.formatIdentifier.endsWith("report-package")))
             throw new Error("评估打印不应建立正式报告档案。");
-        await page.getByRole("button", { name: "签发报告", exact: true }).click();
+        await reportArea.getByRole("button", { name: "签发报告", exact: true }).click();
         await configureReport(true, true);
         await assertPreviewWidth();
         await page.locator("iframe.report-preview[src^='blob:']").waitFor({ state: "visible" });
@@ -276,7 +285,10 @@ try {
         await page.getByText("报告已签发并保存到本机档案库。", { exact: true }).waitFor({ state: "visible" });
         await page.getByRole("button", { name: "关闭", exact: true }).click();
         if (amend) {
-            if (energy) {
+            if (soap) {
+                await reportArea.locator("textarea").nth(3).fill("更正后的合成处理计划");
+                await reportArea.locator("textarea").nth(3).press("Tab");
+            } else if (energy) {
                 await page.locator("#corEnergy input").fill("2200");
                 await page.locator("#corEnergy input").press("Tab");
                 await page.locator(".energy-summary").getByText(/核定总能量2200/).waitFor();
@@ -288,7 +300,7 @@ try {
             } else {
             await assessment.locator("input[value='below-18-5']").check();
             }
-            await page.getByRole("button", { name: "更正已签发报告", exact: true }).click();
+            await reportArea.getByRole("button", { name: "更正已签发报告", exact: true }).click();
             await page.getByRole("button", { name: /更正第 1 版/ }).click();
             await configureReport(false, false);
             await assertPreviewWidth();
@@ -298,7 +310,7 @@ try {
             await page.getByRole("button", { name: "关闭", exact: true }).click();
         }
         await page.goto(origin + "/archives");
-        await page.getByRole("button", { name: energy ? "能量核算报告" : dietary ? "24 小时膳食调查报告" : sample.title + "报告", exact: false }).click();
+        await page.getByRole("button", { name: soap ? "SOAP 咨询记录报告" : energy ? "能量核算报告" : dietary ? "24 小时膳食调查报告" : sample.title + "报告", exact: false }).click();
         await page.getByRole("button", { name: "打印报告原件" }).waitFor({ state: "visible" });
         if (amend) await page.getByText("已被后续签发版本替代；历史原件保留在报告包中。", { exact: true }).waitFor({ state: "visible" });
         const records = await page.evaluate(async () => {

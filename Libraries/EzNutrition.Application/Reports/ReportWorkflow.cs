@@ -68,7 +68,9 @@ public sealed partial class ReportWorkflow(
     DietaryReportFactory dietaryFactory,
     IDietaryReportRenderer dietaryRenderer,
     EnergyReportFactory energyFactory,
-    IEnergyReportRenderer energyRenderer)
+    IEnergyReportRenderer energyRenderer,
+    SoapReportFactory soapFactory,
+    ISoapReportRenderer soapRenderer)
 {
     /// <summary>打印独立速查结果；只捕获当前量表，不建立咨询、签发记录或本机档案。</summary>
     public async ValueTask PrintStandaloneAsync(NutritionAssessmentRun assessment, CancellationToken cancellationToken = default)

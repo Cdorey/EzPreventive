@@ -8,5 +8,7 @@ public enum ReportKind
     /// <summary>膳食调查。</summary>
     Dietary,
     /// <summary>能量核算。</summary>
-    Energy
+    Energy,
+    /// <summary>SOAP 咨询记录。</summary>
+    Soap
 }

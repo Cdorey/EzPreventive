@@ -123,6 +123,23 @@ try {
             console.log(`${name}: ${bytes.length} bytes`);
         }
     }
+    if (process.argv[5]) {
+        const soap = JSON.parse(await readFile(resolve(process.argv[5]), "utf8"));
+        for (const [name, data] of [
+            ["soap-signed", soap],
+            ["soap-evaluation", { ...soap, isEvaluation: true }],
+            ["soap-empty-sections", { ...soap, sections: soap.sections.map((section, index) => ({ ...section, text: index === 3 ? "合成处理计划" : "" })) }],
+            ["soap-long", { ...soap, isEvaluation: true, sections: soap.sections.map(section => ({ ...section,
+                text: Array.from({ length: 40 }, (_, i) => `${i + 1}. 合成记录：用于核对换行、长段落分页与完整输出。`).join("\n") })) }]
+        ]) {
+            const bytes = await page.evaluate(async data => {
+                const { render } = await import("/reports/soap-report.mjs");
+                return Array.from(await render(data));
+            }, data);
+            await writeFile(resolve(output, `${name}.pdf`), new Uint8Array(bytes));
+            console.log(`${name}: ${bytes.length} bytes`);
+        }
+    }
     if (externalRequests.length) throw new Error("发现外部请求：" + externalRequests.join(", "));
     console.log("全部 PDF 由本地资源生成，无外部网络请求。");
 } finally {

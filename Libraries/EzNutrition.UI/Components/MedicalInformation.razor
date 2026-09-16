@@ -33,9 +33,13 @@
             <ConsultationHistoryPanel History="History" Item="ConsultationHistoryItem.Plan" Title="既往处理计划" OnLoad="OnLoadHistory" />
         </FormItem>
     </Form>
+    @ReportActions
 </div>
 
 @code {
+    /// <summary>由展示层提供当前 SOAP 记录的报告操作。</summary>
+    [Parameter] public RenderFragment? ReportActions { get; set; }
+
     [Parameter, EditorRequired]
     public required SubjectiveObjectiveAssessmentPlanInformation Information { get; set; }
 
