@@ -51,7 +51,7 @@ EzNutrition 基于 Blazor WebAssembly、WPF Blazor Hybrid 与 ASP.NET Core，提
 
 依赖关系遵循“领域与应用层不感知具体宿主”的方向：Application 通过端口描述所需能力，WASM、WPF 或其他宿主在各自组合根中提供具体实现。WASM 与 WPF 是互不引用的并列宿主，共享完整工作台时统一依赖 `EzNutrition.Presentation`。详细边界和各上级类库盘点见[项目与依赖边界](./docs/project-architecture.md)。
 
-开发文档入口见[文档目录](./docs/README.md)；前后端对接以 [HTTP API 2.2](./docs/http-api/README.md) 为准。
+当前发行版为 **2.2.0.0**，标签为 `v2.2.0.0`，变更与升级要求见[发布说明](./docs/release-2.2.0.0.md)。开发文档入口见[文档目录](./docs/README.md)；前后端对接以 [HTTP API 2.2](./docs/http-api/README.md) 为准。
 
 ## 本地开发与验证
 
