@@ -2,6 +2,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject UserSessionService UserSession
+@inject PublicSystemInfoService SystemInfo
 @inject NavigationManager Navigation
 
 <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -44,29 +45,29 @@
 
             <Footer Class="app-footer">
                 <span>EzNutrition · 公共卫生营养评估工具</span>
-                @if (!string.IsNullOrEmpty(UserSession.CaseNumber))
+                @if (!string.IsNullOrEmpty(SystemInfo.CaseNumber))
                 {
-                    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">@UserSession.CaseNumber</a>
+                    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">@SystemInfo.CaseNumber</a>
                 }
-                @if (!string.IsNullOrEmpty(UserSession.ClientVersion) || !string.IsNullOrEmpty(UserSession.ServerVersion))
+                @if (!string.IsNullOrEmpty(SystemInfo.ClientVersion) || !string.IsNullOrEmpty(SystemInfo.ServerVersion))
                 {
-                    <span class="version-status @(UserSession.HasVersionCompatibilityWarning ? "version-status-warning" : null)"
+                    <span class="version-status @(SystemInfo.HasVersionCompatibilityWarning ? "version-status-warning" : null)"
                           aria-label="前后端版本信息">
-                        @if (!string.IsNullOrEmpty(UserSession.ClientVersion))
+                        @if (!string.IsNullOrEmpty(SystemInfo.ClientVersion))
                         {
-                            <span title="当前前端宿主产品版本">前端 v@(UserSession.ClientVersion)</span>
+                            <span title="当前前端宿主产品版本">前端 v@(SystemInfo.ClientVersion)</span>
                         }
-                        @if (!string.IsNullOrEmpty(UserSession.ClientVersion) && !string.IsNullOrEmpty(UserSession.ServerVersion))
+                        @if (!string.IsNullOrEmpty(SystemInfo.ClientVersion) && !string.IsNullOrEmpty(SystemInfo.ServerVersion))
                         {
                             <span aria-hidden="true">·</span>
                         }
-                        @if (!string.IsNullOrEmpty(UserSession.ServerVersion))
+                        @if (!string.IsNullOrEmpty(SystemInfo.ServerVersion))
                         {
-                            <span title="当前连接的服务端产品版本">后端 v@(UserSession.ServerVersion)</span>
+                            <span title="当前连接的服务端产品版本">后端 v@(SystemInfo.ServerVersion)</span>
                         }
                     </span>
                 }
-                @if (UserSession.HasVersionCompatibilityWarning)
+                @if (SystemInfo.HasVersionCompatibilityWarning)
                 {
                     <Tag Color="@("red")">
                         <Icon Type="exclamation-circle" Theme="IconThemeType.Outline" /> 可能存在兼容问题
@@ -125,11 +126,16 @@
         }
     }
 
+    /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += HandleLocationChanged;
-        await UserSession.InitializeAsync();
+        SystemInfo.StateChanged += HandleSystemInfoChanged;
+        await Task.WhenAll(UserSession.InitializeAsync(), SystemInfo.InitializeAsync());
     }
+
+    /// <summary>公共部署信息完成加载后更新页脚。</summary>
+    private void HandleSystemInfoChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
     {
@@ -143,8 +149,10 @@
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Navigation.LocationChanged -= HandleLocationChanged;
+        SystemInfo.StateChanged -= HandleSystemInfoChanged;
     }
 }

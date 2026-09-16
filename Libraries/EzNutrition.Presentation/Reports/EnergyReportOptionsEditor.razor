@@ -1,0 +1,41 @@
+@using EzNutrition.Application.Reports
+
+<div class="energy-report-options">
+    <p>请选择本次报告包含的节段：</p>
+    <Checkbox Checked="includeTotalEnergy" CheckedChanged="value => includeTotalEnergy = value" Disabled="@Busy">总能量核算</Checkbox>
+    <Checkbox Checked="includeAllocation" CheckedChanged="value => includeAllocation = value" Disabled="@Busy">宏量营养素与三餐分配</Checkbox>
+    <Checkbox Checked="includeExchanges" CheckedChanged="value => includeExchanges = value" Disabled="@Busy">交换份（三餐与食物类别）</Checkbox>
+    @if (!HasSection)
+    {
+        <p role="status">请至少选择一个报告节段。</p>
+    }
+    <div class="options-actions">
+        <Button Disabled="@Busy" OnClick="OnCancel">取消</Button>
+        <Button Type="@ButtonType.Primary" Disabled="@(Busy || !HasSection)" OnClick="ConfirmAsync">生成预览</Button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EnergyReportOptions Options { get; set; } = new();
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<EnergyReportOptions> OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private EnergyReportOptions? loadedOptions;
+    private bool includeTotalEnergy;
+    private bool includeAllocation;
+    private bool includeExchanges;
+    private bool HasSection => includeTotalEnergy || includeAllocation || includeExchanges;
+
+    protected override void OnParametersSet()
+    {
+        if (Options == loadedOptions) return;
+        loadedOptions = Options;
+        includeTotalEnergy = Options.IncludeTotalEnergy;
+        includeAllocation = Options.IncludeAllocation;
+        includeExchanges = Options.IncludeExchanges;
+    }
+
+    private Task ConfirmAsync() => Busy || !HasSection ? Task.CompletedTask
+        : OnConfirm.InvokeAsync(new EnergyReportOptions(includeTotalEnergy, includeAllocation, includeExchanges));
+}

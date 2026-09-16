@@ -1,9 +1,13 @@
 @page "/archives"
 @using EzNutrition.Application.Archives
+@using EzNutrition.Application.Reports
 @using EzNutrition.Presentation.Services
 @attribute [Authorize]
 @inject ConsultationWorkspaceManager WorkspaceManager
 @inject NavigationManager Navigation
+@inject ReportWorkflow Reports
+@inject IArchiveDocumentTransport Transport
+@inject IMessageService Message
 
 <PageTitle>本机档案</PageTitle>
 
@@ -14,10 +18,38 @@
         <p>保存和调阅当前设备中的营养咨询档案，或与外部档案文档交换。</p>
     </header>
 
-    <ArchiveCenter OnStartFollowUp="StartFollowUp" />
+    <ArchiveCenter OnStartFollowUp="StartFollowUp" OnPrintReport="PrintReportAsync" OnImportReport="ImportReportAsync" />
 </section>
 
 @code {
+    private async Task PrintReportAsync(Guid documentId)
+    {
+        try
+        {
+            await Reports.PrintStoredAsync(documentId);
+            await Message.SuccessAsync("已打开报告打印窗口，请在查看器中选择打印机。");
+        }
+        catch (UnauthorizedAccessException exception) { await Message.ErrorAsync(exception.Message); }
+        catch (InvalidDataException exception) { await Message.ErrorAsync(exception.Message); }
+        catch (IOException) { await Message.ErrorAsync("报告原件读取失败，请检查本机档案。"); }
+        catch (JSException) { await Message.ErrorAsync("报告窗口未能打开，请允许本站打开新窗口后重试。"); }
+    }
+
+    private async Task ImportReportAsync()
+    {
+        try
+        {
+            var external = await Transport.OpenAsync();
+            if (external is null) return;
+            await Reports.ImportAsync(external);
+            await Message.SuccessAsync("报告包已保存到本机档案库。");
+        }
+        catch (InvalidDataException exception) { await Message.ErrorAsync(exception.Message); }
+        catch (UnauthorizedAccessException) { await Message.ErrorAsync("当前宿主不允许写入档案。"); }
+        catch (IOException) { await Message.ErrorAsync("报告包读取或保存失败，请重试。"); }
+        catch (InvalidOperationException exception) { await Message.ErrorAsync(exception.Message); }
+    }
+
     private void StartFollowUp(ArchivePatientContext patientContext)
     {
         var workspaceId = WorkspaceManager.NewWorkspace(patientContext);

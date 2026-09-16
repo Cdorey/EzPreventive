@@ -1,4 +1,5 @@
 using EzNutrition.Wpf.Archives;
+using EzNutrition.Presentation.Services;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Desktop;
 using EzNutrition.Wpf.Security;
@@ -19,6 +20,7 @@ internal partial class MainWindow : Window
     private readonly ILogger<MainWindow> logger;
     private readonly WpfUserDataPaths paths;
     private readonly DpapiLoginCredentialStore credentialStore;
+    private readonly UserSessionService userSession;
     private readonly WpfHostSettings hostSettings;
     private readonly WpfUserSettingsStore settingsStore;
     private readonly VelopackUpdateService updateService;
@@ -36,6 +38,7 @@ internal partial class MainWindow : Window
         WpfHostSettings hostSettings,
         WpfUserSettingsStore settingsStore,
         DpapiLoginCredentialStore credentialStore,
+        UserSessionService userSession,
         VelopackUpdateService updateService,
         ILogger<MainWindow> logger)
     {
@@ -47,6 +50,7 @@ internal partial class MainWindow : Window
         this.hostSettings = hostSettings;
         this.settingsStore = settingsStore;
         this.credentialStore = credentialStore;
+        this.userSession = userSession;
         this.updateService = updateService;
         this.logger = logger;
         ConfigureConnectionSecurityWarning();
@@ -95,7 +99,7 @@ internal partial class MainWindow : Window
 
     private void OpenServerSettings(object sender, RoutedEventArgs e)
     {
-        var window = new ServerSettingsWindow(settingsStore, credentialStore)
+        var window = new ServerSettingsWindow(settingsStore, credentialStore, userSession)
         {
             Owner = this
         };

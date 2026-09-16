@@ -1,0 +1,327 @@
+@page "/administrators/maintenance"
+@using EzNutrition.Shared.Data.DTO
+@using EzNutrition.Shared.Policies
+@attribute [Authorize(Policy = PolicyList.Admin)]
+
+<PageTitle>维护与清理</PageTitle>
+
+<header class="maintenance-heading">
+    <span>站点管理</span>
+    <h1>维护与清理</h1>
+    <p>配置每日维护时间、数据保留期限，并在删除账号前预览完整清单。</p>
+</header>
+
+<AuthorizeView Policy="@PolicyList.Admin">
+    <Authorized>
+        @if (isLoading)
+        {
+            <div class="maintenance-loading">
+                <Spin />
+                <span>正在读取维护配置…</span>
+            </div>
+        }
+        else if (loadFailed)
+        {
+            <Alert Type="AlertType.Error"
+                   Message="维护配置加载失败"
+                   Description="请检查网络连接后重试。"
+                   ShowIcon="true" />
+            <Button Class="retry-button" OnClick="LoadSettingsAsync">重新加载</Button>
+        }
+        else if (HasSettings)
+        {
+            <Alert Class="schedule-notice"
+                   Type="AlertType.Info"
+                   Message="每日按服务器本地时间运行"
+                   Description="修改执行时间会重新安排下一轮任务；当天已经错过的执行时间不会自动补跑。"
+                   ShowIcon="true" />
+
+            <div class="settings-grid">
+                <section class="settings-card schedule-card">
+                    <div class="section-heading">
+                        <div>
+                            <span>公共调度</span>
+                            <h2>每日清理时间</h2>
+                        </div>
+                        <span class="setting-version">@SettingVersionLabel(scheduleSettings)</span>
+                    </div>
+                    <label class="setting-field">
+                        <span>启动时间</span>
+                        <input type="time"
+                               step="60"
+                               disabled="@IsBusy"
+                               value="@scheduleStartTime"
+                               @onchange="UpdateScheduleStartTime" />
+                        <small>采用服务器本地时区，默认 03:30。</small>
+                    </label>
+                    <div class="card-actions">
+                        <Button Type="ButtonType.Primary"
+                                Disabled="@IsBusy"
+                                OnClick="SaveScheduleAsync"
+                                AutoLoading>
+                            保存调度
+                        </Button>
+                    </div>
+                </section>
+
+                <section class="settings-card">
+                    <div class="section-heading">
+                        <div>
+                            <span>认证申请</span>
+                            <h2>超时自动拒绝</h2>
+                        </div>
+                        <span class="setting-version">@SettingVersionLabel(certificationSettings)</span>
+                    </div>
+                    <label class="switch-field">
+                        <span>
+                            <strong>启用自动拒绝</strong>
+                            <small>只处理仍为待审核的申请，管理员决定优先。</small>
+                        </span>
+                        <Switch @bind-Value="certificationSettings!.Value.AutoRejectEnabled"
+                                Disabled="@IsBusy" />
+                    </label>
+                    <label class="setting-field">
+                        <span>待审核期限（天）</span>
+                        <input type="number"
+                               min="1"
+                               step="1"
+                               disabled="@IsBusy"
+                               @bind="certificationSettings!.Value.PendingTimeoutDays" />
+                        <small>从申请提交时间起算。</small>
+                    </label>
+                    <div class="card-actions">
+                        <Button Type="ButtonType.Primary"
+                                Disabled="@IsBusy"
+                                OnClick="SaveCertificationAsync"
+                                AutoLoading>
+                            保存申请策略
+                        </Button>
+                    </div>
+                </section>
+
+                <section class="settings-card account-settings-card">
+                    <div class="section-heading">
+                        <div>
+                            <span>账号生命周期</span>
+                            <h2>账号清理策略</h2>
+                        </div>
+                        <span class="setting-version">@SettingVersionLabel(accountSettings)</span>
+                    </div>
+                    <p class="section-description">自动任务按下列顺序执行。关闭自动清理后仍可使用页面下方的人工预览与执行。</p>
+
+                    <div class="account-rule-grid">
+                        <div class="rule-editor">
+                            <label class="switch-field">
+                                <span>
+                                    <strong>从未申请认证</strong>
+                                    <small>无合法角色，且没有任何状态的认证申请。</small>
+                                </span>
+                                <Switch @bind-Value="accountSettings!.Value.UnsubmittedCertificationCleanupEnabled"
+                                        @bind-Value:after="InvalidateCleanupPreview"
+                                        Disabled="@IsBusy" />
+                            </label>
+                            <label class="setting-field">
+                                <span>注册宽限期（天）</span>
+                                <input type="number" min="1" step="1" disabled="@IsBusy"
+                                       @bind:after="InvalidateCleanupPreview"
+                                       @bind="accountSettings!.Value.CertificationSubmissionGraceDays" />
+                            </label>
+                        </div>
+
+                        <div class="rule-editor">
+                            <label class="switch-field">
+                                <span>
+                                    <strong>无合法角色</strong>
+                                    <small>不区分是否提交过认证申请。</small>
+                                </span>
+                                <Switch @bind-Value="accountSettings!.Value.NonFormalAccountCleanupEnabled"
+                                        @bind-Value:after="InvalidateCleanupPreview"
+                                        Disabled="@IsBusy" />
+                            </label>
+                            <label class="setting-field">
+                                <span>账号保留期（天）</span>
+                                <input type="number" min="1" step="1" disabled="@IsBusy"
+                                       @bind:after="InvalidateCleanupPreview"
+                                       @bind="accountSettings!.Value.NonFormalAccountRetentionDays" />
+                            </label>
+                        </div>
+
+                        <div class="rule-editor">
+                            <label class="switch-field">
+                                <span>
+                                    <strong>长期未登录</strong>
+                                    <small>不检查角色；从未登录时使用账号创建时间。</small>
+                                </span>
+                                <Switch @bind-Value="accountSettings!.Value.InactiveFormalAccountCleanupEnabled"
+                                        @bind-Value:after="InvalidateCleanupPreview"
+                                        Disabled="@IsBusy" />
+                            </label>
+                            <label class="setting-field">
+                                <span>未登录期限（天）</span>
+                                <input type="number" min="1" step="1" disabled="@IsBusy"
+                                       @bind:after="InvalidateCleanupPreview"
+                                       @bind="accountSettings!.Value.FormalAccountInactivityDays" />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card-actions">
+                        <Button Type="ButtonType.Primary"
+                                Disabled="@IsBusy"
+                                OnClick="SaveAccountAsync"
+                                AutoLoading>
+                            保存账号策略
+                        </Button>
+                    </div>
+                </section>
+
+                <section class="settings-card">
+                    <div class="section-heading">
+                        <div>
+                            <span>数据保留</span>
+                            <h2>LLM 审计记录</h2>
+                        </div>
+                        <span class="setting-version">@SettingVersionLabel(auditSettings)</span>
+                    </div>
+                    <label class="switch-field">
+                        <span>
+                            <strong>启用过期清理</strong>
+                            <small>根据请求提交时间删除审计记录。</small>
+                        </span>
+                        <Switch @bind-Value="auditSettings!.Value.Enabled"
+                                Disabled="@IsBusy" />
+                    </label>
+                    <label class="setting-field">
+                        <span>保留期限（天）</span>
+                        <input type="number"
+                               min="1"
+                               step="1"
+                               disabled="@IsBusy"
+                               @bind="auditSettings!.Value.RetentionDays" />
+                    </label>
+                    <div class="card-actions">
+                        <Button Type="ButtonType.Primary"
+                                Disabled="@IsBusy"
+                                OnClick="SaveAuditAsync"
+                                AutoLoading>
+                            保存审计策略
+                        </Button>
+                    </div>
+                </section>
+            </div>
+
+            <section class="cleanup-card">
+                <div class="section-heading cleanup-heading">
+                    <div>
+                        <span>人工操作</span>
+                        <h2>账号清理预览</h2>
+                    </div>
+                </div>
+                <Alert Type="AlertType.Warning"
+                       Message="执行删除前必须重新预览"
+                       Description="预览不会修改数据；执行会再次复核每个账号，并删除其关联会话、认证申请、LLM 审计记录和证件文件。"
+                       ShowIcon="true" />
+
+                <div class="cleanup-controls">
+                    <label class="setting-field rule-selector">
+                        <span>清理规则</span>
+                        <select disabled="@IsBusy"
+                                @bind="selectedRule"
+                                @bind:after="InvalidateCleanupPreview">
+                            <option value="@AccountCleanupRule.CertificationNotRequested">从未申请认证</option>
+                            <option value="@AccountCleanupRule.AccountWithoutRoles">无合法角色</option>
+                            <option value="@AccountCleanupRule.InactiveAccount">长期未登录</option>
+                        </select>
+                    </label>
+                    <Button Type="ButtonType.Primary"
+                            Disabled="@(!CanPreview)"
+                            OnClick="PreviewCleanupAsync"
+                            AutoLoading>
+                        生成预览
+                    </Button>
+                </div>
+
+                @if (cleanupResult is not null)
+                {
+                    <div class="cleanup-result-heading">
+                        <div>
+                            <h3>@(cleanupResult.DryRun ? "预览结果" : "执行结果")</h3>
+                            <p>@CleanupSummary</p>
+                        </div>
+                        @if (CanExecute)
+                        {
+                            <Button Danger Disabled="@IsBusy" OnClick="OpenExecutionConfirmation">
+                                执行删除
+                            </Button>
+                        }
+                    </div>
+
+                    @if (cleanupResult.Items.Count == 0)
+                    {
+                        <Empty Description="@("当前规则没有符合条件的账号")" />
+                    }
+                    else
+                    {
+                        <div class="result-table-wrap">
+                            <table class="result-table">
+                                <thead>
+                                    <tr>
+                                        <th>账号</th>
+                                        <th>用户 ID</th>
+                                        <th>状态</th>
+                                        <th>说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in cleanupResult.Items)
+                                    {
+                                        <tr>
+                                            <td>@(string.IsNullOrWhiteSpace(item.UserName) ? "—" : item.UserName)</td>
+                                            <td><code>@item.UserId</code></td>
+                                            <td><span class="@StatusClass(item.Status)">@StatusLabel(item.Status)</span></td>
+                                            <td>@item.Reason</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </section>
+
+            <Modal Title="确认执行账号删除"
+                   @bind-Visible="executionConfirmationVisible"
+                   MaskClosable="@(!cleanupExecuting)"
+                   Closable="@(!cleanupExecuting)"
+                   Keyboard="@(!cleanupExecuting)"
+                   CancelButtonProps="@(new ButtonProps { Disabled = cleanupExecuting })"
+                   OkText="@(cleanupExecuting ? "正在清理…" : "确认删除")"
+                   OnCancel="CloseExecutionConfirmation"
+                   OnOk="ExecuteCleanupAsync"
+                   ConfirmLoading="@cleanupExecuting">
+                @if (cleanupExecuting)
+                {
+                    <div class="cleanup-progress" role="status" aria-live="polite">
+                        <Spin />
+                        <div>
+                            <strong>正在逐个检查并清理账号…</strong>
+                            <p>账号较多时可能需要一些时间，请保持页面打开并等待结果。</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <Alert Type="AlertType.Error"
+                           Message="此操作不可撤销"
+                           Description="将按刚才的预览条件重新复核并删除符合条件的账号。配置发生变化时，服务器会拒绝执行。"
+                           ShowIcon="true" />
+                }
+                <dl class="confirmation-details">
+                    <div><dt>规则</dt><dd>@RuleLabel(cleanupResult?.Rule ?? selectedRule)</dd></div>
+                    <div><dt>候选账号</dt><dd>@(cleanupResult?.Items.Count ?? 0)</dd></div>
+                    <div><dt>截止时间</dt><dd>@FormatCutoff(cleanupResult?.CutoffUtc)</dd></div>
+                </dl>
+            </Modal>
+        }
+    </Authorized>
+</AuthorizeView>

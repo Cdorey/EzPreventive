@@ -27,6 +27,7 @@ namespace EzNutrition.Application.Consultations
             ArgumentNullException.ThrowIfNull(patientContext);
             ExistingPatient = patientContext.SourcePatient;
             ContractIdentity = ArchiveContractIdentity.CreateForPatient(ExistingPatient);
+            History = new ConsultationHistory(patientContext.PatientId, ContractIdentity.Consultation.ResourceId.Value);
         }
 
         internal object AiAdviceSyncRoot { get; } = new();
@@ -46,6 +47,9 @@ namespace EzNutrition.Application.Consultations
 
         /// <summary>获取当前工作区是否为既有患者的新一次咨询。</summary>
         public bool IsFollowUp => ExistingPatient is not null;
+
+        /// <summary>获取复诊的只读历史上下文；全新咨询为空，创建时不读取档案。</summary>
+        public ConsultationHistory? History { get; }
 
         public EnergyCalculator? CurrentEnergyCalculator { get; set; }
 

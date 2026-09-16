@@ -2,6 +2,7 @@
 @using EzNutrition.Application.Consultations
 @using EzNutrition.Domain.Assessments
 @using EzNutrition.Domain.Consultations
+@using EzNutrition.Presentation.Reports
 @attribute [Authorize]
 @inject NutritionAssessmentApplicationService NutritionAssessmentService
 
@@ -94,6 +95,10 @@ else
         {
             <section class="assessment-run" aria-label="当前量表">
                 <NutritionAssessmentScale @key="Assessment.RunId" Assessment="Assessment" />
+                @if (Assessment.Definition.Code is "nrs-2002" or "mna-sf" or "must")
+                {
+                    <StandaloneAssessmentPrint @key="Assessment.RunId" Assessment="Assessment" />
+                }
             </section>
         }
     </section>

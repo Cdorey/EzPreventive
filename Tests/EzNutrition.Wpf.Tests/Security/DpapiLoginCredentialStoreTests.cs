@@ -1,8 +1,9 @@
-using EzNutrition.Presentation.Services;
 using EzNutrition.Wpf.Configuration;
 using EzNutrition.Wpf.Security;
 using EzNutrition.Wpf.Tests.Configuration;
 using System.Text;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace EzNutrition.Wpf.Tests.Security;
 
@@ -19,25 +20,23 @@ public sealed class DpapiLoginCredentialStoreTests
             temporary,
             "https://server.example.test/",
             ServerTransportSecurity.StrictHttps);
-        var credential = new SavedLoginCredential(
-            "local-test-user",
-            "local-test-password");
+        var credential = new SavedRefreshSession(
+            Guid.NewGuid(), "local-test-refresh-token", DateTimeOffset.UtcNow.AddDays(30));
 
         await store.SaveAsync(credential);
         var restored = await store.ReadAsync();
         var protectedContent = await File.ReadAllBytesAsync(store.CredentialFilePath);
 
         Assert.NotNull(restored);
-        Assert.Equal(credential.UserName, restored.UserName);
-        Assert.Equal(credential.Password, restored.Password);
+        Assert.Equal(credential, restored);
         Assert.Equal(
             -1,
             protectedContent.AsSpan().IndexOf(
-                Encoding.UTF8.GetBytes(credential.UserName)));
+                Encoding.UTF8.GetBytes(credential.SessionId.ToString("D"))));
         Assert.Equal(
             -1,
             protectedContent.AsSpan().IndexOf(
-                Encoding.UTF8.GetBytes(credential.Password)));
+                Encoding.UTF8.GetBytes(credential.RefreshToken)));
         Assert.Empty(Directory.EnumerateFiles(
             temporary.RootPath,
             "*.tmp",
@@ -62,7 +61,7 @@ public sealed class DpapiLoginCredentialStoreTests
             ServerTransportSecurity.AllowSelfSignedHttps);
 
         await strictStore.SaveAsync(
-            new SavedLoginCredential("scoped-user", "scoped-password"));
+            new SavedRefreshSession(Guid.NewGuid(), "scoped-refresh-token", DateTimeOffset.UtcNow.AddDays(30)));
 
         Assert.Null(await otherEndpointStore.ReadAsync());
         Assert.Null(await selfSignedStore.ReadAsync());
@@ -82,8 +81,8 @@ public sealed class DpapiLoginCredentialStoreTests
             temporary,
             "https://second.example.test/",
             ServerTransportSecurity.StrictHttps);
-        await firstStore.SaveAsync(new SavedLoginCredential("first-user", "first-password"));
-        await secondStore.SaveAsync(new SavedLoginCredential("second-user", "second-password"));
+        await firstStore.SaveAsync(new SavedRefreshSession(Guid.NewGuid(), "first-refresh", DateTimeOffset.UtcNow.AddDays(30)));
+        await secondStore.SaveAsync(new SavedRefreshSession(Guid.NewGuid(), "second-refresh", DateTimeOffset.UtcNow.AddDays(30)));
 
         await firstStore.ClearAsync();
 
@@ -109,6 +108,44 @@ public sealed class DpapiLoginCredentialStoreTests
             async () => await store.ReadAsync());
 
         Assert.True(File.Exists(store.CredentialFilePath));
+    }
+
+    [Fact]
+    public async Task Legacy_password_file_is_deleted_instead_of_being_restored()
+    {
+        using var temporary = new TempDirectory();
+        var store = CreateStore(temporary, "https://server.example.test/", ServerTransportSecurity.StrictHttps);
+        var legacy = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            version = 1,
+            scope = "https://server.example.test/\nStrictHttps",
+            userName = "legacy-user",
+            password = "legacy-password"
+        });
+        var encrypted = ProtectedData.Protect(legacy,
+            Encoding.UTF8.GetBytes("EzSuit.EzNutrition.Wpf.LoginCredential.v1"), DataProtectionScope.CurrentUser);
+        Directory.CreateDirectory(Path.GetDirectoryName(store.CredentialFilePath)!);
+        await File.WriteAllBytesAsync(store.CredentialFilePath, encrypted);
+        Assert.Null(await store.ReadAsync());
+        Assert.False(store.HasSavedCredential);
+    }
+
+    [Fact]
+    public async Task Separate_store_instances_share_an_exclusive_cancellable_lock()
+    {
+        using var temporary = new TempDirectory();
+        var first = CreateStore(temporary, "https://server.example.test/", ServerTransportSecurity.StrictHttps);
+        var second = CreateStore(temporary, "https://server.example.test/", ServerTransportSecurity.StrictHttps);
+        await using (var held = await first.AcquireLockAsync())
+        {
+            using var cancellation = new CancellationTokenSource();
+            var waiting = second.AcquireLockAsync(cancellation.Token);
+            Assert.False(waiting.IsCompleted);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        }
+        await using var available = await second.AcquireLockAsync();
+        Assert.True(available.CanWrite);
     }
 
     private static DpapiLoginCredentialStore CreateStore(

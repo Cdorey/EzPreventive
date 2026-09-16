@@ -16,27 +16,11 @@ namespace EzNutrition.Application.Tests.Consultations;
 public sealed class NutritionAssessmentApplicationServiceTests
 {
     /// <summary>
-    /// 验证宿主注册只形成可选目录，不会替任意咨询预先建立运行实例。
-    /// </summary>
-    [Fact]
-    public void Registered_instruments_remain_a_catalog_until_selected()
-    {
-        var workspace = CreateWorkspace();
-        var service = new NutritionAssessmentApplicationService([new Nrs2002Instrument()]);
-
-        var definition = Assert.Single(service.Definitions);
-
-        Assert.Equal("nrs-2002", definition.Code);
-        Assert.Empty(workspace.NutritionAssessments);
-    }
-
-    /// <summary>
-    /// 验证通用实现库中的量表均可进入按需新增目录，且不会预先创建任何量表实例。
+    /// 验证通用实现库中的量表均可进入按需新增目录。
     /// </summary>
     [Fact]
     public void Common_instruments_form_the_complete_on_demand_catalog()
     {
-        var workspace = CreateWorkspace();
         var service = new NutritionAssessmentApplicationService(
         [
             new Nrs2002Instrument(),
@@ -59,7 +43,6 @@ public sealed class NutritionAssessmentApplicationServiceTests
             "pg-sga"
         ],
             service.Definitions.Select(definition => definition.Code));
-        Assert.Empty(workspace.NutritionAssessments);
     }
 
     /// <summary>

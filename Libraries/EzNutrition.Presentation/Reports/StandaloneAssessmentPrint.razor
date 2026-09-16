@@ -1,0 +1,10 @@
+@using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Reports
+@inject ReportWorkflow Workflow
+
+<EvaluationPrintButton Print="token => Workflow.PrintStandaloneAsync(Assessment, token)" />
+
+@code {
+    /// <summary>获取独立速查页当前的量表运行实例。</summary>
+    [Parameter, EditorRequired] public NutritionAssessmentRun Assessment { get; set; } = null!;
+}

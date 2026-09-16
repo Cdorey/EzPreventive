@@ -264,7 +264,15 @@
     </div>
 }
 
+@if (EnergyCalculator is { Energy: > 0 })
+{
+    @ReportActions
+}
+
 @code {
+    /// <summary>由展示层提供当前能量核算的报告操作。</summary>
+    [Parameter] public RenderFragment? ReportActions { get; set; }
+
     private (double, double) macroPercentage = (15, 100 - 25);
 
     private bool IsEerLoading { get; set; } = true;

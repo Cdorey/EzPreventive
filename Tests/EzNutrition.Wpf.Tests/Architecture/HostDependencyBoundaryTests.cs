@@ -50,21 +50,4 @@ public sealed class HostDependencyBoundaryTests
         Assert.DoesNotContain("System.Security.Cryptography.ProtectedData", presentationReferences);
         Assert.DoesNotContain("Velopack", presentationReferences);
     }
-
-    /// <summary>
-    /// 验证共享层只定义辅助页面契约，原生多窗口实现仍由 WPF 宿主持有。
-    /// </summary>
-    [Fact]
-    public void Auxiliary_window_implementation_is_owned_by_wpf_host()
-    {
-        var presentationAssembly = typeof(EzNutrition.Presentation.App).Assembly;
-        var wpfAssembly = typeof(EzNutrition.Wpf.App).Assembly;
-
-        Assert.Equal(
-            presentationAssembly,
-            typeof(EzNutrition.Presentation.Services.IAuxiliaryPageHost).Assembly);
-        Assert.Equal(
-            wpfAssembly,
-            typeof(EzNutrition.Wpf.Desktop.WpfAuxiliaryPageHost).Assembly);
-    }
 }

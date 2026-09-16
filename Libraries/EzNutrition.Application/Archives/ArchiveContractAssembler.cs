@@ -155,6 +155,174 @@ public sealed class ArchiveContractAssembler
         };
     }
 
+    /// <summary>
+    /// 捕获单份量表报告所需的患者、咨询和评估资源，不带入其他未经审核的模块。
+    /// </summary>
+    /// <remarks>
+    /// 快照使用独立版本，后续保存咨询草稿不会改变这些确切版本代表的内容。
+    /// 此处只捕获数据；报告签发不等于将整个咨询及其患者资料标为正式确认。
+    /// </remarks>
+    public ArchiveDocument CreateAssessmentDocument(
+        RuntimeWorkspace archive,
+        NutritionAssessmentRun assessment,
+        DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        ArgumentNullException.ThrowIfNull(assessment);
+        if (!archive.NutritionAssessments.Contains(assessment))
+        {
+            throw new ArgumentException("该量表不属于当前咨询。", nameof(assessment));
+        }
+
+        if (capturedAt < archive.ContractIdentity.CreatedAt || capturedAt < assessment.LastModifiedAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capturedAt), "快照时间不能早于咨询或量表修改时间。");
+        }
+
+        var patient = CreatePatient(archive, capturedAt);
+        // 复诊的患者资源已经是既有快照；只有当前工作区产生的患者草稿需要独立版本。
+        if (archive.ExistingPatient is null)
+        {
+            patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        }
+
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with
+        {
+            Metadata = FreezeVersion(consultation.Metadata),
+            // 量表按开始时的对象快照评分；报告不能用后来修改的身高、体重或年龄替换输入。
+            SubjectSnapshot = consultation.SubjectSnapshot! with
+            {
+                ChronologicalAgeAtConsultation = new ContractChronologicalAge(assessment.Subject.AgeInYears),
+                AgeAtConsultation = ArchiveContractCoding.Quantity(assessment.Subject.AgeInYears, "a"),
+                Height = assessment.Subject.HeightInCentimeters is { } height
+                    ? Measurement(height, "cm", assessment.CreatedAt) : null,
+                Weight = assessment.Subject.WeightInKilograms is { } weight
+                    ? Measurement(weight, "kg", assessment.CreatedAt) : null
+            }
+        };
+        var consultationReference = new VersionedResourceReference(
+            consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var scale = CreateNutritionScaleAssessment(assessment, subject, consultationReference, capturedAt, includeUnanswered: true);
+        scale = scale with { Metadata = FreezeVersion(scale.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences =
+            [new VersionedResourceReference(scale.Metadata.ResourceId, scale.Metadata.VersionId, scale.ResourceType)]
+        };
+
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()),
+                BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt,
+                Producer = sourceApplication,
+                Entries = [patient, consultation, scale]
+            }
+        };
+    }
+
+    /// <summary>捕获膳食调查、采用的 DRIs 及患者咨询快照，供报告独立保存。</summary>
+    public ArchiveDocument CreateDietaryDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.DietaryRecallSurvey is null)
+            throw new InvalidOperationException("当前咨询尚未建立膳食调查。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var recall = CreateDietaryRecall(archive, archive.ContractIdentity, subject, reference, capturedAt, useCalculatedValues: true);
+        recall = recall with { Metadata = FreezeVersion(recall.Metadata) };
+        var dri = CreateDriAssessment(archive.DietaryRecallSurvey.DRIs, archive.ContractIdentity, subject, reference, capturedAt);
+        dri = dri with { Metadata = FreezeVersion(dri.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = new IArchiveResource[] { recall, dri }.Select(resource =>
+                new VersionedResourceReference(resource.Metadata.ResourceId, resource.Metadata.VersionId, resource.ResourceType)).ToArray()
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, recall, dri]
+            }
+        };
+    }
+
+    /// <summary>捕获能量核算报告采用的患者、咨询和能量分配资源。</summary>
+    public ArchiveDocument CreateEnergyDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.CurrentEnergyCalculator is null)
+            throw new InvalidOperationException("当前咨询尚未建立能量核算。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var energy = CreateEnergyAssessment(archive.CurrentEnergyCalculator, archive.ContractIdentity, subject, reference, capturedAt);
+        energy = energy with { Metadata = FreezeVersion(energy.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = [new VersionedResourceReference(energy.Metadata.ResourceId, energy.Metadata.VersionId, energy.ResourceType)]
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, energy]
+            }
+        };
+    }
+
+    /// <summary>捕获 SOAP 报告采用的患者、咨询和记录资源。</summary>
+    public ArchiveDocument CreateSoapDocument(RuntimeWorkspace archive, DateTimeOffset capturedAt)
+    {
+        ArgumentNullException.ThrowIfNull(archive);
+        if (archive.SubjectiveObjectiveAssessmentPlanInformation is null)
+            throw new InvalidOperationException("当前咨询尚未建立 SOAP 记录。");
+        if (capturedAt < archive.ContractIdentity.CreatedAt)
+            throw new ArgumentOutOfRangeException(nameof(capturedAt));
+        var patient = CreatePatient(archive, capturedAt);
+        if (archive.ExistingPatient is null) patient = patient with { Metadata = FreezeVersion(patient.Metadata) };
+        var subject = new LogicalResourceReference(patient.Metadata.ResourceId, patient.ResourceType);
+        var consultation = CreateConsultation(archive, [], subject, capturedAt);
+        consultation = consultation with { Metadata = FreezeVersion(consultation.Metadata) };
+        var reference = new VersionedResourceReference(consultation.Metadata.ResourceId, consultation.Metadata.VersionId, consultation.ResourceType);
+        var note = CreateSoapNote(archive.SubjectiveObjectiveAssessmentPlanInformation, archive.ContractIdentity, subject, reference, capturedAt);
+        note = note with { Metadata = FreezeVersion(note.Metadata) };
+        consultation = consultation with
+        {
+            ClinicalResourceReferences = [new VersionedResourceReference(note.Metadata.ResourceId, note.Metadata.VersionId, note.ResourceType)]
+        };
+        return new ArchiveDocument
+        {
+            Bundle = new ArchiveBundle
+            {
+                BundleId = new ArchiveBundleId(Guid.NewGuid()), BundleType = ArchiveBundleType.ConsultationDocument,
+                CreatedAt = capturedAt, Producer = sourceApplication, Entries = [patient, consultation, note]
+            }
+        };
+    }
+
+    private static ResourceMetadata FreezeVersion(ResourceMetadata metadata) => metadata with
+    {
+        VersionId = new ResourceVersionId(Guid.NewGuid())
+    };
+
     private PatientResource CreatePatient(RuntimeWorkspace archive, DateTimeOffset capturedAt)
     {
         if (archive.ExistingPatient is { } existingPatient)
@@ -521,14 +689,16 @@ public sealed class ArchiveContractAssembler
         ArchiveContractIdentity identity,
         LogicalResourceReference subjectReference,
         VersionedResourceReference consultationReference,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        bool useCalculatedValues = false)
     {
         var survey = archive.DietaryRecallSurvey!;
         var entries = survey.RecallEntries;
+        var calculations = useCalculatedValues ? survey.EntryCalculations.ToDictionary(value => value.EntryId) : null;
         var meals = entries
             .GroupBy(entry => entry.MealOccasion)
             .OrderBy(group => (int)group.Key)
-            .Select((group, index) => CreateMealRecall(survey, group.Key, group.ToArray(), index + 1))
+            .Select((group, index) => CreateMealRecall(survey, group.Key, group.ToArray(), index + 1, calculations))
             .ToArray();
         var totalSummary = survey.SummaryCalculationTable is null
             ? Array.Empty<NutrientAmount>()
@@ -565,9 +735,10 @@ public sealed class ArchiveContractAssembler
         DietaryRecallSurvey survey,
         MealOccasion occasion,
         IReadOnlyList<DietaryRecallEntry> entries,
-        int sequence)
+        int sequence,
+        IReadOnlyDictionary<Guid, DietaryRecallEntryCalculation>? calculations = null)
     {
-        var mappedEntries = entries.Select((entry, index) => CreateFoodEntry(survey, entry, index + 1)).ToArray();
+        var mappedEntries = entries.Select((entry, index) => CreateFoodEntry(survey, entry, index + 1, calculations?.GetValueOrDefault(entry.EntryId))).ToArray();
         var summary = survey.SummaryCalculationTable is null
             ? Array.Empty<NutrientAmount>()
             : survey.SummaryCalculationTable[occasion]
@@ -588,13 +759,20 @@ public sealed class ArchiveContractAssembler
     private FoodIntakeEntry CreateFoodEntry(
         DietaryRecallSurvey survey,
         DietaryRecallEntry entry,
-        int sequence)
+        int sequence,
+        DietaryRecallEntryCalculation? calculation = null)
     {
         var edibleFraction = entry.IsAllEdible
             ? 1m
             : (entry.Food.EdiblePortion ?? 100) / 100m;
         var consumedAmount = entry.Weight * edibleFraction;
-        var contributions = (entry.Food.FoodNutrientValues ?? [])
+        var contributions = calculation is not null
+            ? survey.Nutrients.Select(nutrient => new NutrientAmount
+            {
+                Nutrient = ArchiveContractCoding.Nutrient(nutrient.FriendlyName),
+                Amount = ArchiveContractCoding.Quantity(calculation.NutrientValues.GetValueOrDefault(nutrient.NutrientId), nutrient.DefaultMeasureUnit)
+            }).ToArray()
+            : (entry.Food.FoodNutrientValues ?? [])
             .Select(value =>
             {
                 var nutrient = value.Nutrient ?? survey.Nutrients.FirstOrDefault(candidate =>
@@ -708,78 +886,28 @@ public sealed class ArchiveContractAssembler
         NutritionAssessmentRun run,
         LogicalResourceReference subjectReference,
         VersionedResourceReference consultationReference,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        bool includeUnanswered = false)
     {
         var definition = run.Definition;
-        var evaluation = run.Evaluation;
-        var responses = definition.Items
-            .Where(item => evaluation.ApplicableItemCodes.Contains(item.Code))
-            .Select(item =>
-            {
-                if (!run.Answers.TryGetValue(item.Code, out var answer))
-                {
-                    return null;
-                }
-
-                return new AssessmentItemResponse
-                {
-                    Item = AssessmentCoding(
-                        definition,
-                        $"{definition.Code}/item/{item.Code}",
-                        item.Prompt),
-                    Answer = AssessmentAnswer(definition, item, answer),
-                    ScoreContribution = AssessmentScoreContribution(item, answer)
-                };
-            })
-            .Where(response => response is not null)
-            .Cast<AssessmentItemResponse>()
-            .ToArray();
-
+        var snapshot = NutritionAssessmentSnapshot.Capture(run, includeUnanswered);
         return new NutritionScaleAssessmentResource
         {
             Metadata = Metadata(run.ArchiveIdentity, capturedAt, run.CreatedAt),
             SubjectReference = subjectReference,
             ConsultationReference = consultationReference,
-            EffectiveAt = run.CompletedAt ?? run.LastModifiedAt,
-            Instrument = new AssessmentInstrumentIdentity
-            {
-                Code = new Coding(
-                    definition.CodeSystem,
-                    definition.Code,
-                    definition.Version,
-                    definition.DisplayName),
-                Version = definition.Version,
-                Definition = new CanonicalReference(definition.DefinitionUri, definition.Version)
-            },
-            Responses = responses,
-            DerivedResults = evaluation.Metrics.Select(metric => new NamedArchiveValue
-            {
-                Name = AssessmentCoding(
-                    definition,
-                    $"{definition.Code}/result/{metric.Code}",
-                    metric.Display),
-                Value = new DecimalArchiveValue(metric.Value)
-            }).ToArray(),
             ScoringMethod = new AlgorithmIdentity
             {
-                Method = AssessmentCoding(
-                    definition,
-                    $"{definition.Code}/scoring",
-                    $"{definition.DisplayName}确定性计分"),
+                Method = AssessmentCoding(definition, $"{definition.Code}/scoring", $"{definition.DisplayName}确定性计分"),
                 Implementation = sourceApplication
             },
-            TotalScore = evaluation.TotalScore,
-            TotalScoreAbsentReason = evaluation.TotalScore is null
-                ? evaluation.IsComplete
-                    ? DataAbsentReasonCode.NotApplicable
-                    : DataAbsentReasonCode.NotEstablished
-                : null,
-            Interpretation = evaluation.Interpretation is { } interpretation
-                ? AssessmentCoding(
-                    definition,
-                    $"{definition.Code}/interpretation/{interpretation.Code}",
-                    interpretation.Display)
-                : null,
+            EffectiveAt = snapshot.EffectiveAt,
+            Instrument = snapshot.Instrument,
+            Responses = snapshot.Responses,
+            DerivedResults = snapshot.DerivedResults,
+            TotalScore = snapshot.TotalScore,
+            TotalScoreAbsentReason = snapshot.TotalScoreAbsentReason,
+            Interpretation = snapshot.Interpretation,
             Performer = AssessmentPerformer(run.Performer)
         };
     }
@@ -1047,73 +1175,6 @@ public sealed class ArchiveContractAssembler
             code,
             definition.Version,
             display);
-
-    private static ArchiveValue AssessmentAnswer(
-        NutritionAssessmentDefinition definition,
-        NutritionAssessmentItem item,
-        NutritionAssessmentAnswer answer) => answer switch
-        {
-            NutritionAssessmentSingleChoiceAnswer singleChoice =>
-                new CodingArchiveValue(AssessmentOptionCoding(
-                    definition,
-                    item,
-                    singleChoice.OptionCode)),
-            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
-                new CodingCollectionArchiveValue(item.Options
-                    .Where(option => multipleChoice.OptionCodes.Contains(
-                        option.Code,
-                        StringComparer.Ordinal))
-                    .Select(option => AssessmentOptionCoding(
-                        definition,
-                        item,
-                        option.Code))),
-            NutritionAssessmentDecimalAnswer number => new DecimalArchiveValue(number.Value),
-            _ => throw new InvalidOperationException("量表包含无法映射的回答类型。")
-        };
-
-    private static decimal? AssessmentScoreContribution(
-        NutritionAssessmentItem item,
-        NutritionAssessmentAnswer answer) => answer switch
-        {
-            NutritionAssessmentSingleChoiceAnswer singleChoice =>
-                item.Options.Single(option => string.Equals(
-                    option.Code,
-                    singleChoice.OptionCode,
-                    StringComparison.Ordinal))
-                .Score,
-            NutritionAssessmentMultipleChoiceAnswer multipleChoice =>
-                MultipleChoiceScoreContribution(item, multipleChoice),
-            _ => null
-        };
-
-    private static decimal? MultipleChoiceScoreContribution(
-        NutritionAssessmentItem item,
-        NutritionAssessmentMultipleChoiceAnswer answer)
-    {
-        var selectedOptions = item.Options
-            .Where(option => answer.OptionCodes.Contains(
-                option.Code,
-                StringComparer.Ordinal))
-            .ToArray();
-        return selectedOptions.Any(option => option.Score is null)
-            ? null
-            : selectedOptions.Sum(option => option.Score!.Value);
-    }
-
-    private static Coding AssessmentOptionCoding(
-        NutritionAssessmentDefinition definition,
-        NutritionAssessmentItem item,
-        string optionCode)
-    {
-        var option = item.Options.Single(candidate => string.Equals(
-            candidate.Code,
-            optionCode,
-            StringComparison.Ordinal));
-        return AssessmentCoding(
-            definition,
-            $"{definition.Code}/item/{item.Code}/answer/{option.Code}",
-            option.Display);
-    }
 
     private ResourceMetadata Metadata(
         ArchiveResourceIdentity identity,

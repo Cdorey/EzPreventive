@@ -18,15 +18,22 @@ namespace EzNutrition.Server.Services
         ILogger<JwtService> logger)
     {
         internal const string SecurityStampClaimType = "EzNutrition.SecurityStamp";
+        internal const string SessionIdClaimType = "sid";
 
-        //public async Task<string> GenerateJwtToken(string userName)
-        //{
-        //    return await GenerateJwtToken(await userManager.FindByNameAsync(userName));
-        //}
-
-        public async Task<string> GenerateJwtToken(ApplicationUser user)
+        /// <summary>为已建立的会话签发短期访问令牌，并读取当前用户及角色声明。</summary>
+        public async Task<string> GenerateJwtToken(
+            ApplicationUser user,
+            Guid sessionId,
+            string securityStampFingerprint,
+            DateTime issuedAtUtc,
+            DateTime expiresAtUtc)
         {
             ArgumentNullException.ThrowIfNull(user);
+            ArgumentException.ThrowIfNullOrWhiteSpace(securityStampFingerprint);
+            if (sessionId == Guid.Empty || expiresAtUtc <= issuedAtUtc)
+            {
+                throw new ArgumentException("签发访问令牌需要有效的会话及到期时间。");
+            }
             if (string.IsNullOrWhiteSpace(user.UserName))
             {
                 throw new InvalidOperationException("A JWT cannot be generated for a user without a username.");
@@ -66,10 +73,12 @@ namespace EzNutrition.Server.Services
             claimsList.Add(new Claim(ClaimTypes.Upn, user.Id));
             claimsList.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
             claimsList.Add(new Claim(ClaimTypes.Name, user.UserName));
-            var securityStamp = await userManager.GetSecurityStampAsync(user);
+            claimsList.Add(new Claim(SessionIdClaimType, sessionId.ToString("D")));
+            claimsList.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")));
+            // 使用会话建立时固定的指纹，避免改密与签发并发时旧会话获得新安全戳。
             claimsList.Add(new Claim(
                 SecurityStampClaimType,
-                CreateSecurityStampFingerprint(securityStamp)));
+                securityStampFingerprint));
 
             // 3. 加入角色及其 Claims
             var roleNames = await userManager.GetRolesAsync(user);
@@ -101,7 +110,9 @@ namespace EzNutrition.Server.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claimsList),
-                Expires = DateTime.UtcNow.AddDays(7),
+                IssuedAt = issuedAtUtc,
+                NotBefore = issuedAtUtc,
+                Expires = expiresAtUtc,
                 SigningCredentials = new SigningCredentials(privateKey, SecurityAlgorithms.RsaSha256Signature),
                 Audience = "EzNutrition",
                 Issuer = "EzPreventive",
@@ -136,6 +147,7 @@ namespace EzNutrition.Server.Services
 
         internal static bool IsReservedClaimType(string claimType) =>
             claimType == SecurityStampClaimType ||
+            claimType == SessionIdClaimType ||
             claimType == ClaimTypes.NameIdentifier ||
             claimType == ClaimTypes.Upn ||
             claimType == ClaimTypes.Name ||

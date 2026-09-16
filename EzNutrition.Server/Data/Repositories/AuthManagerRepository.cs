@@ -12,7 +12,7 @@ using System.Security.Claims;
 
 namespace EzNutrition.Server.Data.Repositories
 {
-    public class AuthManagerRepository(JwtService jwtService,
+    public class AuthManagerRepository(AuthenticationSessionService authenticationSessions,
                                        ApplicationDbContext dbContext,
                                        UserManager<ApplicationUser> userManager,
                                        RoleManager<IdentityRole> roleManager,
@@ -94,12 +94,16 @@ namespace EzNutrition.Server.Data.Repositories
         }
 
         /// <summary>
-        /// 登录
+        /// 校验账号密码并建立新的令牌会话。
         /// </summary>
-        /// <param name="username"></param>
-        /// <param name="password"></param>
-        /// <returns></returns>
-        public async Task<string> Login(string username, string password)
+        /// <param name="username">登录用户名。</param>
+        /// <param name="password">仅用于本次校验的密码。</param>
+        /// <param name="isBrowser">是否使用浏览器 Cookie 传递刷新凭据。</param>
+        /// <param name="rememberLogin">是否允许宿主持久化会话。</param>
+        /// <param name="cancellationToken">请求取消信号。</param>
+        public async Task<AuthenticationTokensDto> Login(
+            string username, string password, bool isBrowser = false,
+            bool rememberLogin = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
             {
@@ -115,7 +119,6 @@ namespace EzNutrition.Server.Data.Repositories
             else if ((await signInManager.CheckPasswordSignInAsync(user, password, true)).Succeeded &&
                 (string.IsNullOrWhiteSpace(user.Email) || user.EmailConfirmed))
             {
-                var accessToken = await jwtService.GenerateJwtToken(user);
                 user.LastSuccessfulLoginAtUtc = timeProvider.GetUtcNow().UtcDateTime;
                 var updateResult = await userManager.UpdateAsync(user);
                 if (!updateResult.Succeeded)
@@ -128,7 +131,8 @@ namespace EzNutrition.Server.Data.Repositories
                 }
 
                 logger.LogInformation("用户登陆成功：{UserId}/{NormalizedUserName}", user.Id, user.NormalizedUserName);
-                return accessToken;
+                return await authenticationSessions.CreateAsync(
+                    user, isBrowser, rememberLogin, cancellationToken);
             }
 
             logger.LogWarning("用户登陆失败：{Username}", username);
@@ -186,13 +190,20 @@ namespace EzNutrition.Server.Data.Repositories
             var result = await userManager.CreateAsync(user, registrationDto.Password);
             if (!result.Succeeded)
             {
+                var duplicateEmail = result.Errors.Any(error =>
+                    error.Code == nameof(IdentityErrorDescriber.DuplicateEmail));
                 logger.LogWarning(
                     "用户注册未完成，Identity 错误代码：{ErrorCodes}",
                     string.Join(", ", result.Errors.Select(error => error.Code)));
                 return new RegistrationResultDto
                 {
                     Success = false,
-                    Message = "注册信息无法使用，请更换用户名或邮箱后重试。"
+                    Message = duplicateEmail
+                        ? "该电子邮箱已注册，请直接登录或使用忘记密码功能。"
+                        : "注册信息无法使用，请更换用户名或邮箱后重试。",
+                    FailureCode = duplicateEmail
+                        ? RegistrationFailureCode.DuplicateEmail
+                        : null
                 };
             }
 
@@ -215,6 +226,20 @@ namespace EzNutrition.Server.Data.Repositories
                     Success = true,
                     Message = "Registration successful",
                     UploadTicket = certificateTicket
+                };
+            }
+            catch (EmailRecipientRejectedException ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "用户 {UserName} 的确认邮箱被邮件服务拒绝，正在回滚新建账号。",
+                    registrationDto.UserName);
+                await RollbackFailedRegistrationAsync(user);
+                return new RegistrationResultDto
+                {
+                    Success = false,
+                    Message = "该电子邮箱不存在或暂时无法接收确认邮件，请检查邮箱地址后重试。",
+                    FailureCode = RegistrationFailureCode.EmailRecipientUnavailable
                 };
             }
             catch (Exception ex)

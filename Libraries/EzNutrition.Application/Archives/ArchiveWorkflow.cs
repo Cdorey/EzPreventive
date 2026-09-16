@@ -1,4 +1,5 @@
 using EzNutrition.Application.Consultations;
+using EzNutrition.Application.Reports;
 using EzNutrition.Archives.Contracts.Resources;
 using EzNutrition.Archives.Contracts.Serialization;
 using EzNutrition.Archives.Contracts.Validation;
@@ -15,6 +16,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
     private readonly IReadOnlyList<IArchiveCodec> codecs;
     private readonly IArchiveDocumentStore store;
     private readonly IArchiveDocumentTransport transport;
+    private readonly ReportPackage reportPackage;
+    private readonly IReportAuthorization? reportAuthorization;
 
     /// <summary>
     /// 初始化档案工作流。
@@ -24,7 +27,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         IArchiveValidator validator,
         IEnumerable<IArchiveCodec> codecs,
         IArchiveDocumentStore store,
-        IArchiveDocumentTransport transport)
+        IArchiveDocumentTransport transport,
+        IReportAuthorization? reportAuthorization = null)
     {
         ArgumentNullException.ThrowIfNull(assembler);
         ArgumentNullException.ThrowIfNull(validator);
@@ -37,6 +41,8 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         this.codecs = codecs.OrderBy(codec => codec.CodecIdentifier.AbsoluteUri, StringComparer.Ordinal).ToArray();
         this.store = store;
         this.transport = transport;
+        reportPackage = new ReportPackage(this.codecs, validator);
+        this.reportAuthorization = reportAuthorization;
     }
 
     /// <inheritdoc />
@@ -230,6 +236,12 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
             var info = stored.Info;
             var format = CreateStoredFormat(info);
+            if (info.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri)
+            {
+                if (reportAuthorization is null) return Denied("当前宿主未配置报告输出权限检查。");
+                await reportAuthorization.RequirePrintAsync(cancellationToken);
+                _ = await reportPackage.ReadAsync(stored.Content, cancellationToken);
+            }
             var saved = await transport.SaveAsync(new ArchiveDocumentExport
             {
                 SuggestedFileNameStem = $"eznutrition-{documentId:N}",
@@ -270,6 +282,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
+            if ((await store.GetAsync(documentId, cancellationToken))?.Info.FormatIdentifier
+                == ReportPackage.Format.Identifier.AbsoluteUri)
+                return Denied("正式报告的单独删除规则尚未开放；删除与业务作废是不同操作。");
             await store.DeleteAsync(documentId, cancellationToken);
             return Success("档案已从本机档案库删除。");
         }
@@ -298,6 +313,9 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
         try
         {
+            if ((await store.ListAsync(cancellationToken)).Any(record =>
+                record.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri))
+                return Denied("档案库包含正式报告，当前版本暂不支持清空这些原件。");
             await store.ClearAsync(cancellationToken);
             return Success("本机档案库已清空。");
         }
@@ -397,6 +415,36 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
 
     private bool HasWritableCodec => codecs.Any(codec => codec.WritableFormats.Count > 0);
 
+    /// <inheritdoc />
+    public async ValueTask<ConsultationHistoryReadResult> ReadHistoryAsync(
+        Guid patientId, Guid documentId, CancellationToken cancellationToken = default)
+    {
+        if (!Capabilities.HasFlag(ArchiveWorkflowCapabilities.Browse))
+            return new(Unavailable("当前运行环境没有配置档案调阅能力。"), null);
+
+        try
+        {
+            var stored = await store.GetAsync(documentId, cancellationToken);
+            if (stored is null)
+                return new(Failed("历史档案已不存在。"), null);
+            if (stored.Info.FormatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri)
+                return new(Invalid("局部报告快照不能作为完整咨询历史载入。"), null);
+
+            var decoded = await ReadDocumentAsync(stored.Content, stored.Info.MediaType,
+                stored.Info.FormatIdentifier, stored.Info.FormatVersion, cancellationToken).ConfigureAwait(false);
+            if (decoded.Document is null) return new(decoded.Operation, null);
+
+            var entry = ConsultationHistoryProjector.Create(decoded.Document, patientId, documentId, stored.Info.LastSavedAt);
+            return entry is null
+                ? new(Invalid("历史档案的患者或咨询归属不一致，未载入。"), null)
+                : new(decoded.Operation, entry);
+        }
+        catch (Exception exception) when (IsExpectedHostFailure(exception))
+        {
+            return new(Failed("历史档案读取失败，请检查存储是否可用。"), null);
+        }
+    }
+
     private bool HasReadableCodec => codecs.Any(codec => codec.ReadableFormats.Count > 0);
 
     private ArchiveFormatDescriptor CreateStoredFormat(StoredArchiveDocumentInfo info)
@@ -462,35 +510,49 @@ public sealed class ArchiveWorkflow : IArchiveWorkflow
         },
         cancellationToken);
 
-    private Task<ArchiveOpenResult> DecodeAsync(
+    private async Task<ArchiveOpenResult> DecodeAsync(
         ReadOnlyMemory<byte> content,
         string? mediaType,
         string? formatIdentifier,
         string? formatVersion,
-        CancellationToken cancellationToken) => Task.Run(
+        CancellationToken cancellationToken)
+    {
+        var decoded = await ReadDocumentAsync(content, mediaType, formatIdentifier, formatVersion, cancellationToken).ConfigureAwait(false);
+        return new ArchiveOpenResult
+        {
+            Operation = decoded.Operation,
+            Review = decoded.Document is { } document ? ArchiveReviewProjector.Create(document, decoded.Report) : null
+        };
+    }
+
+    /// <summary>复用格式选择与解码结果，避免历史读取依赖普通调阅的显示文本。</summary>
+    private Task<(ArchiveDocument? Document, ArchiveOperationResult Operation, NutritionReportResource? Report)> ReadDocumentAsync(
+        ReadOnlyMemory<byte> content,
+        string? mediaType,
+        string? formatIdentifier,
+        string? formatVersion,
+        CancellationToken cancellationToken) => Task.Run<(ArchiveDocument?, ArchiveOperationResult, NutritionReportResource?)>(
         async () =>
         {
+            if (formatIdentifier == ReportPackage.Format.Identifier.AbsoluteUri || ReportPackage.HasZipHeader(content.Span))
+            {
+                var report = await reportPackage.ReadAsync(content, cancellationToken);
+                return (report.Document, Success("报告包已打开，PDF 原件及其内容指纹已核对。"), report.Report);
+            }
             var codec = SelectReadableCodec(mediaType, formatIdentifier, formatVersion);
             if (codec is null)
             {
-                return new ArchiveOpenResult { Operation = Invalid("无法识别该档案文档的格式。") };
+                return (null, Invalid("无法识别该档案文档的格式。"), null);
             }
 
             await using var source = new MemoryStream(content.ToArray(), writable: false);
             var readResult = await codec.ReadAsync(source, cancellationToken);
             if (!readResult.IsSuccess || readResult.Document is null)
             {
-                return new ArchiveOpenResult
-                {
-                    Operation = Invalid("档案文档未通过格式或语义校验。", readResult.Validation)
-                };
+                return (null, Invalid("档案文档未通过格式或语义校验。", readResult.Validation), null);
             }
 
-            return new ArchiveOpenResult
-            {
-                Operation = Success("档案已安全打开。", ToNotices(readResult.Validation)),
-                Review = ArchiveReviewProjector.Create(readResult.Document)
-            };
+            return (readResult.Document, Success("档案已安全打开。", ToNotices(readResult.Validation)), null);
         },
         cancellationToken);
 

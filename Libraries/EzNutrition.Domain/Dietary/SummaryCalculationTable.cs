@@ -33,6 +33,8 @@ public sealed class SummaryCalculationTable
             var entryTotals = AccumulateEntry(entry, edibleWeight);
             calculations.Add(new DietaryRecallEntryCalculation
             {
+                EntryId = entry.EntryId,
+                FoodId = entry.Food.FoodId,
                 FoodName = entry.Food.FriendlyName ?? string.Empty,
                 RecordedWeight = entry.Weight,
                 EdibleWeight = edibleWeight,

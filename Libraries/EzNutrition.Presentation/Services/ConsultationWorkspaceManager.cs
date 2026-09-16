@@ -44,17 +44,11 @@ namespace EzNutrition.Presentation.Services
             return AddWorkspace(client, new ConsultationWorkspace(client, patientContext));
         }
 
+        /// <summary>确认会话并初始化咨询；令牌续期失败时保留已有工作区内容。</summary>
         public async Task ClientInfoConfirmed(ConsultationWorkspace archive, CancellationToken cancellationToken = default)
         {
             if (archive.IsLoading)
             {
-                return;
-            }
-
-            if (userSession.UserInfo is null || userSession.UserInfo.IsExpired)
-            {
-                navigationManager.NavigateTo("/");
-                await message.ErrorAsync("需要登录");
                 return;
             }
 
@@ -70,18 +64,35 @@ namespace EzNutrition.Presentation.Services
                 return;
             }
 
+            var initializationStarted = false;
             try
             {
                 archive.IsLoading = true;
+                if (!await userSession.EnsureAuthenticatedAsync(cancellationToken))
+                {
+                    navigationManager.NavigateTo("/");
+                    await message.ErrorAsync("需要登录");
+                    return;
+                }
+                initializationStarted = true;
                 await consultationService.InitializeAsync(archive, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
             }
+            catch (SessionAuthenticationException exception)
+            {
+                navigationManager.NavigateTo("/");
+                await message.ErrorAsync(exception.Message);
+            }
             catch (Exception ex) when (ex is NutritionDataAccessException or InvalidOperationException)
             {
                 logger.LogWarning(ex, "Unable to initialize archive for nutrition assessment.");
                 await message.ErrorAsync("初始化营养评估失败，请检查网络后重试。");
+                if (!initializationStarted)
+                {
+                    return;
+                }
                 archive.CurrentEnergyCalculator = null;
                 archive.DRIs = null;
                 archive.DietaryRecallSurvey = null;

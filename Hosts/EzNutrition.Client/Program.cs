@@ -1,4 +1,5 @@
 using EzNutrition.Application.Archives;
+using EzNutrition.Application.Reports;
 using EzNutrition.Assessments.Common;
 using EzNutrition.Archives.Contracts.Validation;
 using EzNutrition.Archives.Contracts.ValueObjects;
@@ -25,6 +26,9 @@ namespace EzNutrition.Client
             builder.Services.AddEzNutritionPresentation(
                 new Uri(builder.HostEnvironment.BaseAddress),
                 TimeZoneInfo.Local);
+            builder.Services.AddSingleton<BrowserAuthenticationSessionClient>();
+            builder.Services.AddSingleton<IAuthenticationSessionClient>(provider =>
+                provider.GetRequiredService<BrowserAuthenticationSessionClient>());
             builder.Services.AddSingleton<IAuxiliaryPageHost, BrowserAuxiliaryPageHost>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, Nrs2002Instrument>();
             builder.Services.AddSingleton<INutritionAssessmentInstrument, MnaSfInstrument>();
@@ -44,7 +48,11 @@ namespace EzNutrition.Client
             builder.Services.AddScoped<IArchiveDocumentTransport>(provider =>
                 provider.GetRequiredService<BrowserArchiveGateway>());
             builder.Services.AddScoped<IArchiveWorkflow, ArchiveWorkflow>();
-            await builder.Build().RunAsync();
+            builder.Services.AddScoped<IReportPrinter, BrowserReportPrinter>();
+            var host = builder.Build();
+            host.Services.GetRequiredService<BrowserAuthenticationSessionClient>().SessionChanged +=
+                host.Services.GetRequiredService<UserSessionService>().ReloadExternalSessionAsync;
+            await host.RunAsync();
         }
 
         private static ArchiveContractAssembler CreateArchiveContractAssembler()

@@ -95,6 +95,9 @@ public sealed record ArchiveOperationResult
 /// </summary>
 public sealed record ArchiveRecordSummary
 {
+    /// <summary>获取该条目是否为独立签发报告；不能将局部报告快照作为一次完整复诊。</summary>
+    public bool IsReport { get; init; }
+
     /// <summary>获取宿主管理的文档标识。</summary>
     public required Guid DocumentId { get; init; }
 
@@ -246,6 +249,10 @@ public interface IArchiveWorkflow
 
     /// <summary>浏览宿主管理的档案库。</summary>
     ValueTask<ArchiveBrowseResult> BrowseAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>读取指定患者的一次咨询历史，核对正文身份而非仅信任摘要。</summary>
+    ValueTask<ConsultationHistoryReadResult> ReadHistoryAsync(
+        Guid patientId, Guid documentId, CancellationToken cancellationToken = default);
 
     /// <summary>调阅宿主管理的一个档案。</summary>
     ValueTask<ArchiveOpenResult> OpenStoredAsync(

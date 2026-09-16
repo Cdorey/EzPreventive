@@ -1,0 +1,4 @@
+.dietary-report-options { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.rank-setting { display: flex; align-items: center; gap: 16px; }
+.help { margin: -4px 0 4px; color: #64748b; font-size: 13px; }
+.options-actions { display: flex; gap: 10px; align-self: flex-end; margin-top: 4px; }

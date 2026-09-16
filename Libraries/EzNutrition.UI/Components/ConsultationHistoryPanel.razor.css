@@ -1,0 +1,110 @@
+.consultation-history {
+    display: none;
+}
+
+@media (min-width: 992px) {
+    .consultation-history {
+        display: block;
+        min-width: 0;
+        margin: 10px 0;
+        border: 1px solid var(--ez-border);
+        border-radius: 8px;
+        background: #f7f9fc;
+    }
+}
+
+.history-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ez-navy);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.history-toggle-hint {
+    margin-left: auto;
+    color: var(--ez-primary-strong);
+    white-space: nowrap;
+    font-size: 0.75rem;
+}
+
+.history-toggle:focus-visible,
+.history-records:focus-visible {
+    outline: 2px solid var(--ez-primary-strong);
+    outline-offset: 2px;
+}
+
+.history-content {
+    padding: 0 12px 12px;
+    font-size: 0.82rem;
+}
+
+.history-content [role="status"] {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.history-note,
+.history-date small,
+.history-source {
+    color: var(--ez-text-secondary);
+    font-size: 0.75rem;
+}
+
+.history-warning {
+    color: #855512;
+}
+
+.history-records {
+    max-height: 360px;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.history-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    align-items: start;
+    gap: 8px;
+    padding: 12px 0;
+    border-top: 1px solid var(--ez-border);
+}
+
+.history-date,
+.history-source span {
+    display: grid;
+    gap: 3px;
+}
+
+.history-value {
+    color: var(--ez-navy);
+    overflow-wrap: anywhere;
+}
+
+.history-text,
+.history-source {
+    min-width: 0;
+    grid-column: 1 / -1;
+}
+
+.history-text summary,
+.history-source summary {
+    cursor: pointer;
+}
+
+.history-text p {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 8px 0;
+    line-height: 1.7;
+}

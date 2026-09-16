@@ -37,6 +37,7 @@ namespace EzNutrition.Server.Extension
             return new ProfessionalCertificationRequestDto
             {
                 Id = request.Id,
+                Version = request.Version,
                 UserId = request.UserId,
                 RequestTime = ToUtc(request.RequestTime),
                 IdentityType = request.IdentityType,

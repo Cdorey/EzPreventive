@@ -1,6 +1,8 @@
-﻿@page "/maintreatment/{id?}"
+@page "/maintreatment/{id?}"
 @using EzNutrition.Application.Consultations
+@using EzNutrition.Application.Archives
 @using EzNutrition.Presentation.Services
+@using EzNutrition.Presentation.Reports
 @using EzNutrition.Domain.Assessments
 @using EzNutrition.Domain.Calculations
 @using EzNutrition.Domain.Consultations
@@ -8,11 +10,14 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject UserSessionService UserSession
+@inject PublicSystemInfoService SystemInfo
 @inject NavigationManager Navigation
 @inject ConsultationWorkspaceManager WorkspaceManager
 @inject ConsultationApplicationService ConsultationService
 @inject NutritionAssessmentApplicationService NutritionAssessmentService
 @inject IMessageService Message
+@inject IArchiveWorkflow ArchiveWorkflow
+@inject ILogger<MainTreatment> Logger
 
 <PageTitle>营养咨询</PageTitle>
 
@@ -77,11 +82,13 @@
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="身高（cm）">
                                         <Input @bind-Value="context.Height" type="InputType.Number" min="0" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Height" Title="既往身高" OnLoad="LoadHistoryAsync" />
                                     </FormItem>
                                 </GridCol>
                                 <GridCol Xs="24" Sm="12">
                                     <FormItem Label="体重（kg）">
                                         <Input @bind-Value="context.Weight" type="InputType.Number" min="0" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Weight" Title="既往体重" OnLoad="LoadHistoryAsync" />
                                     </FormItem>
                                 </GridCol>
                                 <GridCol Xs="24">
@@ -115,17 +122,17 @@
                         </div>
                         <Icon Type="notification" Theme="IconThemeType.Outline" />
                     </div>
-                    @if (!UserSession.IsSystemInfoLoaded)
+                    @if (!SystemInfo.IsLoaded)
                     {
                         <Skeleton Active />
                     }
-                    else if (string.IsNullOrEmpty(UserSession.Notice))
+                    else if (string.IsNullOrEmpty(SystemInfo.Notice))
                     {
                         <Alert Type="AlertType.Info" Message="工作提示暂时不可用" Description="服务端内容未能加载；可以继续进行本地核算。" ShowIcon="true" />
                     }
                     else
                     {
-                        @SafeMarkdown.Render(UserSession.Notice)
+                        @SafeMarkdown.Render(SystemInfo.Notice)
                     }
                 </aside>
             </div>
@@ -150,6 +157,8 @@
                             <div><dt>体重</dt><dd>@CurrentArchive.Client.Weight kg</dd></div>
                             <div class="wide-fact"><dt>生理状况</dt><dd>@(string.IsNullOrEmpty(CurrentArchive.Client.SpecialPhysiologicalPeriod) ? "无" : CurrentArchive.Client.SpecialPhysiologicalPeriod)</dd></div>
                         </dl>
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Height" Title="既往身高" OnLoad="LoadHistoryAsync" />
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Weight" Title="既往体重" OnLoad="LoadHistoryAsync" />
 
                         @if (CurrentArchive.CurrentEnergyCalculator?.BMI is not null)
                         {
@@ -218,7 +227,12 @@
                                     {
                                         <EnergyCalculatorTreatment EnergyCalculator="CurrentArchive.CurrentEnergyCalculator"
                                                                    IsTouchDetected="@UserSession.IsTouchDetected"
-                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync">
+                                            <ReportActions>
+                                                <ReportPanel @key="CurrentArchive.CurrentEnergyCalculator" Workspace="CurrentArchive" Kind="ReportKind.Energy" />
+                                            </ReportActions>
+                                        </EnergyCalculatorTreatment>
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.AdoptedEnergy" Title="既往采用能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
                                 <TabPane Key="dri" Tab="参考摄入量" Closable="false">
@@ -233,6 +247,8 @@
                                         <DietarySurvey DietaryRecallSurvey="CurrentArchive.DietaryRecallSurvey"
                                                        OnCalculationCompleted="DietarySurveyCalculationCompleted"
                                                        OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        <ReportPanel @key="CurrentArchive.DietaryRecallSurvey" Workspace="CurrentArchive" Kind="ReportKind.Dietary" />
+                                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.DietaryEnergy" Title="既往膳食记录总能量" OnLoad="LoadHistoryAsync" />
                                     }
                                 </TabPane>
                                 @foreach (var assessment in CurrentArchive.NutritionAssessments)
@@ -242,7 +258,12 @@
                                              Tab="@assessment.Definition.DisplayName"
                                              Closable="true">
                                         <NutritionAssessmentScale Assessment="assessment"
+                                                                  OnChanged="StateHasChanged"
                                                                   OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                                        @if (assessment.Definition.Code is "nrs-2002" or "mna-sf" or "must")
+                                        {
+                                            <ReportPanel Workspace="CurrentArchive" Assessment="assessment" />
+                                        }
                                     </TabPane>
                                 }
                             </ChildContent>
@@ -257,7 +278,11 @@
                     @if (CurrentArchive.SubjectiveObjectiveAssessmentPlanInformation is { } medicalInformation)
                     {
                         <section id="nutrition-diagnosis" class="surface-card diagnosis-card" aria-label="营养问题与诊断">
-                            <MedicalInformation Information="medicalInformation" />
+                            <MedicalInformation Information="medicalInformation" History="CurrentArchive.History" OnLoadHistory="LoadHistoryAsync">
+                                <ReportActions>
+                                    <ReportPanel @key="medicalInformation" Workspace="CurrentArchive" Kind="ReportKind.Soap" />
+                                </ReportActions>
+                            </MedicalInformation>
                         </section>
                     }
 
@@ -271,6 +296,7 @@
                         </div>
                         <Advice CurrentArchive="@CurrentArchive"
                                 OnSoapContributionConfirmed="AppendSoapContributionAsync" />
+                        <ConsultationHistoryPanel History="CurrentArchive.History" Item="ConsultationHistoryItem.Advice" Title="既往营养建议" OnLoad="LoadHistoryAsync" />
                     </section>
                 </div>
             </div>
@@ -283,6 +309,25 @@
     public string? Id { get; set; }
 
     private readonly CancellationTokenSource lifetimeCancellation = new();
+
+    /// <summary>按需加载当前复诊的共享历史；异常不清空本次咨询，也不自动发送历史给后端。</summary>
+    private async Task LoadHistoryAsync(bool reload)
+    {
+        if (CurrentArchive?.History is not { } history) return;
+        try
+        {
+            if (reload) await history.ReloadAsync(ArchiveWorkflow, lifetimeCancellation.Token);
+            else await history.LoadAsync(ArchiveWorkflow, lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogWarning(exception, "Unable to load consultation history.");
+            await Message.ErrorAsync("既往咨询读取失败，请稍后重新展开历史记录。");
+        }
+    }
     private const string AssessmentTabPrefix = "assessment-";
     private string activeWorkspaceTabKey = "energy";
 
@@ -306,6 +351,16 @@
         true => "先录入必要的人体测量与生理信息，再进入各项专业核算。",
         _ => "依次完成专业核算、综合结果、营养问题与诊断，以及膳食建议。"
     };
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        SystemInfo.StateChanged += HandleSystemInfoChanged;
+        base.OnInitialized();
+    }
+
+    /// <summary>公共公告完成加载后更新工作台。</summary>
+    private void HandleSystemInfoChanged() => _ = InvokeAsync(StateHasChanged);
 
     protected override void OnParametersSet()
     {
@@ -339,21 +394,40 @@
         StateHasChanged();
     }
 
-    private void AddAssessment(NutritionAssessmentDefinition definition)
+    private async Task AddAssessment(NutritionAssessmentDefinition definition)
     {
-        if (CurrentArchive is null)
+        var archive = CurrentArchive;
+        if (archive is null)
         {
             return;
         }
 
-        var existing = CurrentArchive.NutritionAssessments.SingleOrDefault(assessment =>
-            HasSameIdentity(assessment.Definition, definition));
-        var assessment = existing
-            ?? NutritionAssessmentService.StartRun(
-                CurrentArchive,
-                definition,
-                currentUser: UserSession.UserInfo is { IsExpired: false } user ? user : null);
-        activeWorkspaceTabKey = AssessmentTabKey(assessment);
+        try
+        {
+            if (!await UserSession.EnsureAuthenticatedAsync(lifetimeCancellation.Token))
+            {
+                await Message.ErrorAsync("需要登录");
+                Navigation.NavigateTo("/");
+                return;
+            }
+            // 等待续期时用户可能已经切换工作区，不把原操作应用到另一份咨询。
+            if (CurrentArchive != archive)
+            {
+                return;
+            }
+            var existing = archive.NutritionAssessments.SingleOrDefault(assessment =>
+                HasSameIdentity(assessment.Definition, definition));
+            var assessment = existing
+                ?? NutritionAssessmentService.StartRun(archive, definition, currentUser: UserSession.UserInfo);
+            activeWorkspaceTabKey = AssessmentTabKey(assessment);
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (InvalidOperationException exception)
+        {
+            await Message.ErrorAsync(exception.Message);
+        }
     }
 
     private void CloseAssessmentTab(string tabKey)
@@ -402,8 +476,10 @@
         await Message.SuccessAsync("已将复核后的内容加入 SOAP 记录。");
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
+        SystemInfo.StateChanged -= HandleSystemInfoChanged;
         lifetimeCancellation.Cancel();
         lifetimeCancellation.Dispose();
     }

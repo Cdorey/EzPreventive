@@ -151,6 +151,10 @@
     [Parameter]
     public EventCallback<SoapContribution> OnSoapContributionConfirmed { get; set; }
 
+    /// <summary>回答变化后通知使用方刷新依赖量表完成状态的操作入口。</summary>
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
     private bool IsSelected(
         NutritionAssessmentItem item,
         NutritionAssessmentOption option) => string.Equals(
@@ -158,9 +162,12 @@
             option.Code,
             StringComparison.Ordinal);
 
-    private void SelectAnswer(
+    private async Task SelectAnswer(
         NutritionAssessmentItem item,
-        NutritionAssessmentOption option) => Assessment.SetAnswer(item.Code, option.Code);
+        NutritionAssessmentOption option)
+    {
+        if (Assessment.SetAnswer(item.Code, option.Code)) await OnChanged.InvokeAsync();
+    }
 
     private bool IsMultipleChoiceSelected(
         NutritionAssessmentItem item,
@@ -168,7 +175,7 @@
             .GetMultipleChoiceAnswer(item.Code)
             .Contains(option.Code, StringComparer.Ordinal);
 
-    private void ToggleMultipleChoice(
+    private async Task ToggleMultipleChoice(
         NutritionAssessmentItem item,
         NutritionAssessmentOption option,
         ChangeEventArgs args)
@@ -199,24 +206,20 @@
             selected.Remove(option.Code);
         }
 
-        if (selected.Count == 0)
-        {
-            Assessment.ClearAnswer(item.Code);
-        }
-        else
-        {
-            Assessment.SetMultipleChoiceAnswer(item.Code, selected);
-        }
+        var changed = selected.Count == 0
+            ? Assessment.ClearAnswer(item.Code)
+            : Assessment.SetMultipleChoiceAnswer(item.Code, selected);
+        if (changed) await OnChanged.InvokeAsync();
     }
 
-    private void ChangeDecimalAnswer(
+    private async Task ChangeDecimalAnswer(
         NutritionAssessmentItem item,
         ChangeEventArgs args)
     {
         var text = args.Value?.ToString();
         if (string.IsNullOrWhiteSpace(text))
         {
-            Assessment.ClearAnswer(item.Code);
+            if (Assessment.ClearAnswer(item.Code)) await OnChanged.InvokeAsync();
             return;
         }
 
@@ -226,7 +229,7 @@
                 CultureInfo.InvariantCulture,
                 out var value))
         {
-            Assessment.SetDecimalAnswer(item.Code, value);
+            if (Assessment.SetDecimalAnswer(item.Code, value)) await OnChanged.InvokeAsync();
         }
     }
 

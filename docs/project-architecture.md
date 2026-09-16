@@ -38,10 +38,11 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 | `EzNutrition.Archives.Xml` | Contracts 的版本化 XML 编解码与安全读取 | 应用用例、WPF/浏览器存储、临床计算 |
 | `EzNutrition.Shared` | 客户端与服务端共同认可的 HTTP DTO、参考数据记录形状和授权策略 | 页面、宿主服务、桌面 API；也不应仅因代码“通用”就放入此处 |
 | `EzNutrition.Domain` | 咨询、评估、膳食与营养计算规则 | 网络、持久化、UI 和具体档案格式 |
+| `EzNutrition.Assessments.Common` | 具体量表的题目、选项、正式分组与题序、计分及解释规则；仅引用 Domain | 报告模板、字体、分页、PDF、签发流程或宿主打印 |
 | `EzNutrition.Application` | 用例编排、咨询工作区、档案流程与外部能力端口 | HTTP、WebView、IndexedDB、Windows 文件系统 |
 | `EzNutrition.UI` | 可单独复用和渲染测试的传输无关 Razor 组件 | HttpClient、认证令牌、具体宿主或 XML codec |
-| `EzNutrition.Presentation` | 共享 App/Router、页面、布局、会话、可选登录信息存储端口、客户端 HTTP/SSE 适配与公共静态资源 | DPAPI、证书绕过、IndexedDB、文件对话框、WPF Shell、宿主启动代码 |
-| `EzNutrition.Client` | WASM 启动与组合根、IndexedDB/浏览器文件交互、浏览器入口页和 JavaScript | WPF 类型、共享页面和共享 HTTP 实现 |
+| `EzNutrition.Presentation` | 共享 App/Router、页面、布局、会话、宿主认证端口、客户端 HTTP/SSE 适配与公共静态资源 | DPAPI、Cookie 操作、证书绕过、IndexedDB、文件对话框、WPF Shell、宿主启动代码 |
+| `EzNutrition.Client` | WASM 启动与组合根、Cookie/CSRF 与跨标签页认证协调、IndexedDB/浏览器文件交互、浏览器入口页和 JavaScript | WPF 类型、共享页面和共享 HTTP 实现 |
 | `EzNutrition.Wpf` | WPF 启动与组合根、本机档案、用户连接设置、DPAPI、桌面证书策略、Windows 对话框、Shell 和 WebView2 生命周期 | WASM 类型、浏览器存储、领域计算复制品 |
 | `EzNutrition.Server` | API、认证、参考数据访问、AI 调用与审计；托管 WASM 静态发布资源 | WPF 或本地档案实现 |
 | `EzNutrition.AiAgency` | 服务端模型供应商适配 | 客户端页面、宿主档案和领域计算 |
@@ -55,6 +56,12 @@ Client 与 WPF 还会在各自组合根中直接引用 Application、Archives.Co
 `EzNutrition.Server → EzNutrition.Client` 是 hosted Blazor WebAssembly 的发布关系：Server 借此收集并提供 WASM 静态资源。Client 不引用 Server，WPF 也不参与该关系，因此它不构成两个客户端宿主互相依赖。
 
 ## 自动保护
+
+报告功能沿用上述边界：Application 捕获业务结果和档案快照，编排签发、归档与重印；Presentation 提供跨宿主共用的报告展示模型、PDF 排版及静态字体；两个宿主只适配本机文件与打印交互。量表结果快照可用于咨询报告或独立速查，不为速查虚构患者、咨询资源。量表定义版本与报告模板版本分别记录，历史重印读取保存的 PDF 原件。
+
+量表的正式题序属于 Common，纸张上的列宽、分页和签发栏属于 Presentation。当前 UI、Presentation 和 Application 都不直接依赖 Common，宿主注册具体量表，应用通过 Domain 定义的公共接口获取内容。
+
+膳食报告沿用同一分层：Domain 保存逐项核算结果，Application 捕获膳食、DRIs 与咨询快照并检查签发条件，Presentation 维护专用 PDF 展示模型和模板。能量报告复用现有 EnergyAssessment 契约，Application 保存节段配置与核算快照，Presentation 定义模板和配置编辑器，UI 通过报告操作插槽接入。SOAP 报告复用 SoapNote 契约，由 Application 冻结四节原文，Presentation 排版为支持长文本分页的 PDF。量表、膳食、能量与 SOAP 共用 `ReportPanel`、报告版本组装、包存储及重印流程，分别筛选更正对象。
 
 架构测试会验证：
 

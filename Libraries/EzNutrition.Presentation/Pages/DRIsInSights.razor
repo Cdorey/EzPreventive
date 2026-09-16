@@ -3,6 +3,8 @@
 @using EzNutrition.Application.Ports;
 @using EzNutrition.Domain.Assessments;
 @using EzNutrition.Domain.Consultations;
+@using EzNutrition.Application.Reports
+@using EzNutrition.Presentation.Reports
 @attribute [Authorize]
 @implements IDisposable
 @inject ConsultationApplicationService ConsultationService
@@ -98,6 +100,10 @@
                 </div>
             </ChildContent>
         </Spin>
+        @if (PrintSnapshot is { } snapshot)
+        {
+            <DriEvaluationPrint @key="snapshot" Snapshot="snapshot" />
+        }
     </section>
 </section>
 @code {
@@ -116,6 +122,8 @@
     private string? LoadError { get; set; }
 
     private string? LastSuccessfulCriteria { get; set; }
+
+    private DriEvaluationSnapshot? PrintSnapshot { get; set; }
 
     private string AggregationWarning => string.Join(
         "；",
@@ -160,6 +168,7 @@
             {
                 LoadState = DriBrowserLoadState.Success;
                 LastSuccessfulCriteria = FormatCriteria();
+                PrintSnapshot = Dris.AvailableDRIs.Count == 0 ? null : DriEvaluationSnapshot.Capture(Dris, DateTimeOffset.UtcNow);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -191,6 +200,7 @@
         LoadState = state;
         LoadError = null;
         LastSuccessfulCriteria = null;
+        PrintSnapshot = null;
     }
 
     private string FormatCriteria()
@@ -201,6 +211,7 @@
         return $"当前结果：{Info.Gender} · {Info.Age} · {period}";
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         var cancellation = requestCancellation;

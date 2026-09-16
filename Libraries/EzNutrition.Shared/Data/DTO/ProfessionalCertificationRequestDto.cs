@@ -8,6 +8,9 @@ namespace EzNutrition.Shared.Data.DTO
     public class ProfessionalCertificationRequestDto
     {
         public Guid Id { get; set; }
+
+        /// <summary>读取申请时的版本；审核提交时原样携带，用于检测旧页面和并发修改。</summary>
+        public Guid Version { get; set; }
         public required string UserId { get; set; }
 
         /// <summary>

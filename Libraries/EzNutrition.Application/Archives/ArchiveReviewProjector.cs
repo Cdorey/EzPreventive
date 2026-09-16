@@ -9,13 +9,23 @@ namespace EzNutrition.Application.Archives;
 
 internal static class ArchiveReviewProjector
 {
-    public static ArchiveReview Create(ArchiveDocument document)
+    // 只有已校验的报告包提供调阅范围；普通 XML 中存在报告资源不改变整份档案的展示。
+    public static ArchiveReview Create(ArchiveDocument document, NutritionReportResource? report = null)
     {
         var bundle = document.Bundle;
-        var patient = bundle.Entries.OfType<PatientResource>().SingleOrDefault();
-        var consultation = bundle.Entries.OfType<ConsultationResource>().SingleOrDefault();
+        var reports = bundle.Entries.OfType<NutritionReportResource>().ToArray();
+        var superseded = reports.Where(item => item.Metadata.Supersedes is not null)
+            .Select(item => item.Metadata.Supersedes!.VersionId).ToHashSet();
+        var consultations = bundle.Entries.OfType<ConsultationResource>().ToArray();
+        var consultation = report is null ? (consultations.Length == 1 ? consultations[0] : null)
+            : consultations.SingleOrDefault(item => item.Metadata.VersionId == report.ConsultationReference.VersionId);
+        var patients = bundle.Entries.OfType<PatientResource>().ToArray();
+        var patientInputs = report is null ? patients : patients.Where(item => report.InputResourceReferences.Any(
+            reference => reference.VersionId == item.Metadata.VersionId)).ToArray();
+        // 合法报告可同时引用多个历史患者版本；不能任意选一个覆盖咨询的明确对象快照。
+        var patient = patientInputs.Length == 1 ? patientInputs[0] : null;
         var subject = PatientDisplay(patient, consultation);
-        var title = consultation?.Title ?? $"{subject}的营养档案";
+        var title = report?.Title ?? consultation?.Title ?? $"{subject}的营养档案";
         var sections = new List<ArchiveReviewSection>();
 
         if (patient is not null || consultation is not null)
@@ -24,9 +34,25 @@ internal static class ArchiveReviewProjector
         }
 
         foreach (var resource in bundle.Entries.Where(resource =>
-                     resource is not PatientResource and not ConsultationResource))
+                     resource is not PatientResource and not ConsultationResource
+                     && (report is null || resource is NutritionReportResource
+                         || report.InputResourceReferences.Any(reference => reference.VersionId == resource.Metadata.VersionId)))
+                     .OrderBy(resource => resource is NutritionReportResource version
+                         ? superseded.Contains(version.Metadata.VersionId) ? 2 : 0 : 1))
         {
-            sections.Add(CreateResourceSection(resource));
+            var section = CreateResourceSection(resource);
+            if (resource is NutritionReportResource version)
+                section = section with
+                {
+                    Title = $"报告第 {version.Metadata.RevisionNumber.Value} 版",
+                    Description = superseded.Contains(version.Metadata.VersionId)
+                        ? "已被后续签发版本替代；历史原件保留在报告包中。" : section.Description,
+                    Fields = superseded.Contains(version.Metadata.VersionId)
+                        ? section.Fields.Select(field => field.Label == "状态"
+                            ? new ArchiveReviewField("状态", "已被替代（原件保留）") : field).ToArray()
+                        : section.Fields
+                };
+            sections.Add(section);
         }
 
         var format = document.SourceFormat;
@@ -36,7 +62,7 @@ internal static class ArchiveReviewProjector
             Title = title,
             SubjectDisplay = subject,
             CreatedAt = bundle.CreatedAt,
-            FormatDisplay = format is null ? "当前应用档案" : FormatDisplay(format),
+            FormatDisplay = report is not null ? "报告档案" : format is null ? "当前应用档案" : FormatDisplay(format),
             ContainsUnknownContent = document.ContainsUnknownContent,
             PatientContext = patient is null ? null : new ArchivePatientContext(patient, consultation?.SubjectSnapshot),
             Sections = sections
@@ -45,6 +71,7 @@ internal static class ArchiveReviewProjector
 
     public static ArchiveRecordSummary CreateSummary(StoredArchiveDocumentInfo info) => new()
     {
+        IsReport = info.FormatIdentifier == Reports.ReportPackage.Format.Identifier.AbsoluteUri,
         DocumentId = info.DocumentId,
         PatientId = info.PatientId,
         Title = info.Title,
@@ -127,6 +154,26 @@ internal static class ArchiveReviewProjector
             ]
         },
         NutritionScaleAssessmentResource scale => CreateNutritionScaleAssessmentSection(scale),
+        NutritionReportResource report => new ArchiveReviewSection
+        {
+            Title = report.Title ?? "营养报告",
+            Description = "本页展示报告来源与签发信息；再次打印应读取保存的 PDF 原件。",
+            Fields =
+            [
+                Field("报告编号", report.Metadata.ResourceId.Value.ToString("D")),
+                Field("版本", report.Metadata.RevisionNumber.Value.ToString(CultureInfo.InvariantCulture)),
+                Field("状态", report.Metadata.Status switch
+                {
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.Final => "已签发",
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.Amended => "已更正签发",
+                    EzNutrition.Archives.Contracts.Metadata.ResourceLifecycleStatus.EnteredInError => "已标记错误",
+                    _ => "草稿"
+                }),
+                Field("用途", FormatCoding(report.Purpose)),
+                Field("签发人", FormatActor(report.Metadata.FinalizedBy)),
+                DateTimeField("签发时间", report.Metadata.FinalizedAt)
+            ]
+        },
         SoapNoteResource soap => new ArchiveReviewSection
         {
             Title = "SOAP 病史",

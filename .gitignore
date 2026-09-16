@@ -362,3 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /EzNutrition.Server/TempUploads
+
+# 本机报告渲染与视觉验收产物
+/tmp/reports/
